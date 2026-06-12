@@ -158,7 +158,8 @@ async function main() {
   const minSolRevenue = loadMinSolRevenue()
   const epochs = rows.map(r => r.epoch)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
-  const tag = REPORT.match(/report-(.+)\.ya?ml$/)?.[1]
+  const base = REPORT.replace(/^.*\//, '').replace(/\.ya?ml$/, '')
+  const tag = base === 'report' ? undefined : base
   const subtitle = `${tag ? tag + ' · ' : ''}min fee ${minFeeBps} bps · max fee ${maxFeeBps} bps`
 
   // Detect gaps in the otherwise-consecutive epoch sequence. The ordinal axis

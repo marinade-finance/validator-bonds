@@ -39,6 +39,7 @@ const { values, positionals } = parseArgs({
     f: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
     n: { type: 'string' },
+    t: { type: 'string' },
   },
   allowPositionals: true,
 })
@@ -59,7 +60,8 @@ if (!epochArg) {
       'post-fee pmpe (adj = actual fees deducted, max = uniform max fee).\n' +
       'Fetches SSR timing from apy-api to convert pmpe → APY.\n' +
       '\n' +
-      'usage: bun scripts/simulate-fee.ts [-r] [-d] [-v] [-c] [-f] [-n N] [-D DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
+      'usage: bun scripts/simulate-fee.ts -t TAG [-r] [-d] [-v] [-c] [-f] [-n N] [-D DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...\n' +
+      '  -t TAG  (required) write YAML to TAG.yml and render the chart to TAG.png\n' +
       '  -D DIR  data dir (default: $DATA_DIR or ./regression-data)\n' +
       '  -c      read production settlement from GCS instead of re-running CLI; skips input downloading\n' +
       '  -d      debug: print all subprocess commands and full CLI output\n' +
@@ -92,6 +94,12 @@ if (!epochArg) {
       '  validators_at_min_fee       validators paying the minimum floor fee\n' +
       '  adj_max_fee_bps             tuned max fee found by bisection (Phase 1)\n' +
       '  adj_min_fee_bps             tuned min fee raised to use remaining budget (Phase 2)\n',
+  )
+  process.exit(2)
+}
+if (!values.t) {
+  process.stderr.write(
+    'Failed: -t TAG is required (writes TAG.yml and TAG.png)\n',
   )
   process.exit(2)
 }
@@ -693,10 +701,15 @@ async function main() {
   if (failed.length)
     process.stderr.write(`Failed: epochs skipped: ${failed.join(', ')}\n`)
 
-  console.log('epochs:')
-  for (const r of results) {
-    if (r) process.stdout.write(r)
-  }
+  const yaml = 'epochs:\n' + results.filter(Boolean).join('')
+  const ymlFile = `${values.t}.yml`
+  writeFileSync(ymlFile, yaml)
+  process.stderr.write(`wrote ${ymlFile}, rendering chart...\n`)
+  await runCmd(
+    ['bun', 'scripts/report-chart.ts', ymlFile],
+    'report-chart failed',
+  )
+  process.stderr.write(`report → ${values.t}.png\n`)
 }
 
 void main()
