@@ -54,7 +54,10 @@ pub struct FeeConfig {
     pub marinade: AuthorityConfig,
     pub dao: DaoConfig,
     pub min_fee_bps: u64,
-    pub min_yield_premium_over_ssr_pmpe: Decimal,
+    #[serde(default)]
+    pub min_yield_premium_over_ssr_pmpe: Option<Decimal>,
+    #[serde(default)]
+    pub min_sol_revenue: Option<Decimal>,
 }
 
 impl FeeConfig {
@@ -81,11 +84,20 @@ impl FeeConfig {
             self.min_fee_bps,
             self.max_fee_bps
         );
+        if let Some(value) = self.min_yield_premium_over_ssr_pmpe {
+            ensure!(
+                value.abs() <= dec!(0.1),
+                "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
+                value
+            );
+        }
         ensure!(
-            self.min_yield_premium_over_ssr_pmpe.abs() <= dec!(0.1),
-            "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
-            self.min_yield_premium_over_ssr_pmpe
+            !(self.min_yield_premium_over_ssr_pmpe.is_some() && self.min_sol_revenue.is_some()),
+            "min_yield_premium_over_ssr_pmpe and min_sol_revenue are mutually exclusive"
         );
+        if let Some(rev) = self.min_sol_revenue {
+            ensure!(rev > Decimal::ZERO, "min_sol_revenue must be positive");
+        }
         Ok(())
     }
 

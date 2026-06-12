@@ -1,5 +1,7 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
-use bid_distribution::generators::bidding::generate_bid_settlements;
+use bid_distribution::generators::bidding::{
+    calculate_bid_settlement_totals, generate_bid_settlements, BisectMode,
+};
 use bid_distribution::generators::psr_events::{
     calculate_total_psr_staker_claims, generate_psr_settlements,
 };
@@ -10,6 +12,7 @@ use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
 use env_logger::{Builder, Env};
+use rust_decimal::Decimal;
 use settlement_common::protected_events::generate_protected_event_collection;
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
 use settlement_common::settlement_collection::SettlementCollection;
@@ -19,6 +22,7 @@ use settlement_common::utils::{
 };
 use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
 use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use {clap::Parser, log::info};
@@ -72,8 +76,7 @@ struct Args {
 }
 
 fn main() -> anyhow::Result<()> {
-    let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
-    builder.init();
+    Builder::from_env(Env::default().default_filter_or("info")).init();
 
     info!("Starting unified bid distribution...");
     let args: Args = Args::parse();
@@ -115,7 +118,7 @@ fn main() -> anyhow::Result<()> {
 
     // ===== PSR Settlements (Protected Events) =====
     let psr_configs = bid_distribution_config.psr_settlements();
-    let mut total_staker_psr_settlements = calculate_total_psr_staker_claims(&[]);
+    let mut total_staker_psr_settlements = Decimal::ZERO;
 
     if !psr_configs.is_empty() {
         info!("Generating PSR settlements...");
@@ -228,8 +231,11 @@ fn main() -> anyhow::Result<()> {
             rewards_collection.total_rewards()
         );
 
-        let ssr_pmpe = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
-        info!("SSI/SSR: {ssr_pmpe} pmpe (from apy-api, epoch {stake_meta_epoch})");
+        let bisect_mode = if bid_distribution_config.fee_config.min_sol_revenue.is_some() {
+            BisectMode::TargetSolRevenue
+        } else {
+            BisectMode::TargetStakerPmpe
+        };
 
         // Epoch consistency verification
         let rewards_epoch = rewards_collection.epoch;
@@ -246,7 +252,7 @@ fn main() -> anyhow::Result<()> {
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
 
-        // Generate penalty settlements
+        // Generate penalty settlements first — total_staker_penalties is needed for target_pmpe derivation.
         info!("Generating penalty settlements...");
         let penalty_settlements = generate_penalty_settlements(
             &stake_meta_index,
@@ -264,6 +270,46 @@ fn main() -> anyhow::Result<()> {
         let total_staker_penalties = calculate_total_penalties(&penalty_settlements);
         all_settlements.extend(penalty_settlements);
 
+        let total_staker_extras = total_staker_penalties + total_staker_psr_settlements;
+        let target_pmpe = if let Some(rev) = bid_distribution_config.fee_config.min_sol_revenue {
+            let target_sol_lamports = rev * Decimal::from(LAMPORTS_PER_SOL);
+            // Probe at target_pmpe=0 (always feasible) to read fee-independent totals.
+            // Rewards and stake are unaffected by fee level — this gives us settlement_sol
+            // and total_stake needed to derive the equivalent target_pmpe for the real bisection.
+            let probe = generate_bid_settlements(
+                &stake_meta_index,
+                &sam_validator_metas,
+                &rewards_collection,
+                bidding_config,
+                &bid_distribution_config.fee_config,
+                &*stake_authority_filter,
+                &*exiting_stake_authority_filter,
+                Some(Decimal::ZERO),
+                total_staker_extras,
+                BisectMode::TargetStakerPmpe,
+            )?;
+            let probe_totals = calculate_bid_settlement_totals(&probe.settlements);
+            let (settlement_sol, total_stake) = (probe_totals.rewards, probe_totals.stake);
+            let pmpe = if total_stake.is_zero() {
+                Decimal::ZERO
+            } else {
+                ((settlement_sol + total_staker_extras - target_sol_lamports) / total_stake)
+                    .clamp(Decimal::ZERO, Decimal::ONE)
+                    * Decimal::ONE_THOUSAND
+            };
+            info!("{bisect_mode:?}: settlement_sol={settlement_sol} target_sol={target_sol_lamports} target_pmpe={pmpe}");
+            Some(pmpe)
+        } else {
+            let ssr = fetch_ssr_pmpe(&args.apy_api_url, stake_meta_epoch)?;
+            info!("SSI/SSR: {ssr} pmpe (epoch {stake_meta_epoch})");
+            collection_ssr_pmpe = Some(f64::try_from(ssr).unwrap_or(0.0));
+            bid_distribution_config
+                .fee_config
+                .min_yield_premium_over_ssr_pmpe
+                .map(|x| ssr + x)
+        };
+        info!("target_pmpe: {target_pmpe:?}");
+
         // Generate bid settlements
         info!("Generating bid settlements...");
         let bid = generate_bid_settlements(
@@ -274,13 +320,13 @@ fn main() -> anyhow::Result<()> {
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
             &*exiting_stake_authority_filter,
-            ssr_pmpe,
-            total_staker_penalties + total_staker_psr_settlements,
+            target_pmpe,
+            total_staker_extras,
+            bisect_mode,
         )?;
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
-        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
         all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)

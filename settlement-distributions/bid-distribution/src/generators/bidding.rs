@@ -144,13 +144,22 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
     totals
 }
 
-/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
-/// post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR payouts to
-/// stakers) at or above the target (`ssr_pmpe + min_yield_premium`). If max_fee
-/// pins at max_cap
-/// with post-fee still above target there is leftover staker budget — a second
-/// phase raises min_fee to extract it. If the target can never be met, min_cap
-/// settlements are returned.
+/// Whether the bisection targets a minimum staker rate or a minimum SOL profit.
+///
+/// `TargetStakerPmpe`: keeps global post-fee PMPE at or above `target_pmpe`.
+///   Phase 1 raises max_fee to the feasible ceiling; Phase 2 raises min_fee.
+///
+/// `TargetSolRevenue`: `target_pmpe` is derived from the SOL revenue target.
+///   Bisection inverts — Phase 1 raises min_fee to the feasible floor; Phase 2
+///   lowers max_fee to the lowest feasible value.
+#[derive(PartialEq, Debug)]
+pub enum BisectMode {
+    TargetStakerPmpe,
+    TargetSolRevenue,
+}
+
+/// Bisects the fee bounds to hit a fee target. See [`BisectMode`] for modes.
+/// If the target can never be met, fallback settlements are returned.
 #[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
@@ -160,24 +169,36 @@ pub fn generate_bid_settlements(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    ssr_pmpe: Decimal,
+    // Staker PMPE floor. None = no constraint; bisection converges to max_fee_bps.
+    target_pmpe: Option<Decimal>,
+    // PSR + penalty payouts already committed this epoch — deducted from available fee budget.
     total_staker_extras: Decimal,
+    // Bisection direction: TargetStakerPmpe tunes max_fee first; TargetSolRevenue tunes min_fee first.
+    mode: BisectMode,
 ) -> anyhow::Result<BidSettlementValues> {
+    let min_first = mode == BisectMode::TargetSolRevenue;
     let max_cap = fee_config.max_fee_bps;
     let min_cap = fee_config.min_fee_bps;
-    let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
-    // `current` is the active axis: max_fee_bps, then min_fee_bps once max pins at
-    // the feasible ceiling. `overshoot` is its highest known-feasible value,
-    // `undershoot` the lowest known-infeasible. Feasible probes only climb, so the
-    // last feasible probe is the highest-fee one.
-    let mut current = max_cap;
-    let mut overshoot = min_cap;
-    let mut undershoot = max_cap;
-    let mut tuning_max = true;
-    let mut adj_max = min_cap;
+
+    // `current` is the active axis. `overshoot` tracks the best known-feasible
+    // value, `undershoot` the best known-infeasible. PMPE mode probes climb (max
+    // fee up) so feasible values are the floor; SOL Phase 1 also climbs (min fee
+    // up). SOL Phase 2 inverts to find the lowest feasible max_fee.
+    //
+    // SOL mode inverts the bisection: Phase 1 raises min_fee (so tuning_max
+    // starts false), Phase 2 lowers max_fee. Overshoot/undershoot start values
+    // are also swapped.
+    let mut overshoot = if min_first { max_cap } else { min_cap };
+    let mut undershoot = if min_first { min_cap } else { max_cap };
+    let mut current = undershoot;
+    let mut tuning_max = !min_first;
+    // adj_phase1 stores the Phase 1 result when switching to Phase 2.
+    // In PMPE mode this is the max_fee result; in SOL mode the min_fee result.
+    let mut adj_phase1 = overshoot;
     let mut best: Option<Vec<Settlement>> = None;
     let mut fallback: Option<Vec<Settlement>> = None;
     let mut fc = fee_config.clone();
+    let target_pmpe = target_pmpe.unwrap_or(Decimal::ZERO);
     for _ in 0..MAX_ADJ_ITER {
         if tuning_max {
             fc.max_fee_bps = current;
@@ -192,15 +213,21 @@ pub fn generate_bid_settlements(
             &fc,
             stake_authority_filter,
             exiting_stake_authority_filter,
-            ssr_pmpe,
+            target_pmpe,
         )?;
         let totals = calculate_bid_settlement_totals(&settlements);
-        let (post_fee, feasible) = if totals.stake.is_zero() {
-            (Decimal::ZERO, false)
+        let post_fee = if totals.stake.is_zero() {
+            Decimal::ZERO
         } else {
-            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
-                * Decimal::ONE_THOUSAND;
-            (post_fee_pmpe, target <= post_fee_pmpe)
+            (totals.rewards + total_staker_extras - totals.fees) / totals.stake
+                * Decimal::ONE_THOUSAND
+        };
+        let feasible = if totals.stake.is_zero() {
+            false
+        } else if min_first {
+            post_fee <= target_pmpe
+        } else {
+            post_fee >= target_pmpe
         };
         if feasible {
             overshoot = current;
@@ -212,36 +239,62 @@ pub fn generate_bid_settlements(
         let next = (overshoot.saturating_add(undershoot) / 2).clamp(min_cap, max_cap);
         if next != current {
             info!(
-                "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target {})",
+                "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target_pmpe {}, fees {})",
                 if tuning_max { "max" } else { "min" },
                 current,
                 next,
                 post_fee,
-                target,
+                target_pmpe,
+                totals.fees,
             );
             current = next;
             continue;
         }
-        // Active axis converged. If max_fee pinned at the feasible ceiling there is
-        // leftover budget; switch to raising min_fee. Otherwise done.
-        if tuning_max && feasible && current == max_cap {
-            adj_max = current;
-            tuning_max = false;
+        // Active axis converged. Check whether to switch to Phase 2.
+        //
+        // PMPE mode: max_fee pinned at feasible ceiling → leftover staker budget
+        //            → raise min_fee.
+        // SOL  mode: min_fee pinned at feasible floor   → target already met
+        //            → lower max_fee.
+        let at_extreme = current == if min_first { min_cap } else { max_cap };
+        if feasible && at_extreme && (tuning_max != min_first) {
+            adj_phase1 = current;
+            tuning_max = !tuning_max;
+            // Phase 2 bisection state. SOL Phase 2 finds the LOWEST feasible
+            // max_fee, so overshoot/undershoot are inverted vs PMPE Phase 2.
             current = max_cap;
-            overshoot = min_cap;
-            undershoot = max_cap;
+            overshoot = if min_first { max_cap } else { min_cap };
+            undershoot = if min_first { min_cap } else { max_cap };
+            info!(
+                "{}_fee_bps converged at {adj_phase1}, switching to tuning {}_fee_bps",
+                if min_first { "min" } else { "max" },
+                if min_first { "max" } else { "min" },
+            );
             continue;
         }
         break;
     }
+    // overshoot → the active (just-tuned) side.
+    // inactive side: Phase 1 result (adj_phase1) if Phase 2 ran, else original bound.
+    let adj_max_fee_bps = if tuning_max {
+        overshoot
+    } else if min_first {
+        fc.max_fee_bps
+    } else {
+        adj_phase1
+    };
+    let adj_min_fee_bps = if !tuning_max {
+        overshoot
+    } else if min_first {
+        adj_phase1
+    } else {
+        fc.min_fee_bps
+    };
+    info!("adj_max_fee_bps: {adj_max_fee_bps}, adj_min_fee_bps: {adj_min_fee_bps}");
     Ok(BidSettlementValues {
         settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
-        adj_max_fee_bps: if tuning_max { overshoot } else { adj_max },
-        adj_min_fee_bps: if tuning_max {
-            fc.min_fee_bps
-        } else {
-            overshoot
-        },
+        adj_max_fee_bps,
+        adj_min_fee_bps,
     })
 }
 
@@ -254,7 +307,7 @@ fn generate_bid_settlements_worker(
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
-    ssr_pmpe: Decimal,
+    target_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
     info!("Generating bid settlements in epoch {epoch}...");
@@ -418,26 +471,29 @@ fn generate_bid_settlements_worker(
                 settlement_claim
             );
 
-            let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
-                && total_marinade_active_stake > 0
-            {
-                let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
-                let staker_yield_pmpe = total_marinade_stakers_rewards
-                    / (Decimal::from(total_marinade_active_stake)
-                        + Decimal::from(total_marinade_redelegation_stake))
-                    * Decimal::ONE_THOUSAND;
-                let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
+            let staker_yield_pmpe =
+                if total_marinade_active_stake + total_marinade_redelegation_stake > 0 {
+                    total_marinade_stakers_rewards
+                        / (Decimal::from(total_marinade_active_stake)
+                            + Decimal::from(total_marinade_redelegation_stake))
+                        * Decimal::ONE_THOUSAND
+                } else {
+                    Decimal::ZERO
+                };
+            let effective_fee = if staker_yield_pmpe > Decimal::ZERO {
+                let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
             } else {
                 fee_percentages.max_fee
             };
             info!(
-                "{} effective fee: {} (configured: {}, min: {}, ssr_pmpe: {})",
+                "{} current: {} (target: {}), fee: effective: {} (max: {}, min: {})",
                 validator.vote_account,
+                staker_yield_pmpe,
+                target_pmpe,
                 effective_fee,
                 fee_percentages.max_fee,
                 fee_percentages.min_fee,
-                ssr_pmpe,
             );
             let minimum_distributor_fee_claim = total_marinade_stakers_rewards * effective_fee;
             let distributor_fee_claim = minimum_distributor_fee_claim

@@ -45,3 +45,7 @@ fuzzing/
 # Testing
 regression-data*
 .tmp-mp-inject-*
+
+# Local session artifacts
+.diary/
+.specs/

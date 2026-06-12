@@ -6,6 +6,7 @@ allowBuilds:
   bufferutil: true
   esbuild: true
   node-hid: true
+  sharp: true
   unrs-resolver: true
   utf-8-validate: true
 overrides:
