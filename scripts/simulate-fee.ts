@@ -29,6 +29,7 @@ const { values, positionals } = parseArgs({
     c: { type: 'boolean', default: false },
     m: { type: 'string' },
     r: { type: 'boolean', default: false },
+    f: { type: 'boolean', default: false },
     v: { type: 'boolean', default: false },
     s: { type: 'string' },
     'target-sol': { type: 'string' },
@@ -161,6 +162,47 @@ function tmpFile() {
   return p
 }
 
+// Bounded async pool: add() is fire-and-forget; drain() waits for all.
+function makePool(cap: number) {
+  let n = 0
+  const queue: Array<() => void> = []
+  const jobs: Promise<void>[] = []
+  function next() {
+    while (n < cap && queue.length) {
+      n++
+      const job = queue.shift()
+      if (job) job()
+    }
+  }
+  return {
+    add(fn: () => Promise<void>) {
+      jobs.push(
+        new Promise<void>(resolve => {
+          const run = () => {
+            void fn()
+              .catch((e: unknown) =>
+                process.stderr.write(
+                  `Failed: ${e instanceof Error ? e.message : String(e)}\n`,
+                ),
+              )
+              .finally(() => {
+                n--
+                resolve()
+                next()
+              })
+          }
+          if (n < cap) {
+            n++
+            run()
+          } else queue.push(run)
+        }),
+      )
+    },
+    drain: () => Promise.all(jobs),
+  }
+}
+const gzip = makePool(8)
+
 const cfgTemplate = await Bun.file('./settlement-config.yaml').text()
 const baseCfg = loadConfig(cfgTemplate)
 
@@ -268,18 +310,20 @@ async function fetchProductionSettlement(epoch: number): Promise<string> {
   return path
 }
 
-async function fetchInputs(epoch: number): Promise<void> {
+async function downloadEpochInputs(epoch: number): Promise<void> {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
-  if (INPUTS.every(f => existsSync(join(inp, f) + '.gz'))) return
-  process.stderr.write(`  # fetching inputs for epoch ${epoch}...\n`)
   await runMkdir(rwd)
 
-  const gz = (f: string) => f + '.gz'
-  const fetchOne = async (src: string, dst: string) => {
-    if (existsSync(gz(dst))) return
-    await runGcsCp(src, dst)
-    await runGzip(dst)
+  const fetchOne = async (
+    src: string,
+    dst: string,
+    via: 'gcs' | 'http' = 'gcs',
+  ) => {
+    if (!values.f && existsSync(dst + '.gz')) return
+    if (values.f) rmSync(dst + '.gz', { force: true })
+    await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
+    gzip.add(() => runGzip(dst))
   }
 
   await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
@@ -309,15 +353,7 @@ async function fetchInputs(epoch: number): Promise<void> {
     gcsEtl(epoch, 'rewards_priority_fee.json'),
     join(rwd, 'jito_priority_fee.json'),
   )
-
-  const samPath = join(inp, SAM_FILE)
-  if (!existsSync(gz(samPath))) {
-    await runHttpGet(scoringUrl(epoch), samPath)
-    await runGzip(samPath)
-  }
-
-  if (!INPUTS.every(f => existsSync(join(inp, gz(f)))))
-    throw new Error(`fetch incomplete for epoch ${epoch}`)
+  await fetchOne(scoringUrl(epoch), join(inp, SAM_FILE), 'http')
 }
 
 async function runBidDistributionCli(
@@ -465,16 +501,7 @@ async function processEpoch(epoch: number): Promise<string | null> {
       process.stderr.write(`epoch ${epoch}: running cli [${maxFee} bps]\n`)
       const cfgFile = tmpFile()
       writeFileSync(cfgFile, cfgText)
-      try {
-        settlementsJson = await runBidDistributionCli(cfgFile, inp)
-      } catch {
-        process.stderr.write(
-          `epoch ${epoch}: cli failed, wiping inputs and retrying\n`,
-        )
-        rmSync(inp, { recursive: true })
-        await fetchInputs(epoch)
-        settlementsJson = await runBidDistributionCli(cfgFile, inp)
-      }
+      settlementsJson = await runBidDistributionCli(cfgFile, inp)
     }
 
     const {
@@ -599,12 +626,12 @@ const results: (string | null)[] = Array.from(
 )
 const failed: number[] = []
 
-// Phase 1: download all inputs sequentially, one epoch at a time
+// Phase 1: download inputs sequentially (one file at a time), gzip in background
 if (!values.c) {
   process.stderr.write(`fetching inputs for ${epochs.length} epochs...\n`)
   for (const epoch of epochs) {
     try {
-      await fetchInputs(epoch)
+      await downloadEpochInputs(epoch)
     } catch (err) {
       process.stderr.write(
         `Failed: epoch ${epoch} fetch — ${err instanceof Error ? err.message : String(err)}\n`,
@@ -612,6 +639,7 @@ if (!values.c) {
       failed.push(epoch)
     }
   }
+  await gzip.drain()
 }
 
 // Phase 2: parallel CLI compute over successfully fetched epochs
