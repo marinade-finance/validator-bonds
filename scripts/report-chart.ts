@@ -68,10 +68,10 @@ type EpochYaml = {
 }
 type ReportYaml = { epochs: EpochYaml[] }
 
-const S_AT_CAP = 'At cap'
-const S_AT_MIN = 'At min fee'
-const S_ADJUSTED = 'Adjusted'
-const S_MAXFEE = 'Max-fee cap'
+const S_AT_CAP = 'at max fee'
+const S_AT_MIN = 'at min fee'
+const S_ADJUSTED = 'adjusted'
+const S_MAXFEE = 'max-fee cap'
 const S_SSR = 'SSR baseline'
 
 function pct(s: string | number): number {
@@ -567,7 +567,7 @@ async function main() {
                   title: null,
                   orient: 'bottom',
                   direction: 'horizontal',
-                  offset: 48,
+                  offset: 4,
                   symbolType: 'square',
                   symbolSize: 220,
                 },
@@ -653,7 +653,7 @@ async function main() {
                       title: null,
                       orient: 'bottom',
                       direction: 'horizontal',
-                      offset: 14,
+                      offset: 4,
                       symbolType: 'circle',
                       symbolSize: 130,
                     },
@@ -704,7 +704,7 @@ async function main() {
                       title: null,
                       orient: 'bottom',
                       direction: 'horizontal',
-                      offset: 14,
+                      offset: 4,
                       symbolType: 'circle',
                       symbolSize: 130,
                     },
