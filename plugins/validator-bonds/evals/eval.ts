@@ -77,9 +77,7 @@ if (values.tmpdir) {
   console.log(`tmpdir: ${tmpRoot}`)
   // hard-link source into tmp; strip large dirs the model doesn't need
   await $`cp -al ${defaultRepoRoot}/. ${tmpRoot}/`
-  for (const dir of ['node_modules', '.git', '.refs', '.pnpm-store']) {
-    await rm(join(tmpRoot, dir), { recursive: true, force: true })
-  }
+  await $`rm -rf ${tmpRoot}/{node_modules,.git,.refs,.pnpm-store}`
   repoRoot = tmpRoot
 }
 
