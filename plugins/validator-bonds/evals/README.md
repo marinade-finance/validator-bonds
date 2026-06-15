@@ -10,7 +10,7 @@ From the repo root:
 
 ```bash
 # List all cases with questions (no API calls)
-pnpm eval:list
+pnpm eval -- -l
 
 # Run all cases (default: ./cases/)
 pnpm eval
@@ -29,13 +29,17 @@ pnpm eval -- --plugin-dir plugins/validator-bonds
 
 # Custom output tag (default: YYYYMMDD)
 pnpm eval -- -t baseline-20260527
+
+# Run in fresh tmpdir (strips node_modules/.git/.refs, model sees source only)
+pnpm eval -- --tmpdir
 ```
 
 Or run `bun eval.ts` directly from `plugins/validator-bonds/evals/`.
 
 **Flags:** `-l` / `--list` (list only), `-v` / `--verbose` (print full answer),
 `-N` / `--limit N` (run first N cases, shorthand `-N` e.g. `-3`),
-`-t <tag>` (output tag), `--no-skills` (baseline), `--plugin-dir <path>`.
+`-t <tag>` (output tag), `--no-skills` (baseline), `--plugin-dir <path>`,
+`--tmpdir` (fresh isolated dir).
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
 `./report/<tag>/eval-<timestamp>.yml`.

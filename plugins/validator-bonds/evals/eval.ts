@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
-// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [-l|--list] [-v|--verbose] [-t <tag>] [-N|--limit N] [cases-dir|file.yaml...]
+// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--tmpdir] [-l|--list] [-v|--verbose] [-t <tag>] [-N|--limit N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
 // --plugin-dir    load only this plugin; skills auto-trigger based on routing
 // --no-skills     disable all skills (baseline comparison)
+// --tmpdir        run claude in a fresh tmp dir (source only, cleaned after)
 // -l / --list     print case names + questions without running them
 // -v / --verbose  print full answer to stdout as each case runs
-// -t <tag>        output tag (default: YYYYMMDD); written to ./report/<tag>/
+// -t <tag>        output tag (default: YYYYMMDD); written to evals/report/<tag>/
 // -N / --limit N  run only first N cases
 // Positionals default to ./cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
@@ -14,9 +15,18 @@
 import { parseArgs } from 'node:util'
 import { parse, stringify } from 'yaml'
 import { $ } from 'bun'
-import { readdir, readFile, stat, mkdir, writeFile } from 'fs/promises'
-import { join, basename, dirname } from 'path'
+import {
+  readdir,
+  readFile,
+  stat,
+  mkdir,
+  writeFile,
+  rm,
+  mkdtemp,
+} from 'fs/promises'
+import { join, basename, dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { tmpdir } from 'os'
 
 interface FactResult {
   fact: string
@@ -37,6 +47,7 @@ const { values, positionals } = parseArgs({
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
+    tmpdir: { type: 'boolean', default: false },
     list: { type: 'boolean', default: false },
     l: { type: 'boolean', default: false },
     verbose: { type: 'boolean', default: false },
@@ -57,6 +68,22 @@ const limit = shortLimit
     : null
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
+const defaultRepoRoot = join(scriptDir, '../../..')
+
+// --tmpdir: run claude in a fresh isolated dir, clean up after
+let repoRoot = defaultRepoRoot
+let tmpRoot: string | null = null
+if (values.tmpdir) {
+  tmpRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
+  console.log(`tmpdir: ${tmpRoot}`)
+  // hard-link source into tmp; strip large dirs the model doesn't need
+  await $`cp -al ${defaultRepoRoot}/. ${tmpRoot}/`
+  for (const dir of ['node_modules', '.git', '.refs', '.pnpm-store']) {
+    await rm(join(tmpRoot, dir), { recursive: true, force: true })
+  }
+  repoRoot = tmpRoot
+}
+
 const defaultCasesDir = join(scriptDir, 'cases')
 const casePaths = positionals.length > 0 ? positionals : [defaultCasesDir]
 
@@ -64,15 +91,21 @@ const today = new Date()
 const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
 const tag = values.t ?? defaultTag
 
+// Resolve plugin-dir relative to original cwd before repoRoot changes
 const pluginDir = values['plugin-dir']
+  ? resolve(values['plugin-dir'])
+  : undefined
 const baseFlags = values['no-skills']
   ? ['--disable-slash-commands']
   : pluginDir
     ? ['--plugin-dir', pluginDir]
     : []
 
+// Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
+// Keeps it away from evals/cases/ so it can't read expected facts.
 const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`
+    .cwd(repoRoot)
     .env({ ...process.env, CLAUDE_EVAL: '1' })
     .text()
 
@@ -172,7 +205,7 @@ for (const file of files) {
     const wrongResults = await Promise.all(
       wrong_facts.map(async f => {
         const r = await supports(answer, f)
-        return { ...r, passed: !r.passed } // passed = correctly absent
+        return { ...r, passed: !r.passed }
       }),
     )
     const ok =
@@ -207,7 +240,7 @@ for (const file of files) {
   }
 }
 
-const reportDir = join('./report', tag)
+const reportDir = join(scriptDir, 'report', tag)
 await mkdir(reportDir, { recursive: true })
 const logPath = join(
   reportDir,
@@ -215,4 +248,8 @@ const logPath = join(
 )
 await writeFile(logPath, stringify(log))
 console.log(`\n${passed}/${passed + failed} passed  →  ${logPath}`)
+if (tmpRoot) {
+  await rm(tmpRoot, { recursive: true, force: true })
+  console.log(`cleaned up ${tmpRoot}`)
+}
 if (failed > 0) process.exit(1)
