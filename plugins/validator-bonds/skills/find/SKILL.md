@@ -2,7 +2,7 @@
 name: find
 description: >
   Research a validator-bonds / SAM protocol question against primary sources
-  (source code, refs/, facts/). USE when /recall-memories returns no match,
+  (source code, .refs/, facts/). USE when /recall-memories returns no match,
   a claim needs code verification, or "research X / verify X". NOT for live
   validator data (query the bonds API directly), general Marinade navigation
   (use marinade-docs), or stored knowledge lookup (use /recall-memories).
@@ -95,7 +95,7 @@ Each fact must pass all checks before `verified_at` is set:
    disagree, investigate and delete the wrong one
 4. **Numbers recomputed** — any quantity, rate, or percentage must be
    re-read from source, not copied from a summary
-5. **Upstream claims flagged** — logic in `refs/ds-sam/`, `ds-scoring`,
+5. **Upstream claims flagged** — logic in `.refs/ds-sam/`, `ds-scoring`,
    `sam-blacklist` can change when those repos update; note the upstream
    source explicitly so readers know to re-verify
 
@@ -110,7 +110,7 @@ Read surviving fact files, answer the original question. Cite inline:
 BidTooLowPenalty fires when a validator reduces its bid vs the previous epoch.
 
 ---
-source: refs/ds-sam/src/calculations.ts:248
+source: .refs/ds-sam/src/calculations.ts:248
 field:  revShare.bidPmpe < tolCoef * (pastAuction?.bidPmpe ?? 0)
 ```
 

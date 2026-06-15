@@ -6,30 +6,36 @@ surface the right content.
 
 ## Quick Start
 
-```bash
-cd plugins/validator-bonds/evals
+From the repo root:
 
+```bash
 # List all cases with questions (no API calls)
-bun eval.ts -l
+pnpm eval:list
 
 # Run all cases (default: ./cases/)
-bun eval.ts
+pnpm eval
 
 # Run only first 2 cases
-bun eval.ts -2
+pnpm eval -- -2
 
 # Single case (with full answer printed)
-bun eval.ts -v cases/bidding-settlement.yaml
+pnpm eval -- -v cases/bidding-settlement.yaml
 
 # Baseline — disable all skills for comparison
-bun eval.ts --no-skills
+pnpm eval -- --no-skills
 
 # Explicit plugin dir — override which plugin is loaded
-bun eval.ts --plugin-dir ../..
+pnpm eval -- --plugin-dir plugins/validator-bonds
 
 # Custom output tag (default: YYYYMMDD)
-bun eval.ts -t baseline-20260527
+pnpm eval -- -t baseline-20260527
 ```
+
+Or run `bun eval.ts` directly from `plugins/validator-bonds/evals/`.
+
+**Flags:** `-l` / `--list` (list only), `-v` / `--verbose` (print full answer),
+`-N` / `--limit N` (run first N cases, shorthand `-N` e.g. `-3`),
+`-t <tag>` (output tag), `--no-skills` (baseline), `--plugin-dir <path>`.
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
 `./report/<tag>/eval-<timestamp>.yml`.
@@ -41,8 +47,8 @@ To test only validator-bonds skills, run in dockbox — fresh home directory
 means no global skills load, only `--plugin-dir` content.
 
 ```bash
-dockbox run --env ANTHROPIC_API_KEY -v $(pwd)/../../../:/repo \
-  bun /repo/plugins/validator-bonds/evals/runner.ts \
+dockbox run --env ANTHROPIC_API_KEY -v $(pwd):/repo \
+  bun /repo/plugins/validator-bonds/evals/eval.ts \
     --plugin-dir /repo/plugins/validator-bonds
 ```
 
@@ -57,10 +63,12 @@ facts:
   - native stakers
   - effective_bid_pmpe
   - bond
+wrong_facts:
+  - some claim that must NOT appear
 ```
 
 `facts` are checked case-insensitively (substring). Misses go to Haiku as a
-semantic judge. A case passes only when all facts pass.
+semantic judge. A case passes only when all facts pass and no wrong_facts appear.
 
 Facts must be grounded in the skill's SKILL.md — if the content isn't there,
 the model can't be expected to produce it from skill routing alone.
@@ -72,16 +80,13 @@ the model can't be expected to produce it from skill routing alone.
    `skills/marinade-sam-bond/SKILL.md` or `skills/marinade-ecosystem/SKILL.md`.
 3. Run the single case to confirm it passes.
 
-Question inspiration: `skills/marinade-sam-bond/evals/questions.md` and
-`skills/marinade-ecosystem/evals/questions.md`.
-
 ## Log Format
 
 ```yaml
 meta:
-  mode: plugin:../.. # or 'no-skills' or 'default'
-  flags: [--plugin-dir, ../..]
-  plugin_dir: ../..
+  mode: plugin:plugins/validator-bonds # or 'no-skills' or 'default'
+  flags: [--plugin-dir, plugins/validator-bonds]
+  plugin_dir: plugins/validator-bonds
   tag: '20260527'
   started_at: 2026-05-27T10:00:00.000Z
 cases:

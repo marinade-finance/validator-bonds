@@ -1,7 +1,7 @@
 ---
 name: marinade-sam-bond
 description: Validator Bonds protocol internals — settlement types, SAM auction, bond collateral, PSR, epoch lifecycle. NOT for ecosystem navigation or issue filing (use marinade-ecosystem).
-when_to_use: CPMPE, PMPE, totalPmpe, PSR, SAM auction, ValidatorBond, SettlementReason, ProtectedEvent, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, PriorityFee, fund_bond, withdraw_request, init_withdraw_request, claim_withdraw_request, merkle settlement, bid-distribution, settlement-config.yaml, programs/validator-bonds/, settlement-distributions/, settlement-pipelines/, packages/validator-bonds-*, mSOL stakers, native staking, Select stakers, institutional stakers, bond collateral, clearing price, winningTotalPmpe, validator bid, dynamic commission, dynamic bids, minimum bond balance, minBondBalanceSol, 7 SOL, program ID, vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+when_to_use: CPMPE, PMPE, totalPmpe, PSR, SAM auction, ValidatorBond, SettlementReason, ProtectedEvent, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, PriorityFee, fund_bond, withdraw_request, init_withdraw_request, claim_withdraw_request, merkle settlement, bid-distribution, settlement-config.yaml, programs/validator-bonds/, settlement-distributions/, settlement-pipelines/, packages/validator-bonds-*, mSOL stakers, native staking, Select stakers, institutional stakers, bond collateral, clearing price, winningTotalPmpe, validator bid, dynamic commission, dynamic bids, minimum bond balance, minBondBalanceSol, program ID, vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
 ---
 
 # Validator Bonds Protocol Context
@@ -43,7 +43,7 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 - **Program ID** -- `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
 - **Min bond balance** -- `minBondBalanceSol` in ds-sam runtime config (not a validator-bonds constant); tiered: <80% of min → stake cap 0 (revoked), 80–100% → cap clipped to existing stake, ≥100% → unrestricted
 - **Bond authority** -- `bond.authority` field or validator identity can sign
-- **fund_bond** transfers stake ownership to bonds PDA; recovery via withdraw request (lockup = `config.withdraw_lockup_epochs`, currently ~3)
+- **fund_bond** transfers stake ownership to bonds PDA; recovery via withdraw request (lockup = `config.withdraw_lockup_epochs`, configurable by admin)
 - **PSR** -- Protected Staking Rewards, ensures network-average inflation regardless of validator performance
 - **Merkle settlements** -- off-chain generated, on-chain verified, efficient for large claim sets
 
