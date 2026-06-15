@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] [-t <tag>] [--limit N] [cases-dir|file.yaml...]
+// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [-l|--list] [-v|--verbose] [-t <tag>] [-N|--limit N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
-// --plugin-dir  load only this plugin; skills auto-trigger based on routing
-// --no-skills   disable all skills (baseline comparison)
-// -t <tag>      output tag (default: YYYYMMDD); written to ./report/<tag>/
-// --limit N     run only first N cases
+// --plugin-dir    load only this plugin; skills auto-trigger based on routing
+// --no-skills     disable all skills (baseline comparison)
+// -l / --list     print case names + questions without running them
+// -v / --verbose  print full answer to stdout as each case runs
+// -t <tag>        output tag (default: YYYYMMDD); written to ./report/<tag>/
+// -N / --limit N  run only first N cases
 // Positionals default to ./cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
 // facts: must appear in answer. wrong_facts: must NOT appear (adversarial check).
@@ -24,18 +26,35 @@ interface FactResult {
   error?: string
 }
 
+const rawArgs = Bun.argv.slice(2)
+const shortLimit = rawArgs.find(a => /^-\d+$/.test(a))
+const filteredArgs = shortLimit
+  ? rawArgs.filter(a => a !== shortLimit)
+  : rawArgs
+
 const { values, positionals } = parseArgs({
-  args: Bun.argv.slice(2),
+  args: filteredArgs,
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
+    list: { type: 'boolean', default: false },
+    l: { type: 'boolean', default: false },
+    verbose: { type: 'boolean', default: false },
+    v: { type: 'boolean', default: false },
     t: { type: 'string' },
     limit: { type: 'string' },
   },
   allowPositionals: true,
 })
 
-const limit = values.limit ? parseInt(values.limit, 10) : null
+const listMode = values.list || values.l
+const verbose = values.verbose || values.v
+
+const limit = shortLimit
+  ? parseInt(shortLimit.slice(1), 10)
+  : values.limit
+    ? parseInt(values.limit, 10)
+    : null
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const defaultCasesDir = join(scriptDir, 'cases')
@@ -98,6 +117,27 @@ let files = (await Promise.all(casePaths.map(expand))).flat()
 if (files.length === 0) throw new Error('No .yaml/.yml files found')
 if (limit !== null) files = files.slice(0, limit)
 
+if (listMode) {
+  for (const file of files) {
+    const name = basename(file).replace(/\.ya?ml$/, '')
+    const {
+      question,
+      facts,
+      wrong_facts = [],
+    } = parse(await readFile(file, 'utf8')) as {
+      question: string
+      facts: string[]
+      wrong_facts?: string[]
+    }
+    console.log(`${name}`)
+    console.log(`  Q: ${question.trim().replace(/\n/g, ' ')}`)
+    console.log(`  facts: ${facts.join(', ')}`)
+    if (wrong_facts.length)
+      console.log(`  wrong_facts: ${wrong_facts.join(', ')}`)
+  }
+  process.exit(0)
+}
+
 let passed = 0
 let failed = 0
 const meta = {
@@ -158,6 +198,7 @@ for (const file of files) {
       })
       failed++
     }
+    if (verbose) console.log(`\n--- answer ---\n${answer.trim()}\n`)
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     log.cases.push({ case: name, result: 'error', question, error, facts: [] })

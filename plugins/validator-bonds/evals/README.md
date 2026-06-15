@@ -9,23 +9,26 @@ surface the right content.
 ```bash
 cd plugins/validator-bonds/evals
 
+# List all cases with questions (no API calls)
+bun eval.ts -l
+
 # Run all cases (default: ./cases/)
-bun runner.ts
+bun eval.ts
 
 # Run only first 2 cases
-bun runner.ts -2
+bun eval.ts -2
 
-# Single case
-bun runner.ts cases/bidding-settlement.yaml
+# Single case (with full answer printed)
+bun eval.ts -v cases/bidding-settlement.yaml
 
 # Baseline — disable all skills for comparison
-bun runner.ts --no-skills
+bun eval.ts --no-skills
 
 # Explicit plugin dir — override which plugin is loaded
-bun runner.ts --plugin-dir ../..
+bun eval.ts --plugin-dir ../..
 
 # Custom output tag (default: YYYYMMDD)
-bun runner.ts -t baseline-20260527
+bun eval.ts -t baseline-20260527
 ```
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
