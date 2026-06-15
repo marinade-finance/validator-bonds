@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 /* eslint-disable n/no-process-exit, import/no-extraneous-dependencies */
 
 import { readFileSync } from 'node:fs'
@@ -23,7 +22,7 @@ async function main() {
     process.argv.slice(2)
   if (!settlementsFile) {
     process.stderr.write(
-      'Usage: bun scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
+      'Usage: tsx scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
     )
     process.exit(2)
   }
