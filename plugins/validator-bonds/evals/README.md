@@ -22,7 +22,7 @@ bun runner.ts cases/bidding-settlement.yaml
 bun runner.ts --no-skills
 
 # Explicit plugin dir — override which plugin is loaded
-bun runner.ts --plugin-dir ../../..
+bun runner.ts --plugin-dir ../..
 
 # Custom output tag (default: YYYYMMDD)
 bun runner.ts -t baseline-20260527
@@ -76,9 +76,9 @@ Question inspiration: `skills/marinade-sam-bond/evals/questions.md` and
 
 ```yaml
 meta:
-  mode: plugin:../../.. # or 'no-skills' or 'default'
-  flags: [--plugin-dir, ../../..]
-  plugin_dir: ../../..
+  mode: plugin:../.. # or 'no-skills' or 'default'
+  flags: [--plugin-dir, ../..]
+  plugin_dir: ../..
   tag: '20260527'
   started_at: 2026-05-27T10:00:00.000Z
 cases:

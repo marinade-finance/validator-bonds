@@ -1,5 +1,6 @@
-question: 'My bond dropped below 7 SOL — will I be excluded from the next auction?'
+question: 'What happens if my bond drops below the minimum balance (minBondBalanceSol)? Will I be revoked or just capped?'
 facts:
-  - '7 SOL'
-  - 'minimum'
+  - 'minBondBalanceSol'
   - 'stake cap'
+  - 'revoked'
+  - '80%'
