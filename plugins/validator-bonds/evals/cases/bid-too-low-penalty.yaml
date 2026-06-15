@@ -1,7 +1,7 @@
 question: 'What triggers a BidTooLowPenalty settlement?'
 facts:
   - 'BidTooLowPenalty'
-  - 'lower'
+  - 'decreased'
   - 'previous'
 wrong_facts:
   - 'below minimum threshold'
