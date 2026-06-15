@@ -49,7 +49,7 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 
 ## Direct Data Dependencies
 
-Repos that feed data directly into the validator-bonds pipeline. All at `https://github.com/marinade-finance/`. Clone under `./refs/` when deeper context needed.
+Repos that feed data directly into the validator-bonds pipeline. All at `https://github.com/marinade-finance/`. Clone under `./.refs/` when deeper context needed.
 
 **Direct data dependencies:**
 

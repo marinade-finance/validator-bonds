@@ -38,21 +38,21 @@ Primary sources in priority order:
 | Settlement parameters (fees, splits)            | `settlement-config.yaml`                                                     |
 | TS SDK queries / PDA derivation                 | `packages/validator-bonds-sdk/src/`                                          |
 
-**2. `refs/` clones — upstream repos this project consumes.**
+**2. `.refs/` clones — upstream repos this project consumes.**
 
 Clone if absent before reading:
 
 ```bash
-git clone https://github.com/marinade-finance/ds-sam refs/ds-sam
-git clone https://github.com/marinade-finance/ds-sam-pipeline refs/ds-sam-pipeline
+git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam
+git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline
 ```
 
-| Question about                                | Look here                                                     |
-| --------------------------------------------- | ------------------------------------------------------------- |
-| SAM auction clearing price                    | `refs/ds-sam/src/auction.ts`                                  |
-| BidTooLow trigger, tolCoef                    | `refs/ds-sam/src/calculations.ts`                             |
-| `minBondBalanceSol`, `clipBondStakeCap` tiers | `refs/ds-sam/src/constraints.ts`, `refs/ds-sam/src/config.ts` |
-| Epoch auction outputs                         | `refs/ds-sam-pipeline/auctions/<epoch>/outputs/`              |
+| Question about                                | Look here                                                       |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| SAM auction clearing price                    | `.refs/ds-sam/src/auction.ts`                                   |
+| BidTooLow trigger, tolCoef                    | `.refs/ds-sam/src/calculations.ts`                              |
+| `minBondBalanceSol`, `clipBondStakeCap` tiers | `.refs/ds-sam/src/constraints.ts`, `.refs/ds-sam/src/config.ts` |
+| Epoch auction outputs                         | `.refs/ds-sam-pipeline/auctions/<epoch>/outputs/`               |
 
 Private repos (`ds-scoring`, `sam-blacklist`, `institutional-staking`) require
 `gh auth login`. Note claims from these as upstream-unverifiable if inaccessible.

@@ -31,13 +31,13 @@ user-invocable: true
 
 Clone under `./refs/<name>` for local exploration.
 
-| Repo                     | What's there                                                         | Clone                                                                                              |
-| ------------------------ | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `validator-bonds`        | This repo — on-chain program, SDK, settlement CLIs                   | —                                                                                                  |
-| `ds-sam`                 | SAM auction, bid-too-low trigger, clearing price, `clipBondStakeCap` | `git clone https://github.com/marinade-finance/ds-sam refs/ds-sam`                                 |
-| `ds-sam-pipeline`        | Epoch-by-epoch auction inputs/outputs                                | `git clone https://github.com/marinade-finance/ds-sam-pipeline refs/ds-sam-pipeline`               |
-| `solana-snapshot-parser` | Produces `stakes.json` / `validators.json`                           | `git clone https://github.com/marinade-finance/solana-snapshot-parser refs/solana-snapshot-parser` |
-| `liquid-staking-program` | Core mSOL staking program                                            | `git clone https://github.com/marinade-finance/liquid-staking-program refs/liquid-staking-program` |
+| Repo                     | What's there                                                         | Clone                                                                                               |
+| ------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `validator-bonds`        | This repo — on-chain program, SDK, settlement CLIs                   | —                                                                                                   |
+| `ds-sam`                 | SAM auction, bid-too-low trigger, clearing price, `clipBondStakeCap` | `git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam`                                 |
+| `ds-sam-pipeline`        | Epoch-by-epoch auction inputs/outputs                                | `git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline`               |
+| `solana-snapshot-parser` | Produces `stakes.json` / `validators.json`                           | `git clone https://github.com/marinade-finance/solana-snapshot-parser .refs/solana-snapshot-parser` |
+| `liquid-staking-program` | Core mSOL staking program                                            | `git clone https://github.com/marinade-finance/liquid-staking-program .refs/liquid-staking-program` |
 
 ## Private Repos (`gh auth login` required)
 
