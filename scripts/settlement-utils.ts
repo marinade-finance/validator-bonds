@@ -1,4 +1,5 @@
 // Shared settlement-JSON types and helpers for off-chain distribution scripts.
+// TODO: move to @marinade.finance/ds-sam once that package exists.
 
 type FeeDetails = { marinade_fee_claim: number; dao_fee_claim: number }
 
