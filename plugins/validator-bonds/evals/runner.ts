@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
-// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] [-t <tag>] [-N] [cases-dir|file.yaml...]
+// Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] [-t <tag>] [--limit N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
 // --plugin-dir  load only this plugin; skills auto-trigger based on routing
 // --no-skills   disable all skills (baseline comparison)
 // -t <tag>      output tag (default: YYYYMMDD); written to ./report/<tag>/
-// -N            run only first N cases (e.g. -1, -2, -3)
+// --limit N     run only first N cases
 // Positionals default to ./cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
 // facts: must appear in answer. wrong_facts: must NOT appear (adversarial check).
@@ -16,12 +16,6 @@ import { readdir, readFile, stat, mkdir, writeFile } from 'fs/promises'
 import { join, basename, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
-interface Case {
-  question: string
-  facts: string[]
-  wrong_facts?: string[]
-}
-
 interface FactResult {
   fact: string
   passed: boolean
@@ -30,45 +24,18 @@ interface FactResult {
   error?: string
 }
 
-interface CaseResult {
-  case: string
-  result: 'pass' | 'fail' | 'error'
-  question: string
-  answer?: string
-  error?: string
-  facts: FactResult[]
-  wrong_facts?: FactResult[]
-}
-
-interface RunMeta {
-  mode: string
-  flags: string[]
-  plugin_dir?: string
-  tag: string
-  started_at: string
-}
-
-// Extract -N flags (e.g. -1, -2) before parseArgs since they're not valid option names
-const rawArgs = Bun.argv.slice(2)
-let limit: number | null = null
-const filteredArgs = rawArgs.filter(a => {
-  const m = a.match(/^-(\d+)$/)
-  if (m) {
-    limit = parseInt(m[1], 10)
-    return false
-  }
-  return true
-})
-
 const { values, positionals } = parseArgs({
-  args: filteredArgs,
+  args: Bun.argv.slice(2),
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
     t: { type: 'string' },
+    limit: { type: 'string' },
   },
   allowPositionals: true,
 })
+
+const limit = values.limit ? parseInt(values.limit, 10) : null
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const defaultCasesDir = join(scriptDir, 'cases')
@@ -116,8 +83,7 @@ const supports = async (answer: string, fact: string): Promise<FactResult> => {
 }
 
 const expand = async (p: string): Promise<string[]> => {
-  const s = await stat(p)
-  if (s.isDirectory())
+  if ((await stat(p)).isDirectory())
     return (await readdir(p))
       .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'))
       .sort()
@@ -134,7 +100,7 @@ if (limit !== null) files = files.slice(0, limit)
 
 let passed = 0
 let failed = 0
-const meta: RunMeta = {
+const meta = {
   mode: values['no-skills']
     ? 'no-skills'
     : pluginDir
@@ -145,17 +111,21 @@ const meta: RunMeta = {
   tag,
   started_at: new Date().toISOString(),
 }
-const log: { meta: RunMeta; cases: CaseResult[] } = { meta, cases: [] }
+const log = { meta, cases: [] as unknown[] }
 
 for (const file of files) {
+  const name = basename(file).replace(/\.ya?ml$/, '')
   const {
     question,
     facts,
     wrong_facts = [],
-  } = parse(await readFile(file, 'utf8')) as Case
+  } = parse(await readFile(file, 'utf8')) as {
+    question: string
+    facts: string[]
+    wrong_facts?: string[]
+  }
   if (!question || !Array.isArray(facts))
     throw new Error('invalid case file: missing question or facts')
-  let entry: CaseResult
   try {
     const answer = await ask(question)
     const factResults = await Promise.all(facts.map(f => supports(answer, f)))
@@ -167,19 +137,19 @@ for (const file of files) {
     )
     const ok =
       factResults.every(r => r.passed) && wrongResults.every(r => r.passed)
-    entry = {
-      case: basename(file).replace(/\.ya?ml$/, ''),
+    log.cases.push({
+      case: name,
       result: ok ? 'pass' : 'fail',
       question,
       answer: answer.trim(),
       facts: factResults,
       ...(wrongResults.length > 0 ? { wrong_facts: wrongResults } : {}),
-    }
+    })
     if (ok) {
-      console.log(`✓  ${entry.case}`)
+      console.log(`✓  ${name}`)
       passed++
     } else {
-      console.log(`✗  ${entry.case}`)
+      console.log(`✗  ${name}`)
       factResults.forEach(r => {
         if (!r.passed) console.log(`     missing: ${r.fact}`)
       })
@@ -190,17 +160,10 @@ for (const file of files) {
     }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
-    entry = {
-      case: basename(file).replace(/\.ya?ml$/, ''),
-      result: 'error',
-      question,
-      error,
-      facts: [],
-    }
-    console.log(`!  ${entry.case}  (error: ${error.slice(0, 80)})`)
+    log.cases.push({ case: name, result: 'error', question, error, facts: [] })
+    console.log(`!  ${name}  (error: ${error.slice(0, 80)})`)
     failed++
   }
-  log.cases.push(entry)
 }
 
 const reportDir = join('./report', tag)
