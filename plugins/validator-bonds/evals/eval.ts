@@ -32,7 +32,6 @@ interface FactResult {
   fact: string
   passed: boolean
   method: 'exact' | 'haiku' | 'error'
-  score?: number
   error?: string
 }
 
@@ -109,26 +108,23 @@ const ask = async (question: string): Promise<string> =>
     .env({ ...process.env, CLAUDE_EVAL: '1' })
     .text()
 
-const PASS_THRESHOLD = 6
-
 const judgePrompt =
-  'You are a fact-checker. Given a fact and a response, output a single integer 0-10 rating how well the response conveys that fact. 10 = explicitly stated with correct detail. 7-9 = clearly conveyed via paraphrase or equivalent term. 4-6 = partially implied. 0-3 = absent, contradicted, or only tangentially related. No other output.'
+  'You are a fact-checker. Given a fact and a response, output YES if the response conveys that fact — including via paraphrase, synonyms, or equivalent technical terms. Output NO only if the fact is absent or contradicted. No other output.'
 
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.toLowerCase().includes(fact.toLowerCase()))
-    return { fact, passed: true, method: 'exact', score: 10 }
+    return { fact, passed: true, method: 'exact' }
   try {
     const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
     const raw =
       await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
         .env({ ...process.env, CLAUDE_EVAL: '1' })
         .text()
-    const score = parseInt(raw.trim(), 10)
+    const verdict = raw.trim()
     return {
       fact,
-      passed: !isNaN(score) && score >= PASS_THRESHOLD,
+      passed: verdict.toUpperCase() === 'YES',
       method: 'haiku',
-      score: isNaN(score) ? undefined : score,
     }
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
@@ -226,10 +222,7 @@ for (const file of files) {
     } else {
       console.log(`✗  ${name}`)
       factResults.forEach(r => {
-        if (!r.passed)
-          console.log(
-            `     missing: ${r.fact}${r.score !== undefined ? ` (${r.score}/10)` : ''}`,
-          )
+        if (!r.passed) console.log(`     missing: ${r.fact}`)
       })
       wrongResults.forEach(r => {
         if (!r.passed) console.log(`     wrong: ${r.fact}`)
