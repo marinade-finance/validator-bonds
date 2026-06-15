@@ -29,7 +29,7 @@ user-invocable: true
 
 ## Public GitHub Repos (`marinade-finance/`)
 
-Clone under `./refs/<name>` for local exploration.
+Clone under `.refs/<name>` for local exploration.
 
 | Repo                     | What's there                                                         | Clone                                                                                               |
 | ------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
