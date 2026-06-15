@@ -1,0 +1,4 @@
+question: 'What are the steps to withdraw from a validator bond?'
+facts:
+  - '3-epoch lockup'
+  - 'withdraw request'

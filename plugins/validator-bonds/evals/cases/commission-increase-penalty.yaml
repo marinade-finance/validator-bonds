@@ -1,0 +1,5 @@
+question: "What triggers a CommissionSamIncrease protected event?"
+facts:
+  - "commission raised above declared bid"
+  - "markup penalty"
+  - "stakers"

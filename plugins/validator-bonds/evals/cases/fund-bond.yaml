@@ -1,0 +1,6 @@
+question: "What does fund_bond do and how is a bond recovered?"
+facts:
+  - "stake ownership"
+  - "bonds PDA"
+  - "withdraw request"
+  - "3-epoch lockup"

@@ -1,0 +1,5 @@
+question: 'What triggers a BidTooLowPenalty settlement?'
+facts:
+  - 'BidTooLowPenalty'
+  - 'reduces'
+  - 'previous epoch'

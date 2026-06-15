@@ -1,0 +1,5 @@
+question: 'What is the BondRiskFee settlement and when does it trigger?'
+facts:
+  - 'BondRiskFee'
+  - 'insufficient'
+  - "validator's bond"

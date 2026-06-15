@@ -1,0 +1,8 @@
+question: 'What are the two staker populations in Validator Bonds and how do they differ?'
+facts:
+  - 'mSOL'
+  - 'institutional'
+  - 'liquid staking'
+  - 'native staking'
+  - '50bps'
+  - 'bidding settlements'

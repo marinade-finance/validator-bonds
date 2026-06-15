@@ -1,0 +1,8 @@
+{
+  "name": "validator-bonds",
+  "version": "0.1.0",
+  "description": "Marinade Validator Bonds protocol knowledge — SAM auction, settlement types, PSR, bond lifecycle, and ecosystem map.",
+  "author": {
+    "name": "Marinade Finance"
+  }
+}

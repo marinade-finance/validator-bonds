@@ -1,0 +1,9 @@
+question: >
+  What is a Bidding settlement in the SAM auction? Which staker population
+  receives it, how is the payout amount determined, and what on-chain account
+  backs the payment?
+facts:
+  - Bidding
+  - mSOL stakers
+  - bid amount
+  - bond
