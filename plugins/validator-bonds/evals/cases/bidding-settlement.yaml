@@ -5,7 +5,7 @@ question: >
 facts:
   - Bidding
   - mSOL stakers
-  - bid amount
+  - winningTotalPmpe
   - bond
 wrong_facts:
   - native stakers
