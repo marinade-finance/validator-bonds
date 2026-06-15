@@ -5,3 +5,7 @@ facts:
   - 'slow slots'
   - 'stakers'
   - 'ValidatorBond'
+wrong_facts:
+  - 'bid too low'
+  - 'commission increase'
+  - 'fewer credits'

@@ -5,3 +5,7 @@ facts:
   - 'Marinade'
   - 'ProtectedEvent'
   - '0-50%'
+wrong_facts:
+  - 'bond covers all'
+  - 'validator covers 100%'
+  - 'bond covers 100'

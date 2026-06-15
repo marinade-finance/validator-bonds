@@ -3,3 +3,7 @@ facts:
   - 'clearing price'
   - 'bid'
   - 'winningTotalPmpe'
+wrong_facts:
+  - 'highest bid'
+  - 'average bid'
+  - 'each validator pays their own bid'

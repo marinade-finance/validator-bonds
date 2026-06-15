@@ -4,3 +4,7 @@ facts:
   - 'stake cap'
   - 'revoked'
   - '80%'
+wrong_facts:
+  - '7 SOL'
+  - 'eligibility is not revoked'
+  - 'cap is reduced'

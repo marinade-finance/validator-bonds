@@ -5,3 +5,7 @@ question: >
 facts:
   - network average
   - underperformance
+wrong_facts:
+  - '50bps'
+  - 'fixed rate'
+  - 'institutional stakers'

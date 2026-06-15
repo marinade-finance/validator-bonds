@@ -4,3 +4,7 @@ facts:
   - 'bonds PDA'
   - 'withdraw request'
   - 'withdraw_lockup_epochs'
+wrong_facts:
+  - '3-epoch lockup'
+  - 'permanent'
+  - 'irrecoverable'

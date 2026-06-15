@@ -1,13 +1,13 @@
 #!/usr/bin/env bun
 // Usage: bun runner.ts [--plugin-dir <path>] [--no-skills] [-t <tag>] [-N] [cases-dir|file.yaml...]
-// Each .yaml: { question: string, facts: string[] }
+// Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
 // --plugin-dir  load only this plugin; skills auto-trigger based on routing
 // --no-skills   disable all skills (baseline comparison)
 // -t <tag>      output tag (default: YYYYMMDD); written to ./report/<tag>/
 // -N            run only first N cases (e.g. -1, -2, -3)
 // Positionals default to ./cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
-// Facts: case-insensitive includes() first; semantic misses go to haiku with XML delimiters.
+// facts: must appear in answer. wrong_facts: must NOT appear (adversarial check).
 
 import { parseArgs } from 'node:util'
 import { parse, stringify } from 'yaml'
@@ -19,6 +19,7 @@ import { fileURLToPath } from 'url'
 interface Case {
   question: string
   facts: string[]
+  wrong_facts?: string[]
 }
 
 interface FactResult {
@@ -36,6 +37,7 @@ interface CaseResult {
   answer?: string
   error?: string
   facts: FactResult[]
+  wrong_facts?: FactResult[]
 }
 
 interface RunMeta {
@@ -146,20 +148,32 @@ const meta: RunMeta = {
 const log: { meta: RunMeta; cases: CaseResult[] } = { meta, cases: [] }
 
 for (const file of files) {
-  const { question, facts } = parse(await readFile(file, 'utf8')) as Case
+  const {
+    question,
+    facts,
+    wrong_facts = [],
+  } = parse(await readFile(file, 'utf8')) as Case
   if (!question || !Array.isArray(facts))
     throw new Error('invalid case file: missing question or facts')
   let entry: CaseResult
   try {
     const answer = await ask(question)
     const factResults = await Promise.all(facts.map(f => supports(answer, f)))
-    const ok = factResults.every(r => r.passed)
+    const wrongResults = await Promise.all(
+      wrong_facts.map(async f => {
+        const r = await supports(answer, f)
+        return { ...r, passed: !r.passed } // passed = correctly absent
+      }),
+    )
+    const ok =
+      factResults.every(r => r.passed) && wrongResults.every(r => r.passed)
     entry = {
       case: basename(file).replace(/\.ya?ml$/, ''),
       result: ok ? 'pass' : 'fail',
       question,
       answer: answer.trim(),
       facts: factResults,
+      ...(wrongResults.length > 0 ? { wrong_facts: wrongResults } : {}),
     }
     if (ok) {
       console.log(`✓  ${entry.case}`)
@@ -168,6 +182,9 @@ for (const file of files) {
       console.log(`✗  ${entry.case}`)
       factResults.forEach(r => {
         if (!r.passed) console.log(`     missing: ${r.fact}`)
+      })
+      wrongResults.forEach(r => {
+        if (!r.passed) console.log(`     wrong: ${r.fact}`)
       })
       failed++
     }

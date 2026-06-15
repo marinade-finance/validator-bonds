@@ -9,3 +9,7 @@ facts:
   - on-chain
   - ~4 epochs
   - unclaimed funds return to bond
+wrong_facts:
+  - 'unclaimed funds burned'
+  - 'funds are lost'
+  - 'funds are forfeited'

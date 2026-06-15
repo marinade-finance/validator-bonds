@@ -7,3 +7,6 @@ facts:
   - mSOL stakers
   - bid amount
   - bond
+wrong_facts:
+  - native stakers
+  - institutional stakers

@@ -2,3 +2,7 @@ question: 'What are the steps to withdraw from a validator bond?'
 facts:
   - 'withdraw_lockup_epochs'
   - 'withdraw request'
+wrong_facts:
+  - '3-epoch lockup'
+  - 'immediate withdrawal'
+  - 'instant'

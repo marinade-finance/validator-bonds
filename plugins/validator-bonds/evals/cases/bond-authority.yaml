@@ -1,4 +1,8 @@
-question: "Who can sign bond management transactions?"
+question: 'Who can sign bond management transactions?'
 facts:
-  - "bond.authority"
-  - "validator identity"
+  - 'bond.authority'
+  - 'validator identity'
+wrong_facts:
+  - 'multisig'
+  - 'program authority'
+  - 'admin authority'

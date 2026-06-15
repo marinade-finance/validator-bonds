@@ -1,5 +1,9 @@
-question: "What triggers a CommissionSamIncrease protected event?"
+question: 'What triggers a CommissionSamIncrease protected event?'
 facts:
-  - "commission raised above declared bid"
-  - "markup penalty"
-  - "stakers"
+  - 'commission raised above declared bid'
+  - 'markup penalty'
+  - 'stakers'
+wrong_facts:
+  - 'bid too low'
+  - 'blacklisted'
+  - 'fewer credits'

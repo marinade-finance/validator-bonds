@@ -9,3 +9,6 @@ facts:
   - 'ProtectedEvent'
   - 'DowntimeRevenueImpact'
   - 'CommissionSamIncrease'
+wrong_facts:
+  - 'six settlement'
+  - 'five settlement'

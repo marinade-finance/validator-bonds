@@ -6,3 +6,6 @@ facts:
   - lamports per 1000 SOL per epoch
   - dynamic commission
   - auction
+wrong_facts:
+  - 'fixed only'
+  - 'per validator per epoch'

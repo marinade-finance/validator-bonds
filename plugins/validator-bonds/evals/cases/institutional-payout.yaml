@@ -4,3 +4,7 @@ facts:
   - 'Select'
   - '50bps'
   - 'APY'
+wrong_facts:
+  - 'mSOL holders receive'
+  - 'bidding settlement'
+  - 'auction bid'

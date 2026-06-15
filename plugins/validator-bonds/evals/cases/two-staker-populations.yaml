@@ -6,3 +6,7 @@ facts:
   - 'native staking'
   - '50bps'
   - 'bidding settlements'
+wrong_facts:
+  - 'three populations'
+  - 'three staker types'
+  - 'institutional receives bidding'

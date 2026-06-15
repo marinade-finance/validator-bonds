@@ -3,3 +3,7 @@ facts:
   - 'BondRiskFee'
   - 'insufficient'
   - "validator's bond"
+wrong_facts:
+  - 'blacklisted'
+  - 'fewer credits'
+  - 'bid too low'
