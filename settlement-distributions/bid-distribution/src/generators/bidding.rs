@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Mul;
 
@@ -59,6 +59,7 @@ impl fmt::Display for ResultSettlementClaims {
 pub struct BidSettlementDetails {
     pub total_active_stake: u64,
     pub total_marinade_active_stake: u64,
+    pub total_marinade_redelegation_stake: u64,
     pub auction_effective_static_bid: String,
     pub marinade_stake_share: String,
     pub marinade_inflation_rewards: String,
@@ -77,6 +78,7 @@ pub struct BidSettlementDetails {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PriorityFeeSettlementDetails {
+    pub total_marinade_active_stake: u64,
     pub total_marinade_activating_stake: u64,
     pub activating_stake_pmpe: String,
     pub activating_bid_claim: String,
@@ -85,6 +87,71 @@ pub struct PriorityFeeSettlementDetails {
     pub dao_fee_claim: u64,
 }
 
+const MAX_ADJ_ITER: u32 = 20;
+
+#[derive(Serialize)]
+pub struct BidSettlementValues {
+    pub settlements: Vec<Settlement>,
+    pub adj_max_fee_bps: u64,
+    pub adj_min_fee_bps: u64,
+}
+
+#[derive(Default)]
+pub struct BidSettlementTotals {
+    pub stake: Decimal,
+    pub rewards: Decimal,
+    pub fees: Decimal,
+}
+
+pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
+    let mut totals = BidSettlementTotals::default();
+    let bidding_votes: HashSet<Pubkey> = settlements
+        .iter()
+        .filter(|s| matches!(s.reason, SettlementReason::Bidding))
+        .map(|s| s.vote_account)
+        .collect();
+    for settlement in settlements {
+        let Some(details) = &settlement.details else {
+            continue;
+        };
+        match settlement.reason {
+            SettlementReason::Bidding => {
+                let Ok(value) = BidSettlementDetails::deserialize(details) else {
+                    continue;
+                };
+                totals.stake += Decimal::from(value.total_marinade_active_stake)
+                    + Decimal::from(value.total_marinade_redelegation_stake);
+                totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
+                    .unwrap_or(Decimal::ZERO);
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
+            }
+            SettlementReason::PriorityFee => {
+                let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
+                    continue;
+                };
+                // Only use PriorityFee stake/rewards as fallback for validators where no
+                // Bidding settlement was generated (active stakers earned nothing).
+                if !bidding_votes.contains(&settlement.vote_account) {
+                    totals.stake += Decimal::from(value.total_marinade_active_stake);
+                    totals.rewards +=
+                        Decimal::from_str(&value.activating_bid_claim).unwrap_or(Decimal::ZERO);
+                }
+                totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
+            }
+            _ => {}
+        }
+    }
+    totals
+}
+
+/// Bisects max_fee_bps (min_fee at min_cap) for the highest fee that keeps global
+/// post-fee PMPE (bid + `total_staker_extras`, i.e. penalty + PSR payouts to
+/// stakers) at or above the target (`ssr_pmpe + min_yield_premium`). If max_fee
+/// pins at max_cap
+/// with post-fee still above target there is leftover staker budget — a second
+/// phase raises min_fee to extract it. If the target can never be met, min_cap
+/// settlements are returned.
+#[allow(clippy::too_many_arguments)]
 pub fn generate_bid_settlements(
     stake_meta_index: &StakeMetaIndex,
     sam_validator_metas: &[ValidatorSamMeta],
@@ -92,6 +159,101 @@ pub fn generate_bid_settlements(
     settlement_config: &SettlementConfig,
     fee_config: &FeeConfig,
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    ssr_pmpe: Decimal,
+    total_staker_extras: Decimal,
+) -> anyhow::Result<BidSettlementValues> {
+    let max_cap = fee_config.max_fee_bps;
+    let min_cap = fee_config.min_fee_bps;
+    let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
+    // `current` is the active axis: max_fee_bps, then min_fee_bps once max pins at
+    // the feasible ceiling. `overshoot` is its highest known-feasible value,
+    // `undershoot` the lowest known-infeasible. Feasible probes only climb, so the
+    // last feasible probe is the highest-fee one.
+    let mut current = max_cap;
+    let mut overshoot = min_cap;
+    let mut undershoot = max_cap;
+    let mut tuning_max = true;
+    let mut adj_max = min_cap;
+    let mut best: Option<Vec<Settlement>> = None;
+    let mut fallback: Option<Vec<Settlement>> = None;
+    let mut fc = fee_config.clone();
+    for _ in 0..MAX_ADJ_ITER {
+        if tuning_max {
+            fc.max_fee_bps = current;
+        } else {
+            fc.min_fee_bps = current;
+        }
+        let settlements = generate_bid_settlements_worker(
+            stake_meta_index,
+            sam_validator_metas,
+            rewards_collection,
+            settlement_config,
+            &fc,
+            stake_authority_filter,
+            exiting_stake_authority_filter,
+            ssr_pmpe,
+        )?;
+        let totals = calculate_bid_settlement_totals(&settlements);
+        let (post_fee, feasible) = if totals.stake.is_zero() {
+            (Decimal::ZERO, false)
+        } else {
+            let post_fee_pmpe = (totals.rewards + total_staker_extras - totals.fees) / totals.stake
+                * Decimal::ONE_THOUSAND;
+            (post_fee_pmpe, target <= post_fee_pmpe)
+        };
+        if feasible {
+            overshoot = current;
+            best = Some(settlements);
+        } else {
+            undershoot = current;
+            fallback = Some(settlements);
+        }
+        let next = (overshoot.saturating_add(undershoot) / 2).clamp(min_cap, max_cap);
+        if next != current {
+            info!(
+                "Adjusted {}_fee_bps: {} -> {} (post_fee_pmpe {}, target {})",
+                if tuning_max { "max" } else { "min" },
+                current,
+                next,
+                post_fee,
+                target,
+            );
+            current = next;
+            continue;
+        }
+        // Active axis converged. If max_fee pinned at the feasible ceiling there is
+        // leftover budget; switch to raising min_fee. Otherwise done.
+        if tuning_max && feasible && current == max_cap {
+            adj_max = current;
+            tuning_max = false;
+            current = max_cap;
+            overshoot = min_cap;
+            undershoot = max_cap;
+            continue;
+        }
+        break;
+    }
+    Ok(BidSettlementValues {
+        settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
+        adj_max_fee_bps: if tuning_max { overshoot } else { adj_max },
+        adj_min_fee_bps: if tuning_max {
+            fc.min_fee_bps
+        } else {
+            overshoot
+        },
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn generate_bid_settlements_worker(
+    stake_meta_index: &StakeMetaIndex,
+    sam_validator_metas: &[ValidatorSamMeta],
+    rewards_collection: &RewardsCollection,
+    settlement_config: &SettlementConfig,
+    fee_config: &FeeConfig,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     ssr_pmpe: Decimal,
 ) -> anyhow::Result<Vec<Settlement>> {
     let epoch = stake_meta_index.stake_meta_collection.epoch;
@@ -109,12 +271,17 @@ pub fn generate_bid_settlements(
             // Compute totals in a single pass (no double iteration)
             let mut total_active_stake: u64 = 0;
             let mut total_marinade_active_stake: u64 = 0;
+            let mut total_marinade_redelegation_stake: u64 = 0;
             let mut total_marinade_activating_stake: u64 = 0;
             for ((_, stake_authority), metas) in &grouped_stake_metas {
                 for meta in metas.iter() {
                     total_active_stake += meta.active_delegation_lamports;
                     if stake_authority_filter(stake_authority) {
                         total_marinade_active_stake += meta.active_delegation_lamports;
+                        if !exiting_stake_authority_filter(stake_authority) {
+                            total_marinade_redelegation_stake +=
+                                meta.deactivating_delegation_lamports;
+                        }
                         if meta.activating_delegation_lamports > 0
                             && meta.active_delegation_lamports == 0
                         {
@@ -171,67 +338,20 @@ pub fn generate_bid_settlements(
                 ..
             }) = &validator.values
             {
-                let inflation_commission_in_bond_dec = commissions
-                    .inflation_commission_in_bond_dec
-                    .unwrap_or(Decimal::ONE);
-                let inflation_commission_onchain_dec = commissions.inflation_commission_onchain_dec;
-                ensure!(
-                    inflation_commission_onchain_dec <= Decimal::ONE,
-                    "Inflation commission validator {} onchain decimal {} cannot be greater than 1",
-                    validator.vote_account,
-                    inflation_commission_onchain_dec
-                );
-                if inflation_commission_onchain_dec > inflation_commission_in_bond_dec {
-                    let inflation_commission_diff =
-                        inflation_commission_onchain_dec - inflation_commission_in_bond_dec;
-                    ensure!(
-                        inflation_commission_diff >= Decimal::ZERO,
-                        "Inflation commission diff cannot be negative for validator {}",
-                        validator.vote_account
+                if let Some(in_bond) = commissions.inflation_commission_in_bond_dec {
+                    settlement_claim.inflation_commission_claim = marinade_inflation_rewards.mul(
+                        commission_eff(rewards.realized_inflation_commission_dec(), in_bond),
                     );
-                    settlement_claim.inflation_commission_claim =
-                        marinade_inflation_rewards.mul(inflation_commission_diff);
                 }
-                if let Some(mev_commission_in_bond_dec) = commissions.mev_commission_in_bond_dec {
-                    let mev_commission_onchain_dec = commissions
-                        .mev_commission_onchain_dec
-                        .unwrap_or(Decimal::ONE);
-                    if mev_commission_onchain_dec > mev_commission_in_bond_dec {
-                        let mev_commission_diff =
-                            mev_commission_onchain_dec - mev_commission_in_bond_dec;
-                        ensure!(
-                            mev_commission_diff >= Decimal::ZERO,
-                            "MEV commission diff cannot be negative for validator {}",
-                            validator.vote_account
-                        );
-                        settlement_claim.mev_commission_claim =
-                            marinade_mev_rewards.mul(mev_commission_diff);
-                    }
+                if let Some(in_bond) = commissions.mev_commission_in_bond_dec {
+                    settlement_claim.mev_commission_claim = marinade_mev_rewards.mul(
+                        commission_eff(rewards.realized_mev_commission_dec(), in_bond),
+                    );
                 }
-                if let Some(block_rewards_commission_in_bond_dec) =
-                    commissions.block_rewards_commission_in_bond_dec
-                {
-                    if rewards.block_rewards > 0 {
-                        // Use Decimal to avoid u64 underflow if jito_priority_fee_rewards > block_rewards
-                        let block_rewards_jito_commission_onchain_dec =
-                            (Decimal::from(rewards.block_rewards)
-                                - Decimal::from(rewards.jito_priority_fee_rewards))
-                                / Decimal::from(rewards.block_rewards);
-                        if block_rewards_jito_commission_onchain_dec
-                            > block_rewards_commission_in_bond_dec
-                        {
-                            let block_rewards_commission_diff =
-                                block_rewards_jito_commission_onchain_dec
-                                    - block_rewards_commission_in_bond_dec;
-                            ensure!(
-                                block_rewards_commission_diff >= Decimal::ZERO,
-                                "Block rewards commission diff cannot be negative for validator {}",
-                                validator.vote_account
-                            );
-                            settlement_claim.block_commission_claim =
-                                marinade_block_rewards.mul(block_rewards_commission_diff);
-                        }
-                    }
+                if let Some(in_bond) = commissions.block_rewards_commission_in_bond_dec {
+                    settlement_claim.block_commission_claim = marinade_block_rewards.mul(
+                        commission_eff(rewards.realized_block_commission_dec(), in_bond),
+                    );
                 }
             }
 
@@ -303,7 +423,8 @@ pub fn generate_bid_settlements(
             {
                 let target = ssr_pmpe + fee_config.min_yield_premium_over_ssr_pmpe;
                 let staker_yield_pmpe = total_marinade_stakers_rewards
-                    / Decimal::from(total_marinade_active_stake)
+                    / (Decimal::from(total_marinade_active_stake)
+                        + Decimal::from(total_marinade_redelegation_stake))
                     * Decimal::ONE_THOUSAND;
                 let fee_cap = (Decimal::ONE - target / staker_yield_pmpe).max(Decimal::ZERO);
                 fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
@@ -522,6 +643,7 @@ pub fn generate_bid_settlements(
             let settlement_details = BidSettlementDetails {
                 total_active_stake,
                 total_marinade_active_stake,
+                total_marinade_redelegation_stake,
                 auction_effective_static_bid: auction_effective_static_bid.to_string(),
                 marinade_stake_share: marinade_stake_share.to_string(),
                 marinade_inflation_rewards: marinade_inflation_rewards.to_string(),
@@ -540,6 +662,7 @@ pub fn generate_bid_settlements(
             let details_json = serde_json::to_value(&settlement_details)?;
 
             let priority_fee_details = PriorityFeeSettlementDetails {
+                total_marinade_active_stake,
                 total_marinade_activating_stake,
                 activating_stake_pmpe: validator
                     .rev_share
@@ -572,4 +695,15 @@ pub fn generate_bid_settlements(
         }
     }
     Ok(settlement_claim_collections)
+}
+
+// effective rate of the realized commission from snapshot rewards above the in-bond promise; the auction-time sam-meta value misses commission raised after the auction snapshot
+fn commission_eff(
+    commission_realized_dec: Option<Decimal>,
+    commission_in_bond_dec: Decimal,
+) -> Decimal {
+    match commission_realized_dec {
+        Some(realized) if realized > commission_in_bond_dec => realized - commission_in_bond_dec,
+        _ => Decimal::ZERO,
+    }
 }

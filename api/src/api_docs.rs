@@ -1,8 +1,7 @@
 use crate::dto::ValidatorBondRecordSchema;
-use crate::repositories::cli_usage::CliType;
 use crate::{
     dto::ProtectedEventRecord,
-    handlers::{bonds, cli_usage, docs, protected_events},
+    handlers::{bonds, docs, protected_events},
 };
 use settlement_common::{
     protected_events::ProtectedEvent,
@@ -33,9 +32,8 @@ use utoipa::{
         schemas(ProtectedEvent),
         schemas(bonds::BondsResponse),
         schemas(protected_events::ProtectedEventsResponse),
-        schemas(CliType),
     ),
-    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, protected_events::handler, cli_usage::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, protected_events::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;

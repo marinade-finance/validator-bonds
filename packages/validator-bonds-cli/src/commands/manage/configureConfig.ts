@@ -1,7 +1,9 @@
 import {
   computeUnitLimitOption,
   CONFIGURE_CONFIG_LIMIT_UNITS,
+  executeTxHandleErrors,
   getCliContext,
+  setProgramTelemetryFields,
   toBN,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -10,7 +12,6 @@ import {
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   instanceOfWallet,
   transaction,
   parsePubkey,
@@ -25,8 +26,9 @@ import type BN from 'bn.js'
 import type { Command } from 'commander'
 
 export function installConfigureConfig(program: Command) {
-  program
-    .command('configure-config')
+  setProgramTelemetryFields(program.command('configure-config'), {
+    accountField: 'config_account',
+  })
     .description('Configure existing config account.')
     .argument(
       '[config-address]',
@@ -196,7 +198,7 @@ async function manageConfigureConfig({
   })
   tx.add(instruction)
 
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to configure config account ${address.toBase58()}`,

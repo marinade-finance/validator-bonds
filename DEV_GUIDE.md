@@ -93,16 +93,23 @@ WHERE inner_type = 'announcement' AND id = <id>;
 
 ## CLI usage telemetry
 
-Every CLI invocation POSTs to
-[`/v1/cli-usage`](./api/src/handlers/cli_usage.rs) on the
-validator-bonds API; the write lands in the `cli_usage` table
-(schema in [migration 0005](./migrations/0005-add-cli-announcements.sql),
-which historically also carries the now-deprecated `cli_announcements` table).
-Fire-and-forget: the POST is never awaited by command logic and
-never affects exit status. It may, however, delay _process exit_
-by up to 1500ms (`CLI_USAGE_TIMEOUT_MS`) when the upstream accepts
-the connection but doesn't respond — the pending `fetch` keeps
-the Node event loop alive until the `AbortController` fires. TCP
-refusal / DNS failure resolve fast and don't hit this ceiling.
-CLI-side implementation:
+CLI invocations emit Mixpanel events via the shared
+[`mix-proxy.marinade.finance`](https://github.com/marinade-finance/ops-infra/blob/main/argocd/mixpanel-proxy/mixpanel-proxy.yaml)
+pass-through. Implementation in
 [`packages/validator-bonds-cli-core/src/cliUsage.ts`](./packages/validator-bonds-cli-core/src/cliUsage.ts).
+
+### Publishing
+
+The Mixpanel project token is baked into the published `dist/` of
+`@marinade.finance/validator-bonds-cli-core` by
+[`scripts/inject-mixpanel-token.js`](./scripts/inject-mixpanel-token.js),
+invoked from cli-core's `prepublishOnly` hook. The publish step **fails if
+`MIXPANEL_TOKEN` is unset**, so production CLIs always carry a valid token:
+
+```bash
+MIXPANEL_TOKEN=<project-token> pnpm publish:cli
+```
+
+Local builds (and ts-node runs from source) carry a placeholder that the
+runtime treats as "telemetry disabled", so dev work doesn't land in the
+production project.

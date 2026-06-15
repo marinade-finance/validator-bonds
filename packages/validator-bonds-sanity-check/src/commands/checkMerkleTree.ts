@@ -5,6 +5,7 @@ import {
 } from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
+  DECIMAL_ONE,
   DECIMAL_ZERO,
   calculateDescriptiveStats,
   detectAnomaly,
@@ -61,6 +62,14 @@ export function installCheckMerkleTree(program: Command) {
       'Minimum absolute deviation from historical mean (as ratio 0-1) required to flag anomaly.',
       d => new Decimal(d),
       new Decimal(0.05),
+    )
+    .option(
+      '--epoch-hop-threshold <ratio>',
+      'Maximum allowed epoch-over-epoch ratio (>=1) for guarded metrics. ' +
+        'Runs against the previous epoch (N-1) file picked from --past-merkle-trees. ' +
+        'Fails when current/previous > threshold or previous/current > threshold.',
+      d => new Decimal(d),
+      new Decimal(1.5),
     )
     .action(manageCheckMerkleTree)
 }
@@ -141,6 +150,7 @@ async function manageCheckMerkleTree({
   correlationThreshold,
   scoreThreshold,
   minAbsoluteDeviation,
+  epochHopThreshold,
 }: {
   merkleTrees: string
   settlementSources?: string[]
@@ -148,6 +158,7 @@ async function manageCheckMerkleTree({
   correlationThreshold: Decimal
   scoreThreshold: Decimal
   minAbsoluteDeviation: Decimal
+  epochHopThreshold: Decimal
 }) {
   const { logger } = getContext()
 
@@ -165,6 +176,11 @@ async function manageCheckMerkleTree({
   if (minAbsoluteDeviation.lessThan(0) || minAbsoluteDeviation.greaterThan(1)) {
     throw CliCommandError.instance(
       `minAbsoluteDeviation must be between 0 and 1, got ${minAbsoluteDeviation.toString()}`,
+    )
+  }
+  if (epochHopThreshold.lessThan(DECIMAL_ONE)) {
+    throw CliCommandError.instance(
+      `epochHopThreshold must be >= 1, got ${epochHopThreshold.toString()}`,
     )
   }
 
@@ -319,15 +335,45 @@ async function manageCheckMerkleTree({
       `Comparing against ${resolvedPaths.length} historical merkle tree file(s)...`,
     )
 
-    const historicalDtos: UnifiedMerkleTreesDto[] = []
+    const currentMetrics = extractMetrics(merkleTreesDto)
+
+    // Extract metrics per file and discard each large DTO before loading the next
+    // one; retaining all of them at once exhausts the heap on multi-GB inputs.
+    const historicalMetrics: MerkleTreeMetrics[] = []
+    let previousMetrics: MerkleTreeMetrics | undefined
     for (const pastPath of resolvedPaths) {
       logger.info(`Loading past merkle tree: ${pastPath}`)
       const dto = await loadAndValidateUnifiedMerkleTree(pastPath)
-      historicalDtos.push(dto)
+      const metrics = extractMetrics(dto)
+      historicalMetrics.push(metrics)
+      if (dto.epoch === merkleTreesDto.epoch - 1) {
+        previousMetrics = metrics
+      }
     }
 
-    const currentMetrics = extractMetrics(merkleTreesDto)
-    const historicalMetrics = historicalDtos.map(extractMetrics)
+    // Resolved paths can be unordered (glob/CLI order, mixed digit-length epochs);
+    // the recent-epochs heuristic relies on chronological order.
+    historicalMetrics.sort((a, b) => a.epoch - b.epoch)
+
+    // Epoch-over-epoch hop guardrail: stricter than the statistical check below,
+    // catches large N-1 -> N jumps that high-variance windows can dilute under z-score.
+    if (previousMetrics) {
+      const { violations, report } = checkEpochHopGuardrail({
+        currentMetrics,
+        previousMetrics,
+        hopThreshold: epochHopThreshold,
+      })
+      logger.info(report)
+      if (violations.length > 0) {
+        throw CliCommandError.instance(
+          `Epoch-over-epoch hop guardrail violated for ${violations.length} metric(s)`,
+        )
+      }
+    } else {
+      logger.warn(
+        `Skipping epoch hop guardrail: no past merkle tree for epoch ${merkleTreesDto.epoch - 1}`,
+      )
+    }
 
     const { anomalyDetected, report } = reportMerkleTreeAnomalies({
       currentMetrics,
@@ -438,6 +484,91 @@ export function reportMerkleTreeAnomalies({
   }
 
   return { anomalyDetected, stats, report }
+}
+
+export type HopGuardedField = 'totalClaimAmount' | 'avgClaimAmountPerValidator'
+
+export interface HopViolation {
+  field: HopGuardedField
+  currentValue: Decimal
+  previousValue: Decimal
+  ratio: Decimal
+  hopThreshold: Decimal
+}
+
+const HOP_GUARDED_FIELDS: HopGuardedField[] = [
+  'totalClaimAmount',
+  'avgClaimAmountPerValidator',
+]
+
+export function checkEpochHopGuardrail({
+  currentMetrics,
+  previousMetrics,
+  hopThreshold,
+}: {
+  currentMetrics: MerkleTreeMetrics
+  previousMetrics: MerkleTreeMetrics
+  hopThreshold: Decimal
+}): { violations: HopViolation[]; report: string } {
+  const violations: HopViolation[] = []
+  const lines: string[] = []
+
+  lines.push(
+    `\n=== Epoch ${currentMetrics.epoch} vs ${previousMetrics.epoch} Hop Guardrail (threshold: ${hopThreshold.toString()}x) ===`,
+  )
+
+  for (const field of HOP_GUARDED_FIELDS) {
+    const current = new Decimal(currentMetrics[field].toString())
+    const previous = new Decimal(previousMetrics[field].toString())
+
+    // Both zero: treat as no change.
+    if (current.isZero() && previous.isZero()) {
+      lines.push(`[✅] ${field}: both epochs are zero`)
+      continue
+    }
+
+    // Only one side is zero: any non-zero on the other side is an unbounded hop.
+    if (previous.isZero() || current.isZero()) {
+      lines.push(
+        `[⛔] ${field}: previous=${previous.toString()}, current=${current.toString()} (zero-baseline hop)`,
+      )
+      violations.push({
+        field,
+        currentValue: current,
+        previousValue: previous,
+        ratio: current.isZero() ? DECIMAL_ZERO : new Decimal(Infinity),
+        hopThreshold,
+      })
+      continue
+    }
+
+    const ratio = current.div(previous)
+    const inverseRatio = previous.div(current)
+    const exceeds =
+      ratio.greaterThan(hopThreshold) || inverseRatio.greaterThan(hopThreshold)
+    const status = exceeds ? '⛔' : '✅'
+    lines.push(
+      `[${status}] ${field}: previous=${previous.toString()}, current=${current.toString()}, ratio=${ratio.toFixed(4)}`,
+    )
+    if (exceeds) {
+      violations.push({
+        field,
+        currentValue: current,
+        previousValue: previous,
+        ratio,
+        hopThreshold,
+      })
+    }
+  }
+
+  lines.push(
+    'Status: ' +
+      (violations.length > 0
+        ? `⛔ HOP GUARDRAIL VIOLATED (${violations.length})`
+        : '✅ WITHIN ALLOWED HOP'),
+  )
+
+  return { violations, report: lines.join('\n') }
 }
 
 export function detectIndividualAnomaly({

@@ -44,4 +44,4 @@ fuzzing/
 
 # Testing
 regression-data*
-
+.tmp-mp-inject-*

@@ -2,11 +2,12 @@ import { CliCommandError } from '@marinade.finance/cli-common'
 import {
   RESET_STAKE_LIMIT_UNITS,
   computeUnitLimitOption,
+  executeTxHandleErrors,
   getCliContext,
+  setProgramTelemetryFields,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
-  executeTx,
   parsePubkey,
   parseWalletOrPubkeyOption,
   transaction,
@@ -17,8 +18,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function installResetStake(program: Command) {
-  program
-    .command('reset-stake')
+  setProgramTelemetryFields(program.command('reset-stake'), {
+    accountField: 'stake_account',
+  })
     .description(
       'Resetting stake that is not associated to a closed Settlement. ' +
         'The stake account is to be returned to Bond then used for funding another settlement.',
@@ -103,7 +105,7 @@ export async function manageResetStake({
   logger.info(
     `Resetting stake ${address.toBase58()} for closed settlement account ${settlement.toBase58()}`,
   )
-  await executeTx({
+  await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
     errMessage: `'Failed to reset stake ${address.toBase58()}`,

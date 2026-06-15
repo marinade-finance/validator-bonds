@@ -1,13 +1,13 @@
-use structopt::StructOpt;
+use clap::Args;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Args)]
 pub struct CommonStoreOptions {
-    #[structopt(long = "input-file")]
+    #[arg(long = "input-file")]
     pub input_path: String,
 
-    #[structopt(long = "postgres-url")]
+    #[arg(long = "postgres-url")]
     pub postgres_url: String,
 
-    #[structopt(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
+    #[arg(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
     pub postgres_ssl_root_cert: String,
 }

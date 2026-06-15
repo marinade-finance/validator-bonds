@@ -79,9 +79,15 @@ pub struct Settlement {
     pub details: Option<serde_json::Value>,
 }
 
-#[derive(Clone, Deserialize, Serialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug, Default)]
 pub struct SettlementCollection {
     pub slot: u64,
     pub epoch: u64,
     pub settlements: Vec<Settlement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adj_max_fee_bps: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adj_min_fee_bps: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssr_pmpe: Option<f64>,
 }

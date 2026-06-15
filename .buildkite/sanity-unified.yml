@@ -90,6 +90,8 @@ steps:
 
   - label: ":broom: :two: Sanity Check - Historical Comparison"
     key: "sanity-check-2"
+    env:
+      NODE_OPTIONS: "--max-old-space-size=12288"
     commands:
       - buildkite-agent artifact download --include-retried-jobs unified-merkle-trees.json .
       - buildkite-agent artifact download --include-retried-jobs 'past-merkle-trees/*.json' . || true
@@ -113,7 +115,8 @@ steps:
           --past-merkle-trees ./past-merkle-trees/*.json \
           --correlation-threshold 0.15 \
           --score-threshold 2.0 \
-          --min-absolute-deviation 0.05
+          --min-absolute-deviation 0.05 \
+          --epoch-hop-threshold 1.5
     soft_fail:
       - exit_status: "*"
 

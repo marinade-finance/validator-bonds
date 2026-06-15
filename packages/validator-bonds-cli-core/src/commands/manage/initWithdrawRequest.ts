@@ -18,6 +18,11 @@ import {
 import BN from 'bn.js'
 
 import {
+  recordAmountLamports,
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   INIT_WITHDRAW_REQUEST_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -39,8 +44,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureInitWithdrawRequest(program: Command): Command {
-  return program
-    .command('init-withdraw-request')
+  return setProgramTelemetryFields(program.command('init-withdraw-request'), {
+    accountField: 'account',
+  })
     .description(
       'Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup expires). ' +
         'The ticket reserves a specified amount of lamports to be claimed after the lockup period.',
@@ -154,8 +160,10 @@ export async function manageInitWithdrawRequest({
   let amountBN: BN
   if (amount === 'ALL') {
     amountBN = U64_MAX
+    recordAmountLamports('ALL')
   } else {
     amountBN = new BN(amount)
+    recordAmountLamports(amountBN.toString())
 
     // withdraw request may withdraw only if possible to create a separate stake account,
     // or when withdrawing whole stake account, the amount is greater to minimal stake account "size"
@@ -187,6 +195,12 @@ export async function manageInitWithdrawRequest({
       logger,
     })
   tx.add(instruction)
+  recordResolvedAccounts({
+    bondAccount,
+    voteAccount,
+    configAccount: config,
+    withdrawRequestAccount,
+  })
 
   logger.info(
     `Initializing withdraw request account ${withdrawRequestAccount.toBase58()}, bond: ${bondAccount.toBase58()}, ` +

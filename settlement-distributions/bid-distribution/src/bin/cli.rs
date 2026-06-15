@@ -1,7 +1,11 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
 use bid_distribution::generators::bidding::generate_bid_settlements;
-use bid_distribution::generators::psr_events::generate_psr_settlements;
-use bid_distribution::generators::sam_penalties::generate_penalty_settlements;
+use bid_distribution::generators::psr_events::{
+    calculate_total_psr_staker_claims, generate_psr_settlements,
+};
+use bid_distribution::generators::sam_penalties::{
+    calculate_total_penalties, generate_penalty_settlements,
+};
 use bid_distribution::rewards::load_rewards_from_directory;
 use bid_distribution::sam_meta::ValidatorSamMeta;
 use bid_distribution::settlement_config::BidDistributionConfig;
@@ -102,8 +106,70 @@ fn main() -> anyhow::Result<()> {
     let stake_meta_epoch = stake_meta_collection.epoch;
 
     let stake_authority_filter = bid_distribution_config.whitelist_stake_authorities_filter();
+    let exiting_stake_authority_filter = bid_distribution_config.exiting_stake_authorities_filter();
 
     let mut all_settlements = vec![];
+    let mut adj_max_fee_bps: Option<u64> = None;
+    let mut adj_min_fee_bps: Option<u64> = None;
+    let mut collection_ssr_pmpe: Option<f64> = None;
+
+    // ===== PSR Settlements (Protected Events) =====
+    let psr_configs = bid_distribution_config.psr_settlements();
+    let mut total_staker_psr_settlements = calculate_total_psr_staker_claims(&[]);
+
+    if !psr_configs.is_empty() {
+        info!("Generating PSR settlements...");
+
+        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "--validator-meta-collection is required when PSR settlement configs are present"
+            )
+        })?;
+        let revenue_path = args.revenue_expectation_collection.as_ref().ok_or_else(|| {
+            anyhow::anyhow!("--revenue-expectation-collection is required when PSR settlement configs are present")
+        })?;
+
+        info!("Loading validator meta collection...");
+        let validator_meta_collection: ValidatorMetaCollection =
+            read_from_json_file(validator_meta_path)
+                .map_err(file_error("validator-meta-collection", validator_meta_path))?;
+
+        info!("Loading revenue expectation meta collection...");
+        let revenue_expectation_meta_collection: RevenueExpectationMetaCollection =
+            read_from_json_file(revenue_path)
+                .map_err(file_error("revenue-expectation-collection", revenue_path))?;
+
+        info!("Generating protected event collection...");
+        let protected_event_collection = generate_protected_event_collection(
+            validator_meta_collection,
+            revenue_expectation_meta_collection,
+        );
+
+        // Output protected events if requested
+        if let Some(output_path) = &args.output_protected_event_collection {
+            info!("Writing protected events collection to {output_path}");
+            write_to_json_file(&protected_event_collection, output_path)
+                .map_err(file_error("output-protected-event-collection", output_path))?;
+        }
+
+        info!("Generating PSR settlements...");
+        let psr_settlements = generate_psr_settlements(
+            &stake_meta_index,
+            &protected_event_collection,
+            &stake_authority_filter,
+            &psr_configs,
+        )?;
+        info!("Generated {} PSR settlements", psr_settlements.len());
+        total_staker_psr_settlements = calculate_total_psr_staker_claims(&psr_settlements);
+        all_settlements.extend(psr_settlements);
+    } else {
+        // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
+        anyhow::ensure!(
+            args.validator_meta_collection.is_none()
+                && args.revenue_expectation_collection.is_none(),
+            "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
+        );
+    }
 
     // ===== SAM Settlements (Bidding + Penalties) =====
     let has_sam_configs = bid_distribution_config.bidding_config().is_some()
@@ -180,20 +246,6 @@ fn main() -> anyhow::Result<()> {
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
 
-        // Generate bid settlements
-        info!("Generating bid settlements...");
-        let bid_settlements = generate_bid_settlements(
-            &stake_meta_index,
-            &sam_validator_metas,
-            &rewards_collection,
-            bidding_config,
-            &bid_distribution_config.fee_config,
-            &*stake_authority_filter,
-            ssr_pmpe,
-        )?;
-        info!("Generated {} bid settlements", bid_settlements.len());
-        all_settlements.extend(bid_settlements);
-
         // Generate penalty settlements
         info!("Generating penalty settlements...");
         let penalty_settlements = generate_penalty_settlements(
@@ -209,68 +261,32 @@ fn main() -> anyhow::Result<()> {
             "Generated {} penalty settlements",
             penalty_settlements.len()
         );
+        let total_staker_penalties = calculate_total_penalties(&penalty_settlements);
         all_settlements.extend(penalty_settlements);
+
+        // Generate bid settlements
+        info!("Generating bid settlements...");
+        let bid = generate_bid_settlements(
+            &stake_meta_index,
+            &sam_validator_metas,
+            &rewards_collection,
+            bidding_config,
+            &bid_distribution_config.fee_config,
+            &*stake_authority_filter,
+            &*exiting_stake_authority_filter,
+            ssr_pmpe,
+            total_staker_penalties + total_staker_psr_settlements,
+        )?;
+        info!("Generated {} bid settlements", bid.settlements.len());
+        adj_max_fee_bps = Some(bid.adj_max_fee_bps);
+        adj_min_fee_bps = Some(bid.adj_min_fee_bps);
+        collection_ssr_pmpe = Some(f64::try_from(ssr_pmpe).unwrap_or(0.0));
+        all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(
             args.sam_meta_collection.is_none() && args.rewards_dir.is_none(),
             "SAM inputs (--sam-meta-collection, --rewards-dir) provided but no SAM settlement configs found in config file"
-        );
-    }
-
-    // ===== PSR Settlements (Protected Events) =====
-    let psr_configs = bid_distribution_config.psr_settlements();
-
-    if !psr_configs.is_empty() {
-        info!("Generating PSR settlements...");
-
-        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "--validator-meta-collection is required when PSR settlement configs are present"
-            )
-        })?;
-        let revenue_path = args.revenue_expectation_collection.as_ref().ok_or_else(|| {
-            anyhow::anyhow!("--revenue-expectation-collection is required when PSR settlement configs are present")
-        })?;
-
-        info!("Loading validator meta collection...");
-        let validator_meta_collection: ValidatorMetaCollection =
-            read_from_json_file(validator_meta_path)
-                .map_err(file_error("validator-meta-collection", validator_meta_path))?;
-
-        info!("Loading revenue expectation meta collection...");
-        let revenue_expectation_meta_collection: RevenueExpectationMetaCollection =
-            read_from_json_file(revenue_path)
-                .map_err(file_error("revenue-expectation-collection", revenue_path))?;
-
-        info!("Generating protected event collection...");
-        let protected_event_collection = generate_protected_event_collection(
-            validator_meta_collection,
-            revenue_expectation_meta_collection,
-        );
-
-        // Output protected events if requested
-        if let Some(output_path) = &args.output_protected_event_collection {
-            info!("Writing protected events collection to {output_path}");
-            write_to_json_file(&protected_event_collection, output_path)
-                .map_err(file_error("output-protected-event-collection", output_path))?;
-        }
-
-        info!("Generating PSR settlements...");
-        let psr_settlements = generate_psr_settlements(
-            &stake_meta_index,
-            &protected_event_collection,
-            &stake_authority_filter,
-            &psr_configs,
-        )?;
-        info!("Generated {} PSR settlements", psr_settlements.len());
-        all_settlements.extend(psr_settlements);
-    } else {
-        // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
-        anyhow::ensure!(
-            args.validator_meta_collection.is_none()
-                && args.revenue_expectation_collection.is_none(),
-            "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
         );
     }
 
@@ -282,6 +298,9 @@ fn main() -> anyhow::Result<()> {
         slot: stake_meta_collection.slot,
         epoch: stake_meta_collection.epoch,
         settlements: all_settlements,
+        adj_max_fee_bps,
+        adj_min_fee_bps,
+        ssr_pmpe: collection_ssr_pmpe,
     };
 
     info!(

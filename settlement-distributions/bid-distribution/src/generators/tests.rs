@@ -1,6 +1,8 @@
-use crate::generators::bidding::generate_bid_settlements;
+use crate::generators::bidding::{
+    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementDetails,
+};
 use crate::generators::psr_events::generate_psr_settlements;
-use crate::generators::sam_penalties::generate_penalty_settlements;
+use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
@@ -84,6 +86,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
             .mev(500_000_000)
             .block_rewards(300_000_000)
             .jito(100_000_000)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
 
@@ -103,9 +106,12 @@ fn test_generate_bid_settlements_basic_single_validator() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // -- VERIFY
     assert!(!settlements.is_empty(), "Should generate settlements");
@@ -186,6 +192,7 @@ fn test_generate_bid_settlements_positive_commission() {
             .inflation(10 * LAMPORTS_PER_SOL)
             .mev(5 * LAMPORTS_PER_SOL)
             .block_rewards(2 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.15, 0.15)
             .build(),
     );
 
@@ -204,9 +211,12 @@ fn test_generate_bid_settlements_positive_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements.is_empty());
     assert!(
@@ -315,6 +325,7 @@ fn test_generate_bid_settlements_negative_commission() {
             .mev(mev_rewards)
             .block_rewards(block_rewards)
             .jito(jito_rewards)
+            .onchain_commissions(on_chain_commission, on_chain_commission)
             .build(),
     );
     rewards_map.insert(
@@ -343,9 +354,12 @@ fn test_generate_bid_settlements_negative_commission() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // -- VERIFY
     let marinade_inflation_rewards = (Decimal::from(inflation_rewards) * marinade_delegation_share)
@@ -468,6 +482,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         vote_account,
         RewardsParams::new(vote_account)
             .inflation(10 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection1 = RewardsCollection {
@@ -480,6 +495,7 @@ fn test_generate_bid_settlements_varying_rewards() {
         vote_account,
         RewardsParams::new(vote_account)
             .mev(10 * LAMPORTS_PER_SOL)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection2 = RewardsCollection {
@@ -495,6 +511,7 @@ fn test_generate_bid_settlements_varying_rewards() {
             .mev(3 * LAMPORTS_PER_SOL)
             .block_rewards(2 * LAMPORTS_PER_SOL)
             .jito(500_000_000)
+            .onchain_commissions(0.10, 0.10)
             .build(),
     );
     let rewards_collection3 = RewardsCollection {
@@ -526,9 +543,12 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let settlements2 = generate_bid_settlements(
         &stake_meta_index,
@@ -537,9 +557,12 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let settlements3 = generate_bid_settlements(
         &stake_meta_index,
@@ -548,9 +571,12 @@ fn test_generate_bid_settlements_varying_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements1.is_empty());
     assert!(!settlements2.is_empty());
@@ -810,14 +836,186 @@ fn test_zero_rewards() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(!settlements.is_empty());
     assert!(
         settlements[0].claims_amount > 0,
         "Should have claims from static bid even with zero rewards"
+    );
+}
+
+#[test]
+fn test_commission_raised_after_auction_charged_from_rewards() {
+    // auction snapshot saw 0% onchain commission but rewards were distributed at 5%/8%;
+    // the claim has to follow the snapshot rewards, not the auction-time sam-meta value
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                test_stake_authority(1),
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(100),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let commissions = CommissionParams::new(0.0, 0.0).as_commission_details();
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .auction_values(commissions)
+        .build();
+
+    let inflation_rewards = 20 * LAMPORTS_PER_SOL;
+    let mev_rewards = 10 * LAMPORTS_PER_SOL;
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(
+        vote_account,
+        RewardsParams::new(vote_account)
+            .inflation(inflation_rewards)
+            .mev(mev_rewards)
+            .onchain_commissions(0.05, 0.08)
+            .build(),
+    );
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &[sam_meta],
+        &rewards_collection,
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &accept_all,
+        &|_| false,
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .unwrap()
+    .settlements;
+
+    assert_eq!(settlements.len(), 1);
+    let details = settlements[0].details.as_ref().unwrap();
+    let inflation_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["inflation_commission_claim"].clone())
+            .unwrap();
+    let mev_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["mev_commission_claim"].clone())
+            .unwrap();
+    // distinct per-type rates kept onchain above the 0% in-bond promise
+    assert_eq!(
+        inflation_claim,
+        Decimal::from(inflation_rewards) * Decimal::from_str("0.05").unwrap(),
+        "Inflation claim must cover the commission raised after the auction snapshot"
+    );
+    assert_eq!(
+        mev_claim,
+        Decimal::from(mev_rewards) * Decimal::from_str("0.08").unwrap(),
+        "MEV claim must cover the commission raised after the auction snapshot"
+    );
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    assert_eq!(
+        block_claim,
+        Decimal::ZERO,
+        "No block rewards in this test, the zero claim is intentional"
+    );
+}
+
+#[test]
+fn test_negative_block_commission_charged_against_negative_in_bond() {
+    // jito distributed more than the gross block rewards -> derived onchain commission is negative;
+    // the claim covers only the gap above the (also negative) in-bond commission
+    let epoch = 100;
+    let vote_account = test_vote_account(1);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                test_stake_authority(1),
+                100 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta(
+                test_stake_account(100),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let commissions = CommissionParams::new(0.0, -0.6).as_commission_details();
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .auction_values(commissions)
+        .build();
+
+    let block_rewards = 2 * LAMPORTS_PER_SOL;
+    let jito_rewards = 3 * LAMPORTS_PER_SOL;
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(
+        vote_account,
+        RewardsParams::new(vote_account)
+            .block_rewards(block_rewards)
+            .jito(jito_rewards)
+            .build(),
+    );
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &[sam_meta],
+        &rewards_collection,
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &accept_all,
+        &|_| false,
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .unwrap()
+    .settlements;
+
+    assert_eq!(settlements.len(), 1);
+    let details = settlements[0].details.as_ref().unwrap();
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    // derived onchain commission (2 - 3) / 2 = -0.5; in-bond -0.6 -> charge the 0.1 gap (accept_all -> share 1)
+    assert_eq!(
+        block_claim,
+        Decimal::from(block_rewards) * Decimal::from_str("0.1").unwrap(),
+        "Block claim must charge the gap between negative onchain and negative in-bond commission"
     );
 }
 
@@ -869,9 +1067,12 @@ fn test_activating_bid_charge_basic() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     let expected_activating_charge: u64 = 200_000_000; // 0.2 SOL in lamports
@@ -932,9 +1133,12 @@ fn test_activating_bid_charge_with_active_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 2);
     let total: u64 = settlements.iter().map(|s| s.claims_amount).sum();
@@ -990,9 +1194,12 @@ fn test_activating_bid_charge_non_marinade_excluded() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // No charges at all: static_bid=0 and non-marinade activating doesn't contribute → no settlement
     assert!(
@@ -1037,9 +1244,12 @@ fn test_activating_bid_charge_absent_when_no_field() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(
         settlements.is_empty(),
@@ -1088,9 +1298,12 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1);
     // Only static_bid on 2 SOL active: 50/1000 * 2 SOL = 0.1 SOL = 100_000_000 lamports
@@ -1153,9 +1366,12 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(1000, 5000),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // Only activating stake → one PriorityFee settlement (no active stakers, no Bidding settlement)
     assert_eq!(settlements.len(), 1);
@@ -1219,27 +1435,23 @@ const TEST_PUBKEY_DAO: Pubkey = Pubkey::new_from_array([
 #[derive(Default)]
 struct CommissionParams {
     inflation_final: Decimal,
-    inflation_onchain: Decimal,
     inflation_in_bond: Option<Decimal>,
     mev_final: Decimal,
-    mev_onchain: Option<Decimal>,
     mev_in_bond: Option<Decimal>,
     block_rewards_final: Decimal,
     block_rewards_in_bond: Option<Decimal>,
 }
 
 impl CommissionParams {
-    fn new(onchain: f64, in_bond: f64) -> Self {
-        let onchain_dec = Decimal::try_from(onchain).unwrap();
+    fn new(final_commission: f64, in_bond: f64) -> Self {
+        let final_dec = Decimal::try_from(final_commission).unwrap();
         let bonds_dec = Decimal::try_from(in_bond).unwrap();
         Self {
-            inflation_final: onchain_dec,
-            inflation_onchain: onchain_dec,
+            inflation_final: final_dec,
             inflation_in_bond: Some(bonds_dec),
-            mev_final: onchain_dec,
-            mev_onchain: Some(onchain_dec),
+            mev_final: final_dec,
             mev_in_bond: Some(bonds_dec),
-            block_rewards_final: onchain_dec,
+            block_rewards_final: final_dec,
             block_rewards_in_bond: Some(bonds_dec),
         }
     }
@@ -1249,10 +1461,8 @@ impl CommissionParams {
             inflation_commission_dec: self.inflation_final,
             mev_commission_dec: self.mev_final,
             block_rewards_commission_dec: self.block_rewards_final,
-            inflation_commission_onchain_dec: self.inflation_onchain,
             inflation_commission_in_bond_dec: self.inflation_in_bond,
             inflation_commission_override_dec: None,
-            mev_commission_onchain_dec: self.mev_onchain,
             mev_commission_in_bond_dec: self.mev_in_bond,
             mev_commission_override_dec: None,
             block_rewards_commission_in_bond_dec: self.block_rewards_in_bond,
@@ -1299,6 +1509,26 @@ fn create_stake_meta(
         balance_lamports: active_delegation_lamports,
         activating_delegation_lamports: 0,
         deactivating_delegation_lamports: 0,
+    }
+}
+
+fn create_stake_meta_with_deactivating(
+    pubkey: Pubkey,
+    validator: Pubkey,
+    withdraw_authority: Pubkey,
+    stake_authority: Pubkey,
+    active_delegation_lamports: u64,
+    deactivating_delegation_lamports: u64,
+) -> StakeMeta {
+    StakeMeta {
+        pubkey,
+        validator: Some(validator),
+        withdraw_authority,
+        stake_authority,
+        active_delegation_lamports,
+        balance_lamports: active_delegation_lamports,
+        activating_delegation_lamports: 0,
+        deactivating_delegation_lamports,
     }
 }
 
@@ -1466,6 +1696,8 @@ struct RewardsParams {
     mev_rewards: u64,
     block_rewards: u64,
     jito_priority_fee_rewards: u64,
+    onchain_inflation_commission: f64,
+    onchain_mev_commission: f64,
 }
 
 impl RewardsParams {
@@ -1476,6 +1708,8 @@ impl RewardsParams {
             mev_rewards: 0,
             block_rewards: 0,
             jito_priority_fee_rewards: 0,
+            onchain_inflation_commission: 1.0,
+            onchain_mev_commission: 1.0,
         }
     }
 
@@ -1499,9 +1733,26 @@ impl RewardsParams {
         self
     }
 
+    // commission actually applied when rewards were distributed; stakers' parts are derived from it
+    fn onchain_commissions(mut self, inflation: f64, mev: f64) -> Self {
+        self.onchain_inflation_commission = inflation;
+        self.onchain_mev_commission = mev;
+        self
+    }
+
     fn build(self) -> VoteAccountRewards {
         let total_amount = self.inflation_rewards + self.mev_rewards + self.block_rewards;
-        let validators_total_amount = total_amount - self.jito_priority_fee_rewards;
+        let stakers_inflation_rewards = (Decimal::from(self.inflation_rewards)
+            * (Decimal::ONE - Decimal::try_from(self.onchain_inflation_commission).unwrap()))
+        .to_u64()
+        .unwrap();
+        let stakers_mev_rewards = (Decimal::from(self.mev_rewards)
+            * (Decimal::ONE - Decimal::try_from(self.onchain_mev_commission).unwrap()))
+        .to_u64()
+        .unwrap();
+        let validators_total_amount = total_amount.saturating_sub(
+            stakers_inflation_rewards + stakers_mev_rewards + self.jito_priority_fee_rewards,
+        );
         VoteAccountRewards {
             vote_account: self.vote_account,
             total_amount,
@@ -1510,10 +1761,12 @@ impl RewardsParams {
             block_rewards: self.block_rewards,
             jito_priority_fee_rewards: self.jito_priority_fee_rewards,
             validators_total_amount,
-            stakers_inflation_rewards: 0,
-            stakers_mev_rewards: 0,
-            stakers_priority_fee_rewards: 0,
-            stakers_total_amount: 0,
+            stakers_inflation_rewards,
+            stakers_mev_rewards,
+            stakers_priority_fee_rewards: self.jito_priority_fee_rewards,
+            stakers_total_amount: stakers_inflation_rewards
+                + stakers_mev_rewards
+                + self.jito_priority_fee_rewards,
         }
     }
 }
@@ -1648,6 +1901,7 @@ fn test_generate_settlements_from_json_values() {
             .mev(5 * LAMPORTS_PER_SOL)
             .block_rewards(3 * LAMPORTS_PER_SOL)
             .jito(LAMPORTS_PER_SOL)
+            .onchain_commissions(0.08, 0.12)
             .build(),
     );
 
@@ -1667,9 +1921,12 @@ fn test_generate_settlements_from_json_values() {
         &settlement_config,
         &fee_config,
         &accept_all,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert!(
         !settlements.is_empty(),
@@ -1687,10 +1944,6 @@ fn test_generate_settlements_from_json_values() {
 
     let values = sam_meta.values.as_ref().unwrap();
     let commissions = values.commissions.as_ref().unwrap();
-    assert_eq!(
-        commissions.inflation_commission_onchain_dec,
-        Decimal::from_str("0.08").unwrap()
-    );
     assert_eq!(
         commissions.inflation_commission_in_bond_dec,
         Some(Decimal::from_str("0.03").unwrap())
@@ -1711,6 +1964,23 @@ fn test_generate_settlements_from_json_values() {
         Decimal::from(500_000_000u64),
         "activating charge must be exactly 0.5 SOL (500_000_000 lamports)"
     );
+
+    // distinct per-type inputs pin commission claim wiring: any inflation/mev/block mix-up fails
+    let inflation_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["inflation_commission_claim"].clone())
+            .unwrap();
+    let mev_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["mev_commission_claim"].clone())
+            .unwrap();
+    let block_claim: Decimal =
+        serde_json::from_value(details["settlement_claims"]["block_commission_claim"].clone())
+            .unwrap();
+    // inflation: 10 SOL * (realized 0.08 - in_bond 0.03)
+    assert_eq!(inflation_claim, Decimal::from(500_000_000u64));
+    // mev: 5 SOL * (realized 0.12 - in_bond 0.05)
+    assert_eq!(mev_claim, Decimal::from(350_000_000u64));
+    // block: 3 SOL * (realized (3-1)/3 - in_bond 0.10) = 1.7 SOL, rounded to whole lamports
+    assert_eq!(block_claim.round(), Decimal::from(1_700_000_000u64));
 }
 
 // --- PSR (Protected Staking Rewards) settlement tests ---
@@ -2335,9 +2605,12 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
+    .settlements
 }
 
 #[test]
@@ -2403,9 +2676,12 @@ fn test_bid_both_active_and_activating_stakers() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     // Both Bidding (active stakers) and PriorityFee (activating stakers) must be produced
     assert_eq!(settlements.len(), 2, "should produce 2 settlements");
@@ -2492,9 +2768,12 @@ fn test_bid_only_activating_no_active_marinade_stake() {
         &create_test_settlement_config(),
         &create_test_fee_config(0, 0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::ZERO,
         Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(settlements.len(), 1, "only PriorityFee settlement expected");
     assert!(
@@ -2603,9 +2882,12 @@ fn run_ssr_test_with_pmpe(
         &create_test_settlement_config(),
         &fee_config,
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(ssr_pmpe).unwrap(),
+        Decimal::ZERO,
     )
     .unwrap()
+    .settlements
 }
 
 #[test]
@@ -2624,13 +2906,14 @@ fn test_ssr_premium_positive_tightens_fee_cap() {
 #[test]
 fn test_ssr_premium_negative_loosens_fee_cap() {
     // staker_yield_pmpe=20, ssi/ssr=15, premium=-0.05 → target=14.95, fee_cap=1-14.95/20=0.2525
-    // configured max=0.30 → effective=0.2525 → 20 SOL * 0.2525 = 5.05 SOL
+    // The bisection feasibility uses the same target (ssr+premium=14.95), so the loosened
+    // per-validator cap holds: effective_fee=0.2525 → fees = 20*0.2525 = 5.05 SOL.
     let settlements = run_ssr_test(15.0, ssr_fee_config(3000, 0, -0.05));
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
     assert_eq!(
         marinade_fee, 5_050_000_000,
-        "negative premium must loosen fee cap to 0.2525"
+        "negative premium loosens fee cap to 0.2525; global target (14.95) matches"
     );
 }
 
@@ -2731,9 +3014,12 @@ fn test_ssr_mixed_active_and_activating_stake() {
         &create_test_settlement_config(),
         &ssr_fee_config(5000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(28.0).unwrap(),
+        Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     assert_eq!(
         settlements.len(),
@@ -2765,16 +3051,11 @@ fn test_ssr_mixed_active_and_activating_stake() {
 }
 
 #[test]
-fn test_ssr_activating_only_falls_back_to_max_fee() {
-    // active=0, activating=5 SOL. ssr_pmpe=Some(15.0), but guard total_marinade_active_stake>0
-    // fails → effective_fee falls back to max_fee=0.30.
-    // static_bid=0, activating_stake_pmpe=100 (high so 5 SOL activating produces a clean
-    // 0.5 SOL claim) → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
-    // settlement_claim.sum() = 0.5 SOL = 500_000_000 lamports
-    // distributor_fee = min(0.5 * 0.30, 0.5) = 0.15 SOL = 150_000_000 lamports
-    // Note: if the active_stake>0 guard were removed, the SSI/SSR branch would attempt
-    // staker_yield_pmpe = rewards / 0 * 1000 and panic — so a passing run here
-    // confirms the guard is what dispatched the fallback.
+fn test_ssr_activating_only_uses_min_fee() {
+    // active=0, activating=5 SOL. No active stake → PMPE is unmeasurable → never
+    // feasible → max_fee bisects toward 0, leaving a negligible fee (a few bps),
+    // so stakers receive essentially all of the 0.5 SOL activating_bid_claim.
+    // static_bid=0, activating_stake_pmpe=100 → activating_bid_claim = 100/1000 * 5 SOL = 0.5 SOL
     let epoch = 100;
     let vote_account = test_vote_account(13);
 
@@ -2809,18 +3090,21 @@ fn test_ssr_activating_only_falls_back_to_max_fee() {
         &create_test_settlement_config(),
         &ssr_fee_config(3000, 0, 0.0),
         &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
         Decimal::try_from(15.0).unwrap(),
+        Decimal::ZERO,
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
-    assert!(
-        marinade_fee.abs_diff(150_000_000) <= 1,
-        "marinade_fee {marinade_fee} ≠ ~150_000_000 (max_fee=0.30 fallback when active stake==0)"
-    );
     let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
-    assert_eq!(dao_fee, 0, "dao share is 0 in ssr_fee_config");
+    assert!(
+        marinade_fee + dao_fee < LAMPORTS_PER_SOL / 100,
+        "no active stake → negligible fee, got {}",
+        marinade_fee + dao_fee
+    );
 }
 
 #[test]
@@ -2875,4 +3159,308 @@ fn test_psr_epoch_mismatch_returns_error() {
     );
 
     assert!(result.is_err(), "epoch mismatch must return an error");
+}
+
+fn make_bid_settlement(stake: u64, rewards: &str, fee: u64) -> Settlement {
+    make_bid_settlement_for(Pubkey::default(), stake, rewards, fee)
+}
+
+fn make_bid_settlement_for(
+    vote_account: Pubkey,
+    stake: u64,
+    rewards: &str,
+    fee: u64,
+) -> Settlement {
+    Settlement {
+        reason: SettlementReason::Bidding,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account,
+        claims_count: 0,
+        claims_amount: 0,
+        claims: vec![],
+        details: Some(json!({
+            "total_active_stake": stake,
+            "total_marinade_active_stake": stake,
+            "total_marinade_redelegation_stake": 0u64,
+            "auction_effective_static_bid": "0",
+            "marinade_stake_share": "1",
+            "marinade_inflation_rewards": "0",
+            "marinade_mev_rewards": "0",
+            "marinade_block_rewards": "0",
+            "total_marinade_stakers_rewards": rewards,
+            "settlement_claims": {},
+            "stakers_total_claim": 0,
+            "marinade_fee_claim": fee,
+            "dao_fee_claim": 0,
+        })),
+    }
+}
+
+fn make_priority_fee_settlement(vote_account: Pubkey, fee: u64) -> Settlement {
+    Settlement {
+        reason: SettlementReason::PriorityFee,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account,
+        claims_count: 0,
+        claims_amount: 0,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_active_stake": 0,
+            "total_marinade_activating_stake": 0,
+            "activating_stake_pmpe": "0",
+            "activating_bid_claim": "0",
+            "activating_stakers_pool": 0,
+            "marinade_fee_claim": fee,
+            "dao_fee_claim": 0,
+        })),
+    }
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_sums_bidding() {
+    let settlements = vec![
+        make_bid_settlement_for(test_vote_account(1), 1_000_000, "500", 50),
+        make_bid_settlement_for(test_vote_account(2), 2_000_000, "1000", 100),
+    ];
+    let totals = calculate_bid_settlement_totals(&settlements);
+    assert_eq!(totals.stake, Decimal::from(3_000_000));
+    assert_eq!(totals.rewards, Decimal::from(1500));
+    assert_eq!(totals.fees, Decimal::from(150));
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_skips_non_bidding() {
+    let mut other = make_bid_settlement(1_000_000, "500", 50);
+    other.reason = SettlementReason::BidTooLowPenalty;
+    let totals = calculate_bid_settlement_totals(&[other]);
+    assert!(totals.stake.is_zero());
+    assert!(totals.rewards.is_zero());
+    assert!(totals.fees.is_zero());
+}
+
+#[test]
+fn test_calculate_bid_settlement_totals_includes_priority_fees() {
+    let vote = test_vote_account(1);
+    let settlements = vec![
+        make_bid_settlement_for(vote, 1_000_000, "1000", 30),
+        make_priority_fee_settlement(vote, 50),
+    ];
+    let totals = calculate_bid_settlement_totals(&settlements);
+    assert_eq!(totals.fees, Decimal::from(80));
+}
+
+// --- redelegation_stake / exiting_stake_authorities tests ---
+
+const TEST_EXITING_SA: Pubkey = Pubkey::new_from_array([
+    99, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+]);
+
+fn make_simple_sam_meta(vote_account: Pubkey, epoch: u32, bid_pmpe: f64) -> ValidatorSamMeta {
+    SamMetaParams::new(vote_account, epoch)
+        .bid_pmpe(bid_pmpe)
+        .build()
+}
+
+#[test]
+fn test_redelegation_stake_included_in_settlement_details() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![create_stake_meta_with_deactivating(
+            test_stake_account(1),
+            vote_account,
+            TEST_PUBKEY_MARINADE,
+            TEST_PUBKEY_MARINADE,
+            active,
+            deactivating,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false, // no exiting authorities
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .unwrap()
+    .settlements;
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active);
+    assert_eq!(details.total_marinade_redelegation_stake, deactivating);
+}
+
+#[test]
+fn test_exiting_authority_excluded_from_redelegation_stake() {
+    let epoch = 100u64;
+    let vote_account = test_vote_account(1);
+    let active = 1_000 * LAMPORTS_PER_SOL;
+    let deactivating = 200 * LAMPORTS_PER_SOL;
+
+    // Deactivating stake under the exiting authority should not count as redelegation
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                TEST_PUBKEY_MARINADE,
+                TEST_PUBKEY_MARINADE,
+                active,
+            ),
+            create_stake_meta_with_deactivating(
+                test_stake_account(2),
+                vote_account,
+                TEST_EXITING_SA,
+                TEST_EXITING_SA,
+                deactivating,
+                deactivating,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+    let sam_meta = make_simple_sam_meta(vote_account, epoch as u32, 1.0);
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: HashMap::new(),
+    };
+    let fee_config = create_test_fee_config(0, 0);
+    let settlement_config = create_test_settlement_config();
+
+    let settlements = generate_bid_settlements(
+        &stake_meta_index,
+        &vec![sam_meta],
+        &rewards_collection,
+        &settlement_config,
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE || *pk == TEST_EXITING_SA,
+        &|pk: &Pubkey| *pk == TEST_EXITING_SA, // exiting authority: deactivating excluded
+        Decimal::ZERO,
+        Decimal::ZERO,
+    )
+    .unwrap()
+    .settlements;
+
+    assert_eq!(settlements.len(), 1);
+    let details: BidSettlementDetails =
+        serde_json::from_value(settlements[0].details.clone().unwrap()).unwrap();
+    assert_eq!(details.total_marinade_active_stake, active + deactivating);
+    assert_eq!(details.total_marinade_redelegation_stake, 0);
+}
+
+fn run_ssr_test_with_penalties(
+    ssr_pmpe: f64,
+    fee_config: FeeConfig,
+    total_staker_penalties: Decimal,
+) -> Vec<Settlement> {
+    let (collection, vote_account) = ssr_stake_meta_index();
+    let index = StakeMetaIndex::new(&collection);
+    let sam_meta = ssr_sam_meta(vote_account, 20.0, 20.0);
+    generate_bid_settlements(
+        &index,
+        &vec![sam_meta],
+        &RewardsCollection {
+            epoch: 100,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &fee_config,
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::try_from(ssr_pmpe).unwrap(),
+        total_staker_penalties,
+    )
+    .unwrap()
+    .settlements
+}
+
+#[test]
+fn test_calculate_total_penalties_uses_claims_amount() {
+    // All penalty types use claims_amount directly (9_999 + 9_999 = 19_998).
+    let blacklist = Settlement {
+        reason: SettlementReason::BlacklistPenalty,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account: test_vote_account(1),
+        claims_count: 0,
+        claims_amount: 9_999,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_active_stake": 0,
+            "effective_sam_marinade_active_stake": 0,
+            "blacklist_penalty_pmpe": "0",
+            "blacklist_penalty_total_claim": "0",
+            "stakers_blacklist_penalty_claim": 500,
+        })),
+    };
+    let bid_too_low = Settlement {
+        reason: SettlementReason::BidTooLowPenalty,
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        vote_account: test_vote_account(2),
+        claims_count: 0,
+        claims_amount: 9_999,
+        claims: vec![],
+        details: Some(json!({
+            "total_marinade_active_stake": 0,
+            "effective_sam_marinade_active_stake": 0,
+            "bid_too_low_penalty_pmpe": "0",
+            "bid_too_low_penalty_total_claim": "0",
+            "distributor_bid_too_low_penalty_claim": 300,
+            "stakers_bid_too_low_penalty_claim": 700,
+            "dao_bid_too_low_penalty_claim": 0,
+            "marinade_bid_too_low_penalty_claim": 300,
+        })),
+    };
+    let total = calculate_total_penalties(&[blacklist, bid_too_low]);
+    assert_eq!(total, Decimal::from(9_999 + 9_999));
+}
+
+#[test]
+fn test_penalties_raise_feasible_fee() {
+    // yield=20, ssr=19.5 → per-validator cap pins effective_fee at 0.025, and the
+    // global floor leaves no room for min_fee. Penalties redistributed to stakers
+    // add headroom, so the bisection keeps a strictly higher fee.
+    let no_penalty = run_ssr_test_with_penalties(19.5, ssr_fee_config(3000, 0, 0.0), Decimal::ZERO);
+    let with_penalty = run_ssr_test_with_penalties(
+        19.5,
+        ssr_fee_config(3000, 0, 0.0),
+        Decimal::from(50 * LAMPORTS_PER_SOL),
+    );
+    let fee = |s: &[Settlement]| {
+        sum_claims_for_authority(s, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+    };
+    assert!(
+        fee(&with_penalty) > fee(&no_penalty),
+        "penalty headroom must let the bisection keep a higher fee: {} vs {}",
+        fee(&with_penalty),
+        fee(&no_penalty),
+    );
 }

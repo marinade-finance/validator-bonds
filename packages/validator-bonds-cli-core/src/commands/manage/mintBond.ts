@@ -7,6 +7,10 @@ import {
 } from '@marinade.finance/web3js-1x'
 
 import {
+  recordResolvedAccounts,
+  setProgramTelemetryFields,
+} from '../../cliUsage'
+import {
   MINT_BOND_LIMIT_UNITS,
   computeUnitLimitOption,
 } from '../../computeUnits'
@@ -21,8 +25,9 @@ import type { PublicKey, Signer } from '@solana/web3.js'
 import type { Command } from 'commander'
 
 export function configureMintBond(program: Command) {
-  return program
-    .command('mint-bond')
+  return setProgramTelemetryFields(program.command('mint-bond'), {
+    accountField: 'account',
+  })
     .description(
       'Mint a Validator Bond token, providing a means to configure the bond account ' +
         'without requiring a direct signature for the on-chain transaction. ' +
@@ -87,6 +92,11 @@ export async function manageMintBond({
   const bondAccountAddress = bondAccountData.publicKey
   config = bondAccountData.account.data.config
   voteAccount = bondAccountData.account.data.voteAccount
+  recordResolvedAccounts({
+    bondAccount: bondAccountAddress,
+    voteAccount,
+    configAccount: config,
+  })
 
   const { instruction, bondAccount, validatorIdentity, bondMint } =
     await mintBondInstruction({
