@@ -95,9 +95,9 @@ const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.toLowerCase().includes(fact.toLowerCase()))
     return { fact, passed: true, method: 'exact' }
   try {
-    const prompt = `<fact>${fact}</fact>\n<response>${answer}</response>`
+    const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
     const raw =
-      await $`claude --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
+      await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
         .env({ ...process.env, CLAUDE_EVAL: '1' })
         .text()
     const verdict = raw.trim()
@@ -127,7 +127,7 @@ const expand = async (p: string): Promise<string[]> => {
 
 let files = (await Promise.all(casePaths.map(expand))).flat()
 
-if (files.length === 0) throw new Error('No .yaml files found')
+if (files.length === 0) throw new Error('No .yaml/.yml files found')
 if (limit !== null) files = files.slice(0, limit)
 
 let passed = 0
@@ -139,7 +139,7 @@ const meta: RunMeta = {
       ? `plugin:${pluginDir}`
       : 'default',
   flags: baseFlags,
-  ...(pluginDir ? { plugin_dir: pluginDir } : {}),
+  ...(pluginDir && !values['no-skills'] ? { plugin_dir: pluginDir } : {}),
   tag,
   started_at: new Date().toISOString(),
 }
