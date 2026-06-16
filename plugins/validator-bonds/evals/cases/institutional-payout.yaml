@@ -1,10 +1,9 @@
 question: 'What is an InstitutionalPayout settlement and who is it for?'
 facts:
   - 'institutional stakers'
-  - 'Select'
-  - '50bps'
-  - 'APY'
+  - 'payout_stakers'
+  - 'institutional-distribution-cli'
+  - 'payout_distributors'
 wrong_facts:
   - 'mSOL holders receive'
-  - 'bidding settlement'
   - 'auction bid'

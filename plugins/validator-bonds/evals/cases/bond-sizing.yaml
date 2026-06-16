@@ -7,4 +7,4 @@ facts:
 wrong_facts:
   - '7 SOL'
   - 'eligibility is not revoked'
-  - 'cap is reduced'
+  - 'always revoked'

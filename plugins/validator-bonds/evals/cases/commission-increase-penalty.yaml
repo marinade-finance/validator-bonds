@@ -1,9 +1,8 @@
 question: 'What triggers a CommissionSamIncrease protected event?'
 facts:
   - 'CommissionSamIncrease'
-  - 'commission raised above declared bid'
-  - 'markup penalty'
-  - 'stakers'
+  - 'before_sam_commission_increase_pmpe'
+  - 'actual_non_bid_pmpe'
 wrong_facts:
   - 'bid too low'
   - 'blacklisted'
