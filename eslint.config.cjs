@@ -10,7 +10,6 @@ module.exports = [
       'scripts/validator-bonds-client-generator/**',
       'packages/validator-bonds-sdk/idl/**',
       'plugins/**/evals/**',
-      'plugins/**/eval.ts',
       '.refs/**',
       'tmp/**',
     ],
@@ -22,6 +21,12 @@ module.exports = [
       complexity: 'off',
       'no-param-reassign': 'off',
       'no-await-in-loop': 'off',
+    },
+  },
+  {
+    files: ['plugins/**/eval.ts'],
+    rules: {
+      'import/no-extraneous-dependencies': 'off',
     },
   },
   {
