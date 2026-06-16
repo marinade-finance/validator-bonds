@@ -141,14 +141,15 @@ if (values.list) {
     ...(model ? ['--model', model] : []),
   ]
 
-  const runClaude = async (question: string): Promise<string> =>
-    $`claude ${claudeFlags} -p ${question}`
+  const judgeModel = 'claude-haiku-4-5-20251001'
+  const judgePrompt =
+    'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
+
+  const runClaude = (flags: string[], prompt: string): Promise<string> =>
+    $`claude ${flags} -p ${prompt}`
       .cwd(runRoot)
       .env({ ...process.env, CLAUDE_EVAL: '1' })
       .text()
-
-  const judgePrompt =
-    'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
 
   const checkFact = async (
     answer: string,
@@ -159,10 +160,10 @@ if (values.list) {
 
     try {
       const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
-      const verdict =
-        await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
-          .env({ ...process.env, CLAUDE_EVAL: '1' })
-          .text()
+      const verdict = await runClaude(
+        ['--bare', '--system-prompt', judgePrompt, '--model', judgeModel],
+        prompt,
+      )
       return {
         fact,
         passed: verdict.trim().toUpperCase() === 'YES',
@@ -195,7 +196,7 @@ if (values.list) {
     for (const file of files) {
       const name = basename(file).replace(/\.yml$/, '')
       const testCase = await readCase(file)
-      const answer = await runClaude(testCase.question)
+      const answer = await runClaude(claudeFlags, testCase.question)
       const facts = await Promise.all(
         testCase.facts.map(fact => checkFact(answer, fact)),
       )
