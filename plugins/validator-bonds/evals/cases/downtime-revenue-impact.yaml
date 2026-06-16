@@ -1,7 +1,7 @@
 question: >
-  `DowntimeRevenueImpact` is a `ProtectedEvent` sub-kind in the `SettlementReason`
-  enum. Explain what triggers it and how the payout is split between the validator
-  bond and Marinade, including which loss band each covers.
+  What is DowntimeRevenueImpact? What triggers it, where does it sit in the
+  Validator Bonds settlement type system, and how is the payout split between
+  the validator bond and Marinade?
 facts:
   - 'DowntimeRevenueImpact'
   - 'ValidatorBond'

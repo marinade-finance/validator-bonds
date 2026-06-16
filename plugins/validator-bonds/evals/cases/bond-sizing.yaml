@@ -1,4 +1,4 @@
-question: 'What happens if my bond drops below the minimum balance (minBondBalanceSol)? Will I be revoked or just capped?'
+question: 'What happens to my stake allocation when my validator bond balance drops below the minimum? Are there tiers?'
 facts:
   - 'minBondBalanceSol'
   - 'stake cap'
