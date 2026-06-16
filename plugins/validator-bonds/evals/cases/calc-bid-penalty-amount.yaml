@@ -1,14 +1,13 @@
 question: >
   Using the BidTooLowPenalty calculation in
   settlement-distributions/bid-distribution/src/generators/sam_penalties.rs
-  and the fee config in settlement-config.yaml (marinade_fee_bps=800,
-  dao_fee_split_share_bps=10000):
+  and the fee config in settlement-config.yaml:
 
   A validator has bid_too_low_penalty_pmpe=80 from SAM scoring.
   Marinade has 2,500 SOL (2,500,000,000,000 lamports) active delegation.
 
   Compute in SOL: (a) total BidTooLowPenalty settlement amount, (b) stakers'
-  share, (c) DAO share, (d) Marinade protocol share. Show the formula and steps.
+  share, (c) DAO share, (d) Marinade protocol share. Show each formula step.
 facts:
   - '200 SOL'
   - '184 SOL'
