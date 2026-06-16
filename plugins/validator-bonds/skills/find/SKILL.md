@@ -25,57 +25,18 @@ Glob `facts/*.md` and grep for the topic. If a matching fact exists and
 
 Tools: Read, Glob, Grep, Bash, WebFetch.
 
-Primary sources in priority order:
+**Load context skills first, then dig:**
 
-**1. This repo — authoritative for on-chain and settlement behavior.**
+- `/marinade-sam-bond` — settlement type table with exact file paths, epoch
+  lifecycle, `.refs/` repo pointers. Load this before any settlement/SAM dig.
+- `/marinade-docs` — repo clone commands, live API base URLs, GCS bucket paths.
+- `/marinade-ecosystem` — what each repo/package does, program IDs, SDK map.
 
-- `programs/validator-bonds/src/` — on-chain Anchor program: state accounts,
-  instructions, PDA seeds.
-- `settlement-distributions/` — off-chain settlement generation
-  (`settlement-common`, `bid-distribution`, `institutional-distribution`,
-  `merkle-generator`).
-- `settlement-pipelines/` — on-chain settlement lifecycle binaries.
-- `packages/` — TS SDK, CLIs, sanity-check, codama, eventing.
-- `settlement-config.yaml` — settlement types, fee splits, whitelists.
-
-When the question is "where is X" rather than "is X true", grep the tree;
-don't guess a path.
-
-**2. `.refs/` clones — upstream repos this project consumes.**
-
-Clone if absent before reading:
-
-```bash
-git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam
-git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline
-```
-
-ds-sam is a pnpm monorepo — the SDK source lives under
-`packages/ds-sam-sdk/src/`, not a top-level `src/`:
-
-| Question about                            | Look here                                                              |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| SAM auction clearing price                | `.refs/ds-sam/packages/ds-sam-sdk/src/auction.ts`                      |
-| BidTooLow trigger, tolCoef, bond risk fee | `.refs/ds-sam/packages/ds-sam-sdk/src/calculations.ts`                 |
-| `minBondBalanceSol`, stake-cap tiers      | `.refs/ds-sam/packages/ds-sam-sdk/src/constraints.ts`, `.../config.ts` |
-| SAM input/output DTOs                     | `.refs/ds-sam/packages/ds-sam-sdk/src/types.ts`                        |
-| Epoch auction outputs                     | `.refs/ds-sam-pipeline/auctions/<epoch>/outputs/`                      |
-
-Private upstreams already cloned under `.refs/`: `ds-scoring`,
-`sam-blacklist`, `institutional-staking`, `stakes-etl`. If one is absent it
-requires `gh auth login` to clone — note any claim from an inaccessible repo
-as upstream-unverifiable. Logic in `.refs/` can change when those repos
-update; always record the upstream source so readers know to re-verify.
-
-**3. Live APIs** (read-only):
-
-```bash
-curl -s "https://validator-bonds-api.marinade.finance/bonds/bidding" | jq ...
-curl -s "https://scoring.marinade.finance/api/v1/scores/sam?epoch=<N>" | jq ...
-curl -s "https://institutional-staking.marinade.finance/v1/epoch/latest" | jq ...
-```
-
-Use `/marinade-docs` for the full API and docs index.
+Once you know what you're looking for: grep the tree for the exact symbol or
+path; don't guess. For `.refs/` repos (ds-sam, ds-sam-pipeline, etc.) check
+they're cloned under `.refs/` before reading — clone commands are in
+`/marinade-docs`. Note any claim from a private `.refs/` repo as
+upstream-unverifiable; those repos can change independently.
 
 ## Fact file format
 
