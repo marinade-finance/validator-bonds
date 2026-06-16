@@ -1,3 +1,6 @@
-question: 'Which repo generates the SAM blacklist?'
+question: 'Which repo generates the SAM blacklist (the blacklist.csv consumed by ds-sam)?'
 facts:
   - 'sam-blacklist'
+wrong_facts:
+  - 'ds-scoring'
+  - 'malicious-validators'
