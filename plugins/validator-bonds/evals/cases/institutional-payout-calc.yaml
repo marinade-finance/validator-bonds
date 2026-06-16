@@ -1,14 +1,13 @@
 question: >
-  How is an InstitutionalPayout amount determined for a Select validator?
-  Using the InstitutionalPayout structs in
-  settlement-distributions/institutional-distribution/src/institutional_payouts.rs,
-  explain: (a) what the APY floor is (is it a fixed rate?), (b) which field
+  Read the struct definitions in
+  settlement-distributions/institutional-distribution/src/institutional_payouts.rs
+  and explain how an InstitutionalPayout amount is determined for a Select
+  validator: (a) what the APY floor is (is it a fixed rate?), (b) which field
   carries the per-validator APY shortfall, (c) which fields the staker and
-  distributor payout lamport amounts are read from, and (d) whether
-  institutional-distribution-cli computes the per-staker SOL itself or reads
-  pre-computed amounts. Name the exact identifiers.
+  distributor payout lamport amounts are read from, (d) whether
+  institutional-distribution-cli computes per-staker SOL itself or reads
+  pre-computed amounts. Name the exact field identifiers from the structs.
 facts:
-  - 'InstitutionalPayout'
   - 'psr_percentile_apy'
   - 'apy_percentile_diff'
   - 'payout_stakers'

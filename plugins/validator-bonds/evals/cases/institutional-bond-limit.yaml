@@ -2,7 +2,7 @@ question: "What happens to an institutional (Select) validator's stake allocatio
 facts:
   - 'minBondBalanceSol'
   - 'cap'
-  - 'revoked'
+  - '80%'
   - 'clipped'
 wrong_facts:
   - 'BlacklistPenalty'
