@@ -1,15 +1,11 @@
 question: >
   Using the PriorityFee activating-staker split in
   settlement-distributions/bid-distribution/src/generators/bidding.rs:
-  activating stakers receive a proportional share of the activating_stakers_pool
-  via claim_amount = staker_share * activating_stakers_pool, where
-  staker_share = activating_sum / total_marinade_activating_stake.
 
   A validator has total_marinade_activating_stake = 10,000 SOL and an
   activating_stakers_pool = 100 SOL to distribute via PriorityFee settlements.
   One staker (stake_authority + withdraw_authority pair) has activating_sum =
-  2,000 SOL (held in stake accounts with active_delegation_lamports == 0 and
-  activating_delegation_lamports > 0).
+  2,000 SOL.
 
   Compute: (a) that staker's staker_share as a fraction, (b) their PriorityFee
   claim_amount in SOL, (c) the claim in lamports. Show each formula step.
