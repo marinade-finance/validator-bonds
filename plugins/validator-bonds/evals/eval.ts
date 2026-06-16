@@ -133,6 +133,11 @@ const supports = async (answer: string, fact: string): Promise<FactResult> => {
 }
 
 const expand = async (p: string): Promise<string[]> => {
+  // bare case name (no path separators, no extension) → resolve under default cases dir
+  if (!p.includes('/') && !p.endsWith('.yaml') && !p.endsWith('.yml')) {
+    const candidate = join(defaultCasesDir, p + '.yaml')
+    return [candidate]
+  }
   if ((await stat(p)).isDirectory())
     return (await readdir(p))
       .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'))
