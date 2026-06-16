@@ -1,11 +1,7 @@
 ---
 name: find
-description: >
-  Research a validator-bonds / SAM protocol question against primary sources
-  (source code, .refs/, facts/). USE when /recall-memories returns no match,
-  a claim needs code verification, or "research X / verify X". NOT for live
-  validator data (query the bonds API directly), general Marinade navigation
-  (use marinade-docs), or stored knowledge lookup (use /recall-memories).
+description: Deep research of a validator-bonds / SAM question against primary sources (source code, .refs/ clones, facts/), writing a verified fact. NOT for live validator data (query the bonds API), Marinade doc/repo navigation (use marinade-docs), or stored-knowledge lookup (use recall-memories).
+when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, recall-memories returned no match, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source
 user-invocable: true
 arg: <question or topic to research>
 ---

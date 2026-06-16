@@ -1,7 +1,7 @@
 ---
 name: marinade-ecosystem
-description: Marinade Finance public ecosystem map — repos, program IDs, SDKs, APIs, issue filing. NOT for settlement mechanics, SAM auction internals, or bond lifecycle (use marinade-sam-bond).
-when_to_use: marinade-finance GitHub org, liquid-staking-program, institutional-staking, marinade.finance site, filing an issue, program IDs, mSOL mint, MNDE token, marinade-ts-sdk, psr.marinade.finance, scoring.marinade.finance, cross-repo navigation, how repos relate
+description: Marinade Finance public ecosystem map — GitHub repos and how they relate, program IDs, token mints, SDKs, issue filing. NOT for settlement mechanics, SAM auction internals, or bond lifecycle (use marinade-sam-bond); NOT for doc/API URLs or clone commands (use marinade-docs).
+when_to_use: marinade-finance GitHub org, which repo does X, what repo is X, liquid-staking-program, native-staking, institutional-staking, ds-sam, ds-scoring, delegation-strategy, vote-aggregator, tokadapt, marinade.finance site, file an issue, open a bug, feature request, program ID, program address, mSOL mint, MNDE token, marinade-ts-sdk, ds-sam-sdk, native-staking-sdk, typescript-common packages, cross-repo navigation, how repos relate, what does this repo do
 ---
 
 # Marinade Ecosystem

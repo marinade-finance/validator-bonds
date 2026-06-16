@@ -1,10 +1,7 @@
 ---
 name: recall-memories
-description: >
-  Search validator-bonds stored knowledge — `facts/`, `.diary/` — for
-  relevant content. Read-only. USE for technical questions, protocol
-  lookups, recent-work context, "what do I know about X". NOT for live
-  validator data (query the bonds API directly) or fresh research (use /find).
+description: Read-only lookup of validator-bonds stored knowledge already written to `facts/` and `.diary/`. NOT for fresh code research against source (use find), live validator data (query the bonds API), or doc/repo navigation (use marinade-docs).
+when_to_use: what do I know about X, do we have a fact on, did we already research, recall, look up stored knowledge, check the facts, check the diary, recent decisions, prior context, what was decided, have we covered this, search facts, search notes
 user-invocable: true
 arg: <question>
 ---
