@@ -8,7 +8,7 @@
 // -v / --verbose  print full answer to stdout as each case runs
 // -t <tag>        output tag (default: YYYYMMDD); written to evals/report/<tag>/
 // -N / --limit N  run only first N cases
-// Positionals default to ./cases relative to this script.
+// Positionals default to ./evals/cases relative to this script.
 // Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
 // facts: must appear in answer. wrong_facts: must NOT appear (adversarial check).
 
@@ -69,7 +69,7 @@ const limit = shortLimit
     : null
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-const defaultRepoRoot = join(scriptDir, '../../..')
+const defaultRepoRoot = join(scriptDir, '../..')
 
 // default: run claude in a fresh isolated dir (ephemeral facts), clean up after
 let repoRoot = defaultRepoRoot
@@ -77,13 +77,11 @@ let tmpRoot: string | null = null
 if (!values['persist']) {
   tmpRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
   console.log(`tmpdir: ${tmpRoot}`)
-  // hard-link source into tmp; strip large dirs the model doesn't need
-  await $`cp -al ${defaultRepoRoot}/. ${tmpRoot}/`
-  await $`rm -rf ${tmpRoot}/{node_modules,.git,.refs,.pnpm-store}`
+  await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${defaultRepoRoot} . | tar -xf - -C ${tmpRoot}`
   repoRoot = tmpRoot
 }
 
-const defaultCasesDir = join(scriptDir, 'cases')
+const defaultCasesDir = join(scriptDir, 'evals/cases')
 const casePaths = positionals.length > 0 ? positionals : [defaultCasesDir]
 
 const today = new Date()
@@ -259,7 +257,7 @@ for (const file of files) {
   }
 }
 
-const reportDir = join(scriptDir, 'report', tag)
+const reportDir = join(scriptDir, 'evals/report', tag)
 await mkdir(reportDir, { recursive: true })
 const logPath = join(
   reportDir,
