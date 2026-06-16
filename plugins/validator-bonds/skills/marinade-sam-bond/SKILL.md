@@ -60,8 +60,8 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 
 - **ds-sam** (public) -- SAM evaluation CLI + SDK, produces auction scores for bid-distribution-cli. Clone: `git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam`
 - **ds-sam-pipeline** (public) -- SAM pipeline data (auction inputs/outputs by epoch). Clone: `git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline`
-- **ds-scoring** (**private**, `gh auth login` required) -- NestJS scoring service; computes `BondRiskFee` magnitude, `bond_risk_fee_sol`, score adjustments. Key file: `src/sam/sam.service.ts`. If inaccessible, note as upstream-unverifiable.
-- **institutional-staking** (**private**, `gh auth login` required) -- calculates 50bps APY guarantee for Select/institutional stakers; produces `InstitutionalPayout` settlement inputs. If inaccessible, derive from settlement-common output shape only.
+- **ds-scoring** (**private**, `gh auth login` required) -- scoring service producing per-validator SAM scores consumed by ds-sam. See `ds-scoring.md` adjacent to this file.
+- **institutional-staking** (**private**, `gh auth login` required) -- calculates institutional payout amounts; produces `InstitutionalPayoutDto` consumed by `institutional-distribution-cli`. See `institutional-staking.md` adjacent to this file.
 - **sam-blacklist** (**private**, `gh auth login` required) -- generates `blacklist.csv` (sandwich + slow-slot detection). See `sam-blacklist.md` adjacent to this file for thresholds, codes, and data sources.
 - **stakes-etl** (public) -- ETL pipelines producing reward files in GCS
 - **solana-snapshot-parser** (public) -- produces stakes.json / validators.json snapshots
