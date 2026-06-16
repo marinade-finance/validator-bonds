@@ -19,9 +19,8 @@ Spawn an Explore subagent with the question. The subagent:
 
 ## After results
 
-Deliberate in `<think>`: list matched files, what each says, whether it
-answers, what gap remains. Verdict: use it, refresh via `/find`, or
-research fresh.
+List matched files, what each says, whether it answers, what gap remains.
+Verdict: use it, refresh via `/find`, or research fresh.
 
 **Weight corrections over conclusions.** Trust user corrections verbatim;
 re-derive conclusions from source, never from a prior summary.
