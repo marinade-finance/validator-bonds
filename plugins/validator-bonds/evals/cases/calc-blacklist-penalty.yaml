@@ -1,8 +1,6 @@
 question: >
   Using the BlacklistPenalty formulas in
   settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
-  blacklist_penalty = blacklist_penalty_pmpe / 1000;
-  blacklist_penalty_total_claim = total_marinade_active_stake * blacklist_penalty.
 
   A blacklisted validator has blacklist_penalty_pmpe = 50 and
   total_marinade_active_stake = 4,000 SOL.
