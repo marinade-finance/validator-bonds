@@ -1,9 +1,7 @@
 # institutional-staking
 
-Private repo (`marinade-finance/institutional-staking`). Calculates and
-serves institutional staking payouts — the source of `InstitutionalPayout`
-settlements. Clone under `.refs/institutional-staking` if access is needed
-(`gh auth login` first).
+Calculates and serves institutional staking payouts — the source of
+`InstitutionalPayout` settlements.
 
 ## Role in pipeline
 
