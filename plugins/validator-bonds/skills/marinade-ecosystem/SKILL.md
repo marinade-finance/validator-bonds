@@ -69,7 +69,7 @@ All at https://github.com/marinade-finance/
 
 - **ds-sam** — SAM evaluation CLI + SDK (`ds-sam-sdk`), APIS/FILES modes
 - **ds-sam-pipeline** — SAM pipeline orchestration
-- **ds-scoring** — NestJS scoring service for validators
+- **ds-scoring** — legacy scoring service; feeds per-validator scores to ds-sam as inputs
 - **delegation-strategy-2** — validator scoring API, stake allocation
 - **sam-blacklist** — blacklist generator (sandwich + slow slot data)
 - **marcrank** — management CLI for liquid-staking-program delegation (internal)

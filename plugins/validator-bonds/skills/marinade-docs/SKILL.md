@@ -38,12 +38,12 @@ Clone under `.refs/<name>` for local exploration.
 
 ## Private Repos (`gh auth login` required)
 
-| Repo                    | What's there                                     |
-| ----------------------- | ------------------------------------------------ |
-| `ds-scoring`            | NestJS scoring service; BondRiskFee calculation  |
-| `sam-blacklist`         | Blacklist policy (sandwich, slow slots criteria) |
-| `institutional-staking` | Institutional payout calc + APY config           |
-| `stakes-etl`            | BigQuery ETL for stake accounts                  |
+| Repo                    | What's there                                                 |
+| ----------------------- | ------------------------------------------------------------ |
+| `ds-scoring`            | Legacy scoring service; feeds per-validator scores to ds-sam |
+| `sam-blacklist`         | Blacklist policy (sandwich, slow slots criteria)             |
+| `institutional-staking` | Institutional payout calc + APY config                       |
+| `stakes-etl`            | BigQuery ETL for stake accounts                              |
 
 ## GCS Data
 
