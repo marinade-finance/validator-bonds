@@ -72,4 +72,19 @@ pub struct ValidatorBondRecord {
     pub inflation_commission_bps: Option<i64>,
     pub mev_commission_bps: Option<i64>,
     pub block_commission_bps: Option<i64>,
+    // Stake Auction Marketplace enrichment, joined from `bond_event_state` by
+    // (vote_account, bond_type). All optional: populated only when the eventing
+    // pipeline has a snapshot for the validator (lamports unless noted).
+    #[serde(default)]
+    pub auction_stake: Option<Decimal>, // SAM target stake the validator is currently allocated
+    #[serde(default)]
+    pub cap_constraint: Option<String>, // limiting cap type: BOND, WANT, ASO, COUNTRY, VALIDATOR, RISK
+    #[serde(default)]
+    pub required_balance: Option<Decimal>, // min bond balance to cover currently delegated stake
+    #[serde(default)]
+    pub deficit: Option<Decimal>, // max(0, required_balance - effective_amount)
+    #[serde(default)]
+    pub bond_good_for_n_epochs: Option<f64>,
+    #[serde(default)]
+    pub sam_eligible: Option<bool>,
 }

@@ -34,4 +34,9 @@ launchCliProgram({
     enabled: true,
     cliType: 'sam',
   },
+  // Enables the "bond is capping your stake" banner after relevant SAM commands.
+  // Not enabled for the institutional CLI, which does not bid in the auction.
+  bondsApiConfig: {
+    enabled: true,
+  },
 })

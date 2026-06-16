@@ -39,6 +39,9 @@ import type { NotificationsConfig } from '../notifications'
 export const DEFAULT_NOTIFICATIONS_API_URL =
   'https://marinade-notifications.marinade.finance'
 
+export const DEFAULT_BONDS_API_URL =
+  'https://validator-bonds-api.marinade.finance'
+
 export function launchCliProgram({
   version,
   installAdditionalOptions,
@@ -46,6 +49,7 @@ export function launchCliProgram({
   npmRegistryUrl,
   notificationsConfig,
   cliUsageConfig,
+  bondsApiConfig,
 }: {
   version: string
   installAdditionalOptions: (program: Command) => void
@@ -53,6 +57,7 @@ export function launchCliProgram({
   npmRegistryUrl: string
   notificationsConfig?: NotificationsConfig
   cliUsageConfig?: CliUsageConfig
+  bondsApiConfig?: { enabled: boolean }
 }) {
   const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
@@ -125,6 +130,12 @@ export function launchCliProgram({
         .default(DEFAULT_MIX_PROXY_URL)
         .hideHelp(),
     )
+    .addOption(
+      new Option('--bonds-api-url <url>', 'Override validator bonds API URL')
+        .env('BONDS_API_URL')
+        .default(DEFAULT_BONDS_API_URL)
+        .hideHelp(),
+    )
 
   installAdditionalOptions(program)
 
@@ -148,6 +159,7 @@ export function launchCliProgram({
     const commandName = action.name()
 
     const notificationsApiUrl = command.opts().notificationsApiUrl as string
+    const bondsApiUrl = command.opts().bondsApiUrl as string
     const mixProxyUrl = command.opts().mixProxyUrl as string
     const cluster = (command.opts().url ?? command.opts().cluster) as string
     const simulate = Boolean(command.opts().simulate)
@@ -206,6 +218,8 @@ export function launchCliProgram({
       command: commandName,
       notificationsApiUrl,
       notificationType: notificationsConfig?.notificationType ?? '',
+      bondsApiUrl,
+      bondsApiEnabled: bondsApiConfig?.enabled ?? false,
     })
 
     await requireLatestCliVersion(logger, npmRegistryUrl, version)

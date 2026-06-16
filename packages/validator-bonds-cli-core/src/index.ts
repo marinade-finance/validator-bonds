@@ -11,4 +11,5 @@ export {
 } from './errorTranslators'
 export type { TranslateCtx } from './errorTranslators'
 export * from './npmRegistry'
+export * from './stakeCapBanner'
 export * from './utils'

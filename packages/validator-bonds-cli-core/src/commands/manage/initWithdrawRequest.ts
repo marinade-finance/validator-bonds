@@ -27,6 +27,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
+import { printBondCapBannerFromContext } from '../../stakeCapBanner'
 import {
   executeTxHandleErrors,
   formatToSol,
@@ -225,6 +226,7 @@ export async function manageInitWithdrawRequest({
       `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
         `for bond account ${bondAccount.toBase58()} successfully initialized`,
     )
+    await printBondCapBannerFromContext({ voteAccount })
   } catch (err) {
     await failIfUnexpectedError({
       err,

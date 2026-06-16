@@ -31,6 +31,7 @@ export interface ValidatorState {
   effective_amount_lamports: bigint
   auction_stake_lamports: bigint
   deficit_lamports: bigint
+  required_lamports: bigint
   sam_eligible: boolean
   updated_at: string
 }

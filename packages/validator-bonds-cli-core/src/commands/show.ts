@@ -34,6 +34,7 @@ import BN from 'bn.js'
 
 import { recordResolvedAccounts, setProgramTelemetryFields } from '../cliUsage'
 import { getCliContext } from '../context'
+import { printBondCapBannerFromContext } from '../stakeCapBanner'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 
 import type { ProgramAccount } from '@coral-xyz/anchor'
@@ -299,6 +300,8 @@ export async function showBond({
   const logger = cliContext.logger
 
   let data: BondShow<Bond> | BondShow<Bond>[]
+  // Vote account of the single bond being shown; drives the bond-cap banner.
+  let bannerVoteAccount: PublicKey | undefined = undefined
   if (address) {
     const bondData = await getBondFromAddress({
       program,
@@ -307,6 +310,7 @@ export async function showBond({
       config,
     })
     address = bondData.publicKey
+    bannerVoteAccount = bondData.account.data.voteAccount
     recordResolvedAccounts({
       bondAccount: bondData.publicKey,
       voteAccount: bondData.account.data.voteAccount,
@@ -472,6 +476,8 @@ export async function showBond({
 
   const reformatted = reformat(data, reformatBondFunction ?? reformatBond)
   printData(reformatted, format)
+
+  await printBondCapBannerFromContext({ voteAccount: bannerVoteAccount })
 }
 
 function constructBondMintAddress(

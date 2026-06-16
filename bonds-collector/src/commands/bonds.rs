@@ -49,6 +49,13 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
             block_commission_bps: commissions.block_bps,
             inflation_commission_bps: commissions.inflation_bps,
             mev_commission_bps: commissions.mev_bps,
+            // SAM enrichment is sourced from `bond_event_state` at read time, not collected here.
+            auction_stake: None,
+            cap_constraint: None,
+            required_balance: None,
+            deficit: None,
+            bond_good_for_n_epochs: None,
+            sam_eligible: None,
         })
     }
 

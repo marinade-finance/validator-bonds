@@ -28,6 +28,7 @@ import {
   INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
+import { printBondCapBannerFromContext } from '../../stakeCapBanner'
 import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -285,6 +286,12 @@ export async function manageConfigureBond({
     sendOpts: { skipPreflight },
   })
   logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+
+  // The API value lags the just-applied change, so prefer the new maxStakeWanted.
+  await printBondCapBannerFromContext({
+    voteAccount,
+    maxStakeWantedLamports: maxStakeWanted?.toNumber(),
+  })
 }
 
 async function verifyCommissionBondProductExistence(

@@ -777,6 +777,34 @@ validator-bonds -um show-bond <your-vote-account>
 
 **Note:** `show-bond` shows current state, which may differ from data used for a specific epoch's calculations.
 
+### Bond Cap Banner
+
+When your `maxStakeWanted` is higher than the stake Marinade currently targets for you
+**and** your bond balance is the limiting factor, the CLI prints a banner after
+`show-bond`, `configure-bond`, `fund-bond`, `fund-bond-sol` and `init-withdraw-request`:
+
+```
+╔═══════════ Marinade Stake Auction · Bond Cap ═══════════╗
+║ Your bond balance is capping your stake.                ║
+║                                                         ║
+║ maxStakeWanted:           250,000.00 SOL                ║
+║ Current Marinade target:  180,000.00 SOL  (limited by bond)
+║                                                         ║
+║ Increase your bond by at least 7.00 SOL to unlock up to ║
+║ +70,000.00 SOL of additional delegated stake.           ║
+║                                                         ║
+║ Keep your bond balance at >= 18.00 SOL — below this your║
+║ stake is at risk of being undelegated.                  ║
+╚═════════════════════════════════════════════════════════╝
+```
+
+The figures come from the [validator bonds API](https://validator-bonds-api.marinade.finance/bonds/bidding),
+which reflects the latest Stake Auction Marketplace snapshot. The banner is informational
+and best-effort: it only appears for bond (`BOND`)-capped validators and never blocks the
+command. It is not shown when the validator is limited by a different cap (e.g. country /
+ASO / validator concentration), since adding bond would not raise the target in those cases.
+Set `BONDS_API_URL` (or `--bonds-api-url`) to point at a different API instance.
+
 ---
 
 ## Advanced Topics

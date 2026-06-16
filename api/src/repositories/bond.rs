@@ -53,25 +53,42 @@ async fn get_bonds_query(
     psql_client: &Client,
     bond_type: Option<SqlSerializableBondType>,
 ) -> anyhow::Result<Vec<ValidatorBondRecord>> {
+    // Enrich each bond with its latest Stake Auction Marketplace snapshot from
+    // `bond_event_state` (one row per validator per bond_type). LEFT JOIN keeps
+    // bonds without a snapshot; the SAM columns come back NULL for those.
     let base_query = "
-        SELECT *
-        FROM bonds
-        WHERE epoch = (
+        SELECT
+            b.*,
+            s.auction_stake_lamports,
+            s.cap_constraint,
+            s.required_lamports,
+            s.deficit_lamports,
+            s.bond_good_for_n_epochs,
+            s.sam_eligible
+        FROM bonds b
+        LEFT JOIN bond_event_state s
+            ON s.vote_account = b.vote_account
+            AND s.bond_type = b.bond_type
+        WHERE b.epoch = (
             SELECT MAX(epoch)
             FROM bonds
             WHERE 1=1
-            {bond_type_filter}
+            {subquery_filter}
         )
-        {bond_type_filter}
+        {outer_filter}
     ";
 
     let (query_string, params): (String, Vec<&(dyn ToSql + Sync)>) = match bond_type {
         Some(ref bt) => {
-            let query = base_query.replace("{bond_type_filter}", "AND bond_type = $1");
+            let query = base_query
+                .replace("{subquery_filter}", "AND bond_type = $1")
+                .replace("{outer_filter}", "AND b.bond_type = $1");
             (query, vec![bt])
         }
         None => {
-            let query = base_query.replace("{bond_type_filter}", "");
+            let query = base_query
+                .replace("{subquery_filter}", "")
+                .replace("{outer_filter}", "");
             (query, vec![])
         }
     };
@@ -99,6 +116,18 @@ async fn get_bonds_query(
             inflation_commission_bps: row.get("inflation_commission_bps"),
             mev_commission_bps: row.get("mev_commission_bps"),
             block_commission_bps: row.get("block_commission_bps"),
+            auction_stake: row
+                .get::<_, Option<i64>>("auction_stake_lamports")
+                .map(Decimal::from),
+            cap_constraint: row.get("cap_constraint"),
+            required_balance: row
+                .get::<_, Option<i64>>("required_lamports")
+                .map(Decimal::from),
+            deficit: row
+                .get::<_, Option<i64>>("deficit_lamports")
+                .map(Decimal::from),
+            bond_good_for_n_epochs: row.get("bond_good_for_n_epochs"),
+            sam_eligible: row.get("sam_eligible"),
         })
     }
 

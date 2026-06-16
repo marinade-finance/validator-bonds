@@ -28,6 +28,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
+import { printBondCapBannerFromContext } from '../../stakeCapBanner'
 import {
   executeTxHandleErrors,
   formatToSol,
@@ -197,6 +198,7 @@ export async function manageFundBondWithSol({
       `Bond account ${bondAccount.toBase58()} successfully funded ` +
         `with amount ${amount} from ${from.toBase58()}`,
     )
+    await printBondCapBannerFromContext({ voteAccount })
   } catch (err) {
     await failIfUnexpectedFundingError({
       err,

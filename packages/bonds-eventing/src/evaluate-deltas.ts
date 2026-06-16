@@ -685,6 +685,7 @@ export function validatorToState(
   bondType: BondType,
 ): ValidatorState {
   const configAddress = configAddressForBondType(bondType)
+  const deficitMetrics = computeDeficitMetrics(v)
   return {
     vote_account: v.voteAccount,
     bond_pubkey: bondAddress(
@@ -702,7 +703,8 @@ export function validatorToState(
       v.claimableBondBalanceSol ?? v.bondBalanceSol,
     ),
     auction_stake_lamports: solToLamports(v.auctionStake?.marinadeSamTargetSol),
-    deficit_lamports: solToLamports(computeDeficitMetrics(v).deficit_sol),
+    deficit_lamports: solToLamports(deficitMetrics.deficit_sol),
+    required_lamports: solToLamports(deficitMetrics.required_sol),
     sam_eligible: v.samEligible,
     updated_at: new Date().toISOString(),
   }

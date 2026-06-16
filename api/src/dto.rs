@@ -110,4 +110,11 @@ pub struct ValidatorBondRecordSchema {
     inflation_commission_bps: Option<i64>,
     mev_commission_bps: Option<i64>,
     block_commission_bps: Option<i64>,
+    // Stake Auction Marketplace enrichment (joined from bond_event_state).
+    auction_stake: Option<Decimal>,
+    cap_constraint: Option<String>,
+    required_balance: Option<Decimal>,
+    deficit: Option<Decimal>,
+    bond_good_for_n_epochs: Option<f64>,
+    sam_eligible: Option<bool>,
 }
