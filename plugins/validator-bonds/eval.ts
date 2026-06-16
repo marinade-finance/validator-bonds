@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { $ } from 'bun'
 import {
   mkdir,
   mkdtemp,
@@ -10,10 +9,12 @@ import {
   stat,
   writeFile,
 } from 'fs/promises'
-import { basename, dirname, join, relative, resolve } from 'path'
-import { parseArgs } from 'util'
-import { fileURLToPath } from 'url'
 import { tmpdir } from 'os'
+import { basename, dirname, join, relative, resolve } from 'path'
+import { fileURLToPath } from 'url'
+import { parseArgs } from 'util'
+
+import { $ } from 'bun'
 import { parse, stringify } from 'yaml'
 
 type CaseFile = {
@@ -75,21 +76,15 @@ const today = new Date().toISOString().slice(0, 10).replaceAll('-', '')
 const tag = values.t ?? today
 
 const expand = async (input: string): Promise<string[]> => {
-  if (
-    !input.includes('/') &&
-    !input.endsWith('.yaml') &&
-    !input.endsWith('.yml')
-  )
-    return [join(casesRoot, `${input}.yaml`)]
-
-  const path = resolve(input)
-  const pathStat = await stat(path)
-  if (!pathStat.isDirectory()) return [path]
-
+  const path = input.includes('/')
+    ? resolve(input)
+    : join(casesRoot, `${input}.yaml`)
+  const s = await stat(path)
+  if (!s.isDirectory()) return [path]
   return (await readdir(path))
-    .filter(file => file.endsWith('.yaml') || file.endsWith('.yml'))
+    .filter(f => f.endsWith('.yaml'))
     .sort()
-    .map(file => join(path, file))
+    .map(f => join(path, f))
 }
 
 let files = (
@@ -109,136 +104,139 @@ const readCase = async (file: string): Promise<CaseFile> => {
 if (values.list) {
   for (const file of files) {
     const data = await readCase(file)
-    console.log(basename(file).replace(/\.ya?ml$/, ''))
+    console.log(basename(file).replace(/\.yaml$/, ''))
     console.log(`  Q: ${data.question.trim().replace(/\s+/g, ' ')}`)
     console.log(`  facts: ${data.facts.join(', ')}`)
     if (data.wrong_facts?.length)
       console.log(`  wrong_facts: ${data.wrong_facts.join(', ')}`)
   }
-  process.exit(0)
-}
+} else {
+  let runRoot = repoRoot
+  let runPluginDir = pluginDir
+  let tempRoot: string | null = null
 
-let runRoot = repoRoot
-let runPluginDir = pluginDir
-let tempRoot: string | null = null
+  if (!values.persist) {
+    tempRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
+    await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${repoRoot} . | tar -xf - -C ${tempRoot}`
+    runRoot = tempRoot
 
-if (!values.persist) {
-  tempRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
-  await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${repoRoot} . | tar -xf - -C ${tempRoot}`
-  runRoot = tempRoot
-
-  if (!values['plugin-dir']) {
-    const pluginRelativePath = relative(repoRoot, pluginDir)
-    runPluginDir = join(tempRoot, pluginRelativePath)
+    if (!values['plugin-dir']) {
+      const pluginRelativePath = relative(repoRoot, pluginDir)
+      runPluginDir = join(tempRoot, pluginRelativePath)
+    }
   }
-}
 
-const claudeFlags = [
-  ...(values['no-skills']
-    ? ['--disable-slash-commands']
-    : ['--plugin-dir', runPluginDir]),
-  ...(model ? ['--model', model] : []),
-]
+  const claudeFlags = [
+    ...(values['no-skills']
+      ? ['--disable-slash-commands']
+      : ['--plugin-dir', runPluginDir]),
+    ...(model ? ['--model', model] : []),
+  ]
 
-const ask = async (question: string): Promise<string> =>
-  $`claude ${claudeFlags} -p ${question}`
-    .cwd(runRoot)
-    .env({ ...process.env, CLAUDE_EVAL: '1' })
-    .text()
+  const ask = async (question: string): Promise<string> =>
+    $`claude ${claudeFlags} -p ${question}`
+      .cwd(runRoot)
+      .env({ ...process.env, CLAUDE_EVAL: '1' })
+      .text()
 
-const judgePrompt =
-  'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
+  const judgePrompt =
+    'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
 
-const checkFact = async (answer: string, fact: string): Promise<FactResult> => {
-  if (answer.toLowerCase().includes(fact.toLowerCase()))
-    return { fact, passed: true, method: 'exact' }
+  const checkFact = async (
+    answer: string,
+    fact: string,
+  ): Promise<FactResult> => {
+    if (answer.toLowerCase().includes(fact.toLowerCase()))
+      return { fact, passed: true, method: 'exact' }
+
+    try {
+      const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
+      const verdict =
+        await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
+          .env({ ...process.env, CLAUDE_EVAL: '1' })
+          .text()
+      return {
+        fact,
+        passed: verdict.trim().toUpperCase() === 'YES',
+        method: 'haiku',
+      }
+    } catch (error) {
+      return {
+        fact,
+        passed: false,
+        method: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }
+
+  let failed = 0
 
   try {
-    const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
-    const verdict =
-      await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
-        .env({ ...process.env, CLAUDE_EVAL: '1' })
-        .text()
-    return {
-      fact,
-      passed: verdict.trim().toUpperCase() === 'YES',
-      method: 'haiku',
+    let passed = 0
+    const log = {
+      meta: {
+        mode: values['no-skills'] ? 'no-skills' : `plugin:${pluginDir}`,
+        flags: claudeFlags,
+        tag,
+        started_at: new Date().toISOString(),
+      },
+      cases: [] as unknown[],
     }
-  } catch (error) {
-    return {
-      fact,
-      passed: false,
-      method: 'error',
-      error: error instanceof Error ? error.message : String(error),
+
+    for (const file of files) {
+      const name = basename(file).replace(/\.yaml$/, '')
+      const testCase = await readCase(file)
+      const answer = await ask(testCase.question)
+      const facts = await Promise.all(
+        testCase.facts.map(fact => checkFact(answer, fact)),
+      )
+      const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
+        fact,
+        passed: !answer.toLowerCase().includes(fact.toLowerCase()),
+        method: 'exact',
+      }))
+      const ok =
+        facts.every(fact => fact.passed) &&
+        wrongFacts.every(fact => fact.passed)
+
+      log.cases.push({
+        case: name,
+        result: ok ? 'pass' : 'fail',
+        question: testCase.question,
+        answer: answer.trim(),
+        facts,
+        ...(wrongFacts.length ? { wrong_facts: wrongFacts } : {}),
+      })
+
+      if (ok) {
+        console.log(`✓ ${name}`)
+        passed++
+      } else {
+        console.log(`✗ ${name}`)
+        for (const fact of facts.filter(fact => !fact.passed))
+          console.log(`  missing: ${fact.fact}`)
+        for (const fact of wrongFacts.filter(fact => !fact.passed))
+          console.log(`  wrong_fact: ${fact.fact}`)
+        failed++
+      }
+
+      if (values.verbose)
+        console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
     }
-  }
-}
 
-let failed = 0
-
-try {
-  let passed = 0
-  const log = {
-    meta: {
-      mode: values['no-skills'] ? 'no-skills' : `plugin:${pluginDir}`,
-      flags: claudeFlags,
+    await mkdir(join(reportRoot, tag), { recursive: true })
+    const reportPath = join(
+      reportRoot,
       tag,
-      started_at: new Date().toISOString(),
-    },
-    cases: [] as unknown[],
-  }
-
-  for (const file of files) {
-    const name = basename(file).replace(/\.ya?ml$/, '')
-    const testCase = await readCase(file)
-    const answer = await ask(testCase.question)
-    const facts = await Promise.all(
-      testCase.facts.map(fact => checkFact(answer, fact)),
+      `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
     )
-    const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
-      fact,
-      passed: !answer.toLowerCase().includes(fact.toLowerCase()),
-      method: 'exact',
-    }))
-    const ok =
-      facts.every(fact => fact.passed) && wrongFacts.every(fact => fact.passed)
+    await writeFile(reportPath, stringify(log))
 
-    log.cases.push({
-      case: name,
-      result: ok ? 'pass' : 'fail',
-      question: testCase.question,
-      answer: answer.trim(),
-      facts,
-      ...(wrongFacts.length ? { wrong_facts: wrongFacts } : {}),
-    })
-
-    if (ok) {
-      console.log(`✓ ${name}`)
-      passed++
-    } else {
-      console.log(`✗ ${name}`)
-      for (const fact of facts.filter(fact => !fact.passed))
-        console.log(`  missing: ${fact.fact}`)
-      for (const fact of wrongFacts.filter(fact => !fact.passed))
-        console.log(`  wrong_fact: ${fact.fact}`)
-      failed++
-    }
-
-    if (values.verbose)
-      console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
+    console.log(`\n${passed}/${passed + failed} passed -> ${reportPath}`)
+  } finally {
+    if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
   }
 
-  await mkdir(join(reportRoot, tag), { recursive: true })
-  const reportPath = join(
-    reportRoot,
-    tag,
-    `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
-  )
-  await writeFile(reportPath, stringify(log))
-
-  console.log(`\n${passed}/${passed + failed} passed -> ${reportPath}`)
-} finally {
-  if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
+  if (failed > 0) process.exitCode = 1
 }
-
-if (failed > 0) process.exit(1)
