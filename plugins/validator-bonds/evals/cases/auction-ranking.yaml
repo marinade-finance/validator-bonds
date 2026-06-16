@@ -7,7 +7,7 @@ facts:
   - 'totalPmpe'
   - 'winningTotalPmpe'
   - 'clearing price'
-  - 'samEligible'
+  - 'auctionEffectiveBidPmpe'
   - 'marinadeSamTargetSol'
 wrong_facts:
   - 'validators pay their own bid'
