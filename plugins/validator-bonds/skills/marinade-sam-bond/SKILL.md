@@ -38,6 +38,7 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 
 ## Key Concepts
 
+- **Never assume current epoch number** -- epochs advance every ~2.5 days; training-data epoch numbers are always stale. To get the current epoch query the bonds API (`curl -s 'https://validator-bonds-api.marinade.finance/bonds/bidding' | jq '.[0].epoch'`) or use `solana epoch` against an RPC. Never cite a specific epoch number from memory.
 - **CPMPE** -- lamports per 1000 SOL per epoch, the validator's fixed bid price
 - **Clearing price** -- `winningTotalPmpe`: PMPE of the last validator group to receive stake in the auction
 - **Program ID** -- `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
@@ -53,12 +54,13 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 
 **Direct data dependencies:**
 
-- **ds-sam** -- SAM evaluation CLI + SDK, produces auction scores for bid-distribution-cli
-- **ds-sam-pipeline** -- SAM pipeline data (auction inputs/outputs by epoch)
-- **ds-scoring** -- NestJS scoring service feeding SAM scores API
-- **institutional-staking** -- institutional staking calc + API, produces payout data
-- **stakes-etl** -- ETL pipelines producing reward files in GCS
-- **solana-snapshot-parser** -- produces stakes.json / validators.json snapshots
+- **ds-sam** (public) -- SAM evaluation CLI + SDK, produces auction scores for bid-distribution-cli. Clone: `git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam`
+- **ds-sam-pipeline** (public) -- SAM pipeline data (auction inputs/outputs by epoch). Clone: `git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline`
+- **ds-scoring** (**private**, `gh auth login` required) -- NestJS scoring service; computes `BondRiskFee` magnitude, `bond_risk_fee_sol`, score adjustments. Key file: `src/sam/sam.service.ts`. If inaccessible, note as upstream-unverifiable.
+- **institutional-staking** (**private**, `gh auth login` required) -- calculates 50bps APY guarantee for Select/institutional stakers; produces `InstitutionalPayout` settlement inputs. If inaccessible, derive from settlement-common output shape only.
+- **sam-blacklist** (**private**, `gh auth login` required) -- determines which validators get `BlacklistPenalty`; thresholds: >30% sandwich rate OR >450ms median block time. If inaccessible, facts/ has documented thresholds.
+- **stakes-etl** (public) -- ETL pipelines producing reward files in GCS
+- **solana-snapshot-parser** (public) -- produces stakes.json / validators.json snapshots
 
 **On-chain programs sharing state:**
 
