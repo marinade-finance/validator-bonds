@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--tmpdir] [-l|--list] [-v|--verbose] [-t <tag>] [-N|--limit N] [cases-dir|file.yaml...]
+// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--tmpdir] [-l|--list] [-v|--verbose] [-t <tag>] [--model <id>] [-N|--limit N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
 // --plugin-dir    load only this plugin; skills auto-trigger based on routing
 // --no-skills     disable all skills (baseline comparison)
@@ -54,6 +54,7 @@ const { values, positionals } = parseArgs({
     v: { type: 'boolean', default: false },
     t: { type: 'string' },
     limit: { type: 'string' },
+    model: { type: 'string' },
   },
   allowPositionals: true,
 })
@@ -93,11 +94,23 @@ const tag = values.t ?? defaultTag
 const pluginDir = values['plugin-dir']
   ? resolve(values['plugin-dir'])
   : undefined
-const baseFlags = values['no-skills']
-  ? ['--disable-slash-commands']
-  : pluginDir
-    ? ['--plugin-dir', pluginDir]
-    : []
+const MODEL_ALIASES: Record<string, string> = {
+  opus: 'claude-opus-4-8',
+  sonnet: 'claude-sonnet-4-6',
+  haiku: 'claude-haiku-4-5-20251001',
+}
+const resolvedModel = values.model
+  ? (MODEL_ALIASES[values.model] ?? values.model)
+  : undefined
+const modelFlags = resolvedModel ? ['--model', resolvedModel] : []
+const baseFlags = [
+  ...(values['no-skills']
+    ? ['--disable-slash-commands']
+    : pluginDir
+      ? ['--plugin-dir', pluginDir]
+      : []),
+  ...modelFlags,
+]
 
 // Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
 // Keeps it away from evals/cases/ so it can't read expected facts.

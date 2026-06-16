@@ -2,7 +2,7 @@ question: 'What triggers a BlacklistPenalty and who receives the settlement?'
 facts:
   - 'blacklisted'
   - 'sandwich'
-  - 'slow-slots'
+  - 'slot_duration_median'
   - 'stakers'
   - 'blacklist_penalty_pmpe'
 wrong_facts:

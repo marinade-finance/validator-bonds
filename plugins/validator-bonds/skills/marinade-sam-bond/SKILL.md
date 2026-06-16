@@ -62,7 +62,7 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 - **ds-sam-pipeline** (public) -- SAM pipeline data (auction inputs/outputs by epoch). Clone: `git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline`
 - **ds-scoring** (**private**, `gh auth login` required) -- NestJS scoring service; computes `BondRiskFee` magnitude, `bond_risk_fee_sol`, score adjustments. Key file: `src/sam/sam.service.ts`. If inaccessible, note as upstream-unverifiable.
 - **institutional-staking** (**private**, `gh auth login` required) -- calculates 50bps APY guarantee for Select/institutional stakers; produces `InstitutionalPayout` settlement inputs. If inaccessible, derive from settlement-common output shape only.
-- **sam-blacklist** (**private**, `gh auth login` required) -- determines which validators get `BlacklistPenalty`; thresholds: >30% sandwich rate OR >450ms median block time. If inaccessible, facts/ has documented thresholds.
+- **sam-blacklist** (**private**, `gh auth login` required) -- generates `blacklist.csv` consumed by SAM. Two scripts: `add-sandwichers.ts` (sandwich data from sandwiched.me, threshold `sandwichRateThreshold = 0.3` i.e. 30%) and `add-slow-slotters.ts` (slot timing from trillium.so, field `slot_duration_median`, threshold `SLOT_DURATION_THRESHOLD = 450` ms, consecutive epochs required). Blacklist codes: `MALICIOUS_SANDWICHED_ME_SINGLE_`, `MALICIOUS_SANDWICHED_ME_WIDE_`, `MALICIOUS_SANDWICHED_ME_TOTAL_`, `SLOW_SLOTS_`.
 - **stakes-etl** (public) -- ETL pipelines producing reward files in GCS
 - **solana-snapshot-parser** (public) -- produces stakes.json / validators.json snapshots
 
