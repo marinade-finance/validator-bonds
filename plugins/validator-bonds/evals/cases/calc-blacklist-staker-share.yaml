@@ -1,13 +1,10 @@
 question: >
   Using the per-staker BlacklistPenalty split in
   settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
-  each staker's claim = staker_share * stakers_blacklist_penalty_claim, where
-  staker_share = active_stake / total_marinade_active_stake.
 
   A blacklisted validator has blacklist_penalty_pmpe = 50 and
-  total_marinade_active_stake = 4,000 SOL (so the total stakers claim is
-  4,000 * 50/1000 = 200 SOL). One staker (stake_authority + withdraw_authority
-  pair) holds active_stake = 1,000 SOL of that 4,000 SOL.
+  total_marinade_active_stake = 4,000 SOL. One staker (stake_authority +
+  withdraw_authority pair) holds active_stake = 1,000 SOL of that 4,000 SOL.
 
   Compute: (a) staker_share as a fraction, (b) that staker's BlacklistPenalty
   claim in SOL, (c) the claim in lamports. Show each formula step.
