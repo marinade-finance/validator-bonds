@@ -251,8 +251,11 @@ for (const file of files) {
     if (verbose) console.log(`--- answer ---\n${answer.trim()}\n`)
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
+    const stderr =
+      e instanceof Error && 'stderr' in e ? String((e as any).stderr) : ''
     log.cases.push({ case: name, result: 'error', question, error, facts: [] })
-    console.log(`!  ${name}  (error: ${error.slice(0, 80)})`)
+    console.log(`!  ${name}  (error: ${error.slice(0, 120)})`)
+    if (verbose && stderr) console.log(`   stderr: ${stderr.trim()}`)
     failed++
   }
 }
