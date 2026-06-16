@@ -1,0 +1,17 @@
+question: >
+  Using the BidTooLowPenalty trigger condition from ds-sam (isNegativeBiddingChange):
+  threshold = 0.99999 × previous_bidPmpe
+
+  A validator had bidPmpe=100 in epoch N-1 and bidPmpe=97 in epoch N.
+
+  (a) What is the exact threshold value?
+  (b) Does this trigger a BidTooLowPenalty?
+  Show the calculation.
+facts:
+  - '99.999'
+  - 'BidTooLowPenalty'
+  - 'previous_bidPmpe'
+wrong_facts:
+  - 'does not trigger'
+  - 'no penalty'
+  - 'below minimum threshold'

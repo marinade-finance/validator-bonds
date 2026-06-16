@@ -1,0 +1,13 @@
+question: >
+  What are the sources of rewards that make up a Bidding settlement payout?
+  List each component, its origin, and which code struct in bidding.rs tracks it.
+facts:
+  - 'inflation_commission_claim'
+  - 'mev_commission_claim'
+  - 'static_bid_claim'
+  - 'ResultSettlementClaims'
+  - 'marinade_stake_share'
+wrong_facts:
+  - 'only inflation rewards'
+  - 'fixed amount per epoch'
+  - 'no MEV component'

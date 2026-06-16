@@ -5,6 +5,9 @@ question: >
 facts:
   - network average
   - underperformance
+  - ProtectedEvent
+  - credits
+  - mSOL
 wrong_facts:
   - '50bps'
   - 'fixed rate'

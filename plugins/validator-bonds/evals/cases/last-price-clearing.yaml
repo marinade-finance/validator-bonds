@@ -1,8 +1,9 @@
 question: 'How does the last-price clearing mechanism work in the SAM auction?'
 facts:
   - 'clearing price'
-  - 'bid'
+  - 'uniform'
   - 'winningTotalPmpe'
+  - 'last validator'
 wrong_facts:
   - 'highest bid'
   - 'average bid'

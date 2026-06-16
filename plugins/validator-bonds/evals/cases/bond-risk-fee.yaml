@@ -1,8 +1,8 @@
 question: 'What is the BondRiskFee settlement and when does it trigger?'
 facts:
   - 'BondRiskFee'
-  - 'insufficient'
-  - "validator's bond"
+  - 'bond_risk_fee_sol'
+  - 'BondRiskFeeDetails'
 wrong_facts:
   - 'blacklisted'
   - 'fewer credits'
