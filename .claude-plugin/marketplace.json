@@ -1,6 +1,6 @@
 {
   "name": "marinade",
-  "description": "Marinade Finance plugins — Validator Bonds protocol knowledge skills.",
+  "description": "Marinade Finance plugins — Validator Bonds knowledge skills.",
   "owner": {
     "name": "Marinade Finance",
     "url": "https://github.com/marinade-finance"
@@ -9,7 +9,7 @@
     {
       "name": "validator-bonds",
       "source": "./plugins/validator-bonds",
-      "description": "Validator Bonds protocol knowledge skills (marinade-sam-bond, marinade-ecosystem)."
+      "description": "Validator Bonds knowledge skills (marinade-sam-bond, marinade-ecosystem)."
     }
   ]
 }
