@@ -1,9 +1,9 @@
 question: >
   How do merkle settlements work in Validator Bonds? Include:
-  (a) which off-chain tool builds the merkle tree, (b) which on-chain account
-  tracks which claims have been paid, (c) the exact technical mechanism a staker
-  uses to prove eligibility and claim (what they submit, what on-chain instruction
-  they call).
+  (a) the exact name of the off-chain binary that builds the merkle tree,
+  (b) the exact on-chain account type that tracks which claims have been paid
+  (the deduplication bitmap), (c) the exact technical mechanism a staker uses
+  to prove eligibility and claim (what they submit, which instruction they call).
 facts:
   - 'merkle-generator-cli'
   - 'SettlementClaims'
