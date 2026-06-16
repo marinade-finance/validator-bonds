@@ -6,6 +6,11 @@ when_to_use: CPMPE, PMPE, totalPmpe, PSR, protected staking rewards, SAM auction
 
 # Validator Bonds Protocol Context
 
+> **Adjacent context files — read these when relevant:**
+>
+> - `institutional-staking.md` — Select program details, API routes, payout pipeline, Select dashboard. Read for any question about institutional validators, Select stakers, `InstitutionalPayout`, or the institutional-staking API.
+> - `sam-blacklist.md` — blacklist policy: sandwich detection thresholds, slow-slot criteria, pipeline. Read for any question about `BlacklistPenalty`, sandwich attacks, or the blacklist mechanism.
+
 Validators post SOL bonds as collateral to compete for Marinade's delegated stake via SAM (Stake Auction Marketplace). Bonds guarantee mSOL holders earn at minimum network-average rewards (PSR), and provide a PSR-percentile APY floor for institutional/Select stakers (`psr_percentile_apy` — the configured PSR percentile, default 50th, of network validator APYs; varies per epoch) -- underperformance triggers automatic compensation from the bond.
 
 **Two staker populations:** mSOL holders (liquid staking, bidding settlements) and institutional/Select stakers (native staking, PSR-percentile APY floor).
