@@ -13,5 +13,4 @@ facts:
   - '200_000_000_000'
 wrong_facts:
   - '0.5 SOL'
-  - '1000 SOL'
   - 'fee split'

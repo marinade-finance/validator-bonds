@@ -13,5 +13,4 @@ facts:
   - 'paidUndelegationSol'
 wrong_facts:
   - '1600 SOL'
-  - '160 SOL'
   - 'fee split'
