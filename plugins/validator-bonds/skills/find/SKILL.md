@@ -1,25 +1,32 @@
 ---
 name: find
-description: Deep code research against primary sources (source code, .refs/ clones, live APIs) — writes a verified fact file and answers with citations. General-purpose; works for any code question in this repo or its upstreams. NOT a substitute for protocol context: load marinade-sam-bond first for settlement/SAM context, then use find for code-level detail. NOT for Marinade doc/repo navigation (use marinade-docs) or stored-knowledge lookup (use recall-memories).
-when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, recall-memories returned no match, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source
+description: Answer questions from stored facts in `facts/` and `.diary/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM protocol context (load marinade-sam-bond first).
+when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts, check the diary, recent decisions, prior context, what was decided, have we covered this
 user-invocable: true
 arg: <question or topic to research>
 ---
 
 # Find
 
-Research → verify against primary source → write to `facts/` → answer with citation.
+Lookup → answer from facts if sufficient → otherwise research, verify, write, answer.
 Always use subagents. Never research in main context.
 
-> **Before researching settlement or SAM questions, load `/marinade-sam-bond`** —
-> it has the settlement type table with exact file paths and the protocol
-> vocabulary. `find` is for code-level detail once you know what you're looking
-> for, not for re-deriving protocol context from scratch.
+> **For settlement/SAM questions, load `/marinade-sam-bond` first** — it has the
+> settlement type table with exact file paths and protocol vocabulary. Use `find`
+> for code-level detail once you know what you're looking for.
 
 ## Step 1: Check existing facts
 
-Glob `facts/*.md` and grep for the topic. If a matching fact exists and
-`verified_at` is within 30 days, use it directly — skip to Step 3.
+Spawn an Explore subagent. It:
+
+1. Greps `summary:` in `facts/*.md`
+2. Checks `.diary/*.md` for recent decisions
+3. Returns: file path, one-line summary, why it matches
+
+List matched files, what each says, whether it answers, what gap remains.
+Verdict: answer directly (sufficient), refresh via Step 2 (stale/partial), or research fresh (no match).
+
+**If facts fully answer the question — answer now. Skip Steps 2–3.**
 
 ## Step 2: Research (subagent)
 
@@ -37,8 +44,6 @@ path; don't guess. For `.refs/` repos (ds-sam, ds-sam-pipeline, etc.) check
 they're cloned under `.refs/` before reading — clone commands are in
 `/marinade-docs`. Note any claim from a private `.refs/` repo as
 upstream-unverifiable; those repos can change independently.
-
-## Fact file format
 
 Write new facts to `facts/<slug>.md`, one fact per file:
 
@@ -62,18 +67,12 @@ At least one inline citation per non-trivial claim.
 Each fact must pass all checks before `verified_at` is set:
 
 1. **Source accessible** — every file:line exists; every URL returns 200
-2. **Claim matches source** — open the source, read it, confirm the body
-   matches what the source actually says; paraphrase drift is the most
-   common failure mode
-3. **No contradiction** — grep `facts/` for conflicting claims; if two
-   disagree, investigate and delete the wrong one
-4. **Numbers recomputed** — any quantity, rate, or percentage must be
-   re-read from source, not copied from a summary
-5. **Upstream claims flagged** — logic in `.refs/` repos can change when those
-   repos update; note the upstream source explicitly so readers re-verify
+2. **Claim matches source** — open the source, read it; paraphrase drift is the most common failure
+3. **No contradiction** — grep `facts/` for conflicting claims; investigate and delete the wrong one
+4. **Numbers recomputed** — any quantity, rate, or percentage re-read from source, not copied from a summary
+5. **Upstream claims flagged** — logic in `.refs/` repos can change; record the upstream source explicitly
 
-Delete facts that fail any check. If a fact can't be verified at all,
-don't write it — an unverified fact is worse than no fact.
+Delete facts that fail any check. An unverified fact is worse than no fact.
 
 ## Step 4: Answer
 
