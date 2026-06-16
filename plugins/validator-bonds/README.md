@@ -83,67 +83,10 @@ cross-repo navigation, what does this repo do, file an issue.
 
 ## Eval System
 
-The eval harness runs each `evals/cases/*.yaml` file through a real `claude -p`
-call and checks whether the answer contains the expected facts.
-
-### How it works
-
-1. **Load cases** — each `.yaml` has a `question`, a list of `facts` (strings
-   that must appear in the answer), and an optional `wrong_facts` list (strings
-   that must NOT appear).
-2. **Ask Claude** — runs `claude -p <question>` with the plugin skills loaded
-   and `CLAUDE_EVAL=1` set. By default Claude runs in an isolated copy of the
-   repo under `/tmp/vb-eval-*` (use `--persist` to run in the live checkout).
-3. **Check facts** — for each fact:
-   - Exact match (case-insensitive substring) → `method: exact`
-   - No exact match → sent to `claude-haiku-4-5-20251001` as a semantic judge
-     with a YES/NO prompt → `method: haiku`
-   - API failure → `method: error`, case fails
-4. **Check wrong_facts** — exact match only, inverted: must NOT appear.
-5. **Result** — a case passes only when all facts pass and all wrong_facts pass
-   (i.e. are absent).
-6. **Report** — written to `evals/report/<tag>/eval-<timestamp>.yml`.
-
-### Running evals
-
-From the repo root:
-
-```bash
-pnpm eval                              # all cases, Sonnet
-pnpm eval -- -l                        # list cases without running
-pnpm eval -- -5                        # first 5 cases
-pnpm eval -- bidding-settlement        # single case by name
-pnpm eval -- -v bidding-settlement     # verbose: print full answer
-pnpm eval -- --model opus              # use Opus
-pnpm eval -- -t mytag case1 case2      # named run, specific cases
-pnpm eval -- --persist                 # run in the live checkout, not a temp copy
-```
-
-### Reading results
-
-Pass/fail summary is printed to stdout (failures list each missing fact and any
-forbidden `wrong_facts` that appeared):
-
-```
-✓ program-id
-✗ bidding-settlement
-  missing: active_delegation_lamports
-  wrong_fact: native stakers
-```
-
-Full YAML log at `evals/report/<tag>/eval-<timestamp>.yml`.
-
-## Adding Eval Cases
-
-See `evals/CLAUDE.md` for full guidance. Short version:
-
-1. Create `evals/cases/<name>.yaml` with `question`, `facts`, optional `wrong_facts`.
-2. Facts must be grounded in a `SKILL.md` — if the content is not in the skill,
-   the model cannot produce it from skill routing alone.
-3. Use code identifiers (`epochs_to_claim_settlement`) not prose (`stakers get paid`).
-4. Don't give the formula or answer in the question body — cite the source file
-   and give input values; let the model discover the formula.
-5. Test: `pnpm eval -- -v <name>`
+Quality harness for the plugin's skills. Each `evals/cases/*.yml` asks Claude
+a question via `claude -p` with the plugin loaded and checks required facts and
+forbidden terms. See `evals/README.md` for commands and `evals/CLAUDE.md` for
+case authoring rules.
 
 ## Directory Layout
 
@@ -159,7 +102,7 @@ plugins/validator-bonds/
 ├── evals/
 │   ├── README.md            # eval command reference + case format
 │   ├── CLAUDE.md            # case authoring guide
-│   ├── cases/               # one .yaml per eval case (~70 cases)
+│   ├── cases/               # one .yml per eval case (~70 cases)
 │   └── report/              # run output (gitignored)
 └── skills/
     ├── find/
@@ -167,9 +110,7 @@ plugins/validator-bonds/
     ├── marinade-docs/
     │   └── SKILL.md
     ├── marinade-ecosystem/
-    │   ├── SKILL.md
-    │   └── evals/
-    │       └── questions.md # manual question bank (not run by eval harness)
+    │   └── SKILL.md
     └── marinade-sam-bond/
         ├── SKILL.md
         ├── institutional-staking.md

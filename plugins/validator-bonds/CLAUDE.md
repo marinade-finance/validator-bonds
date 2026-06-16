@@ -13,7 +13,7 @@ eval.ts`, so the default plugin dir is `.`). For manual testing:
 
 ## Eval harness
 
-`eval.ts` — runs cases from `evals/cases/*.yaml` against live Claude with the plugin loaded.
+`eval.ts` — runs cases from `evals/cases/*.yml` against live Claude with the plugin loaded.
 See `evals/CLAUDE.md` for case authoring, source-grounding rules, and failure diagnosis.
 
 ```sh

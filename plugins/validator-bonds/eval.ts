@@ -75,14 +75,23 @@ const pluginDir = resolve(values['plugin-dir'] ?? '.')
 const today = new Date().toISOString().slice(0, 10).replaceAll('-', '')
 const tag = values.t ?? today
 
+const copyRepo = async (src: string): Promise<string> => {
+  const dest = await mkdtemp(join(tmpdir(), 'vb-eval-'))
+  const excludes = ['node_modules', '.git', '.refs', '.pnpm-store'].flatMap(
+    d => ['--exclude', `./${d}`],
+  )
+  await $`tar -cf - ${excludes} -C ${src} . | tar -xf - -C ${dest}`
+  return dest
+}
+
 const expand = async (input: string): Promise<string[]> => {
   const path = input.includes('/')
     ? resolve(input)
-    : join(casesRoot, `${input}.yaml`)
+    : join(casesRoot, `${input}.yml`)
   const s = await stat(path)
   if (!s.isDirectory()) return [path]
   return (await readdir(path))
-    .filter(f => f.endsWith('.yaml'))
+    .filter(f => f.endsWith('.yml'))
     .sort()
     .map(f => join(path, f))
 }
@@ -104,7 +113,7 @@ const readCase = async (file: string): Promise<CaseFile> => {
 if (values.list) {
   for (const file of files) {
     const data = await readCase(file)
-    console.log(basename(file).replace(/\.yaml$/, ''))
+    console.log(basename(file).replace(/\.yml$/, ''))
     console.log(`  Q: ${data.question.trim().replace(/\s+/g, ' ')}`)
     console.log(`  facts: ${data.facts.join(', ')}`)
     if (data.wrong_facts?.length)
@@ -116,8 +125,7 @@ if (values.list) {
   let tempRoot: string | null = null
 
   if (!values.persist) {
-    tempRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
-    await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${repoRoot} . | tar -xf - -C ${tempRoot}`
+    tempRoot = await copyRepo(repoRoot)
     runRoot = tempRoot
 
     if (!values['plugin-dir']) {
@@ -133,7 +141,7 @@ if (values.list) {
     ...(model ? ['--model', model] : []),
   ]
 
-  const ask = async (question: string): Promise<string> =>
+  const runClaude = async (question: string): Promise<string> =>
     $`claude ${claudeFlags} -p ${question}`
       .cwd(runRoot)
       .env({ ...process.env, CLAUDE_EVAL: '1' })
@@ -185,9 +193,9 @@ if (values.list) {
     }
 
     for (const file of files) {
-      const name = basename(file).replace(/\.yaml$/, '')
+      const name = basename(file).replace(/\.yml$/, '')
       const testCase = await readCase(file)
-      const answer = await ask(testCase.question)
+      const answer = await runClaude(testCase.question)
       const facts = await Promise.all(
         testCase.facts.map(fact => checkFact(answer, fact)),
       )
