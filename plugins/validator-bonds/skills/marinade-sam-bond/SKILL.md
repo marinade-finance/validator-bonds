@@ -1,10 +1,10 @@
 ---
 name: marinade-sam-bond
-description: Validator Bonds protocol internals — settlement types, SAM auction, bond collateral, PSR, epoch lifecycle. NOT for ecosystem navigation, program-ID/SDK lookup, or issue filing (use marinade-ecosystem); NOT for live validator data (query the bonds API) or deep code research (use find).
+description: Validator Bonds program internals — settlement types, SAM auction, bond collateral, PSR, epoch lifecycle. NOT for ecosystem navigation, program-ID/SDK lookup, or issue filing (use marinade-ecosystem); NOT for live validator data (query the bonds API) or deep code research (use find).
 when_to_use: CPMPE, PMPE, totalPmpe, PSR, protected staking rewards, SAM auction, stake auction marketplace, ValidatorBond, SettlementReason, ProtectedEvent, BidTooLowPenalty, BlacklistPenalty, BondRiskFee, InstitutionalPayout, PriorityFee, CommissionSamIncrease, DowntimeRevenueImpact, fund_bond, withdraw_request, init_withdraw_request, claim_withdraw_request, merkle settlement, settlement claim, settlement funding, bid-distribution, settlement-config.yaml, mSOL stakers, native staking, Select stakers, institutional stakers, bond collateral, clearing price, winningTotalPmpe, validator bid, dynamic commission, dynamic bids, minimum bond balance, minBondBalanceSol, epoch lifecycle, claiming window, how bonds work, how settlements work, payout_stakers, payout_distributors, psr_percentile_apy, apy_percentile_diff, institutional-distribution-cli
 ---
 
-# Validator Bonds Protocol Context
+# Validator Bonds Program Context
 
 > **Adjacent context files — read these when relevant:**
 >

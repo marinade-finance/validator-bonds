@@ -1,5 +1,5 @@
 question: >
-  How do merkle settlements work in the Validator Bonds protocol? Include:
+  How do merkle settlements work in Validator Bonds? Include:
   (a) which off-chain tool builds the merkle tree, (b) which on-chain account
   tracks which claims have been paid, (c) the exact technical mechanism a staker
   uses to prove eligibility and claim (what they submit, what on-chain instruction

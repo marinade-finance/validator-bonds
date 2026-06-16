@@ -1,6 +1,6 @@
 ---
 name: find
-description: Answer questions from stored facts in `facts/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM protocol context (load marinade-sam-bond first).
+description: Answer questions from stored facts in `facts/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM context (load marinade-sam-bond first).
 when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts
 user-invocable: true
 arg: <question or topic to research>
@@ -12,7 +12,7 @@ Lookup → answer from facts if sufficient → otherwise research, verify, write
 Always use subagents. Never research in main context.
 
 > **For settlement/SAM questions, load `/marinade-sam-bond` first** — it has the
-> settlement type table with exact file paths and protocol vocabulary. Use `find`
+> settlement type table with exact file paths and domain vocabulary. Use `find`
 > for code-level detail once you know what you're looking for.
 
 ## Step 1: Check existing facts

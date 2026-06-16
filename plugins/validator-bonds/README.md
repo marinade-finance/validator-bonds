@@ -1,8 +1,7 @@
 # Validator Bonds Agent Plugin
 
-Agent plugin skills for the Marinade Validator Bonds protocol. It provides
-context covering SAM auction mechanics, settlement types, bond lifecycle, and
-ecosystem navigation.
+Agent plugin skills for Marinade Validator Bonds. Covers SAM auction mechanics,
+settlement types, bond lifecycle, and ecosystem navigation.
 
 ## Install
 
@@ -24,7 +23,7 @@ Claude Code:
 
 ### `marinade-sam-bond`
 
-The core protocol context skill. Covers SAM (Stake Auction Marketplace) auction
+The core Validator Bonds context skill. Covers SAM (Stake Auction Marketplace) auction
 mechanics, all settlement types and their `SettlementReason` enum variants
 (`Bidding`, `PriorityFee`, `BidTooLowPenalty`, `BlacklistPenalty`, `BondRiskFee`,
 `InstitutionalPayout`, `ProtectedEvent`), the epoch lifecycle from bid submission
@@ -55,7 +54,7 @@ facts exist and are sufficient, answers directly; otherwise spawns subagents to
 research, verify, and persist findings under `facts/`.
 
 Use `find` for code-level detail once `marinade-sam-bond` has established what
-you are looking for. Do not use it for ecosystem navigation or protocol overview
+you are looking for. Do not use it for ecosystem navigation or program overview
 questions — those belong to `marinade-ecosystem` and `marinade-sam-bond`.
 
 **Triggers:** research X, verify X, dig into the code, check the source,
@@ -66,7 +65,7 @@ what do I know about X, recall, check the facts.
 
 Index of documentation URLs, live API base URLs with endpoint lists, GCS bucket
 paths, and clone commands for every public and private repo. Does not cover
-protocol internals — use `marinade-sam-bond` for those.
+Validator Bonds internals — use `marinade-sam-bond` for those.
 
 **Triggers:** where do I find, which API, API endpoint, OpenAPI schema, docs URL,
 bonds API URL, scoring API, clone a repo, repo URL, GCS bucket path, what URL.
