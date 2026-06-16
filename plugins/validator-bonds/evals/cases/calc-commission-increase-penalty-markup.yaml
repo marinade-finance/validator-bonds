@@ -1,17 +1,14 @@
 question: >
   Using the CommissionSamIncrease markup branch in
   settlement-distributions/settlement-common/src/protected_events.rs and the
-  config in settlement-config.yaml (extra_penalty_threshold_bps = 700 = 7%,
-  base_markup_bps = 1000 = 10%, penalty_markup_bps = 10000 = 100%):
+  config in settlement-config.yaml:
 
   A validator raised commission so that expected_epr = 0.10 and actual_epr =
-  0.08. This time actual_inflation_commission = 9%, which EXCEEDS the 7%
-  extra_penalty_threshold. The settlement covers stake = 10,000 SOL.
+  0.08. This time actual_inflation_commission = 9%. The settlement covers
+  stake = 10,000 SOL.
 
-  Compute: (a) base_cps = expected_epr - actual_epr, (b) which markup applies
-  (because a commission exceeds the threshold) and its fraction, (c)
-  claim_per_stake = base_cps + base_cps * markup, (d) the payout in SOL. Show
-  each formula step.
+  Compute: (a) base_cps, (b) which markup applies and its fraction, (c)
+  claim_per_stake, (d) the payout in SOL. Show each formula step.
 facts:
   - '0.02'
   - 'penalty_markup_bps'
