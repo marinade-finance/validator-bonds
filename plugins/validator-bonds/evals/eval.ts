@@ -88,22 +88,21 @@ const today = new Date()
 const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
 const tag = values.t ?? defaultTag
 
-// Resolve plugin-dir relative to original cwd before repoRoot changes
+// Resolve plugin-dir: explicit flag → absolute path; default → this plugin's root.
+// No plugin-dir only when --no-skills is passed.
+const defaultPluginDir = join(scriptDir, '..')
 const pluginDir = values['plugin-dir']
   ? resolve(values['plugin-dir'])
-  : undefined
+  : defaultPluginDir
 const baseFlags = values['no-skills']
   ? ['--disable-slash-commands']
-  : pluginDir
-    ? ['--plugin-dir', pluginDir]
-    : []
+  : ['--plugin-dir', pluginDir]
 
 // Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
 // Keeps it away from evals/cases/ so it can't read expected facts.
-// When skills are active, /find is prepended so every answer is source-verified.
-const skillsActive = !values['no-skills']
+// The find skill auto-triggers from when_to_use once the plugin is loaded.
 const ask = async (question: string): Promise<string> =>
-  $`claude ${baseFlags} -p ${skillsActive ? '/find ' + question : question}`
+  $`claude ${baseFlags} -p ${question}`
     .cwd(repoRoot)
     .env({ ...process.env, CLAUDE_EVAL: '1' })
     .text()
@@ -221,18 +220,20 @@ for (const file of files) {
       console.log(`✓  ${name}  ${q}`)
       passed++
     } else {
-      console.log(`✗  ${name}  ${q}`)
+      console.log(`\n✗  ${name}`)
+      console.log(`   Q: ${q}`)
       factResults.forEach(r => {
         const tag = r.passed ? '  ok' : 'miss'
-        console.log(`     [${tag}] ${r.fact}`)
+        console.log(`   [${tag}] ${r.fact}`)
       })
       wrongResults.forEach(r => {
         const tag = r.passed ? '  ok' : 'WRONG'
-        console.log(`     [${tag}] wrong_fact: ${r.fact}`)
+        console.log(`   [${tag}] wrong_fact: ${r.fact}`)
       })
+      console.log('')
       failed++
     }
-    if (verbose) console.log(`\n--- answer ---\n${answer.trim()}\n`)
+    if (verbose) console.log(`--- answer ---\n${answer.trim()}\n`)
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e)
     log.cases.push({ case: name, result: 'error', question, error, facts: [] })
