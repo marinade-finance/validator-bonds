@@ -17,7 +17,7 @@ facts:
   - '0.2'
   - 'bondRiskFeeSol'
   - '200 SOL'
-  - '200000000000'
+  - '200_000_000_000'
 wrong_facts:
   - '0.5 SOL'
   - '1000 SOL'
