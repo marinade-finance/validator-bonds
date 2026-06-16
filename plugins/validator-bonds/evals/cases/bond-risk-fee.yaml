@@ -1,8 +1,11 @@
-question: 'What is the BondRiskFee settlement and when does it trigger?'
+question: >
+  What is the BondRiskFee settlement, when does it trigger, and where does
+  bondRiskFeeSol appear in the codebase?
 facts:
   - 'BondRiskFee'
   - 'bondRiskFeeSol'
   - 'calcBondRiskFee'
+  - 'underfunded'
 wrong_facts:
   - 'blacklisted'
   - 'fewer credits'

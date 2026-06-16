@@ -1,10 +1,9 @@
 question: 'What is a DowntimeRevenueImpact protected event and how is it funded?'
 facts:
-  - 'fewer credits than expected'
+  - 'DowntimeRevenueImpact'
   - 'ValidatorBond'
-  - 'Marinade'
   - 'ProtectedEvent'
-  - '0-50%'
+  - 'fewer credits'
 wrong_facts:
   - 'bond covers all'
   - 'validator covers 100%'

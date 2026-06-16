@@ -5,10 +5,10 @@ question: >
 facts:
   - merkle
   - claiming window
-  - off-chain
+  - merkle-generator-cli
   - on-chain
   - epochs_to_claim_settlement
-  - unclaimed funds return to bond
+  - close-settlement
 wrong_facts:
   - 'unclaimed funds burned'
   - 'funds are lost'

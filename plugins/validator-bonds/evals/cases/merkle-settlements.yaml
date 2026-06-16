@@ -1,7 +1,7 @@
 question: 'How do merkle settlements work in the Validator Bonds protocol?'
 facts:
-  - 'off-chain generated'
-  - 'on-chain verified'
+  - 'merkle-generator-cli'
+  - 'SettlementClaims'
   - 'merkle proof'
   - 'claim'
 wrong_facts:
