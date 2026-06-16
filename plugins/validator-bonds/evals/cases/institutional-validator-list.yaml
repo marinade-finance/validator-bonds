@@ -1,7 +1,7 @@
 question: "How do I find out which validators are in Marinade's institutional staking program?"
 facts:
   - 'bonds/institutional'
-  - 'institutional'
+  - 'vote_account'
 wrong_facts:
   - 'hardcoded in the skill'
   - 'listed in settlement-config.yaml'
