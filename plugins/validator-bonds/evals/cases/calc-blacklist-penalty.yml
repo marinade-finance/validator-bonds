@@ -1,7 +1,4 @@
 question: >
-  Using the BlacklistPenalty formulas in
-  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
-
   A blacklisted validator has blacklist_penalty_pmpe = 50 and
   total_marinade_active_stake = 4,000 SOL.
 

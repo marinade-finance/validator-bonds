@@ -1,8 +1,4 @@
 question: >
-  Using the BidTooLowPenalty calculation in
-  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs
-  and the fee config in settlement-config.yaml:
-
   A validator has bid_too_low_penalty_pmpe = 80 and
   total_marinade_active_stake = 2,500 SOL.
 

@@ -1,8 +1,4 @@
 question: >
-  Using the DowntimeRevenueImpact logic in
-  settlement-distributions/settlement-common/src/protected_events.rs and the
-  ValidatorBond-funded config in settlement-config.yaml:
-
   A validator has actual_non_bid_pmpe = 80, actual_credits = 950,000, and
   expected_credits = 1,000,000. The settlement covers stake = 10,000 SOL.
 

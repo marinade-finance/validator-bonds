@@ -1,8 +1,4 @@
 question: >
-  Using collect_downtime_revenue_impact_events in
-  settlement-distributions/settlement-common/src/protected_events.rs and the
-  ValidatorBond-funded config in settlement-config.yaml:
-
   A validator earned actual_credits = 750,000 against expected_credits =
   1,000,000. Its actual_non_bid_pmpe = 100. The settlement covers stake = 8,000
   SOL.

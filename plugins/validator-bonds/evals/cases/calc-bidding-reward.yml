@@ -1,6 +1,4 @@
 question: >
-  Using settlement-distributions/bid-distribution/src/generators/bidding.rs:
-
   A validator has:
   - total_active_stake = 5,000,000 SOL (all owned by Marinade, no other stakers)
   - auction_effective_static_bid_pmpe = 200 (winningTotalPmpe = 200)

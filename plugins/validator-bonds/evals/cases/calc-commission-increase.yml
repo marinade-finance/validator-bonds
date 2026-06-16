@@ -1,8 +1,4 @@
 question: >
-  Using the CommissionSamIncrease claim_per_stake logic in
-  settlement-distributions/settlement-common/src/protected_events.rs and the
-  config in settlement-config.yaml:
-
   A validator raised commission so that expected_epr = 0.10 but actual_epr =
   0.08. Its actual_inflation_commission = 5% and actual_mev_commission = 3%.
   The settlement covers stake = 10,000 SOL.

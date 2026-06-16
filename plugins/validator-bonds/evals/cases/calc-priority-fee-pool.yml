@@ -1,7 +1,4 @@
 question: >
-  Using generate_bid_settlements_worker in
-  settlement-distributions/bid-distribution/src/generators/bidding.rs:
-
   A validator has total_marinade_activating_stake = 4,000 SOL,
   activating_stake_pmpe = 50, a static_bid_claim of 600 SOL, and (after the
   distributor fee) stakers_total_claim = 720 SOL.

@@ -1,11 +1,6 @@
 question: >
-  Using the minimum bond balance formulas from facts/2025-06-bond-balance-formula.md
-  (minBondEpochs=1, idealBondEpochs=3):
-
-  A validator has:
-  - activeStake = 10,000 SOL
-  - relaxedTotalPmpe = 80
-  - bidPmpe = 30
+  A validator has activeStake = 10,000 SOL, relaxedTotalPmpe = 80, bidPmpe = 30.
+  The config uses minBondEpochs = 1 and idealBondEpochs = 3.
 
   Compute: (a) baseBondBalance in SOL, (b) minimum bond balance in SOL,
   (c) ideal bond balance in SOL. Show each formula step.

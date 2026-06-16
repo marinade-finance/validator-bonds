@@ -1,7 +1,4 @@
 question: >
-  Using calcBondRiskFee in ds-sam
-  (.refs/ds-sam/packages/ds-sam-sdk/src/calculations.ts):
-
   For an underfunded validator the auction computed value = 800 SOL, with
   onchainDistributedPmpe = 150 and auctionEffectiveBidPmpe = 50. The config sets
   bondRiskFeeMult = 2.

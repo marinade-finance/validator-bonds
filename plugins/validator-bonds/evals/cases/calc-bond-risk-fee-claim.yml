@@ -1,7 +1,4 @@
 question: >
-  Using the BondRiskFee on-chain claim construction in
-  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
-
   ds-sam's calcBondRiskFee produced bond_risk_fee_sol = 2.5 for a validator with
   total_marinade_active_stake = 5,000 SOL. One staker holds active_stake =
   1,000 SOL.

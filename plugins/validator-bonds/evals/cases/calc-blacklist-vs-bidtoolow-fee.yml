@@ -1,8 +1,4 @@
 question: >
-  Using generate_penalty_settlements in
-  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs
-  and the fee config in settlement-config.yaml:
-
   Take two validators, each with total_marinade_active_stake = 4,000 SOL. One has
   bid_too_low_penalty_pmpe = 50; the other has blacklist_penalty_pmpe = 50.
 

@@ -3,14 +3,10 @@ question: >
   settlement trees generated, how do they reach the chain, what is the
   claiming window, and what happens to unclaimed funds after it closes?
 facts:
-  - merkle
-  - claiming window
-  - merkle-generator-cli
-  - on-chain
-  - epochs_to_claim_settlement
-  - close-settlement
+  - 'merkle-generator-cli'
+  - 'init-settlement'
+  - 'epochs_to_claim_settlement'
+  - 'close-settlement'
 wrong_facts:
-  - 'unclaimed funds burned'
-  - 'funds are lost'
-  - 'funds are forfeited'
   - 'fixed 4-epoch window'
+  - 'funds are burned'

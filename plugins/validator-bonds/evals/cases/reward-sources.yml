@@ -1,6 +1,6 @@
 question: >
   What are the sources of rewards that make up a Bidding settlement payout?
-  List each component, its origin, and which code struct in bidding.rs tracks it.
+  List each component, its origin, and which code struct tracks it.
 facts:
   - 'inflation_commission_claim'
   - 'mev_commission_claim'
