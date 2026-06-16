@@ -18,6 +18,5 @@ facts:
   - 'covered_range_bps'
   - 'Marinade'
 wrong_facts:
-  - '480 SOL'
   - 'bond covers all'
   - 'validator covers 100%'

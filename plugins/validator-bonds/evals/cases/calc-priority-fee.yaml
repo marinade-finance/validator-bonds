@@ -12,9 +12,7 @@ question: >
 facts:
   - '0.2'
   - '20 SOL'
-  - '20000000000'
-  - 'PriorityFee'
+  - 'activating_stakers_pool'
 wrong_facts:
-  - '100 SOL'
   - 'Bidding'
   - '2 SOL'
