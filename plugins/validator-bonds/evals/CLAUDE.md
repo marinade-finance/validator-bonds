@@ -1,50 +1,30 @@
-# Eval System
+# Eval Case Authoring
 
-This directory contains eval cases for the `validator-bonds` plugin. The runner
-is [`../eval.ts`](../eval.ts), exposed from the repo root as `pnpm eval`.
-
-## Commands
-
-```bash
-pnpm eval                         # all cases
-pnpm eval -- -l                   # list cases without model calls
-pnpm eval -- -v <case-name>       # debug one case
-pnpm eval -- -t <tag> <case-name> # tagged run
-pnpm eval -- --model opus         # aliases: opus, sonnet, haiku
-pnpm eval -- --no-skills          # baseline
-pnpm eval -- --persist            # run in the live checkout
-```
-
-Default runs copy the repo to `/tmp/vb-eval-*`, map the current working
-directory plugin into that copy, run Claude there, write reports under
-`evals/report/<tag>/`, and always remove the temp copy. Use `--persist` only
-when live writes are intentional.
+See `README.md` for run commands.
 
 ## Case Rules
 
-Cases are YAML files in `cases/`:
-
 ```yaml
-question: 'What triggers a BidTooLowPenalty settlement?'
+question: 'What triggers a BidTooLowPenalty settlement and what is the threshold formula?'
 facts:
-  - 'BidTooLowPenalty'
-  - 'reduces'
-  - 'previous epoch'
+  - 'previous_bidPmpe'
+  - 'isNegativeBiddingChange'
 wrong_facts:
   - 'below minimum threshold'
+  - 'commission increase'
 ```
 
-- `facts` must appear exactly or pass the Haiku semantic judge.
+- `facts` must appear exactly (case-insensitive substring) or pass the Haiku semantic judge.
 - `wrong_facts` are exact-only and must be absent.
-- Prefer code identifiers, enum names, field names, URLs, and exact numbers.
-- Avoid broad prose when a stable symbol exists.
-- Do not put a term in `wrong_facts` if the prompt itself names it.
+- Prefer code identifiers, struct field names, function names, exact numbers over prose.
+- Do not put a term in `wrong_facts` if the question body names it (it will appear in any correct answer).
+- **No file paths in questions.** Ask what you want to know; the model discovers where to look.
+- **No regurgitation cases.** If ALL facts appear verbatim in a SKILL.md, the case tests copy-paste, not reasoning. Add at least one fact that requires reading source code, computing a value, or connecting multiple concepts.
+- For calculations: give only the input values; never state the formula or the expected result in the question.
 
 ## Workflow
 
-1. Add or edit one case.
-2. Run `pnpm eval -- -v -t probe <case-name>`.
-3. Keep facts minimal and grounded in `plugins/validator-bonds/skills/` or
-   primary source files.
-4. Add `wrong_facts` for likely regressions, especially stale constants and
-   settlement-type confusion.
+1. Write the question in plain language — no file paths, no formula hints.
+2. Run `pnpm eval -- -v -t probe <case-name>` and read the actual answer.
+3. Set `facts` to identifiers the model reliably produces when correct.
+4. Add `wrong_facts` for plausible regressions (wrong settlement type, stale constants, wrong direction of an inequality).
