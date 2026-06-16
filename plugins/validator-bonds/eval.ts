@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/* eslint-disable import/no-extraneous-dependencies */
 
 import {
   mkdir,
