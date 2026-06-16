@@ -144,7 +144,7 @@ if (values.list) {
 
   const judgeModel = 'claude-haiku-4-5-20251001'
   const judgePrompt =
-    'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
+    'Output YES if the response conveys the fact. Accept: equivalent technical terms, alternative numeric formatting (commas/underscores), or equivalent units (e.g. "200 SOL" ≡ "200000000000 lamports" or "200,000,000,000 lamports"; "20.0 SOL" ≡ "20 SOL"; "-3750 bps" ≡ "3750 basis points"). Output NO if absent or contradicted. No other output.'
 
   const runClaude = (flags: string[], prompt: string): Promise<string> =>
     $`claude ${flags} -p ${prompt}`
@@ -162,7 +162,13 @@ if (values.list) {
     try {
       const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
       const verdict = await runClaude(
-        ['--bare', '--system-prompt', judgePrompt, '--model', judgeModel],
+        [
+          '--disable-slash-commands',
+          '--system-prompt',
+          judgePrompt,
+          '--model',
+          judgeModel,
+        ],
         prompt,
       )
       return {
