@@ -214,11 +214,12 @@ for (const file of files) {
       facts: factResults,
       ...(wrongResults.length > 0 ? { wrong_facts: wrongResults } : {}),
     })
+    const q = question.trim().replace(/\n/g, ' ')
     if (ok) {
-      console.log(`✓  ${name}`)
+      console.log(`✓  ${name}  ${q}`)
       passed++
     } else {
-      console.log(`✗  ${name}`)
+      console.log(`✗  ${name}  ${q}`)
       factResults.forEach(r => {
         const tag = r.passed ? '  ok' : 'miss'
         console.log(`     [${tag}] ${r.fact}`)
