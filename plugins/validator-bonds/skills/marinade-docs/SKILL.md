@@ -37,7 +37,7 @@ Clone under `.refs/<name>` for local exploration.
 | `solana-snapshot-parser` | Produces `stakes.json` / `validators.json`                           | `git clone https://github.com/marinade-finance/solana-snapshot-parser .refs/solana-snapshot-parser` |
 | `liquid-staking-program` | Core mSOL staking program                                            | `git clone https://github.com/marinade-finance/liquid-staking-program .refs/liquid-staking-program` |
 
-## Private Repos (`gh auth login` required)
+## Private Repos
 
 | Repo                    | What's there                                                 |
 | ----------------------- | ------------------------------------------------------------ |

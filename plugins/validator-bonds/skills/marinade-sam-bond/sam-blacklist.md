@@ -1,8 +1,7 @@
 # sam-blacklist
 
 Private repo (`marinade-finance/sam-blacklist`). Generates `blacklist.csv`
-consumed by ds-sam to assign `BlacklistPenalty` settlements. Clone under
-`.refs/sam-blacklist` if access is needed (`gh auth login` first).
+consumed by ds-sam to assign `BlacklistPenalty` settlements. Clone under `.refs/sam-blacklist` for local exploration.
 
 ## Detection criteria
 

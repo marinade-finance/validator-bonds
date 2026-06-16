@@ -50,7 +50,8 @@ Write new facts to `facts/<slug>.md`, one fact per file:
 ---
 topic: <specific topic>
 category: <sam-auction|settlement|on-chain|bond-lifecycle|scoring>
-verified_at: <ISO timestamp>
+verified_at: <ISO date, YYYY-MM-DD>
+expired_at: <ISO date — required; default 1 year from verified_at>
 sources:
   - <file:line or URL — required, ≥1>
 summary: >
@@ -59,7 +60,8 @@ summary: >
 <claim + supporting evidence with direct quotes or line excerpts>
 ```
 
-At least one inline citation per non-trivial claim.
+Facts without `expired_at` are invalid. Facts past their `expired_at` must be
+re-verified or deleted before use. At least one inline citation per non-trivial claim.
 
 ## Step 3: Verify (subagent per batch of 5)
 

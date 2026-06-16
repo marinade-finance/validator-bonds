@@ -9,7 +9,7 @@
   },
   "homepage": "https://psr.marinade.finance",
   "repository": "https://github.com/marinade-finance/validator-bonds",
-  "license": "AGPL-3.0",
+  "license": "ISC",
   "keywords": [
     "solana",
     "marinade",
