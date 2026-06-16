@@ -1,0 +1,8 @@
+question: 'Where can I find historical institutional staking payout data?'
+facts:
+  - 'institutional-staking.marinade.finance'
+  - '/v1/payouts/latest'
+  - 'select.marinade.finance'
+wrong_facts:
+  - 'bonds API'
+  - 'bonds/bidding'

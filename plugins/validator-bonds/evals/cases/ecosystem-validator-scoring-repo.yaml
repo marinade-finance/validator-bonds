@@ -1,0 +1,3 @@
+question: 'Where is the validator scoring API and stake allocation logic?'
+facts:
+  - 'delegation-strategy-2'

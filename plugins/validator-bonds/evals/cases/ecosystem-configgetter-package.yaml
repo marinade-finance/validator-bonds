@@ -1,0 +1,3 @@
+question: 'Which package provides the configGetter pattern?'
+facts:
+  - 'config-common'

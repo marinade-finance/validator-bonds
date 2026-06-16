@@ -1,0 +1,3 @@
+question: 'Which repo generates the SAM blacklist?'
+facts:
+  - 'sam-blacklist'

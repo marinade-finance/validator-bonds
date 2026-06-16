@@ -1,0 +1,6 @@
+question: 'What is @marinade.finance/cli-common used for?'
+facts:
+  - 'keypair'
+  - 'CLI'
+wrong_facts:
+  - 'NestJS'

@@ -1,0 +1,19 @@
+question: >
+  Marinade's Select program guarantees a 50bps (0.5%) annualized APY floor
+  for institutional stakers; shortfalls are paid from the validator's bond
+  via an InstitutionalPayout settlement (~146 epochs per year, ~2.5 days each).
+
+  A Select validator had an epoch APY of 0.3% annualized (below the
+  50bps = 0.5% guarantee). They had 1,000 SOL of institutional stake.
+
+  Compute the InstitutionalPayout from their bond: (a) the annualized
+  shortfall, (b) the per-epoch shortfall, (c) the payout in SOL and lamports.
+  Show each formula step.
+facts:
+  - 'InstitutionalPayout'
+  - '50bps'
+  - '0.0137'
+  - '13699'
+wrong_facts:
+  - 'BlacklistPenalty'
+  - 'BidTooLowPenalty'

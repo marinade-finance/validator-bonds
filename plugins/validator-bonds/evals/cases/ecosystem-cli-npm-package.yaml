@@ -1,0 +1,3 @@
+question: 'What npm package contains the validator-bonds CLI?'
+facts:
+  - '@marinade.finance/validator-bonds-cli'

@@ -1,0 +1,9 @@
+question: "What happens to an institutional (Select) validator's stake allocation if their bond balance drops below the minimum?"
+facts:
+  - 'minBondBalanceSol'
+  - 'cap'
+  - 'revoked'
+  - 'clipped'
+wrong_facts:
+  - 'BlacklistPenalty'
+  - 'fixed SOL amount'
