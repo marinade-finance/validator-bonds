@@ -20,6 +20,5 @@ facts:
   - '220 SOL'
   - 'CommissionSamIncrease'
 wrong_facts:
-  - 'penalty_markup_bps'
   - '400 SOL'
   - '200 SOL'

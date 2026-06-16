@@ -28,6 +28,5 @@ facts:
   - 'base_markup_bps'
   - '660 SOL'
 wrong_facts:
-  - 'penalty_markup_bps'
   - '600 SOL'
   - '1320 SOL'

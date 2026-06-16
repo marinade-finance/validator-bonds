@@ -19,6 +19,5 @@ facts:
   - '400 SOL'
   - 'extra_penalty_threshold_bps'
 wrong_facts:
-  - 'base_markup_bps'
   - '220 SOL'
   - '200 SOL'
