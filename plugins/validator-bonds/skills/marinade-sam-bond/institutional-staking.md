@@ -22,8 +22,10 @@ Currently 24 validators. Get the live list from the dashboard at
   stakers are subsidized instead.
 - **Bond-backed**: shortfall is paid from the validator's bond, not from
   Marinade treasury.
-- **Fees**: `validator_fee_bps` (10bps) + `distributor_fee_bps` (30bps)
-  deducted from total payout; remainder goes to stakers.
+- **Fees**: `validator_fee_bps` + `distributor_fee_bps` deducted from total
+  payout; remainder goes to stakers. Both are config-set (current defaults
+  10bps / 30bps — they can change); read the live values from
+  `GET /v1/configs/latest`.
 
 ## Pipeline
 
