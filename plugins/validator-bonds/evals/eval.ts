@@ -35,7 +35,8 @@ interface FactResult {
   error?: string
 }
 
-const rawArgs = Bun.argv.slice(2)
+// strip bare '--' that pnpm passes when forwarding args (e.g. `pnpm eval -- -v`)
+const rawArgs = Bun.argv.slice(2).filter(a => a !== '--')
 const shortLimit = rawArgs.find(a => /^-\d+$/.test(a))
 const filteredArgs = shortLimit
   ? rawArgs.filter(a => a !== shortLimit)
@@ -101,10 +102,12 @@ const baseFlags = values['no-skills']
 // Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
 // Keeps it away from evals/cases/ so it can't read expected facts.
 // The find skill auto-triggers from when_to_use once the plugin is loaded.
+const ASK_TIMEOUT = 300_000 // 5 min per question
 const ask = async (question: string): Promise<string> =>
   $`claude ${baseFlags} -p ${question}`
     .cwd(repoRoot)
     .env({ ...process.env, CLAUDE_EVAL: '1' })
+    .timeout(ASK_TIMEOUT)
     .text()
 
 const judgePrompt =
