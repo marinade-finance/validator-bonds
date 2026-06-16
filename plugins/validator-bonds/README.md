@@ -52,11 +52,11 @@ epoch lifecycle, claiming window, how bonds work, how settlements work.
 
 ### `find`
 
-Research and fact-recall skill. Two modes: lookup (scans `facts/*.md` and
-`.diary/*.md` for existing verified facts) and research (reads source code,
-`.refs/` clones, and live APIs to verify and write new facts). Single entry
-point for both — if facts exist and are sufficient, answers directly; otherwise
-spawns subagents to research, verify, and persist findings under `facts/`.
+Research and fact-recall skill. Two modes: lookup (scans `facts/*.md` for
+existing verified facts) and research (reads source code, `.refs/` clones, and
+live APIs to verify and write new facts). Single entry point for both — if
+facts exist and are sufficient, answers directly; otherwise spawns subagents to
+research, verify, and persist findings under `facts/`.
 
 Use `find` for code-level detail once `marinade-sam-bond` has established what
 you are looking for. Do not use it for ecosystem navigation or protocol overview
@@ -64,7 +64,7 @@ questions — those belong to `marinade-ecosystem` and `marinade-sam-bond`.
 
 **Triggers:** research X, verify X, dig into the code, check the source,
 confirm a claim, trace the logic, find out how X works, .refs/ ds-sam,
-what do I know about X, recall, check the facts, check the diary.
+what do I know about X, recall, check the facts.
 
 ---
 

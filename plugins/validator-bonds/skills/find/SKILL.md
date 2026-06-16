@@ -1,7 +1,7 @@
 ---
 name: find
-description: Answer questions from stored facts in `facts/` and `.diary/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM protocol context (load marinade-sam-bond first).
-when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts, check the diary, recent decisions, prior context, what was decided, have we covered this
+description: Answer questions from stored facts in `facts/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM protocol context (load marinade-sam-bond first).
+when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts
 user-invocable: true
 arg: <question or topic to research>
 ---
@@ -20,8 +20,7 @@ Always use subagents. Never research in main context.
 Spawn an Explore subagent. It:
 
 1. Greps `summary:` in `facts/*.md`
-2. Checks `.diary/*.md` for recent decisions
-3. Returns: file path, one-line summary, why it matches
+2. Returns: file path, one-line summary, why it matches
 
 List matched files, what each says, whether it answers, what gap remains.
 Verdict: answer directly (sufficient), refresh via Step 2 (stale/partial), or research fresh (no match).
