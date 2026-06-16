@@ -4,7 +4,7 @@ question: >
   backs the payment?
 facts:
   - Bidding
-  - Marinade stakers
+  - active_delegation_lamports
   - winningTotalPmpe
   - bond
 wrong_facts:

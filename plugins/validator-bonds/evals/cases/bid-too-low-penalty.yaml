@@ -1,8 +1,8 @@
 question: 'What triggers a BidTooLowPenalty settlement?'
 facts:
   - 'BidTooLowPenalty'
-  - 'decreased'
-  - 'previous'
+  - 'previous_bidPmpe'
+  - 'calculations.ts'
 wrong_facts:
   - 'below minimum threshold'
   - 'minimum bid requirement'
