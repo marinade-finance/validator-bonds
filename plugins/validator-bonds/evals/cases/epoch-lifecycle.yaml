@@ -7,9 +7,10 @@ facts:
   - claiming window
   - off-chain
   - on-chain
-  - ~4 epochs
+  - epochs_to_claim_settlement
   - unclaimed funds return to bond
 wrong_facts:
   - 'unclaimed funds burned'
   - 'funds are lost'
   - 'funds are forfeited'
+  - 'fixed 4-epoch window'

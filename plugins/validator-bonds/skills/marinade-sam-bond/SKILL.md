@@ -37,7 +37,7 @@ Top-level `SettlementReason` variants — enum in [`settlement-common/src/settle
 2. **Epoch X+1**: Off-chain pipelines calculate charges from epoch X performance
 3. Merkle trees generated (`merkle-generator-cli`), Settlement accounts created on-chain (`init-settlement`)
 4. Bond stake accounts fund settlements (`fund-settlement`, deactivated)
-5. **Claiming window** (~4 epochs): stakers prove merkle membership, claim rewards (`claim-settlement`)
+5. **Claiming window** (`config.epochs_to_claim_settlement`, configurable; ~4 epochs in practice): stakers prove merkle membership, claim rewards (`claim-settlement`). A settlement becomes closable once `settlement.epoch_created_for + config.epochs_to_claim_settlement < clock.epoch` (`close_settlement.rs`).
 6. Expired settlements closed (`close-settlement`), unclaimed funds return to bond
 
 **Bond data collection:** `bonds-collector/` (`collect-bonds` Buildkite pipeline) scrapes all `ValidatorBond` on-chain accounts via RPC after each epoch using `collect_validator_bonds_with_funds` (`common-rs/`), stores to PostgreSQL, and serves via the bonds API (`validator-bonds-api`). Runs for both `bidding` and `institutional` bond types. Source: `bonds-collector/src/commands/bonds.rs`.
