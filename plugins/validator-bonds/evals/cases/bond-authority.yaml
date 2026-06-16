@@ -1,6 +1,9 @@
-question: 'Who can sign bond management transactions?'
+question: >
+  Who can sign bond management transactions in the Validator Bonds program?
+  Find and cite the specific code location (file + line) where bond signing
+  authority is checked. Name the exact account fields or identities allowed.
 facts:
-  - 'bond.authority'
+  - 'bond authority'
   - 'validator identity'
 wrong_facts:
   - 'multisig'

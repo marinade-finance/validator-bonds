@@ -220,10 +220,12 @@ for (const file of files) {
     } else {
       console.log(`✗  ${name}`)
       factResults.forEach(r => {
-        if (!r.passed) console.log(`     missing: ${r.fact}`)
+        const tag = r.passed ? '  ok' : 'miss'
+        console.log(`     [${tag}] ${r.fact}`)
       })
       wrongResults.forEach(r => {
-        if (!r.passed) console.log(`     wrong: ${r.fact}`)
+        const tag = r.passed ? '  ok' : 'WRONG'
+        console.log(`     [${tag}] wrong_fact: ${r.fact}`)
       })
       failed++
     }

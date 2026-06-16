@@ -4,7 +4,7 @@ facts:
   - 'sandwich'
   - 'slow slots'
   - 'stakers'
-  - 'ValidatorBond'
+  - 'blacklist_penalty_pmpe'
 wrong_facts:
   - 'bid too low'
   - 'commission increase'
