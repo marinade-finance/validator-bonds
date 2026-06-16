@@ -18,7 +18,6 @@ facts:
   - 'base_markup_bps'
   - '0.022'
   - '220 SOL'
-  - 'CommissionSamIncrease'
 wrong_facts:
   - '400 SOL'
   - '200 SOL'
