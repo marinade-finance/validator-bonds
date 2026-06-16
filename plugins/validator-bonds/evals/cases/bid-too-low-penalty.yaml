@@ -1,8 +1,0 @@
-question: 'What triggers a BidTooLowPenalty settlement?'
-facts:
-  - 'BidTooLowPenalty'
-  - 'reduces'
-  - 'previous epoch'
-wrong_facts:
-  - 'below minimum threshold'
-  - 'minimum bid requirement'

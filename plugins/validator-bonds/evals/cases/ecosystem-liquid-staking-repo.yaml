@@ -1,5 +1,0 @@
-question: 'Which repo implements the core mSOL staking program?'
-facts:
-  - 'liquid-staking-program'
-wrong_facts:
-  - 'marinade-ts-sdk'

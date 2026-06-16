@@ -1,4 +1,0 @@
-question: 'How do I get SAM scoring data for a specific epoch?'
-facts:
-  - 'scoring.marinade.finance/api/v1/scores/sam'
-  - '?epoch'

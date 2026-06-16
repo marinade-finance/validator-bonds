@@ -1,4 +1,0 @@
-question: 'How can a validator subscribe to bond event notifications?'
-facts:
-  - 'bonds subscribe'
-  - '--type telegram'

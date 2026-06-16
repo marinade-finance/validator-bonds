@@ -1,8 +1,0 @@
-question: >
-  Which repo hosts the legacy (pre-SAM) validator scoring API and stake
-  allocation logic — the one that predates ds-sam?
-facts:
-  - 'delegation-strategy-2'
-wrong_facts:
-  - 'ds-sam'
-  - 'ds-scoring'

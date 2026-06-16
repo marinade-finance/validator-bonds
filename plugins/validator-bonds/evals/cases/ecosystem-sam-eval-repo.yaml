@@ -1,5 +1,0 @@
-question: 'Which repo is the SAM evaluation CLI and SDK in?'
-facts:
-  - 'ds-sam'
-wrong_facts:
-  - 'ds-scoring'

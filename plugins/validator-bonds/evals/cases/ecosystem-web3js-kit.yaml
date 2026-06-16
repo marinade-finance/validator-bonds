@@ -1,5 +1,0 @@
-question: 'Which package is web3js-kit and when would I use it over web3js-1x?'
-facts:
-  - 'web3.js 2'
-wrong_facts:
-  - 'web3.js 1.x compat'

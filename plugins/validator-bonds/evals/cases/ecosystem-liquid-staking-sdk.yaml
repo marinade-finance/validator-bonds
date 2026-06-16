@@ -1,6 +1,0 @@
-question: 'Which SDK would I use to integrate liquid staking (deposit, unstake) from TypeScript?'
-facts:
-  - '@marinade.finance/marinade-ts-sdk'
-wrong_facts:
-  - 'ds-sam-sdk'
-  - 'native-staking-sdk'
