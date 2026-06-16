@@ -4,22 +4,9 @@ Agent plugin skills for the Marinade Validator Bonds protocol. It provides
 context covering SAM auction mechanics, settlement types, bond lifecycle, and
 ecosystem navigation.
 
-## Plugin Overview
-
-Install via the marketplace (see below) to get protocol context in your Claude
-Code or Codex session. The plugin manifests live at
-`plugins/validator-bonds/.claude-plugin/plugin.json` and
-`plugins/validator-bonds/.codex-plugin/plugin.json`; both register the same
-skills under `skills/`.
-
-Skills are not always triggered automatically. Claude Code matches the
-`when_to_use` field in each skill's frontmatter against the current conversation.
-For best results invoke skills explicitly with `/skill-name` or ensure the
-conversation contains recognisable vocabulary from the `when_to_use` field.
-
 ## Install
 
-From anywhere:
+Codex:
 
 ```sh
 codex plugin marketplace add marinade-finance/validator-bonds
@@ -32,9 +19,6 @@ Claude Code:
 /plugin marketplace add marinade-finance/validator-bonds
 /plugin install validator-bonds@marinade
 ```
-
-**Manifests:** `plugins/validator-bonds/.claude-plugin/plugin.json`,
-`plugins/validator-bonds/.codex-plugin/plugin.json`
 
 ---
 
