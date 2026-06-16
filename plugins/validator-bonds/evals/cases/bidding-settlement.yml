@@ -1,7 +1,9 @@
 question: >
   What is a Bidding settlement in the SAM auction? Which staker population
-  receives it, how is the payout amount determined, and what on-chain account
-  backs the payment?
+  receives it, how is the payout amount per staker determined, and what
+  on-chain account backs the payment? Name the exact source code field
+  identifiers used for the validator's stake weight and effective bid in the
+  payout calculation — look them up in source if not immediately known.
 facts:
   - Bidding
   - active_delegation_lamports

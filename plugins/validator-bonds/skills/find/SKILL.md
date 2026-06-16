@@ -1,7 +1,7 @@
 ---
 name: find
 description: Answer questions from stored facts in `facts/`, or research new questions against primary sources (source code, .refs/ clones, live APIs) and write verified facts. Single entry point for both lookup and research. NOT for Marinade doc/repo navigation (use marinade-docs); NOT for settlement/SAM context (load marinade-sam-bond first).
-when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts
+when_to_use: research X, verify X, dig into the code, check the source, confirm a claim, is this true, where in the program does, read the implementation, fact needs code verification, trace the logic, find out how X works in the code, .refs/ ds-sam, primary source, what do I know about X, do we have a fact on, recall, look up stored knowledge, check the facts, find the struct, struct definition, field names in source, name the field, exact code identifier, look up in source, search the codebase, ResultSettlementClaims, active_delegation_lamports, auction_effective_static_bid_pmpe, marinade_stake_share, settlement-distributions source, look them up in source, cite the source file and line
 user-invocable: true
 arg: <question or topic to research>
 ---
@@ -39,7 +39,16 @@ Tools: Read, Glob, Grep, Bash, WebFetch.
 - `/marinade-ecosystem` — what each repo/package does, program IDs, SDK map.
 
 Once you know what you're looking for: grep the tree for the exact symbol or
-path; don't guess. For `.refs/` repos (ds-sam, ds-sam-pipeline, etc.) check
+path; don't guess.
+
+**Local source (no clone needed):** `settlement-distributions/` is in the
+current repo — Rust structs for all settlement types live there.
+Key paths: `settlement-distributions/bid-distribution/src/generators/bidding.rs`
+(ResultSettlementClaims, marinade_stake_share),
+`settlement-distributions/bid-distribution/src/sam_meta.rs`
+(auction_effective_static_bid_pmpe, active_delegation_lamports).
+
+**External repos:** For `.refs/` repos (ds-sam, ds-sam-pipeline, etc.) check
 they're cloned under `.refs/` before reading — clone commands are in
 `/marinade-docs`. Note any claim from a private `.refs/` repo as
 upstream-unverifiable; those repos can change independently.
