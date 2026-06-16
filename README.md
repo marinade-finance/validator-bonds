@@ -66,10 +66,10 @@ codex
 
 Codex loads `AGENTS.md` and `.agents/skills`, which points at the same skills.
 
-Codex plugin install from this repo marketplace:
+Codex plugin install from anywhere:
 
 ```sh
-codex plugin marketplace add .
+codex plugin marketplace add marinade-finance/validator-bonds
 codex plugin add validator-bonds@marinade
 ```
 
