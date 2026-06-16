@@ -1,7 +1,7 @@
 ---
 name: marinade-docs
 description: Index of Marinade documentation site URLs, live API base URLs/endpoints/OpenAPI schemas, GCS bucket paths, and per-repo clone commands. NOT for protocol internals (use marinade-sam-bond), the repo/program-ID/SDK map (use marinade-ecosystem), or deep code research (use find).
-when_to_use: where do I find, which API, API endpoint, OpenAPI schema, docs URL, docs.marinade.finance, bonds API URL, scoring API, validators API, finance API, clone a repo, repo URL, .refs clone command, GCS bucket path, where to look, what URL, live API base url
+when_to_use: where do I find, which API, API endpoint, OpenAPI schema, docs URL, docs.marinade.finance, bonds API URL, scoring API, validators API, finance API, institutional staking API, select API, psr dashboard URL, clone a repo, repo URL, .refs clone command, GCS bucket path, where to look, what URL, live API base url
 user-invocable: true
 ---
 
@@ -13,16 +13,17 @@ user-invocable: true
 | ----------------------------- | --------------------------------------------------- |
 | Marinade main docs            | `https://docs.marinade.finance`                     |
 | Validator Bonds API (OpenAPI) | `https://validator-bonds-api.marinade.finance/docs` |
-| PSR / bond dashboard          | `https://validator-bonds.marinade.finance`          |
+| PSR / bond dashboard          | `https://psr.marinade.finance`                      |
 
 ## Live APIs
 
-| API            | Base URL                                       | Notes                                                                              |
-| -------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Bonds API      | `https://validator-bonds-api.marinade.finance` | `/bonds/bidding`, `/bonds/institutional`, `/protected-events`, `/v1/announcements` |
-| Scoring API    | `https://scoring.marinade.finance/api/v1`      | `/scores/sam?epoch=N`                                                              |
-| Validators API | `https://validators-api.marinade.finance`      | validator meta                                                                     |
-| Finance API    | `https://api.marinade.finance`                 | mSOL/MNDE rates                                                                    |
+| API            | Base URL                                         | Notes                                                                                                        |
+| -------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Bonds API      | `https://validator-bonds-api.marinade.finance`   | `/bonds/bidding`, `/bonds/institutional`, `/protected-events`, `/v1/announcements`                           |
+| Scoring API    | `https://scoring.marinade.finance/api/v1`        | `/scores/sam?epoch=N`                                                                                        |
+| Validators API | `https://validators-api.marinade.finance`        | validator meta                                                                                               |
+| Finance API    | `https://api.marinade.finance`                   | mSOL/MNDE rates                                                                                              |
+| Institutional  | `https://institutional-staking.marinade.finance` | `/v1/validators`, `/v1/payouts/latest`, `/docs-json`; routes in `marinade-sam-bond/institutional-staking.md` |
 
 ## Public GitHub Repos (`marinade-finance/`)
 
