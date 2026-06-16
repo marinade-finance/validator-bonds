@@ -185,6 +185,7 @@ if (listMode) {
 
 let passed = 0
 let failed = 0
+let errored = 0
 const meta = {
   mode: values['no-skills']
     ? 'no-skills'
@@ -214,12 +215,10 @@ for (const file of files) {
   try {
     const answer = await ask(question)
     const factResults = await Promise.all(facts.map(f => supports(answer, f)))
-    const wrongResults = await Promise.all(
-      wrong_facts.map(async f => {
-        const r = await supports(answer, f)
-        return { ...r, passed: !r.passed }
-      }),
-    )
+    const wrongResults = wrong_facts.map(f => {
+      const found = answer.toLowerCase().includes(f.toLowerCase())
+      return { fact: f, passed: !found, method: 'exact' as const }
+    })
     const ok =
       factResults.every(r => r.passed) && wrongResults.every(r => r.passed)
     log.cases.push({
@@ -256,7 +255,7 @@ for (const file of files) {
     log.cases.push({ case: name, result: 'error', question, error, facts: [] })
     console.log(`!  ${name}  (error: ${error.slice(0, 120)})`)
     if (verbose && stderr) console.log(`   stderr: ${stderr.trim()}`)
-    failed++
+    errored++
   }
 }
 
@@ -267,9 +266,11 @@ const logPath = join(
   `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
 )
 await writeFile(logPath, stringify(log))
-console.log(`\n${passed}/${passed + failed} passed  →  ${logPath}`)
+console.log(
+  `\n${passed}/${passed + failed + errored} passed, ${errored} error(s)  →  ${logPath}`,
+)
 if (tmpRoot) {
   await rm(tmpRoot, { recursive: true, force: true })
   console.log(`cleaned up ${tmpRoot}`)
 }
-if (failed > 0) process.exit(1)
+if (failed > 0 || errored > 0) process.exit(1)
