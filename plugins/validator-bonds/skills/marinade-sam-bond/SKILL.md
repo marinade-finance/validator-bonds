@@ -6,9 +6,9 @@ when_to_use: CPMPE, PMPE, totalPmpe, PSR, protected staking rewards, SAM auction
 
 # Validator Bonds Protocol Context
 
-Validators post SOL bonds as collateral to compete for Marinade's delegated stake via SAM (Stake Auction Marketplace). Bonds guarantee mSOL holders earn at minimum network-average rewards (PSR), and provide a 50bps APY guarantee for institutional/Select stakers -- underperformance triggers automatic compensation from the bond.
+Validators post SOL bonds as collateral to compete for Marinade's delegated stake via SAM (Stake Auction Marketplace). Bonds guarantee mSOL holders earn at minimum network-average rewards (PSR), and provide a PSR-percentile APY floor for institutional/Select stakers (`psrPercentileApy` — the 50th-percentile of network validator APYs, varies per epoch) -- underperformance triggers automatic compensation from the bond.
 
-**Two staker populations:** mSOL holders (liquid staking, bidding settlements) and institutional/Select stakers (native staking, 50bps APY guarantee).
+**Two staker populations:** mSOL holders (liquid staking, bidding settlements) and institutional/Select stakers (native staking, PSR-percentile APY floor).
 
 ## Settlement Types
 
@@ -63,7 +63,7 @@ Repos that feed data directly into the validator-bonds pipeline. All at `https:/
 - **ds-sam** (public) -- SAM evaluation CLI + SDK, produces auction scores for bid-distribution-cli. Clone: `git clone https://github.com/marinade-finance/ds-sam .refs/ds-sam`
 - **ds-sam-pipeline** (public) -- SAM pipeline data (auction inputs/outputs by epoch). Clone: `git clone https://github.com/marinade-finance/ds-sam-pipeline .refs/ds-sam-pipeline`
 - **ds-scoring** (**private**) -- legacy scoring service; feeds per-validator scores into ds-sam as inputs. Not the primary source of SAM logic.
-- **institutional-staking** (**private**) -- calculates 50bps APY guarantee payouts for the 24 Select validators. See `institutional-staking.md` adjacent to this file.
+- **institutional-staking** (**private**) -- calculates PSR-percentile APY floor payouts for the 24 Select validators. See `institutional-staking.md` adjacent to this file.
 - **sam-blacklist** (**private**) -- generates `blacklist.csv` (sandwich + slow-slot detection). See `sam-blacklist.md` adjacent to this file for thresholds, codes, and data sources.
 - **stakes-etl** (public) -- ETL pipelines producing reward files in GCS
 - **solana-snapshot-parser** (public) -- produces stakes.json / validators.json snapshots

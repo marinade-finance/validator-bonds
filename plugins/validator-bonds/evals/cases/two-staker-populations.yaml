@@ -4,7 +4,7 @@ facts:
   - 'institutional'
   - 'liquid staking'
   - 'native staking'
-  - '50bps'
+  - 'PSR'
   - 'bidding settlements'
 wrong_facts:
   - 'three populations'
