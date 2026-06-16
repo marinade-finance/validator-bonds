@@ -6,6 +6,7 @@ question: >
   Compute: (a) uptime, (b) expected_epr, (c) actual_epr, (d) epr_loss_bps,
   (e) the raw claim_per_stake, (f) whether the clamp binds, (g) the
   bond-funded payout in SOL. Show each formula step.
+  Express basis-point values as plain integers (no comma separators).
 facts:
   - '0.75'
   - '0.1'

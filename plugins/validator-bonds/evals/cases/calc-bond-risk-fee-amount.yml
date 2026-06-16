@@ -5,7 +5,7 @@ question: >
 
   Compute: (a) feeCoef, (b) bondRiskFeeSol,
   (c) the equivalent in lamports (the stakers_bond_risk_fee_claim). Show each
-  formula step.
+  formula step. Express lamport amounts as plain integers without comma separators.
 facts:
   - '0.2'
   - 'bondRiskFeeSol'
