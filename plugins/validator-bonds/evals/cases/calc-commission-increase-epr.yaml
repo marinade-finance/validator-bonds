@@ -1,0 +1,33 @@
+question: >
+  Using collect_commission_increase_events in
+  settlement-distributions/settlement-common/src/protected_events.rs: a
+  CommissionSamIncrease event sets expected_commission_pmpe = expected_non_bid_pmpe
+  + before_sam_commission_increase_pmpe, then expected_epr = expected_commission_pmpe
+  / 1000 and actual_epr = actual_non_bid_pmpe / 1000, with epr_loss_bps =
+  bps_decimal(expected_commission_pmpe - actual_non_bid_pmpe, expected_commission_pmpe)
+  where bps(value, max) = 10000 * value / max. The event only fires when
+  actual_non_bid_pmpe < expected_commission_pmpe.
+
+  Then claim_per_stake (CommissionSamIncreaseSettlement, base_markup_bps = 1000 =
+  10%, penalty_markup_bps = 10000 = 100%, extra_penalty_threshold_bps = 700 = 7%)
+  = base_cps + base_cps * markup, base_cps = expected_epr - actual_epr.
+
+  A validator has expected_non_bid_pmpe = 120, before_sam_commission_increase_pmpe
+  = 40, and actual_non_bid_pmpe = 100. Its actual_inflation_commission = 6% and
+  actual_mev_commission = 4% (both at or below the 7% threshold). The settlement
+  covers stake = 10,000 SOL.
+
+  Compute: (a) expected_commission_pmpe, (b) expected_epr, (c) actual_epr,
+  (d) epr_loss_bps, (e) base_cps, (f) which markup applies and the final
+  claim_per_stake, (g) the payout in SOL. Show each formula step.
+facts:
+  - '0.16'
+  - '0.1'
+  - '0.06'
+  - '3750'
+  - 'base_markup_bps'
+  - '660 SOL'
+wrong_facts:
+  - 'penalty_markup_bps'
+  - '600 SOL'
+  - '1320 SOL'

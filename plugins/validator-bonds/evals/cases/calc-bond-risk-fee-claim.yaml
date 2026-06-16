@@ -1,0 +1,24 @@
+question: >
+  Using the BondRiskFee on-chain claim construction in
+  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
+  stakers_bond_risk_fee_claim = bond_risk_fee_sol * LAMPORTS_PER_SOL (the entire
+  amount goes to stakers, no Marinade/DAO fee split), and each staker's claim =
+  staker_share * stakers_bond_risk_fee_claim where staker_share = active_stake /
+  total_marinade_active_stake.
+
+  ds-sam's calcBondRiskFee produced bond_risk_fee_sol = 2.5 for a validator with
+  total_marinade_active_stake = 5,000 SOL. One staker holds active_stake =
+  1,000 SOL.
+
+  Compute: (a) the total stakers_bond_risk_fee_claim in lamports, (b) that
+  staker's staker_share as a fraction, (c) their BondRiskFee claim in SOL and
+  lamports. Show each formula step.
+facts:
+  - '2500000000'
+  - '0.2'
+  - '0.5 SOL'
+  - '500000000'
+wrong_facts:
+  - '2.5 SOL'
+  - 'fee split'
+  - 'DAO'

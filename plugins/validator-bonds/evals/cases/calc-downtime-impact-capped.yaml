@@ -1,0 +1,25 @@
+question: >
+  Using the DowntimeRevenueImpact loss-range clamp in
+  settlement-distributions/settlement-common/src/protected_events.rs
+  (claim_amount_in_loss_range) and the ValidatorBond-funded config in
+  settlement-config.yaml (covered_range_bps [0, 5000] = 0%-50%):
+
+  A validator with expected_epr = 0.08 suffered a severe outage: actual_credits
+  = 400,000 against expected_credits = 1,000,000 (uptime 0.40, a 60% loss). The
+  settlement covers stake = 10,000 SOL.
+
+  The bond (ValidatorBond) only funds the 0-50% loss band; the 50-100% band is
+  funded by Marinade under a separate settlement. Compute: (a) the raw
+  claim_per_stake = expected_epr - actual_epr, (b) the max_claim_per_stake =
+  0.50 * expected_epr, (c) the clamped claim_per_stake, (d) the bond-funded
+  payout in SOL. Show each formula step.
+facts:
+  - '0.048'
+  - '0.04'
+  - '400 SOL'
+  - 'covered_range_bps'
+  - 'Marinade'
+wrong_facts:
+  - '480 SOL'
+  - 'bond covers all'
+  - 'validator covers 100%'

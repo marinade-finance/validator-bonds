@@ -1,0 +1,27 @@
+question: >
+  Using collect_downtime_revenue_impact_events in
+  settlement-distributions/settlement-common/src/protected_events.rs: for a
+  DowntimeRevenueImpact event uptime = credits / expected_credits, expected_epr =
+  actual_non_bid_pmpe / 1000, actual_epr = (actual_non_bid_pmpe / 1000) * uptime,
+  and epr_loss_bps = bps(expected_credits - credits, expected_credits) where
+  bps(value, max) = 10000 * value / max. Then claim_per_stake (from
+  claim_amount_in_loss_range with ValidatorBond covered_range_bps [0, 5000]) =
+  expected_epr - actual_epr, clamped to max 0.50 * expected_epr.
+
+  A validator earned actual_credits = 750,000 against expected_credits =
+  1,000,000. Its actual_non_bid_pmpe = 100. The settlement covers stake = 8,000
+  SOL.
+
+  Compute: (a) uptime, (b) expected_epr, (c) actual_epr, (d) epr_loss_bps,
+  (e) the raw claim_per_stake, (f) whether the 0.50 clamp binds, (g) the
+  bond-funded payout in SOL. Show each formula step.
+facts:
+  - '0.75'
+  - '0.1'
+  - '0.075'
+  - '2500'
+  - '200 SOL'
+wrong_facts:
+  - '400 SOL'
+  - 'clamp binds'
+  - '7500'

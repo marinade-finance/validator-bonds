@@ -1,0 +1,30 @@
+question: >
+  Using generate_bid_settlements_worker in
+  settlement-distributions/bid-distribution/src/generators/bidding.rs: the
+  activating-staker pool is derived, not given. activating_bid_claim =
+  total_marinade_activating_stake * activating_stake_pmpe / 1000;
+  activating_fraction = activating_bid_claim / settlement_claim.sum() (where the
+  sum includes the static_bid_claim and the activating_bid_claim);
+  activating_stakers_pool = stakers_total_claim * activating_fraction; and
+  active_stakers_pool = stakers_total_claim - activating_stakers_pool. The
+  activating pool funds PriorityFee settlements; the active pool funds Bidding
+  settlements.
+
+  A validator has total_marinade_activating_stake = 4,000 SOL,
+  activating_stake_pmpe = 50, a static_bid_claim of 600 SOL, and (after the
+  distributor fee) stakers_total_claim = 720 SOL.
+
+  Compute: (a) activating_bid_claim, (b) settlement_claim.sum() (static +
+  activating), (c) activating_fraction, (d) activating_stakers_pool (the
+  PriorityFee pool), (e) active_stakers_pool (the Bidding pool). Show each
+  formula step.
+facts:
+  - '200 SOL'
+  - '0.25'
+  - '180 SOL'
+  - '540 SOL'
+  - 'PriorityFee'
+wrong_facts:
+  - '720 SOL pool'
+  - '100 SOL'
+  - 'pool is 720'

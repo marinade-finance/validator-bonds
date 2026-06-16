@@ -1,0 +1,25 @@
+question: >
+  Using the BlacklistPenalty calculation in
+  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
+  blacklist_penalty = blacklist_penalty_pmpe / 1000;
+  blacklist_penalty_total_claim = total_marinade_active_stake *
+  blacklist_penalty; and the entire amount goes to stakers
+  (stakers_blacklist_penalty_claim) with NO Marinade/DAO fee split (unlike
+  BidTooLowPenalty).
+
+  A blacklisted validator has blacklist_penalty_pmpe = 50 from SAM scoring and
+  total_marinade_active_stake = 4,000 SOL.
+
+  Compute: (a) blacklist_penalty (per-staked-lamport rate), (b) the total
+  BlacklistPenalty claim in SOL, (c) the stakers' share in SOL, (d) the
+  Marinade/DAO fee share in SOL. Show each formula step.
+facts:
+  - '0.05'
+  - '200 SOL'
+  - 'stakers'
+  - 'blacklist_penalty_pmpe'
+wrong_facts:
+  - '184 SOL'
+  - '16 SOL'
+  - 'Marinade receives'
+  - 'DAO fee'

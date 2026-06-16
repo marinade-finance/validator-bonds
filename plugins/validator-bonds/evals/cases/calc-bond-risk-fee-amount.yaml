@@ -1,0 +1,24 @@
+question: >
+  Using calcBondRiskFee in ds-sam
+  (.refs/ds-sam/packages/ds-sam-sdk/src/calculations.ts):
+  feeCoef = (revShare.onchainDistributedPmpe + revShare.auctionEffectiveBidPmpe)
+  / 1000; and once the underfunded-bond branch is entered,
+  bondRiskFeeSol = cfg.bondRiskFeeMult * value * feeCoef, where `value` is the
+  forced-undelegation stake amount in SOL.
+
+  For an underfunded validator the auction computed value = 1,000 SOL of forced
+  undelegation, with onchainDistributedPmpe = 150 and auctionEffectiveBidPmpe =
+  50. The config has bondRiskFeeMult = 1.
+
+  Compute: (a) feeCoef, (b) bondRiskFeeSol = bondRiskFeeMult * value * feeCoef,
+  (c) the equivalent in lamports (the stakers_bond_risk_fee_claim). Show each
+  formula step.
+facts:
+  - '0.2'
+  - 'bondRiskFeeSol'
+  - '200 SOL'
+  - '200000000000'
+wrong_facts:
+  - '0.5 SOL'
+  - '1000 SOL'
+  - 'fee split'

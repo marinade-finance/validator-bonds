@@ -1,0 +1,26 @@
+question: >
+  Using generate_penalty_settlements in
+  settlement-distributions/bid-distribution/src/generators/sam_penalties.rs:
+  BidTooLowPenalty takes a distributor cut (distributor_bid_too_low_penalty_claim
+  = total_claim * fee_percentages.max_fee, with max_fee_bps = 800 = 8%, and the
+  remainder goes to stakers), whereas BlacklistPenalty sends the ENTIRE total to
+  stakers (stakers_blacklist_penalty_claim = blacklist_penalty_total_claim, no
+  Marinade/DAO split). For both, the per-validator total = total_marinade_active_stake
+  * (penalty_pmpe / 1000).
+
+  Take two validators, each with total_marinade_active_stake = 4,000 SOL. One has
+  bid_too_low_penalty_pmpe = 50; the other has blacklist_penalty_pmpe = 50.
+
+  Compute: (a) the per-validator total claim (same for both = 200 SOL),
+  (b) for BidTooLowPenalty: the distributor cut at 8% and the stakers' share,
+  (c) for BlacklistPenalty: the distributor cut and the stakers' share, (d) state
+  the structural difference. Show each formula step.
+facts:
+  - '200 SOL'
+  - '16 SOL'
+  - '184 SOL'
+  - 'stakers'
+wrong_facts:
+  - 'blacklist fee split'
+  - 'DAO blacklist'
+  - 'blacklist distributor'
