@@ -5,7 +5,7 @@ facts:
   - 'BondRiskFee'
   - 'bondRiskFeeSol'
   - 'calcBondRiskFee'
-  - 'underfunded'
+  - 'bondRiskFeeMult'
 wrong_facts:
   - 'blacklisted'
   - 'fewer credits'

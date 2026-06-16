@@ -118,7 +118,7 @@ const ask = async (question: string): Promise<string> =>
     .text()
 
 const judgePrompt =
-  'You are a fact-checker. Given a fact and a response, output YES if the response conveys that fact — including via paraphrase, synonyms, or equivalent technical terms. Output NO only if the fact is absent or contradicted. No other output.'
+  'You are a fact-checker. Given a fact and a response, output YES if the response conveys that fact — including via paraphrase, synonyms, or equivalent technical terms. Numeric formatting differences are irrelevant: 50000000000 = 50,000,000,000 = 50_000_000_000. Output NO only if the fact is absent or contradicted. No other output.'
 
 const supports = async (answer: string, fact: string): Promise<FactResult> => {
   if (answer.toLowerCase().includes(fact.toLowerCase()))
