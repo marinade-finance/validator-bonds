@@ -12,22 +12,22 @@ Validators post SOL bonds as collateral to compete for Marinade's delegated stak
 
 ## Settlement Types
 
-Top-level `SettlementReason` variants (`settlement-common/src/settlement_collection.rs`): `Bidding`, `PriorityFee`, `BidTooLowPenalty`, `BlacklistPenalty`, `BondRiskFee`, `InstitutionalPayout`, and `ProtectedEvent(...)` which wraps a protected-event sub-kind.
+Top-level `SettlementReason` variants — enum in [`settlement-common/src/settlement_collection.rs`](https://github.com/marinade-finance/validator-bonds/blob/main/settlement-distributions/settlement-common/src/settlement_collection.rs): `Bidding`, `PriorityFee`, `BidTooLowPenalty`, `BlacklistPenalty`, `BondRiskFee`, `InstitutionalPayout`, and `ProtectedEvent(...)` which wraps a protected-event sub-kind ([`settlement-common/src/protected_events.rs`](https://github.com/marinade-finance/validator-bonds/blob/main/settlement-distributions/settlement-common/src/protected_events.rs)).
 
-| Type                  | SettlementReason          | Trigger                                                                                   | Funder                                     | Recipient                     |
-| --------------------- | ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------- |
-| Bidding               | `Bidding`                 | Validator wins auction, owes bid amount                                                   | ValidatorBond                              | mSOL stakers                  |
-| PriorityFee           | `PriorityFee`             | Activating stake pool share (ds-sam)                                                      | ValidatorBond                              | Activating mSOL stakers       |
-| BidTooLowPenalty      | `BidTooLowPenalty`        | Validator lowers bid vs previous epoch                                                    | ValidatorBond                              | Stakers + Marinade/DAO fee    |
-| BlacklistPenalty      | `BlacklistPenalty`        | Blacklisted (sandwich, slow slots)                                                        | ValidatorBond                              | Stakers                       |
-| BondRiskFee           | `BondRiskFee`             | `calcBondRiskFee` in ds-sam (`bondRiskFeeSol = bondRiskFeeMult * exposedStake * feeCoef`) | ValidatorBond                              | Stakers                       |
-| DowntimeRevenueImpact | `ProtectedEvent` sub-kind | Fewer credits than expected                                                               | ValidatorBond (0-50%) / Marinade (50-100%) | Stakers                       |
-| CommissionSamIncrease | `ProtectedEvent` sub-kind | Commission raised above declared bid                                                      | ValidatorBond                              | Stakers (with markup penalty) |
-| InstitutionalPayout   | `InstitutionalPayout`     | 50bps APY guarantee for Select stakers                                                    | ValidatorBond                              | Institutional/Select stakers  |
+| Type                  | SettlementReason          | Trigger                                                                                   | Funder                                     | Recipient                     | Code                                                           |
+| --------------------- | ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------- | -------------------------------------------------------------- |
+| Bidding               | `Bidding`                 | Validator wins auction, owes bid amount                                                   | ValidatorBond                              | mSOL stakers                  | `bid-distribution/src/generators/bidding.rs`                   |
+| PriorityFee           | `PriorityFee`             | Activating stake pool share (ds-sam)                                                      | ValidatorBond                              | Activating mSOL stakers       | `bid-distribution/src/generators/priority_fee.rs`              |
+| BidTooLowPenalty      | `BidTooLowPenalty`        | Validator lowers bid vs previous epoch                                                    | ValidatorBond                              | Stakers + Marinade/DAO fee    | `bid-distribution/src/generators/sam_penalties.rs`             |
+| BlacklistPenalty      | `BlacklistPenalty`        | Blacklisted (sandwich, slow slots)                                                        | ValidatorBond                              | Stakers                       | `bid-distribution/src/generators/sam_penalties.rs`             |
+| BondRiskFee           | `BondRiskFee`             | `calcBondRiskFee` in ds-sam (`bondRiskFeeSol = bondRiskFeeMult * exposedStake * feeCoef`) | ValidatorBond                              | Stakers                       | `bid-distribution/src/generators/bond_risk_fee.rs`             |
+| DowntimeRevenueImpact | `ProtectedEvent` sub-kind | Fewer credits than expected                                                               | ValidatorBond (0-50%) / Marinade (50-100%) | Stakers                       | `settlement-common/src/protected_events.rs`                    |
+| CommissionSamIncrease | `ProtectedEvent` sub-kind | Commission raised above declared bid                                                      | ValidatorBond                              | Stakers (with markup penalty) | `settlement-common/src/protected_events.rs`                    |
+| InstitutionalPayout   | `InstitutionalPayout`     | PSR-percentile APY guarantee for Select stakers                                           | ValidatorBond                              | Institutional/Select stakers  | `institutional-distribution/src/` + `institutional-staking.md` |
 
-`ProtectedEvent` (`settlement-common/src/protected_events.rs`) also contains legacy `CommissionIncrease` and `LowCredits` (v1, no longer emitted).
+`ProtectedEvent` also contains legacy `CommissionIncrease` and `LowCredits` (v1, no longer emitted).
 
-**InstitutionalPayout detail:** Guarantees a 50bps APY floor for Select/institutional native stakers. If a validator's epoch APY falls below the 50bps guarantee, their bond compensates the shortfall. Generated by `institutional-distribution-cli`; inputs are `InstitutionalPayout` structs with `payout_stakers`. The Select program targets institutional stake allocations, not mSOL/liquid staking.
+**InstitutionalPayout detail:** Guarantees institutional/Select native stakers a minimum APY equal to the configured PSR percentile (default 50th). If a validator's epoch yield falls short, the bond compensates. `institutional-distribution-cli` produces settlement JSON from `gs://marinade-institutional-staking-mainnet/{epoch}/`; the validator-bonds settlement pipeline then creates the on-chain accounts. Public package for inspecting format: [`packages/validator-bonds-cli-institutional`](https://github.com/marinade-finance/validator-bonds/tree/main/packages/validator-bonds-cli-institutional). See `institutional-staking.md` for API + dashboard.
 
 **CommissionSamIncrease detail:** Triggered by `collect_commission_increase_events` in `settlement-common/src/protected_events.rs` when a validator raises commission above the bid they declared to SAM. The protected event carries `before_sam_commission_increase_pmpe` (PMPE at the time of the SAM bid) and `actual_epr` (post-increase actual earnings). Compensation goes to stakers; a markup penalty (`base_markup_bps` / `penalty_markup_bps`) is applied on top.
 
@@ -35,10 +35,12 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 
 1. **Epoch X**: Validators bid (static CPMPE or dynamic commission, since Jan 2026), SAM allocates stake
 2. **Epoch X+1**: Off-chain pipelines calculate charges from epoch X performance
-3. Merkle trees generated, Settlement accounts created on-chain
-4. Bond stake accounts fund settlements (deactivated)
-5. **Claiming window** (~4 epochs): stakers prove merkle membership, claim rewards
-6. Expired settlements closed, unclaimed funds return to bond
+3. Merkle trees generated (`merkle-generator-cli`), Settlement accounts created on-chain (`init-settlement`)
+4. Bond stake accounts fund settlements (`fund-settlement`, deactivated)
+5. **Claiming window** (~4 epochs): stakers prove merkle membership, claim rewards (`claim-settlement`)
+6. Expired settlements closed (`close-settlement`), unclaimed funds return to bond
+
+**Bond data collection:** `bonds-collector/` (`collect-bonds` Buildkite pipeline) scrapes all `ValidatorBond` on-chain accounts via RPC after each epoch using `collect_validator_bonds_with_funds` (`common-rs/`), stores to PostgreSQL, and serves via the bonds API (`validator-bonds-api`). Runs for both `bidding` and `institutional` bond types. Source: `bonds-collector/src/commands/bonds.rs`.
 
 ## Key Concepts
 
@@ -46,7 +48,7 @@ Top-level `SettlementReason` variants (`settlement-common/src/settlement_collect
 - **CPMPE** -- lamports per 1000 SOL per epoch, the validator's fixed bid price
 - **Clearing price** -- `winningTotalPmpe`: PMPE of the last validator group to receive stake in the auction
 - **Program ID** -- `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
-- **Min bond balance** -- `minBondBalanceSol` in ds-sam runtime config (not a validator-bonds constant, has no fixed SOL value); tiered: <80% of min → stake cap 0 (revoked), 80–100% → cap clipped to existing stake, ≥100% → unrestricted. Never quote a specific SOL amount for `minBondBalanceSol` — the value is configurable and changes.
+- **Min bond balance** -- `minBondBalanceSol` in ds-sam runtime config (not a validator-bonds constant, has no fixed SOL value); tiered: <80% of min → stake cap 0 (revoked), 80–100% → cap clipped to existing stake, ≥100% → unrestricted. Never quote a specific SOL amount — it is configurable and changes. Current setting: [`ds-sam-pipeline` on GitHub](https://github.com/marinade-finance/ds-sam-pipeline) (public repo, check the config files for live values).
 - **Bond authority** -- `bond.authority` field or validator identity can sign
 - **fund_bond** transfers stake ownership to bonds PDA; recovery via withdraw request (lockup = `config.withdraw_lockup_epochs`, configurable by admin)
 - **PSR** -- Protected Staking Rewards, ensures network-average inflation regardless of validator performance
