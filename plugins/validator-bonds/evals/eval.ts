@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--tmpdir] [-l|--list] [-v|--verbose] [-t <tag>] [--model <id>] [-N|--limit N] [cases-dir|file.yaml...]
+// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--persist] [-l|--list] [-v|--verbose] [-t <tag>] [--model <id>] [-N|--limit N] [cases-dir|file.yaml...]
 // Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
 // --plugin-dir    load only this plugin; skills auto-trigger based on routing
 // --no-skills     disable all skills (baseline comparison)
-// --tmpdir        run claude in a fresh tmp dir (source only, cleaned after)
+// --persist     keep facts/data written during the run (default: ephemeral tmp, cleaned after)
 // -l / --list     print case names + questions without running them
 // -v / --verbose  print full answer to stdout as each case runs
 // -t <tag>        output tag (default: YYYYMMDD); written to evals/report/<tag>/
@@ -47,7 +47,7 @@ const { values, positionals } = parseArgs({
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
-    tmpdir: { type: 'boolean', default: false },
+    persist: { type: 'boolean', default: false },
     list: { type: 'boolean', default: false },
     l: { type: 'boolean', default: false },
     verbose: { type: 'boolean', default: false },
@@ -71,10 +71,10 @@ const limit = shortLimit
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const defaultRepoRoot = join(scriptDir, '../../..')
 
-// --tmpdir: run claude in a fresh isolated dir, clean up after
+// default: run claude in a fresh isolated dir (ephemeral facts), clean up after
 let repoRoot = defaultRepoRoot
 let tmpRoot: string | null = null
-if (values.tmpdir) {
+if (!values['persist']) {
   tmpRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
   console.log(`tmpdir: ${tmpRoot}`)
   // hard-link source into tmp; strip large dirs the model doesn't need
@@ -90,10 +90,8 @@ const today = new Date()
 const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
 const tag = values.t ?? defaultTag
 
-// Resolve plugin-dir relative to original cwd before repoRoot changes
-const pluginDir = values['plugin-dir']
-  ? resolve(values['plugin-dir'])
-  : undefined
+// Resolve plugin-dir: explicit flag, or CWD (run from the plugin root)
+const pluginDir = resolve(values['plugin-dir'] ?? '.')
 const MODEL_ALIASES: Record<string, string> = {
   opus: 'claude-opus-4-8',
   sonnet: 'claude-sonnet-4-6',
