@@ -100,8 +100,10 @@ const baseFlags = values['no-skills']
 
 // Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
 // Keeps it away from evals/cases/ so it can't read expected facts.
+// When skills are active, /find is prepended so every answer is source-verified.
+const skillsActive = !values['no-skills']
 const ask = async (question: string): Promise<string> =>
-  $`claude ${baseFlags} -p ${question}`
+  $`claude ${baseFlags} -p ${skillsActive ? '/find ' + question : question}`
     .cwd(repoRoot)
     .env({ ...process.env, CLAUDE_EVAL: '1' })
     .text()
