@@ -1,18 +1,14 @@
 question: >
   Using calcBondRiskFee in ds-sam
-  (.refs/ds-sam/packages/ds-sam-sdk/src/calculations.ts): once the
-  underfunded-bond branch is entered, bondRiskFeeSol = bondRiskFeeMult * value *
-  feeCoef AND paidUndelegationSol = Math.min(1, bondRiskFeeMult) * value, where
-  `value` is the auction-computed forced-undelegation amount in SOL and feeCoef =
-  (onchainDistributedPmpe + auctionEffectiveBidPmpe) / 1000.
+  (.refs/ds-sam/packages/ds-sam-sdk/src/calculations.ts):
 
   For an underfunded validator the auction computed value = 800 SOL, with
-  onchainDistributedPmpe = 150 and auctionEffectiveBidPmpe = 50 (so feeCoef =
-  0.2). The config sets bondRiskFeeMult = 2.
+  onchainDistributedPmpe = 150 and auctionEffectiveBidPmpe = 50. The config sets
+  bondRiskFeeMult = 2.
 
-  Compute, with bondRiskFeeMult = 2: (a) bondRiskFeeSol, (b) paidUndelegationSol
-  (note the Math.min(1, mult) clamp), (c) explain why paidUndelegationSol does
-  NOT grow past `value` even though the fee does. Show each formula step.
+  Compute, with bondRiskFeeMult = 2: (a) bondRiskFeeSol, (b) paidUndelegationSol,
+  (c) explain why paidUndelegationSol does NOT grow past `value` even though the
+  fee does. Show each formula step.
 facts:
   - '320 SOL'
   - '800 SOL'
