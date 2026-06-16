@@ -45,3 +45,7 @@ fuzzing/
 # Testing
 regression-data*
 .tmp-mp-inject-*
+
+# local secrets (Mixpanel project token, etc.) — never commit
+.env
+.env.local
