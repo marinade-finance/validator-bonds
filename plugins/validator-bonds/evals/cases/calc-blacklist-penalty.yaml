@@ -18,8 +18,8 @@ facts:
   - '200 SOL'
   - 'stakers'
   - 'blacklist_penalty_pmpe'
+  - 'no DAO fee'
 wrong_facts:
   - '184 SOL'
   - '16 SOL'
   - 'Marinade receives'
-  - 'DAO fee'

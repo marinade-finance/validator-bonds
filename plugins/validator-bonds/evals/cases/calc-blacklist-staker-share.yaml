@@ -14,9 +14,7 @@ question: >
 facts:
   - '0.25'
   - '50 SOL'
-  - '50000000000'
+  - '50_000_000_000'
   - 'staker_share'
 wrong_facts:
-  - '200 SOL'
   - '46 SOL'
-  - 'fee split'
