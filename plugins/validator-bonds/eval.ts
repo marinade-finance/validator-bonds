@@ -1,57 +1,48 @@
 #!/usr/bin/env bun
-// Usage: bun eval.ts [--plugin-dir <path>] [--no-skills] [--persist] [-l|--list] [-v|--verbose] [-t <tag>] [--model <id>] [-N|--limit N] [cases-dir|file.yaml...]
-// Each .yaml: { question: string, facts: string[], wrong_facts?: string[] }
-// --plugin-dir    load only this plugin; skills auto-trigger based on routing
-// --no-skills     disable all skills (baseline comparison)
-// --persist     keep facts/data written during the run (default: ephemeral tmp, cleaned after)
-// -l / --list     print case names + questions without running them
-// -v / --verbose  print full answer to stdout as each case runs
-// -t <tag>        output tag (default: YYYYMMDD); written to evals/report/<tag>/
-// -N / --limit N  run only first N cases
-// Positionals default to ./evals/cases relative to this script.
-// Run in dockbox for clean isolation (fresh home = no global skills, ANTHROPIC_API_KEY forwarded).
-// facts: must appear in answer. wrong_facts: must NOT appear (adversarial check).
 
-import { parseArgs } from 'node:util'
-import { parse, stringify } from 'yaml'
 import { $ } from 'bun'
 import {
+  mkdir,
+  mkdtemp,
   readdir,
   readFile,
-  stat,
-  mkdir,
-  writeFile,
   rm,
-  mkdtemp,
+  stat,
+  writeFile,
 } from 'fs/promises'
-import { join, basename, dirname, resolve } from 'path'
+import { basename, dirname, join, relative, resolve } from 'path'
+import { parseArgs } from 'util'
 import { fileURLToPath } from 'url'
 import { tmpdir } from 'os'
+import { parse, stringify } from 'yaml'
 
-interface FactResult {
+type CaseFile = {
+  question: string
+  facts: string[]
+  wrong_facts?: string[]
+}
+
+type FactResult = {
   fact: string
   passed: boolean
   method: 'exact' | 'haiku' | 'error'
   error?: string
 }
 
-// strip bare '--' that pnpm passes when forwarding args (e.g. `pnpm eval -- -v`)
-const rawArgs = Bun.argv.slice(2).filter(a => a !== '--')
-const shortLimit = rawArgs.find(a => /^-\d+$/.test(a))
-const filteredArgs = shortLimit
-  ? rawArgs.filter(a => a !== shortLimit)
+const rawArgs = Bun.argv.slice(2).filter(arg => arg !== '--')
+const shorthandLimit = rawArgs.find(arg => /^-\d+$/.test(arg))
+const args = shorthandLimit
+  ? rawArgs.filter(arg => arg !== shorthandLimit)
   : rawArgs
 
 const { values, positionals } = parseArgs({
-  args: filteredArgs,
+  args,
   options: {
     'plugin-dir': { type: 'string' },
     'no-skills': { type: 'boolean', default: false },
     persist: { type: 'boolean', default: false },
-    list: { type: 'boolean', default: false },
-    l: { type: 'boolean', default: false },
-    verbose: { type: 'boolean', default: false },
-    v: { type: 'boolean', default: false },
+    list: { type: 'boolean', short: 'l', default: false },
+    verbose: { type: 'boolean', short: 'v', default: false },
     t: { type: 'string' },
     limit: { type: 'string' },
     model: { type: 'string' },
@@ -59,218 +50,195 @@ const { values, positionals } = parseArgs({
   allowPositionals: true,
 })
 
-const listMode = values.list || values.l
-const verbose = values.verbose || values.v
-
-const limit = shortLimit
-  ? parseInt(shortLimit.slice(1), 10)
+const pluginRoot = dirname(fileURLToPath(import.meta.url))
+const repoRoot = resolve(pluginRoot, '../..')
+const casesRoot = join(pluginRoot, 'evals/cases')
+const reportRoot = join(pluginRoot, 'evals/report')
+const limit = shorthandLimit
+  ? Number(shorthandLimit.slice(1))
   : values.limit
-    ? parseInt(values.limit, 10)
-    : null
+    ? Number(values.limit)
+    : undefined
 
-const scriptDir = dirname(fileURLToPath(import.meta.url))
-const defaultRepoRoot = join(scriptDir, '../..')
-
-// default: run claude in a fresh isolated dir (ephemeral facts), clean up after
-let repoRoot = defaultRepoRoot
-let tmpRoot: string | null = null
-if (!values['persist']) {
-  tmpRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
-  console.log(`tmpdir: ${tmpRoot}`)
-  await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${defaultRepoRoot} . | tar -xf - -C ${tmpRoot}`
-  repoRoot = tmpRoot
-}
-
-const defaultCasesDir = join(scriptDir, 'evals/cases')
-const casePaths = positionals.length > 0 ? positionals : [defaultCasesDir]
-
-const today = new Date()
-const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
-const tag = values.t ?? defaultTag
-
-// Resolve plugin-dir: explicit flag, or CWD (run from the plugin root)
-const pluginDir = resolve(values['plugin-dir'] ?? '.')
-const MODEL_ALIASES: Record<string, string> = {
+const modelAliases: Record<string, string> = {
   opus: 'claude-opus-4-8',
   sonnet: 'claude-sonnet-4-6',
   haiku: 'claude-haiku-4-5-20251001',
 }
-const resolvedModel = values.model
-  ? (MODEL_ALIASES[values.model] ?? values.model)
+
+const model = values.model
+  ? (modelAliases[values.model] ?? values.model)
   : undefined
-const modelFlags = resolvedModel ? ['--model', resolvedModel] : []
-const baseFlags = [
-  ...(values['no-skills']
-    ? ['--disable-slash-commands']
-    : pluginDir
-      ? ['--plugin-dir', pluginDir]
-      : []),
-  ...modelFlags,
-]
+const pluginDir = resolve(values['plugin-dir'] ?? '.')
 
-// Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
-// Keeps it away from evals/cases/ so it can't read expected facts.
-// The find skill auto-triggers from when_to_use once the plugin is loaded.
-const ask = async (question: string): Promise<string> =>
-  $`claude ${baseFlags} -p ${question}`
-    .cwd(repoRoot)
-    .env({ ...process.env, CLAUDE_EVAL: '1' })
-    .text()
+const today = new Date().toISOString().slice(0, 10).replaceAll('-', '')
+const tag = values.t ?? today
 
-const judgePrompt =
-  'You are a fact-checker. Given a fact and a response, output YES if the response conveys that fact — including via paraphrase, synonyms, or equivalent technical terms. Numeric formatting differences are irrelevant: 50000000000 = 50,000,000,000 = 50_000_000_000. Output NO only if the fact is absent or contradicted. No other output.'
+const expand = async (input: string): Promise<string[]> => {
+  if (
+    !input.includes('/') &&
+    !input.endsWith('.yaml') &&
+    !input.endsWith('.yml')
+  )
+    return [join(casesRoot, `${input}.yaml`)]
 
-const supports = async (answer: string, fact: string): Promise<FactResult> => {
-  if (answer.toLowerCase().includes(fact.toLowerCase()))
-    return { fact, passed: true, method: 'exact' }
-  try {
-    const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
-    const raw =
-      await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
-        .env({ ...process.env, CLAUDE_EVAL: '1' })
-        .text()
-    const verdict = raw.trim()
-    return {
-      fact,
-      passed: verdict.toUpperCase() === 'YES',
-      method: 'haiku',
-    }
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e)
-    return { fact, passed: false, method: 'error', error }
-  }
+  const path = resolve(input)
+  const pathStat = await stat(path)
+  if (!pathStat.isDirectory()) return [path]
+
+  return (await readdir(path))
+    .filter(file => file.endsWith('.yaml') || file.endsWith('.yml'))
+    .sort()
+    .map(file => join(path, file))
 }
 
-const expand = async (p: string): Promise<string[]> => {
-  // bare case name (no path separators, no extension) → resolve under default cases dir
-  if (!p.includes('/') && !p.endsWith('.yaml') && !p.endsWith('.yml')) {
-    const candidate = join(defaultCasesDir, p + '.yaml')
-    return [candidate]
-  }
-  if ((await stat(p)).isDirectory())
-    return (await readdir(p))
-      .filter(f => f.endsWith('.yaml') || f.endsWith('.yml'))
-      .sort()
-      .map(f => join(p, f))
-  if (!p.endsWith('.yaml') && !p.endsWith('.yml'))
-    throw new Error(`not a YAML file: ${p}`)
-  return [p]
+let files = (
+  await Promise.all(
+    (positionals.length ? positionals : [casesRoot]).map(expand),
+  )
+).flat()
+if (limit !== undefined) files = files.slice(0, limit)
+
+const readCase = async (file: string): Promise<CaseFile> => {
+  const data = parse(await readFile(file, 'utf8')) as CaseFile
+  if (!data.question || !Array.isArray(data.facts))
+    throw new Error(`invalid case: ${file}`)
+  return data
 }
 
-let files = (await Promise.all(casePaths.map(expand))).flat()
-
-if (files.length === 0) throw new Error('No .yaml/.yml files found')
-if (limit !== null) files = files.slice(0, limit)
-
-if (listMode) {
+if (values.list) {
   for (const file of files) {
-    const name = basename(file).replace(/\.ya?ml$/, '')
-    const {
-      question,
-      facts,
-      wrong_facts = [],
-    } = parse(await readFile(file, 'utf8')) as {
-      question: string
-      facts: string[]
-      wrong_facts?: string[]
-    }
-    console.log(`${name}`)
-    console.log(`  Q: ${question.trim().replace(/\n/g, ' ')}`)
-    console.log(`  facts: ${facts.join(', ')}`)
-    if (wrong_facts.length)
-      console.log(`  wrong_facts: ${wrong_facts.join(', ')}`)
+    const data = await readCase(file)
+    console.log(basename(file).replace(/\.ya?ml$/, ''))
+    console.log(`  Q: ${data.question.trim().replace(/\s+/g, ' ')}`)
+    console.log(`  facts: ${data.facts.join(', ')}`)
+    if (data.wrong_facts?.length)
+      console.log(`  wrong_facts: ${data.wrong_facts.join(', ')}`)
   }
   process.exit(0)
 }
 
-let passed = 0
-let failed = 0
-let errored = 0
-const meta = {
-  mode: values['no-skills']
-    ? 'no-skills'
-    : pluginDir
-      ? `plugin:${pluginDir}`
-      : 'default',
-  flags: baseFlags,
-  ...(pluginDir && !values['no-skills'] ? { plugin_dir: pluginDir } : {}),
-  tag,
-  started_at: new Date().toISOString(),
-}
-const log = { meta, cases: [] as unknown[] }
+let runRoot = repoRoot
+let runPluginDir = pluginDir
+let tempRoot: string | null = null
 
-for (const file of files) {
-  const name = basename(file).replace(/\.ya?ml$/, '')
-  const {
-    question,
-    facts,
-    wrong_facts = [],
-  } = parse(await readFile(file, 'utf8')) as {
-    question: string
-    facts: string[]
-    wrong_facts?: string[]
+if (!values.persist) {
+  tempRoot = await mkdtemp(join(tmpdir(), 'vb-eval-'))
+  await $`tar -cf - --exclude=./node_modules --exclude=./.git --exclude=./.refs --exclude=./.pnpm-store -C ${repoRoot} . | tar -xf - -C ${tempRoot}`
+  runRoot = tempRoot
+
+  if (!values['plugin-dir']) {
+    const pluginRelativePath = relative(repoRoot, pluginDir)
+    runPluginDir = join(tempRoot, pluginRelativePath)
   }
-  if (!question || !Array.isArray(facts))
-    throw new Error('invalid case file: missing question or facts')
+}
+
+const claudeFlags = [
+  ...(values['no-skills']
+    ? ['--disable-slash-commands']
+    : ['--plugin-dir', runPluginDir]),
+  ...(model ? ['--model', model] : []),
+]
+
+const ask = async (question: string): Promise<string> =>
+  $`claude ${claudeFlags} -p ${question}`
+    .cwd(runRoot)
+    .env({ ...process.env, CLAUDE_EVAL: '1' })
+    .text()
+
+const judgePrompt =
+  'Output YES if the response conveys the fact, including equivalent technical terms or numeric formatting. Output NO if absent or contradicted. No other output.'
+
+const checkFact = async (answer: string, fact: string): Promise<FactResult> => {
+  if (answer.toLowerCase().includes(fact.toLowerCase()))
+    return { fact, passed: true, method: 'exact' }
+
   try {
-    const answer = await ask(question)
-    const factResults = await Promise.all(facts.map(f => supports(answer, f)))
-    const wrongResults = wrong_facts.map(f => {
-      const found = answer.toLowerCase().includes(f.toLowerCase())
-      return { fact: f, passed: !found, method: 'exact' as const }
-    })
+    const prompt = `Fact: ${fact}\n\nResponse:\n${answer}`
+    const verdict =
+      await $`claude --bare --system-prompt ${judgePrompt} --model claude-haiku-4-5-20251001 -p ${prompt}`
+        .env({ ...process.env, CLAUDE_EVAL: '1' })
+        .text()
+    return {
+      fact,
+      passed: verdict.trim().toUpperCase() === 'YES',
+      method: 'haiku',
+    }
+  } catch (error) {
+    return {
+      fact,
+      passed: false,
+      method: 'error',
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+let failed = 0
+
+try {
+  let passed = 0
+  const log = {
+    meta: {
+      mode: values['no-skills'] ? 'no-skills' : `plugin:${pluginDir}`,
+      flags: claudeFlags,
+      tag,
+      started_at: new Date().toISOString(),
+    },
+    cases: [] as unknown[],
+  }
+
+  for (const file of files) {
+    const name = basename(file).replace(/\.ya?ml$/, '')
+    const testCase = await readCase(file)
+    const answer = await ask(testCase.question)
+    const facts = await Promise.all(
+      testCase.facts.map(fact => checkFact(answer, fact)),
+    )
+    const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
+      fact,
+      passed: !answer.toLowerCase().includes(fact.toLowerCase()),
+      method: 'exact',
+    }))
     const ok =
-      factResults.every(r => r.passed) && wrongResults.every(r => r.passed)
+      facts.every(fact => fact.passed) && wrongFacts.every(fact => fact.passed)
+
     log.cases.push({
       case: name,
       result: ok ? 'pass' : 'fail',
-      question,
+      question: testCase.question,
       answer: answer.trim(),
-      facts: factResults,
-      ...(wrongResults.length > 0 ? { wrong_facts: wrongResults } : {}),
+      facts,
+      ...(wrongFacts.length ? { wrong_facts: wrongFacts } : {}),
     })
-    const q = question.trim().replace(/\n/g, ' ')
+
     if (ok) {
-      console.log(`✓  ${name}  ${q}`)
+      console.log(`✓ ${name}`)
       passed++
     } else {
-      console.log(`\n✗  ${name}`)
-      console.log(`   Q: ${q}`)
-      factResults.forEach(r => {
-        const tag = r.passed ? '  ok' : 'miss'
-        console.log(`   [${tag}] ${r.fact}`)
-      })
-      wrongResults.forEach(r => {
-        const tag = r.passed ? '  ok' : 'WRONG'
-        console.log(`   [${tag}] wrong_fact: ${r.fact}`)
-      })
-      console.log('')
+      console.log(`✗ ${name}`)
+      for (const fact of facts.filter(fact => !fact.passed))
+        console.log(`  missing: ${fact.fact}`)
+      for (const fact of wrongFacts.filter(fact => !fact.passed))
+        console.log(`  wrong_fact: ${fact.fact}`)
       failed++
     }
-    if (verbose) console.log(`--- answer ---\n${answer.trim()}\n`)
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e)
-    const stderr =
-      e instanceof Error && 'stderr' in e ? String((e as any).stderr) : ''
-    log.cases.push({ case: name, result: 'error', question, error, facts: [] })
-    console.log(`!  ${name}  (error: ${error.slice(0, 120)})`)
-    if (verbose && stderr) console.log(`   stderr: ${stderr.trim()}`)
-    errored++
+
+    if (values.verbose)
+      console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
   }
+
+  await mkdir(join(reportRoot, tag), { recursive: true })
+  const reportPath = join(
+    reportRoot,
+    tag,
+    `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
+  )
+  await writeFile(reportPath, stringify(log))
+
+  console.log(`\n${passed}/${passed + failed} passed -> ${reportPath}`)
+} finally {
+  if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
 }
 
-const reportDir = join(scriptDir, 'evals/report', tag)
-await mkdir(reportDir, { recursive: true })
-const logPath = join(
-  reportDir,
-  `eval-${new Date().toISOString().replace(/[:.]/g, '-')}.yml`,
-)
-await writeFile(logPath, stringify(log))
-console.log(
-  `\n${passed}/${passed + failed + errored} passed, ${errored} error(s)  →  ${logPath}`,
-)
-if (tmpRoot) {
-  await rm(tmpRoot, { recursive: true, force: true })
-  console.log(`cleaned up ${tmpRoot}`)
-}
-if (failed > 0 || errored > 0) process.exit(1)
+if (failed > 0) process.exit(1)

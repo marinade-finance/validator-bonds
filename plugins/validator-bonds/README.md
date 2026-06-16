@@ -145,26 +145,17 @@ pnpm eval -- -t baseline-20260616
 pnpm eval -- --model opus
 pnpm eval -- --model claude-sonnet-4-6
 
-# Keep the copied tree after the run (default: cleaned up)
+# Run in the live checkout instead of an isolated temp copy
 pnpm eval -- --persist
+
 ```
 
 Or invoke directly:
 
 ```bash
-bun plugins/validator-bonds/eval.ts -v evals/cases/bidding-settlement.yaml
+cd plugins/validator-bonds
+bun eval.ts -v bidding-settlement
 ```
-
-### Isolation: ephemeral vs `--persist`
-
-By default the harness copies the repo into a tmpdir (excluding `node_modules`,
-`.git`, `.refs`, `.pnpm-store`), runs Claude there, then deletes the copy. This
-prevents the eval from contaminating `facts/` with new research writes and
-ensures each run starts clean.
-
-`--persist` skips the copy and runs Claude directly in the live repo root.
-Use this when you want `find` skill research to write new facts back to `facts/`
-during the eval, or when debugging skill routing with `--verbose`.
 
 ### Reading results
 
