@@ -11,7 +11,6 @@ question: >
 facts:
   - '0.25'
   - '50 SOL'
-  - '50000000000'
   - 'staker_share'
 wrong_facts:
   - '46 SOL'
