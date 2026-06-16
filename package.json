@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "license": "ISC",
   "scripts": {
-    "eval": "bun plugins/validator-bonds/evals/eval.ts",
+    "eval": "bun plugins/validator-bonds/evals/eval.ts --plugin-dir plugins/validator-bonds",
     "anchor:build": "anchor build",
     "build": "pnpm anchor:build && pnpm -r build",
     "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",

@@ -88,15 +88,15 @@ const today = new Date()
 const defaultTag = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`
 const tag = values.t ?? defaultTag
 
-// Resolve plugin-dir: explicit flag → absolute path; default → this plugin's root.
-// No plugin-dir only when --no-skills is passed.
-const defaultPluginDir = join(scriptDir, '..')
+// Resolve plugin-dir relative to original cwd before repoRoot changes
 const pluginDir = values['plugin-dir']
   ? resolve(values['plugin-dir'])
-  : defaultPluginDir
+  : undefined
 const baseFlags = values['no-skills']
   ? ['--disable-slash-commands']
-  : ['--plugin-dir', pluginDir]
+  : pluginDir
+    ? ['--plugin-dir', pluginDir]
+    : []
 
 // Run claude from repo root: gives it .refs/, source code, CLAUDE.md, full tool access.
 // Keeps it away from evals/cases/ so it can't read expected facts.

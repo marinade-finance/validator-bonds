@@ -12,7 +12,7 @@ From the repo root:
 # List all cases with questions (no API calls)
 pnpm eval -- -l
 
-# Run all cases (default: ./cases/)
+# Run all cases (default: ./cases/; plugin auto-loaded via package.json)
 pnpm eval
 
 # Run only first 2 cases
@@ -24,8 +24,8 @@ pnpm eval -- -v cases/bidding-settlement.yaml
 # Baseline — disable all skills for comparison
 pnpm eval -- --no-skills
 
-# Explicit plugin dir — override which plugin is loaded
-pnpm eval -- --plugin-dir plugins/validator-bonds
+# Override which plugin is loaded (default comes from package.json)
+pnpm eval -- --plugin-dir some/other/plugin
 
 # Custom output tag (default: YYYYMMDD)
 pnpm eval -- -t baseline-20260527
