@@ -30,8 +30,8 @@ pnpm eval -- --plugin-dir some/other/plugin
 # Custom output tag (default: YYYYMMDD)
 pnpm eval -- -t baseline-20260527
 
-# Run in fresh tmpdir (strips node_modules/.git/.refs, model sees source only)
-pnpm eval -- --tmpdir
+# Keep the copied tree after the run (default: fresh tmpdir, cleaned up)
+pnpm eval -- --persist
 ```
 
 Or run `bun eval.ts` directly from `plugins/validator-bonds/evals/`.
@@ -39,7 +39,7 @@ Or run `bun eval.ts` directly from `plugins/validator-bonds/evals/`.
 **Flags:** `-l` / `--list` (list only), `-v` / `--verbose` (print full answer),
 `-N` / `--limit N` (run first N cases, shorthand `-N` e.g. `-3`),
 `-t <tag>` (output tag), `--no-skills` (baseline), `--plugin-dir <path>`,
-`--tmpdir` (fresh isolated dir).
+`--persist` (keep the copied tree; default is an ephemeral tmpdir, cleaned up).
 
 Output: pass/fail per case, missing facts printed inline, detailed YAML log at
 `./report/<tag>/eval-<timestamp>.yml`.
@@ -64,8 +64,8 @@ question: >
   how is the payout determined, and what backs the payment?
 facts:
   - Bidding
-  - native stakers
-  - effective_bid_pmpe
+  - active_delegation_lamports
+  - auction_effective_static_bid_pmpe
   - bond
 wrong_facts:
   - some claim that must NOT appear
