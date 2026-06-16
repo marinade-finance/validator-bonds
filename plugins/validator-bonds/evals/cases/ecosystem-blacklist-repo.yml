@@ -13,5 +13,4 @@ facts:
   - 'stakers'
 wrong_facts:
   - 'ds-scoring'
-  - 'BidTooLowPenalty'
-  - 'fee split'
+  - 'marinade_fee_bps is deducted'

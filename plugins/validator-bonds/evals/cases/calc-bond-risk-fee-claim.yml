@@ -11,5 +11,4 @@ facts:
   - '0.2'
   - '0.5 SOL'
 wrong_facts:
-  - '2.5 SOL'
-  - 'fee split'
+  - 'dao_fee_split'

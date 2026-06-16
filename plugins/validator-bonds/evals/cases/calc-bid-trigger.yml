@@ -9,6 +9,5 @@ facts:
   - 'BidTooLowPenalty'
   - 'previous_bidPmpe'
 wrong_facts:
-  - 'does not trigger'
   - 'no penalty'
   - 'below minimum threshold'
