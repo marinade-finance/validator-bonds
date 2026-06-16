@@ -45,3 +45,7 @@ fuzzing/
 # Testing
 regression-data*
 .tmp-mp-inject-*
+
+# Session artifacts
+.diary/
+.ship/
