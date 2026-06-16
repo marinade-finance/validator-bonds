@@ -6,8 +6,9 @@ Manifests: `.claude-plugin/plugin.json` (Claude Code), `.codex-plugin/plugin.jso
 Both point at `skills/` — same skill files serve both runtimes.
 
 Skills are not auto-triggered reliably. Claude Code matches `when_to_use` frontmatter
-against the conversation. For evals, the harness loads the plugin via
-`--plugin-dir plugins/validator-bonds`. For manual testing:
+against the conversation. The eval harness loads the plugin with `--plugin-dir`,
+defaulting to the plugin root (`pnpm eval` runs `cd plugins/validator-bonds && bun
+eval.ts`, so the default plugin dir is `.`). For manual testing:
 `claude --plugin-dir plugins/validator-bonds -p "question"`.
 
 ## Eval harness
