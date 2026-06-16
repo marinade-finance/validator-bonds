@@ -148,7 +148,6 @@ if (values.list) {
   const runClaude = (flags: string[], prompt: string): Promise<string> =>
     $`claude ${flags} -p ${prompt}`
       .cwd(runRoot)
-      .env({ ...process.env, CLAUDE_EVAL: '1' })
       .text()
 
   const checkFact = async (

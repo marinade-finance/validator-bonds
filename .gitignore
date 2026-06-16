@@ -49,3 +49,6 @@ regression-data*
 # Session artifacts
 .diary/
 .ship/
+
+# eval harness output
+plugins/validator-bonds/evals/report/
