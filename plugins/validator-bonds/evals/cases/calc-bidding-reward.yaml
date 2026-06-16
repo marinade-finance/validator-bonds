@@ -6,8 +6,6 @@ question: >
   - auction_effective_static_bid_pmpe = 200 (winningTotalPmpe = 200)
   - no commission breach (inflation_commission_in_bond_dec = None)
   - no activating stake
-  - marinade_fee_bps = 800 (effective_fee = max_fee = 0.08)
-  - dao_fee_split_share_bps = 10000
 
   Compute: (a) the total Bidding settlement claim in SOL (before fees),
   (b) stakers_total_claim in SOL, (c) DAO fee in SOL, (d) Marinade fee in SOL.
