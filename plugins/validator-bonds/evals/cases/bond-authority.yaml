@@ -3,6 +3,7 @@ question: >
   Find and cite the specific code location (file + line) where bond signing
   authority is checked. Name the exact account fields or identities allowed.
 facts:
+  - 'check_bond_authority'
   - 'bond authority'
   - 'validator identity'
 wrong_facts:

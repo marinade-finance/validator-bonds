@@ -4,6 +4,7 @@ question: >
 facts:
   - 'inflation_commission_claim'
   - 'mev_commission_claim'
+  - 'block_commission_claim'
   - 'static_bid_claim'
   - 'ResultSettlementClaims'
   - 'marinade_stake_share'
