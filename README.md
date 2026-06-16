@@ -54,19 +54,31 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 - `close-settlements` Reset (close) the `Settlement accounts` when they expire
   (defined in `Config` by value of field `epochs_to_claim_settlement`)
 
-## Claude Code plugin
+## Agent skills
 
-Protocol context for Claude Code users is shipped as a plugin marketplace in this repo.
+Protocol context skills live in [`plugins/validator-bonds/`](./plugins/validator-bonds/).
+
+Codex, no install needed from this repo:
 
 ```sh
-# one-time: register the marketplace
-/plugin marketplace add marinade-finance/validator-bonds
-
-# install the skill (auto-triggers on SAM / PSR / settlement topics)
-/plugin install validator-bonds@marinade-validator-bonds
+codex
 ```
 
-Source: [`plugins/validator-bonds/`](./plugins/validator-bonds/).
+Codex loads `AGENTS.md` and `.agents/skills`, which points at the same skills.
+
+Codex plugin install from this repo marketplace:
+
+```sh
+codex plugin marketplace add .agents
+codex plugin add validator-bonds@marinade-validator-bonds
+```
+
+Claude Code plugin install:
+
+```sh
+/plugin marketplace add marinade-finance/validator-bonds
+/plugin install validator-bonds@marinade-validator-bonds
+```
 
 ## Development
 
