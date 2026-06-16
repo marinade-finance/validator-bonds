@@ -3,28 +3,31 @@
 
 Single-file Claude Code hook, wired as a **Stop** hook (see ../hooks/hooks.json).
 
-Why Stop (not PostToolUse): the `Skill` tool is handled as prompt expansion and
-does NOT fire Pre/PostToolUse hooks (anthropics/claude-code#43630). But each Skill
-invocation IS recorded in the session transcript as a `tool_use` block. So on every
-Stop we scan `transcript_path` for Skill invocations and emit one `skill_used` event
-per new invocation, deduped by the immutable `tool_use` id across the per-turn Stop
-calls. Switch to a PostToolUse/`Skill` matcher once #43630 ships.
+Why Stop (not PostToolUse): the `Skill` tool is prompt expansion and does NOT fire
+Pre/PostToolUse hooks (anthropics/claude-code#43630). But each Skill invocation IS
+recorded in the session transcript as a `tool_use` block, so on every Stop we scan
+`transcript_path` and report a `skill_used` event per invocation.
+
+Dedup is server-side: each event sets Mixpanel `$insert_id` to the invocation's
+immutable `tool_use` id, so re-scanning the transcript on later Stop calls is
+harmless (Mixpanel drops duplicates) — no local state file needed.
 
 Token: MIXPANEL_PROJECT_TOKEN is a Mixpanel *project* token — write-only ingestion,
 safe to ship public. Override with the MIXPANEL_TOKEN env var.
 
-The launcher re-execs itself detached (`start_new_session`) so a slow Mixpanel call
-never blocks the session.
+The launcher re-execs itself detached (`start_new_session`) so the Mixpanel call
+never blocks the session; the detached worker self-terminates after
+WORKER_TIMEOUT_SECONDS so it can never linger as a zombie.
 
-Test against a real transcript:
+Test:
   echo '{"transcript_path":"/abs/path.jsonl","session_id":"t1"}' \
     | TRACK_VERBOSE=1 python3 track-mixpanel.py
 """
 import json
 import os
+import signal
 import subprocess
 import sys
-import tempfile
 import time
 import urllib.parse
 import urllib.request
@@ -33,6 +36,8 @@ MIXPANEL_PROJECT_TOKEN = "c5c1dd7c6d81894e620f333e0cc937ba"
 TOKEN = os.environ.get("MIXPANEL_TOKEN", MIXPANEL_PROJECT_TOKEN)
 TRACKED_SKILLS = {"marinade-sam-bond", "marinade-ecosystem", "marinade-docs", "find"}
 VERBOSE = os.environ.get("TRACK_VERBOSE") == "1"
+WORKER_TIMEOUT_SECONDS = 10
+MIXPANEL_BATCH = 50  # Mixpanel /track accepts up to 50 events per request
 
 
 def skill_invocations(transcript_path):
@@ -55,33 +60,40 @@ def skill_invocations(transcript_path):
                         and b.get("name") == "Skill"
                     ):
                         skill = (b.get("input") or {}).get("skill", "")
-                        if skill:
-                            yield (b.get("id") or skill), skill
+                        tid = b.get("id")
+                        if skill and tid:
+                            yield tid, skill
     except OSError:
         return
 
 
-def seen_path(session_id):
-    safe = "".join(c for c in (session_id or "unknown") if c.isalnum() or c in "-_")
-    return os.path.join(tempfile.gettempdir(), f"mp-skill-track-{safe}.json")
+def build_events(ev):
+    sid = ev.get("session_id", "unknown")
+    now = int(time.time())
+    events = []
+    for tid, skill in skill_invocations(ev.get("transcript_path")):
+        if skill in TRACKED_SKILLS:
+            events.append(
+                {
+                    "event": "skill_used",
+                    "properties": {
+                        "token": TOKEN,
+                        "distinct_id": sid,
+                        "$insert_id": tid,  # server-side dedup key
+                        "time": now,
+                        "skill": skill,
+                        "tool_use_id": tid,
+                        "hook_event": "Stop",
+                        "source": "claude-code",
+                    },
+                }
+            )
+    return events
 
 
-def post(session_id, skill, tid):
-    payload = {
-        "event": "skill_used",
-        "properties": {
-            "token": TOKEN,
-            "distinct_id": session_id or "unknown",
-            "time": int(time.time()),
-            "skill": skill,
-            "tool_use_id": tid,
-            "hook_event": "Stop",
-            "source": "claude-code",
-        },
-    }
-    if VERBOSE:
-        print(f"emit skill_used skill={skill} tid={tid}")
-    data = urllib.parse.urlencode({"data": json.dumps(payload)}).encode()
+def post(events):
+    """POST a batch of events to Mixpanel in one request."""
+    data = urllib.parse.urlencode({"data": json.dumps(events)}).encode()
     req = urllib.request.Request(
         "https://api.mixpanel.com/track",
         data=data,
@@ -90,10 +102,11 @@ def post(session_id, skill, tid):
     try:
         resp = urllib.request.urlopen(req, timeout=5)
         if VERBOSE:
-            print(f"  mixpanel http={resp.status} body={resp.read().decode().strip()}")
+            body = resp.read().decode().strip()
+            print(f"posted {len(events)} event(s): http={resp.status} body={body}")
     except Exception as e:
         if VERBOSE:
-            print(f"  mixpanel error: {e}")
+            print(f"mixpanel error: {e}")
 
 
 def run(raw):
@@ -103,49 +116,42 @@ def run(raw):
         ev = json.loads(raw or "{}")
     except Exception:
         return
-    tpath = ev.get("transcript_path")
-    sid = ev.get("session_id", "unknown")
-    if not tpath:
+    if not ev.get("transcript_path"):
         return
-    sp = seen_path(sid)
-    try:
-        with open(sp) as fh:
-            seen = set(json.load(fh))
-    except Exception:
-        seen = set()
-    changed = False
-    for tid, skill in skill_invocations(tpath):
-        if skill in TRACKED_SKILLS and tid not in seen:
-            post(sid, skill, tid)
-            seen.add(tid)
-            changed = True
-    if changed:
+    events = build_events(ev)
+    for i in range(0, len(events), MIXPANEL_BATCH):
+        post(events[i : i + MIXPANEL_BATCH])
+
+
+def main():
+    raw = sys.stdin.read()
+
+    # Worker (and verbose/testing) path: do the work, with a hard self-timeout so
+    # a detached worker can never hang around.
+    if VERBOSE or os.environ.get("_TRACK_WORKER"):
         try:
-            with open(sp, "w") as fh:
-                json.dump(sorted(seen), fh)
-        except OSError:
-            pass
+            signal.alarm(WORKER_TIMEOUT_SECONDS)
+        except (ValueError, AttributeError):
+            pass  # no SIGALRM (e.g. Windows / non-main thread)
+        run(raw)
+        return
+
+    # Launcher: detach a worker and return immediately. If we can't detach, drop
+    # it rather than block the session (a synchronous POST is not worth the stall).
+    try:
+        p = subprocess.Popen(
+            [sys.executable, __file__],
+            env={**os.environ, "_TRACK_WORKER": "1"},
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        p.stdin.write(raw.encode())
+        p.stdin.close()
+    except Exception:
+        pass
 
 
-raw = sys.stdin.read()
-
-# Verbose (testing) and the detached worker both run inline.
-if VERBOSE or os.environ.get("_TRACK_WORKER"):
-    run(raw)
-    sys.exit(0)
-
-# Launcher: re-exec self detached so the Mixpanel call never blocks the session.
-try:
-    p = subprocess.Popen(
-        [sys.executable, __file__],
-        env={**os.environ, "_TRACK_WORKER": "1"},
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    p.stdin.write(raw.encode())
-    p.stdin.close()
-except Exception:
-    run(raw)  # fallback: run inline if we can't detach
-sys.exit(0)
+if __name__ == "__main__":
+    main()
