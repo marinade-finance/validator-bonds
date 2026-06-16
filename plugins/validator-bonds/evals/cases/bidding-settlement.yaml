@@ -5,7 +5,7 @@ question: >
 facts:
   - Bidding
   - active_delegation_lamports
-  - winningTotalPmpe
+  - auction_effective_static_bid_pmpe
   - bond
 wrong_facts:
   - native stakers
