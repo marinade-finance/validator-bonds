@@ -54,6 +54,7 @@ Top-level `SettlementReason` variants — enum in [`settlement-common/src/settle
 - **Clearing price** -- `winningTotalPmpe`: PMPE of the last validator group to receive stake in the auction
 - **Program ID** -- `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
 - **Min bond balance** -- `minBondBalanceSol` in ds-sam runtime config (not a validator-bonds constant, has no fixed SOL value); tiered: <80% of min → stake cap 0 (revoked), 80–100% → cap clipped to existing stake, ≥100% → unrestricted. Never quote a specific SOL amount — it is configurable and changes. Current setting: [`ds-sam-pipeline` on GitHub](https://github.com/marinade-finance/ds-sam-pipeline) (public repo, check the config files for live values).
+- **Bond capacity vs bid competitiveness** -- "how much bond do I need for max stake?" cannot be answered from bond balance alone. Use live SAM scores (`https://scoring.marinade.finance/api/v1/scores/sam?epoch=N`) and ds-sam constraints to separate bond-constrained validators from bid-constrained validators. A validator can have enough bond capacity but still receive no stake if its `totalPmpe` is below the clearing price; adding SOL to the bond will not fix that.
 - **Bond authority** -- `bond.authority` field or validator identity can sign
 - **fund_bond** transfers stake ownership to bonds PDA; recovery via withdraw request (lockup = `config.withdraw_lockup_epochs`, configurable by admin)
 - **PSR** -- Protected Staking Rewards, ensures network-average inflation regardless of validator performance
