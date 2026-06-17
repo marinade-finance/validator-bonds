@@ -48,10 +48,15 @@ Key paths: `settlement-distributions/bid-distribution/src/generators/bidding.rs`
 `settlement-distributions/bid-distribution/src/sam_meta.rs`
 (auction_effective_static_bid_pmpe, active_delegation_lamports).
 
-**External repos:** For `.refs/` repos (ds-sam, ds-sam-pipeline, etc.) check
-they're cloned under `.refs/` before reading — clone commands are in
-`/marinade-docs`. Note any claim from a private `.refs/` repo as
-upstream-unverifiable; those repos can change independently.
+**External repos (ds-sam, ds-sam-pipeline, etc.):** Clone under `.refs/` if
+not already present — commands are in `/marinade-docs`. **Never refuse to answer
+just because a repo isn't pre-cloned. Clone it, then read it.**
+Note any claim from a private `.refs/` repo as upstream-unverifiable.
+
+**Reading code to extract a formula:** Read the full function body. Identify
+the return/output variable. Trace each variable back to its inputs. Write the
+formula as a mathematical expression (e.g. `fee = value × coef`) before
+substituting values. Don't skim — calcs are often split across multiple lines.
 
 Write new facts to `facts/<slug>.md`, one fact per file:
 
