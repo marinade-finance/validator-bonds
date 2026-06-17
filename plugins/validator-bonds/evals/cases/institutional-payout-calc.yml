@@ -8,8 +8,8 @@ question: >
 facts:
   - 'psr_percentile_apy'
   - 'apy_percentile_diff'
-  - 'payout_stakers'
-  - 'payout_distributors'
+  - 'PayoutStaker'
+  - 'PayoutDistributor'
 wrong_facts:
   - '50bps'
   - '0.5% fixed'

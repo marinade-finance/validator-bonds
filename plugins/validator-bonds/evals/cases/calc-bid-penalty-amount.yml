@@ -8,7 +8,7 @@ facts:
   - '200 SOL'
   - '184 SOL'
   - '16 SOL'
-  - 'sam_penalties'
+  - 'BidTooLowPenaltyDetails'
 wrong_facts:
   - 'Marinade receives 16'
   - 'stakers receive 200 SOL'

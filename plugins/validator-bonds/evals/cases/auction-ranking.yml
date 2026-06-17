@@ -7,7 +7,7 @@ facts:
   - 'totalPmpe'
   - 'winningTotalPmpe'
   - 'clearing price'
-  - 'auctionEffective'
+  - 'auction_effective_bid_pmpe'
 wrong_facts:
   - 'validators pay their own bid'
   - 'ranked by commission'

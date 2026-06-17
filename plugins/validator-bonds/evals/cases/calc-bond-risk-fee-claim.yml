@@ -11,4 +11,4 @@ facts:
   - '0.2'
   - '0.5 SOL'
 wrong_facts:
-  - 'dao_fee_split'
+  - 'dao_fee_split_share_bps applies'
