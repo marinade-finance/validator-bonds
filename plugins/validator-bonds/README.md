@@ -7,10 +7,18 @@ settlement types, bond lifecycle, and ecosystem navigation.
 
 ### Claude Code
 
-Install from the marketplace (GitHub repo as source):
+Add the marketplace (once), then install:
 
 ```sh
-/plugin install marinade-finance/validator-bonds
+claude plugin marketplace add marinade-finance/validator-bonds
+claude plugin install validator-bonds@marinade-finance
+```
+
+Or as slash commands inside a Claude Code session:
+
+```
+/plugin marketplace add marinade-finance/validator-bonds
+/plugin install validator-bonds@marinade-finance
 ```
 
 Once loaded, skills auto-trigger on relevant keywords (CPMPE, PSR, settlement,

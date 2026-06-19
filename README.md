@@ -59,10 +59,11 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 Protocol context skills live in [`plugins/validator-bonds/`](./plugins/validator-bonds/).
 See the [plugin README](./plugins/validator-bonds/README.md) for full install instructions.
 
-**Claude Code:**
+**Claude Code** (add marketplace once, then install):
 
 ```sh
-/plugin install marinade-finance/validator-bonds
+claude plugin marketplace add marinade-finance/validator-bonds
+claude plugin install validator-bonds@marinade-finance
 ```
 
 **Codex:**
