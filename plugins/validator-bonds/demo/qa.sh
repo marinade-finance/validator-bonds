@@ -32,9 +32,13 @@ sleep 1
 
 # ── 1. install Node.js + Claude Code (fast, quiet) ───────────────────────────
 step "setup  ·  installing Claude Code"
+type_out "apt-get install -yqq nodejs npm"
 bash -c "apt-get update -qq && apt-get install -yqq nodejs npm 2>&1 | tail -1"
+type_out "npm install -g @anthropic-ai/claude-code"
 bash -c "npm install -g @anthropic-ai/claude-code 2>&1 | tail -2"
+type_out "claude plugins marketplace add marinade-finance/validator-bonds"
 bash -c "claude plugins marketplace add marinade-finance/validator-bonds 2>&1 | tail -1"
+type_out "claude plugins install validator-bonds"
 bash -c "claude plugins install validator-bonds 2>&1 | tail -1"
 printf "${GREEN}  ✓ ready${RESET}\n"
 sleep 0.8
