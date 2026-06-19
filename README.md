@@ -57,27 +57,18 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
 ## Agent skills
 
 Protocol context skills live in [`plugins/validator-bonds/`](./plugins/validator-bonds/).
+See the [plugin README](./plugins/validator-bonds/README.md) for full install instructions.
 
-Codex, no install needed from this repo:
+**Claude Code** — load the plugin with `--plugin-dir`:
+
+```sh
+claude --plugin-dir plugins/validator-bonds
+```
+
+**Codex** — no install needed from this repo; `.agents/skills` is auto-loaded:
 
 ```sh
 codex
-```
-
-Codex loads `AGENTS.md` and `.agents/skills`, which points at the same skills.
-
-Codex plugin install from anywhere:
-
-```sh
-codex plugin marketplace add marinade-finance/validator-bonds
-codex plugin add validator-bonds@marinade
-```
-
-Claude Code plugin install:
-
-```sh
-/plugin marketplace add marinade-finance/validator-bonds
-/plugin install validator-bonds@marinade
 ```
 
 ## Development

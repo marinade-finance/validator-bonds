@@ -5,18 +5,45 @@ settlement types, bond lifecycle, and ecosystem navigation.
 
 ## Install
 
-Codex:
+### Claude Code
+
+**From this repo** — pass `--plugin-dir` when starting a session:
 
 ```sh
-codex plugin marketplace add marinade-finance/validator-bonds
-codex plugin add validator-bonds@marinade
+claude --plugin-dir plugins/validator-bonds
 ```
 
-Claude Code:
+Or set it permanently for this project in `.claude/settings.json`:
+
+```json
+{ "pluginDirs": ["plugins/validator-bonds"] }
+```
+
+**From anywhere** — clone once, then point at the plugin directory:
 
 ```sh
-/plugin marketplace add marinade-finance/validator-bonds
-/plugin install validator-bonds@marinade
+git clone https://github.com/marinade-finance/validator-bonds /opt/validator-bonds
+claude --plugin-dir /opt/validator-bonds/plugins/validator-bonds
+```
+
+Once loaded, skills auto-trigger on relevant keywords (CPMPE, PSR, settlement,
+SAM auction, etc.) or you can invoke them explicitly with `/marinade-sam-bond`,
+`/find`, `/marinade-docs`, `/marinade-ecosystem`.
+
+### Codex
+
+**From this repo** — no install needed. Codex picks up `.agents/skills`
+automatically when run from the repo root:
+
+```sh
+codex
+```
+
+**From anywhere** — clone and use the local plugin path:
+
+```sh
+git clone https://github.com/marinade-finance/validator-bonds /opt/validator-bonds
+codex plugin add /opt/validator-bonds/plugins/validator-bonds
 ```
 
 ## Skills
