@@ -7,7 +7,6 @@ IMAGE  := debian:bookworm
 # prereqs: asciinema (pip install asciinema), agg (cargo install agg)
 
 DOCKER = docker run --rm -it \
-    -v "$(HOME)/.claude:/root/.claude" \
     -e ANTHROPIC_API_KEY \
     -e TERM=xterm-256color \
     -e COLUMNS=$(COLS) \
@@ -31,11 +30,11 @@ record: install.cast qa.cast
 
 install.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
-	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)install.sh:/demo.sh:ro" -e ANTHROPIC_API_KEY -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
+	    'docker run --rm -it -v "$(DIR)install.sh:/demo.sh:ro" -e ANTHROPIC_API_KEY -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
 qa.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
-	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)qa.sh:/demo.sh:ro" -e ANTHROPIC_API_KEY -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
+	    'docker run --rm -it -v "$(DIR)qa.sh:/demo.sh:ro" -e ANTHROPIC_API_KEY -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
 # ── GIF conversion ────────────────────────────────────────────────────────────
 

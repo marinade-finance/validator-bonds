@@ -4,6 +4,9 @@
 # Records: installing Claude Code from scratch, then the validator-bonds plugin.
 
 export DEBIAN_FRONTEND=noninteractive
+mkdir -p ~/.claude
+printf '{"theme":"dark","sandbox":{"enabled":false}}\n' > ~/.claude/settings.json
+
 RESET='\033[0m'; BOLD='\033[1m'; DIM='\033[2m'
 GREEN='\033[32m'; CYAN='\033[36m'; YELLOW='\033[33m'; BLUE='\033[34m'
 
