@@ -14,7 +14,7 @@ DOCKER = docker run --rm -it \
 
 .PHONY: demo record gif run-install run-qa clean
 
-demo: clean install.gif qa.gif
+demo: install.gif qa.gif
 
 # ── live runs (no recording) ──────────────────────────────────────────────────
 
