@@ -12,19 +12,17 @@ DOCKER = docker run --rm -it \
     -e COLUMNS=$(COLS) \
     -e LINES=$(ROWS)
 
-.PHONY: all demo demo-install demo-qa record gif clean
+.PHONY: demo record gif run-install run-qa clean
 
-all: install.gif qa.gif
+demo: install.gif qa.gif
 
 # ── live runs (no recording) ──────────────────────────────────────────────────
 
-demo: demo-install demo-qa
+run-install:
+	$(DOCKER) -v "$(DIR)install.sh:/demo.sh:ro" $(IMAGE) bash /demo.sh
 
-demo-install:
-	$(DOCKER) -v "$(DIR)demo-install.sh:/demo.sh:ro" $(IMAGE) bash /demo.sh
-
-demo-qa:
-	$(DOCKER) -v "$(DIR)demo-qa.sh:/demo.sh:ro" $(IMAGE) bash /demo.sh
+run-qa:
+	$(DOCKER) -v "$(DIR)qa.sh:/demo.sh:ro" $(IMAGE) bash /demo.sh
 
 # ── recordings ────────────────────────────────────────────────────────────────
 
@@ -32,11 +30,11 @@ record: install.cast qa.cast
 
 install.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
-	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)demo-install.sh:/demo.sh:ro" -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
+	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)install.sh:/demo.sh:ro" -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
 qa.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
-	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)demo-qa.sh:/demo.sh:ro" -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
+	    'docker run --rm -it -v "$(HOME)/.claude:/root/.claude" -v "$(DIR)qa.sh:/demo.sh:ro" -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
 # ── GIF conversion ────────────────────────────────────────────────────────────
 
