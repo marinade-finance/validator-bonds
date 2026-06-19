@@ -63,7 +63,7 @@ See the [plugin README](./plugins/validator-bonds/README.md) for full install in
 
 ```sh
 claude plugin marketplace add marinade-finance/validator-bonds
-claude plugin install validator-bonds@marinade
+claude plugin install validator-bonds@marinade-finance
 ```
 
 **Codex:**

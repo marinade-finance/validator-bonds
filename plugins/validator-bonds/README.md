@@ -11,14 +11,14 @@ Add the marketplace (once), then install:
 
 ```sh
 claude plugin marketplace add marinade-finance/validator-bonds
-claude plugin install validator-bonds@marinade
+claude plugin install validator-bonds@marinade-finance
 ```
 
 Or as slash commands inside a session:
 
 ```
 /plugin marketplace add marinade-finance/validator-bonds
-/plugin install validator-bonds@marinade
+/plugin install validator-bonds@marinade-finance
 ```
 
 Once loaded, skills auto-trigger on relevant keywords (CPMPE, PSR, settlement,
