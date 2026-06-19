@@ -11,24 +11,25 @@ Add the marketplace (once), then install:
 
 ```sh
 claude plugin marketplace add marinade-finance/validator-bonds
-claude plugin install validator-bonds@marinade-finance
+claude plugin install validator-bonds@marinade
 ```
 
-Or as slash commands inside a Claude Code session:
+Or as slash commands inside a session:
 
 ```
 /plugin marketplace add marinade-finance/validator-bonds
-/plugin install validator-bonds@marinade-finance
+/plugin install validator-bonds@marinade
 ```
 
 Once loaded, skills auto-trigger on relevant keywords (CPMPE, PSR, settlement,
-SAM auction, etc.) or you can invoke them explicitly with `/marinade-sam-bond`,
-`/find`, `/marinade-docs`, `/marinade-ecosystem`.
+SAM auction, etc.) or invoke explicitly: `/marinade-sam-bond`, `/find`,
+`/marinade-docs`, `/marinade-ecosystem`.
 
-**From this repo** (local dev) — use `--plugin-dir` instead:
+**From this repo** — no install needed. `.claude/skills/` is already symlinked
+to the plugin skills and `settings.local.json` enables the plugin:
 
 ```sh
-claude --plugin-dir plugins/validator-bonds
+claude
 ```
 
 ### Codex
