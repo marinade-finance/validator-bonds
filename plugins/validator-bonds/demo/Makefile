@@ -24,8 +24,10 @@ install.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
 	    'docker run --rm -it -v "$(DIR)install.sh:/demo.sh:ro" -e CLAUDE_CODE_OAUTH_TOKEN -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
-install.gif: install.cast
-	agg $< $@
+AGG_FLAGS ?=
+
+%.gif: %.cast
+	agg --cols $(COLS) --rows $(ROWS) $(AGG_FLAGS) $< $@
 
 clean:
 	rm -f install.cast install.gif
