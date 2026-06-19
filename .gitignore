@@ -49,3 +49,7 @@ regression-data*
 # Session artifacts
 .diary/
 .ship/
+
+# Demo recordings
+*.cast
+*.gif
