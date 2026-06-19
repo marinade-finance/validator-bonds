@@ -52,7 +52,7 @@ Walk me through:
 Be specific. Show the formulas. Assume relaxedTotalPmpe = 140, bidPmpe = 50,
 typical Solana epoch rewards ~0.00001 SOL per SOL staked."
 
-type_out "claude --plugin-dir /plugin -p \"\$QUESTION\""
+type_out "claude --plugin-dir /plugin -p \"I want 1,000,000 SOL of Marinade stake. What totalPmpe, bond balance, and bid cost do I need — and can I be profitable?\""
 printf '\n'
 sleep 0.5
 
