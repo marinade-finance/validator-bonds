@@ -56,7 +56,7 @@ type_out "claude -p \"\$QUESTION\""
 printf '\n'
 sleep 0.5
 
-claude -p "$QUESTION"
+claude --output-format text -p "$QUESTION"
 
 printf "\n${GREEN}${BOLD}  ✓  marinade-sam-bond plugin — psr.marinade.finance${RESET}\n\n"
 sleep 2

@@ -54,7 +54,7 @@ type_out "claude --plugin-dir /plugin -p \"\$QUESTION\""
 printf '\n'
 sleep 0.5
 
-claude --plugin-dir /plugin -p "$QUESTION"
+claude --plugin-dir /plugin --output-format text -p "$QUESTION"
 
 printf "\n${GREEN}${BOLD}  ✓  marinade-sam-bond plugin — psr.marinade.finance${RESET}\n\n"
 sleep 2
