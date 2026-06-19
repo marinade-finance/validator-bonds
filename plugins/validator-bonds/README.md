@@ -109,10 +109,7 @@ cross-repo navigation, what does this repo do, file an issue.
 
 ## Eval System
 
-Quality harness for the plugin's skills. Each `evals/cases/*.yml` asks Claude
-a question via `claude -p` with the plugin loaded and checks required facts and
-forbidden terms. See `evals/README.md` for commands and `evals/CLAUDE.md` for
-case authoring rules.
+See [`evals/README.md`](evals/README.md).
 
 ## Directory Layout
 
