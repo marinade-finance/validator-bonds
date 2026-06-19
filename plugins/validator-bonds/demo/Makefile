@@ -6,13 +6,14 @@ IMAGE  := debian:bookworm
 
 # prereqs: asciinema (pip install asciinema), agg (cargo install agg)
 
-DOCKER = docker run --rm -it \
+PLUGIN  := $(abspath $(DIR)..)
+DOCKER  = docker run --rm -it \
     -e CLAUDE_CODE_OAUTH_TOKEN \
     -e TERM=xterm-256color \
     -e COLUMNS=$(COLS) \
     -e LINES=$(ROWS)
 
-.PHONY: demo record gif run-install run-qa clean
+.PHONY: demo record gif run-install run-qa run-qa-local clean
 
 demo: install.gif qa.gif
 
@@ -23,6 +24,9 @@ run-install:
 
 run-qa:
 	$(DOCKER) -v "$(DIR)qa.sh:/demo.sh:ro" $(IMAGE) bash /demo.sh
+
+run-qa-local:
+	$(DOCKER) -v "$(DIR)qa.local.sh:/demo.sh:ro" -v "$(PLUGIN):/plugin:ro" $(IMAGE) bash /demo.sh
 
 # ── recordings ────────────────────────────────────────────────────────────────
 
@@ -36,6 +40,10 @@ qa.cast:
 	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
 	    'docker run --rm -it -v "$(DIR)qa.sh:/demo.sh:ro" -e CLAUDE_CODE_OAUTH_TOKEN -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
 
+qa.local.cast:
+	asciinema rec $@ --overwrite --cols $(COLS) --rows $(ROWS) -c \
+	    'docker run --rm -it -v "$(DIR)qa.local.sh:/demo.sh:ro" -v "$(PLUGIN):/plugin:ro" -e CLAUDE_CODE_OAUTH_TOKEN -e TERM=xterm-256color -e COLUMNS=$(COLS) -e LINES=$(ROWS) $(IMAGE) bash /demo.sh'
+
 # ── GIF conversion ────────────────────────────────────────────────────────────
 
 gif: install.gif qa.gif
@@ -44,4 +52,4 @@ gif: install.gif qa.gif
 	agg $< $@
 
 clean:
-	rm -f install.cast qa.cast install.gif qa.gif
+	rm -f install.cast qa.cast qa.local.cast install.gif qa.gif qa.local.gif
