@@ -98,6 +98,8 @@ function makePrevState(
     deficit_lamports: 175_000_000_000n, // requiredSol(185) - bondBalance(10) = 175 SOL
     required_lamports: 185_000_000_000n, // requiredSol(185)
     sam_eligible: true,
+    bond_tip_text: null,
+    bond_tip_urgency: null,
     updated_at: '2025-01-01T00:00:00.000Z',
     ...overrides,
   }

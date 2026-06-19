@@ -118,7 +118,10 @@ async function manageBidding(opts: Record<string, unknown>) {
   )
 
   // 1. Run auction simulation
-  const { validators, epoch } = await runAuction(config, logger)
+  const { validators, epoch, winningTotalPmpe, samConfig } = await runAuction(
+    config,
+    logger,
+  )
 
   // 2. Load previous state and evaluate deltas
   let previousState = new Map<string, ValidatorState>()
@@ -192,7 +195,9 @@ async function manageBidding(opts: Record<string, unknown>) {
 
       const succeededStates = validators
         .filter(v => !failedVoteAccounts.has(v.voteAccount))
-        .map(v => validatorToState(v, epoch, bondType))
+        .map(v =>
+          validatorToState(v, epoch, bondType, samConfig, winningTotalPmpe),
+        )
 
       // Delete state only for delisted validators whose validator_delisted event succeeded.
       // All validators still in auction must keep their state rows (even if their events failed).

@@ -24,6 +24,8 @@ export async function loadPreviousState(
       deficit_lamports,
       required_lamports,
       sam_eligible,
+      bond_tip_text,
+      bond_tip_urgency,
       updated_at
     FROM bond_event_state
     WHERE bond_type = ${bondType}
@@ -44,6 +46,8 @@ export async function loadPreviousState(
     deficit_lamports: string
     required_lamports: string | null
     sam_eligible: boolean
+    bond_tip_text: string | null
+    bond_tip_urgency: string | null
     updated_at: string
   }
 
@@ -64,6 +68,8 @@ export async function loadPreviousState(
       deficit_lamports: BigInt(row.deficit_lamports ?? '0'),
       required_lamports: BigInt(row.required_lamports ?? '0'),
       sam_eligible: row.sam_eligible,
+      bond_tip_text: row.bond_tip_text,
+      bond_tip_urgency: row.bond_tip_urgency,
       updated_at: String(row.updated_at),
     }
     stateMap.set(state.vote_account, state)
@@ -101,6 +107,8 @@ export async function saveCurrentState(
       ${state.deficit_lamports.toString()},
       ${state.required_lamports.toString()},
       ${state.sam_eligible},
+      ${state.bond_tip_text},
+      ${state.bond_tip_urgency},
       NOW()
     )`,
   )
@@ -112,7 +120,7 @@ export async function saveCurrentState(
       cap_marinade_stake_sol,
       funded_amount_lamports, effective_amount_lamports,
       auction_stake_lamports, deficit_lamports, required_lamports,
-      sam_eligible, updated_at
+      sam_eligible, bond_tip_text, bond_tip_urgency, updated_at
     ) VALUES
       ${sql.join(valueTuples, sql.fragment`, `)}
     ON CONFLICT (vote_account, bond_type) DO UPDATE SET
@@ -128,6 +136,8 @@ export async function saveCurrentState(
       deficit_lamports = EXCLUDED.deficit_lamports,
       required_lamports = EXCLUDED.required_lamports,
       sam_eligible = EXCLUDED.sam_eligible,
+      bond_tip_text = EXCLUDED.bond_tip_text,
+      bond_tip_urgency = EXCLUDED.bond_tip_urgency,
       updated_at = NOW()
   `)
 

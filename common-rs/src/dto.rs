@@ -87,4 +87,8 @@ pub struct ValidatorBondRecord {
     pub bond_good_for_n_epochs: Option<f64>,
     #[serde(default)]
     pub sam_eligible: Option<bool>,
+    #[serde(default)]
+    pub bond_tip: Option<String>, // bond/cap advice text from the CTA engine
+    #[serde(default)]
+    pub bond_tip_urgency: Option<String>, // critical | warning | info | positive | neutral
 }

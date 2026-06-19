@@ -777,33 +777,35 @@ validator-bonds -um show-bond <your-vote-account>
 
 **Note:** `show-bond` shows current state, which may differ from data used for a specific epoch's calculations.
 
-### Bond Cap Banner
+### Bond Advice Banner
 
-When your `maxStakeWanted` is higher than the stake Marinade currently targets for you
-**and** your bond balance is the limiting factor, the CLI prints a banner after
-`show-bond`, `configure-bond`, `fund-bond`, `fund-bond-sol` and `init-withdraw-request`:
+After `show-bond`, `configure-bond`, `fund-bond`, `fund-bond-sol` and
+`init-withdraw-request`, the CLI prints a one-line bond/cap advice banner — the same
+advice ("CTA") the [PSR dashboard](https://psr.marinade.finance) shows. Examples:
 
 ```
-╔═══════════ Marinade Stake Auction · Bond Cap ═══════════╗
-║ Your bond balance is capping your stake.                ║
-║                                                         ║
-║ maxStakeWanted:           250,000.00 SOL                ║
-║ Current Marinade target:  180,000.00 SOL  (limited by bond)
-║                                                         ║
-║ Increase your bond by at least 7.00 SOL to unlock up to ║
-║ +70,000.00 SOL of additional delegated stake.           ║
-║                                                         ║
-║ Keep your bond balance at >= 18.00 SOL — below this your║
-║ stake is at risk of being undelegated.                  ║
-╚═════════════════════════════════════════════════════════╝
+╔═══════════════ Marinade Stake Auction ═══════════════╗
+║ Top up 7 SOL to keep your stake.                      ║
+╚═══════════════════════════════════════════════════════╝
+
+╔═══════════════ Marinade Stake Auction ═══════════════╗
+║ Top up 12 SOL or pay 3 SOL bond fee.                  ║
+╚═══════════════════════════════════════════════════════╝
+
+╔═══════════════════ Marinade Stake Auction ═══════════════════╗
+║ Your bond already covers more — raise `maxStakeWanted` to     ║
+║ gain up to +70,000 SOL stake.                                 ║
+╚═══════════════════════════════════════════════════════════════╝
 ```
 
-The figures come from the [validator bonds API](https://validator-bonds-api.marinade.finance/bonds/bidding),
-which reflects the latest Stake Auction Marketplace snapshot. The banner is informational
-and best-effort: it only appears for bond (`BOND`)-capped validators and never blocks the
-command. It is not shown when the validator is limited by a different cap (e.g. country /
-ASO / validator concentration), since adding bond would not raise the target in those cases.
-Set `BONDS_API_URL` (or `--bonds-api-url`) to point at a different API instance.
+The advice is computed by the Stake Auction Marketplace pipeline (which runs the full
+auction) and served by the [validator bonds API](https://validator-bonds-api.marinade.finance/bonds/bidding)
+as `bond_tip` / `bond_tip_urgency`. Possible messages include "Post a bond of X to
+qualify", "Top up N to keep your stake", "Top up N or pay {fee} bond fee", and — when the
+bond already covers more than your `maxStakeWanted` — "raise `maxStakeWanted` to gain up
+to +Y stake". The banner is colour-coded by urgency (red = critical, yellow = warning,
+cyan = info, green = healthy), printed to stderr, best-effort, and never blocks the
+command. Set `BONDS_API_URL` (or `--bonds-api-url`) to point at a different API instance.
 
 ---
 

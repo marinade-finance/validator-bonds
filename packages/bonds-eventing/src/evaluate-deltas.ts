@@ -1,10 +1,15 @@
-import { type AuctionValidator } from '@marinade.finance/ds-sam-sdk'
+import {
+  type AuctionValidator,
+  type DsSamConfig,
+} from '@marinade.finance/ds-sam-sdk'
 import {
   bondAddress,
   MARINADE_CONFIG_ADDRESS,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
 import { PublicKey } from '@solana/web3.js'
+
+import { getBondTip } from './cta/tip-engine'
 
 import type {
   BondType,
@@ -683,9 +688,17 @@ export function validatorToState(
   v: AuctionValidator,
   epoch: number,
   bondType: BondType,
+  // Optional SAM config + winning pmpe enable the bond/cap advice tip. When
+  // omitted (e.g. unit tests) the tip fields are left null.
+  samConfig?: DsSamConfig,
+  winningTotalPmpe?: number,
 ): ValidatorState {
   const configAddress = configAddressForBondType(bondType)
   const deficitMetrics = computeDeficitMetrics(v)
+  const bondTip =
+    samConfig !== undefined && winningTotalPmpe !== undefined
+      ? getBondTip(v, samConfig, winningTotalPmpe)
+      : null
   return {
     vote_account: v.voteAccount,
     bond_pubkey: bondAddress(
@@ -706,6 +719,8 @@ export function validatorToState(
     deficit_lamports: solToLamports(deficitMetrics.deficit_sol),
     required_lamports: solToLamports(deficitMetrics.required_sol),
     sam_eligible: v.samEligible,
+    bond_tip_text: bondTip?.text ?? null,
+    bond_tip_urgency: bondTip?.urgency ?? null,
     updated_at: new Date().toISOString(),
   }
 }

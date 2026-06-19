@@ -56,6 +56,8 @@ pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> 
             deficit: None,
             bond_good_for_n_epochs: None,
             sam_eligible: None,
+            bond_tip: None,
+            bond_tip_urgency: None,
         })
     }
 

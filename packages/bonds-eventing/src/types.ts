@@ -33,6 +33,10 @@ export interface ValidatorState {
   deficit_lamports: bigint
   required_lamports: bigint
   sam_eligible: boolean
+  // Bond/cap advice computed by the CTA engine (cta/tip-engine.ts). Null when
+  // the validator has nothing actionable to surface.
+  bond_tip_text: string | null
+  bond_tip_urgency: string | null
   updated_at: string
 }
 

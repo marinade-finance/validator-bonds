@@ -17,6 +17,7 @@ export async function runAuction(
   validators: AuctionValidator[]
   epoch: number
   winningTotalPmpe: number
+  samConfig: DsSamConfig
 }> {
   const productionConfig = await loadSamConfig()
 
@@ -49,5 +50,6 @@ export async function runAuction(
     validators,
     epoch,
     winningTotalPmpe: result.winningTotalPmpe,
+    samConfig: sdkConfig,
   }
 }

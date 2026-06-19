@@ -64,7 +64,9 @@ async fn get_bonds_query(
             s.required_lamports,
             s.deficit_lamports,
             s.bond_good_for_n_epochs,
-            s.sam_eligible
+            s.sam_eligible,
+            s.bond_tip_text,
+            s.bond_tip_urgency
         FROM bonds b
         LEFT JOIN bond_event_state s
             ON s.vote_account = b.vote_account
@@ -128,6 +130,8 @@ async fn get_bonds_query(
                 .map(Decimal::from),
             bond_good_for_n_epochs: row.get("bond_good_for_n_epochs"),
             sam_eligible: row.get("sam_eligible"),
+            bond_tip: row.get("bond_tip_text"),
+            bond_tip_urgency: row.get("bond_tip_urgency"),
         })
     }
 

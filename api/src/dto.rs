@@ -117,4 +117,6 @@ pub struct ValidatorBondRecordSchema {
     deficit: Option<Decimal>,
     bond_good_for_n_epochs: Option<f64>,
     sam_eligible: Option<bool>,
+    bond_tip: Option<String>,
+    bond_tip_urgency: Option<String>,
 }

@@ -34,7 +34,7 @@ import BN from 'bn.js'
 
 import { recordResolvedAccounts, setProgramTelemetryFields } from '../cliUsage'
 import { getCliContext } from '../context'
-import { printBondCapBannerFromContext } from '../stakeCapBanner'
+import { printBondTipFromContext } from '../bondTipBanner'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
 
 import type { ProgramAccount } from '@coral-xyz/anchor'
@@ -477,7 +477,7 @@ export async function showBond({
   const reformatted = reformat(data, reformatBondFunction ?? reformatBond)
   printData(reformatted, format)
 
-  await printBondCapBannerFromContext({ voteAccount: bannerVoteAccount })
+  await printBondTipFromContext({ voteAccount: bannerVoteAccount })
 }
 
 function constructBondMintAddress(

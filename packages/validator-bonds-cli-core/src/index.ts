@@ -10,6 +10,6 @@ export {
   translateKnownError,
 } from './errorTranslators'
 export type { TranslateCtx } from './errorTranslators'
+export * from './bondTipBanner'
 export * from './npmRegistry'
-export * from './stakeCapBanner'
 export * from './utils'
