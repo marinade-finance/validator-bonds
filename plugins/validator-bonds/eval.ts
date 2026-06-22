@@ -61,6 +61,8 @@ const limit = shorthandLimit
   : values.limit
     ? Number(values.limit)
     : undefined
+if (limit !== undefined && (!Number.isInteger(limit) || limit < 1))
+  throw new Error(`invalid limit: ${values.limit ?? shorthandLimit}`)
 
 const modelAliases: Record<string, string> = {
   opus: 'claude-opus-4-8',
@@ -106,7 +108,13 @@ if (limit !== undefined) files = files.slice(0, limit)
 
 const readCase = async (file: string): Promise<CaseFile> => {
   const data = parse(await readFile(file, 'utf8')) as CaseFile
-  if (!data.question || !Array.isArray(data.facts))
+  const strings = (xs: unknown): boolean =>
+    Array.isArray(xs) && xs.every(x => typeof x === 'string')
+  if (
+    !data.question ||
+    !strings(data.facts) ||
+    (data.wrong_facts !== undefined && !strings(data.wrong_facts))
+  )
     throw new Error(`invalid case: ${file}`)
   return data
 }
@@ -115,12 +123,13 @@ const escapeRegExp = (s: string): string =>
   s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // Substring match for identifiers; for a pure number require it to stand alone
-// (not flanked by a digit or dot) so `0.1` does not match inside `0.16`.
+// (not flanked by a digit, dot, or comma) so `0.1` does not match inside
+// `0.16`, nor `1,000` inside `1,000,000`.
 const containsFact = (answer: string, fact: string): boolean => {
   const a = answer.toLowerCase()
   const f = fact.toLowerCase()
   if (/^\d[\d.,]*$/.test(f))
-    return new RegExp(`(?<![\\d.])${escapeRegExp(f)}(?![\\d.])`).test(a)
+    return new RegExp(`(?<![\\d.,])${escapeRegExp(f)}(?![\\d.,])`).test(a)
   return a.includes(f)
 }
 
@@ -219,7 +228,7 @@ if (values.list) {
       )
       const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
         fact,
-        passed: !answer.toLowerCase().includes(fact.toLowerCase()),
+        passed: !containsFact(answer, fact),
         method: 'exact',
       }))
       const ok =
