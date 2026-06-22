@@ -6,53 +6,96 @@
 <a href="https://www.npmjs.com/package/@marinade.finance/validator-bonds-cli"><img src="https://img.shields.io/npm/v/%40marinade.finance%2Fvalidator-bonds-cli?logo=npm&color=377CC0" /></a>
 <a href="https://github.com/marinade-finance/validator-bonds/actions/workflows/release.yml"><img src="https://img.shields.io/badge/Create-Release-blue?logo=github" alt="Create Github Release Notes" /></a>
 
-Mono repository for Validator Bonds product
+Solana monorepo for Validator Bonds — an on-chain protocol where validators post bonds as collateral
+for Marinade stake. Settlements distribute SOL to stakers affected by protected events (PSR) or
+validator bidding.
 
-## Repository structure
+Key data flow: snapshot → bid-distribution CLI → settlement JSON → merkle trees → on-chain
+settlements → claims.
 
-- [`programs/validator-bonds`](./programs/validator-bonds/) - Anchor on-chain contract project
-- [`packages/`](./packages/) - TypeScript packages related to on-chain program
-  ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/),
-  [CLI Core](./packages/validator-bonds-cli-core/),
-  [CLI Institutional](./packages/validator-bonds-cli-institutional/),
-  [Codama](./packages/validator-bonds-codama/),
-  [Sanity Check](./packages/validator-bonds-sanity-check/),
-  [Bonds Eventing](./packages/bonds-eventing/))
-- [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
-- [`bonds-collector`](./bonds-collector/) - a CLI tool for loading on-chain bond data into a YAML file
-- [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
-- [`settlement-distributions/`](./settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
-  which serve as the foundation for on-chain initialization and claim settlement transactions
-  ([bid-distribution](./settlement-distributions/bid-distribution/),
-  [institutional-distribution](./settlement-distributions/institutional-distribution/),
-  [merkle-generator](./settlement-distributions/merkle-generator/),
-  [settlement-common](./settlement-distributions/settlement-common/))
-- [`common-rs/`](./common-rs/) - shared Rust library for common utilities across the workspace
-- [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
-- [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
-- [`runbooks/`](./runbooks/) - Surfpool runbooks for program deployment and testing
-- [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-- [`settlement-pipelines/`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program
+## Installation
 
-## Validator Bonds Programs Flow
+Requires: Rust toolchain `1.88.0` (see `rust-toolchain.toml`), Node ≥ 20.18.0, `pnpm`.
+
+```sh
+pnpm install   # TypeScript deps
+cargo build    # Rust workspace (debug)
+```
+
+## Usage
+
+```sh
+# Public-facing CLI
+pnpm cli --help
+
+# Institutional CLI
+pnpm cli:institutional --help
+
+# Settlement sanity check
+pnpm cli:check --help
+
+# Collect on-chain bond data to YAML
+cargo build --release
+./target/release/bonds-collector collect-bonds -u "$RPC_URL" > bonds.yaml
+
+# Store bonds YAML to Postgres
+./target/release/validator-bonds-api-cli \
+  store-bonds --postgres-url "$POSTGRES_URL" --input-file bonds.yaml
+
+# Run the bonds API server (port 8000)
+./target/release/api \
+  --postgres-url "$POSTGRES_URL" \
+  --postgres-ssl-root-cert "$POSTGRES_SSL_ROOT_CERT"
+```
+
+## Build & Test
+
+```sh
+pnpm build                                         # anchor:build + all TS packages
+pnpm check                                         # lint (cargo + TS)
+pnpm fix                                           # auto-fix formatting + clippy
+
+cargo test --features no-entrypoint -- --nocapture # Rust unit tests
+pnpm test:unit                                     # TS unit tests
+pnpm test:bankrun                                  # bankrun integration tests
+FILE=path/to/test.spec.ts pnpm test:bankrun        # single bankrun file
+pnpm test:validator                                # anchor test (full, slow)
+
+# After on-chain program changes — sync IDL to SDK and resources
+pnpm copy:idl
+```
+
+## Simulation & Regression
+
+```sh
+# Regression test against production GCS data
+./scripts/regression-test-settlements.sh \
+  --start-epoch 918 --end-epoch 918 --data-dir ./regression-data
+
+# Fee simulation across tiers — writes YAML report
+bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...
+```
+
+Scripts in `scripts/` use `#!/usr/bin/env bun`.
+
+## Epoch Pipeline
+
+Automated via `.buildkite/` pipelines, staged in GCS
+`marinade-validator-bonds-mainnet/<epoch>/`:
+
+```
+scheduler-bidding → prepare-bid-distribution → init-settlements
+  → fund-settlements → claim-settlements → close-settlements
+```
 
 ![Validator Bonds Workflow](./resources/diagram/validator-bonds-workflow.svg)
 
-The system works with flow of data.
-The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
+## Contract Audits
 
-- `scheduler`: Checks the epoch and makes processing happens each one
-- `prepare-*`: Creates JSON data that reflects bidding and PSR events, the data is stored at GCloud
-  (data is publicly available but google login is required)
-  at https://console.cloud.google.com/storage/browser/marinade-validator-bonds-mainnet
-- `init-settlements`: Creating the [`Settlement`](./programs/validator-bonds/src/state/settlement.rs) accounts
-  based on the generated JSON data, settlements are created by public key `bnwBM3RBrvnVmEJJAWEGXe81wtkzGvb9MMWjXcu99KR`
-- `fund-settlements`: Funds the `Settlement accounts` from the Bonds account based on data loaded by `init-settlements`
-- `claim-settlements`: Claims the `Settlement accounts` to distribute SOL to holders affected by PSR (protected events),
-  bidding or other settlement events
-  or other reasons of creating the settlement
-- `close-settlements` Reset (close) the `Settlement accounts` when they expire
-  (defined in `Config` by value of field `epochs_to_claim_settlement`)
+- [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0),
+  commit `7e6d35e` — [audit document](./resources/audit/v1.4.0-neodyme-audit-validator-bonds.pdf)
+- [Neodyme](https://neodyme.io), tag [`contract-v2.1.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v2.1.0),
+  commit `4a5b009` — [audit document](./resources/audit/v2.1.0-neodyme-audit-validator-bonds.pdf)
 
 ## Agent skills
 
@@ -74,172 +117,12 @@ codex plugin add marinade-finance/validator-bonds
 
 From this repo, no install needed — Codex auto-loads `.agents/skills`.
 
-## Development
+## Further Reading
 
-### User related CLI from source
-
-To run the CLI you need to have installed Node.js in version 20.18.0+ and `pnpm`.
-For details on CLI options see [validator-bonds-cli README](./packages/validator-bonds-cli/README.md).
-
-```sh
-# installing TS dependencies
-pnpm install
-# run CLI
-pnpm cli --help
-```
-
-### Validator Bonds data loading
-
-A CLI tool that loads on-chain data and stores it in a YAML file.
-The YAML file can then be used as a DTO for storing the data in a PostgreSQL database,
-which is accessed by a REST API to serve the data.
-
-```sh
-cargo build --release
-
-# Collect bonds data in YAML format
-./target/release/bonds-collector \
-  collect-bonds -u "$RPC_URL" > bonds.yaml
-
-# Store YAML bonds data to a POSTGRES DB
-./target/release/validator-bonds-api-cli \
-  store-bonds --postgres-url "$POSTGRES_URL" --input-file bonds.yaml
-```
-
-See [bonds-collector README](./bonds-collector/README.md) for development details.
-
-### Validator Bonds API
-
-```sh
-cargo build --release
-
-# Run API on port 8000 (default) or set a custom one using --port
-./target/release/api \
-  --postgres-url "$POSTGRES_URL" \
-  --postgres-ssl-root-cert "$POSTGRES_SSL_ROOT_CERT"
-```
-
-See [API README](./api/README.md) for development details.
-
-### On-Chain related parts
-
-For details for on-chain part see
-[validator-bonds README](./programs/validator-bonds/README.md).
-
-Contract audits:
-
-- [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0), commit `7e6d35e`, see [audit document](./resources/audit/v1.4.0-neodyme-audit-validator-bonds.pdf)
-- [Neodyme](https://neodyme.io), tag [`contract-v2.1.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v2.1.0), commit `4a5b009`, see [audit document](./resources/audit/v2.1.0-neodyme-audit-validator-bonds.pdf)
-
-To build the Anchor program use the [`scripts`](./package.json) of the `pnpm`.
-
-```sh
-# install TS dependencies
-pnpm install
-
-# building Anchor program + cli and sdk TS packages
-pnpm build
-
-# testing the SDK+CLI against the bankrun and local validator
-pnpm test
-# running single cargo test
-cargo test --package settlement-common ts_cross_check_hash_generate
-
-# bankrun part of the tests
-pnpm test:bankrun
-
-# local validator part of the tests
-# NOTE: for testing is needed nodejs20 because of support of `crypto` package used for generating test data
-pnpm test:validator
-
-# cargo tests in rust code
-pnpm test:cargo
-```
-
-#### Contract deployment
-
-```sh
-VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
-echo "Building version $VERSION"
-anchor build --verifiable \
-  --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
-
-# 1. DEPLOY
-## deploy (devnet, hot wallet upgrade)
-solana program deploy -v -ud \
-   --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-   -k [fee-payer-keypair] \
-   --upgrade-authority [path-to-keypair] \
-   ./target/verifiable/validator_bonds.so
-
-# deploy (mainnet, SPL Gov authority multisig, governance 7iUtT...wtBZY)
-# NOTE: solana version 1.18.x; `--with-compute-unit-price --use-rpc --use-quic` fixing the congestion of the network
-#       check the latest available Solana client version at https://docs.solanalabs.com/cli/install
-solana -um -k [fee-payer-keypair] \
-    program write-buffer target/verifiable/validator_bonds.so \
-    --with-compute-unit-price 10 \
-    --use-rpc --use-quic
-solana -um -k [fee-payer-keypair] \
-    program set-buffer-authority \
-    --new-buffer-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
-
-
-# 2. IDL UPDATE, idl account Du3XrzTNqhLt9gpui9LUogrLqCDrVC2HrtiNXHSJM58y)
-# NOTE: 'Error processing Instruction 0: custom program error: 0x7d3' means wrong IDL authority
-## publish IDL (devnet, hot wallet)
-anchor --provider.cluster devnet idl \
-  --provider.wallet [idl-authority-and-fee-payer-keypair] \
-  # init vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  upgrade vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  -f ./target/idl/validator_bonds.json
-
-## publish IDL (mainnet, spl gov)
-anchor idl write-buffer --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
-  --filepath target/idl/validator_bonds.json vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
-anchor idl set-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
-  --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  <BUFFER_PUBKEY>
-
-## in case a need of base64 anchor update
-anchor idl --provider.cluster mainnet set-buffer --print-only \
-  --buffer <BUFFER_PUBKEY> vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
-
-
-# 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
-#   a) when the target/verifiable/.so has been built already use switch --skip-build
-VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
-COMMIT_HASH=`git rev-parse --short HEAD`
-echo "Verification version $VERSION, commit hash $COMMIT_HASH"
-anchor --provider.cluster mainnet \
-   verify -p validator_bonds \
-   --env "GIT_REV=${COMMIT_HASH}" --env "GIT_REV_NAME=${VERSION}" \
-   # --skip-build \
-   <PROGRAM_ID_or_BUFFER_ID>
-
-# 3.b check the verified build with solana-verify
-COMMIT_HASH=`git rev-parse --short HEAD`
-solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
-  --library-name validator_bonds \
-  --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
-  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
-
-
-# 4 upload the  Verified Build via OtterSec API
-# need to upload PDA verified build data account on-chain signed with upgrade authority
-# see https://solana.com/docs/programs/verified-builds#how-to-verify-your-program-when-its-controlled-by-a-multisig-like-squads
-# 4.a generate PDA transaction
-VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
-COMMIT_HASH=`git rev-parse --short HEAD`
-echo "Verification version $VERSION, commit hash $COMMIT_HASH"
-solana-verify -um export-pda-tx https://github.com/marinade-finance/validator-bonds \
-  --library-name validator_bonds --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  --commit-hash "${COMMIT_HASH}" --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --encoding base64 \
-  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
-
-# 4.b convert the base64 transaction to SPL Governance compatible format
-#     see https://chalda.cz/solana-tx
-# 4.c submit the transaction via SPL Governance UI
-# 4.d submit remote verification job to OtterSec API
-solana-verify remote submit-job --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm
-```
+- [CLAUDE.md](./CLAUDE.md) — component index, bid-distribution engine internals, key constraints
+- [DEV_GUIDE.md](./DEV_GUIDE.md) — ops procedures: CLI banners, telemetry, publishing
+- [runbooks/README.md](./runbooks/README.md) — on-chain program deployment via Surfpool
+- [packages/validator-bonds-cli/README.md](./packages/validator-bonds-cli/README.md) — CLI reference
+- [programs/validator-bonds/README.md](./programs/validator-bonds/README.md) — on-chain program details
+- [bonds-collector/README.md](./bonds-collector/README.md) — bonds-collector details
+- [api/README.md](./api/README.md) — API server details

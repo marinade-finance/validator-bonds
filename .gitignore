@@ -48,7 +48,9 @@ regression-data*
 
 # Session artifacts
 .diary/
+.specs/
 .ship/
+BUGS.md
 **/.claude/tmp/
 
 # Eval run logs (per-run; committed snapshot is plugins/validator-bonds/evals/report_<date>.yml)

@@ -103,3 +103,91 @@ The admin authority can utilize the `slots_to_start_settlement_claiming` option 
 In the event that the operator authority's hot wallet key is compromised, the admin authority gains time until the `slots_to_start_settlement_claiming` period elapses to switch the operator authority to another wallet and manage the cancellation of any unauthorized settlements.
 
 **IMPORTANT:** If the admin authority is held under a multisig or DAO management system, it must be positioned for immediate transaction execution to implement changes once all required signatures are obtained.
+
+## Deployment
+
+```sh
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+echo "Building version $VERSION"
+anchor build --verifiable \
+  --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
+
+# 1. DEPLOY
+## deploy (devnet, hot wallet upgrade)
+solana program deploy -v -ud \
+   --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+   -k [fee-payer-keypair] \
+   --upgrade-authority [path-to-keypair] \
+   ./target/verifiable/validator_bonds.so
+
+# deploy (mainnet, SPL Gov authority multisig, governance 7iUtT...wtBZY)
+# NOTE: solana version 1.18.x; `--with-compute-unit-price --use-rpc --use-quic` fixing the congestion of the network
+#       check the latest available Solana client version at https://docs.solanalabs.com/cli/install
+solana -um -k [fee-payer-keypair] \
+    program write-buffer target/verifiable/validator_bonds.so \
+    --with-compute-unit-price 10 \
+    --use-rpc --use-quic
+solana -um -k [fee-payer-keypair] \
+    program set-buffer-authority \
+    --new-buffer-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
+
+
+# 2. IDL UPDATE, idl account Du3XrzTNqhLt9gpui9LUogrLqCDrVC2HrtiNXHSJM58y)
+# NOTE: 'Error processing Instruction 0: custom program error: 0x7d3' means wrong IDL authority
+## publish IDL (devnet, hot wallet)
+anchor --provider.cluster devnet idl \
+  --provider.wallet [idl-authority-and-fee-payer-keypair] \
+  # init vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  upgrade vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  -f ./target/idl/validator_bonds.json
+
+## publish IDL (mainnet, spl gov)
+anchor idl write-buffer --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
+  --filepath target/idl/validator_bonds.json vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+anchor idl set-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
+  --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  <BUFFER_PUBKEY>
+
+## in case a need of base64 anchor update
+anchor idl --provider.cluster mainnet set-buffer --print-only \
+  --buffer <BUFFER_PUBKEY> vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+
+
+# 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
+#   a) when the target/verifiable/.so has been built already use switch --skip-build
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+COMMIT_HASH=`git rev-parse --short HEAD`
+echo "Verification version $VERSION, commit hash $COMMIT_HASH"
+anchor --provider.cluster mainnet \
+   verify -p validator_bonds \
+   --env "GIT_REV=${COMMIT_HASH}" --env "GIT_REV_NAME=${VERSION}" \
+   # --skip-build \
+   <PROGRAM_ID_or_BUFFER_ID>
+
+# 3.b check the verified build with solana-verify
+COMMIT_HASH=`git rev-parse --short HEAD`
+solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
+  --library-name validator_bonds \
+  --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+
+
+# 4 upload the  Verified Build via OtterSec API
+# need to upload PDA verified build data account on-chain signed with upgrade authority
+# see https://solana.com/docs/programs/verified-builds#how-to-verify-your-program-when-its-controlled-by-a-multisig-like-squads
+# 4.a generate PDA transaction
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+COMMIT_HASH=`git rev-parse --short HEAD`
+echo "Verification version $VERSION, commit hash $COMMIT_HASH"
+solana-verify -um export-pda-tx https://github.com/marinade-finance/validator-bonds \
+  --library-name validator_bonds --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  --commit-hash "${COMMIT_HASH}" --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --encoding base64 \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+
+# 4.b convert the base64 transaction to SPL Governance compatible format
+#     see https://chalda.cz/solana-tx
+# 4.c submit the transaction via SPL Governance UI
+# 4.d submit remote verification job to OtterSec API
+solana-verify remote submit-job --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
+  --uploader 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm
+```

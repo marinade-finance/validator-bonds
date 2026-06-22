@@ -11,13 +11,12 @@ export type BidDetails = FeeDetails & {
 
 type PriorityFeeDetails = FeeDetails & {
   total_marinade_active_stake: number
+  activating_bid_claim: string
 }
 
 type PenaltyDetails = Record<string, unknown>
 
-type ProtectedEventReason = {
-  ProtectedEvent: { DowntimeRevenueImpact?: Record<string, unknown> }
-}
+type ProtectedEventReason = { ProtectedEvent: Record<string, unknown> }
 
 export function isProtectedEvent(
   r: Settlement['reason'],
@@ -86,7 +85,7 @@ export function feesByVoteAccount(
 ): Map<string, number> {
   const m = new Map<string, number>()
   for (const s of settlements) {
-    if (s.reason !== 'Bidding' && s.reason !== 'PriorityFee') continue
+    if (!isFeeSettlement(s)) continue
     m.set(
       s.vote_account,
       (m.get(s.vote_account) ?? 0) +
