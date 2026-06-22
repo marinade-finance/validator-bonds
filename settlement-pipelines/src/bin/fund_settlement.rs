@@ -505,7 +505,7 @@ async fn prepare_funding(
                             // the rest of lamports will be available in the split stake account
                             // and that can be used as a source for funding of next settlement when vote account is part of multiple settlements
                             // WARN: this REQUIRES that the merge stake transactions are executed in sequence!
-                            let lamports_available_after_split = funding_lamports_accumulated
+                            let lamports_available_after_split = destination_merged_lamports
                                 .saturating_sub(amount_to_fund)
                                 .saturating_sub(minimal_stake_lamports);
                             // only re-use the split account for next settlement if the destination was funded (the split is created on-chain by that FundSettlement) and it holds enough lamports for a valid stake account
