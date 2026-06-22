@@ -111,6 +111,19 @@ const readCase = async (file: string): Promise<CaseFile> => {
   return data
 }
 
+const escapeRegExp = (s: string): string =>
+  s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Substring match for identifiers; for a pure number require it to stand alone
+// (not flanked by a digit or dot) so `0.1` does not match inside `0.16`.
+const containsFact = (answer: string, fact: string): boolean => {
+  const a = answer.toLowerCase()
+  const f = fact.toLowerCase()
+  if (/^\d[\d.,]*$/.test(f))
+    return new RegExp(`(?<![\\d.])${escapeRegExp(f)}(?![\\d.])`).test(a)
+  return a.includes(f)
+}
+
 if (values.list) {
   for (const file of files) {
     const data = await readCase(file)
@@ -147,16 +160,13 @@ if (values.list) {
     'Output YES if the response conveys the fact. Accept: equivalent technical terms, alternative numeric formatting (commas/underscores), or equivalent units (e.g. "200 SOL" ≡ "200000000000 lamports" or "200,000,000,000 lamports"; "20.0 SOL" ≡ "20 SOL"; "-3750 bps" ≡ "3750 basis points"). Output NO if absent or contradicted. No other output.'
 
   const runClaude = (flags: string[], prompt: string): Promise<string> =>
-    $`claude ${flags} -p ${prompt}`
-      .cwd(runRoot)
-      .env({ ...process.env, CLAUDE_EVAL: '1' })
-      .text()
+    $`claude ${flags} -p ${prompt}`.cwd(runRoot).text()
 
   const checkFact = async (
     answer: string,
     fact: string,
   ): Promise<FactResult> => {
-    if (answer.toLowerCase().includes(fact.toLowerCase()))
+    if (containsFact(answer, fact))
       return { fact, passed: true, method: 'exact' }
 
     try {

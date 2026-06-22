@@ -9,7 +9,7 @@ facts:
   - 'psr_percentile_apy'
   - 'apy_percentile_diff'
   - 'PayoutStaker'
-  - 'PayoutDistributor'
+  - 'payout_lamports'
 wrong_facts:
   - '50bps'
   - '0.5% fixed'

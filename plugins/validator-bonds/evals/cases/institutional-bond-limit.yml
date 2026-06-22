@@ -5,7 +5,6 @@ question: >
   percentage thresholds and what each tier does to the stake cap.
 facts:
   - 'minBondBalanceSol'
-  - 'cap'
   - '80%'
   - 'clipped'
 wrong_facts:

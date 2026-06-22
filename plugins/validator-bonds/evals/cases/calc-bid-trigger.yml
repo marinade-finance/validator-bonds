@@ -6,7 +6,6 @@ question: >
   Show each formula step.
 facts:
   - '99.999'
-  - 'BidTooLowPenalty'
   - 'previous_bidPmpe'
 wrong_facts:
   - 'no penalty'

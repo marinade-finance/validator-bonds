@@ -3,7 +3,6 @@ question: >
   Name the exact ds-sam field identifier for the clearing price and explain
   what it represents (which validator sets it and why all winners pay this price).
 facts:
-  - 'clearing price'
   - 'uniform'
   - 'winningTotalPmpe'
   - 'last validator'

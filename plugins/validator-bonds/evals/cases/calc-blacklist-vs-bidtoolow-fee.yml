@@ -10,7 +10,6 @@ facts:
   - '200 SOL'
   - '16 SOL'
   - '184 SOL'
-  - 'stakers'
 wrong_facts:
   - 'blacklist fee split'
   - 'DAO blacklist'

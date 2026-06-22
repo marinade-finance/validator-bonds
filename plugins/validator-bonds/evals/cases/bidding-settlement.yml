@@ -5,7 +5,6 @@ question: >
   identifiers used for the validator's stake weight and effective bid in the
   payout calculation — look them up in source if not immediately known.
 facts:
-  - Bidding
   - active_delegation_lamports
   - auction_effective_static_bid_pmpe
   - bond

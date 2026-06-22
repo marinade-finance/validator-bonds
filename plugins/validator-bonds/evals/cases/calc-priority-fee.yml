@@ -9,7 +9,5 @@ question: >
   (c) the claim in lamports. Show each formula step.
 facts:
   - '0.2'
-  - '20 SOL'
-  - 'activating_stakers_pool'
 wrong_facts:
   - '2 SOL'

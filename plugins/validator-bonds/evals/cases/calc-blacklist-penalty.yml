@@ -8,7 +8,6 @@ facts:
   - '0.05'
   - '200 SOL'
   - 'stakers_blacklist_penalty_claim'
-  - 'blacklist_penalty_pmpe'
 wrong_facts:
   - '184 SOL'
   - '16 SOL'

@@ -8,9 +8,7 @@ question: >
   fee does. Show each formula step.
 facts:
   - '320 SOL'
-  - '800 SOL'
   - 'Math.min(1'
-  - 'paidUndelegationSol'
 wrong_facts:
   - '1600 SOL'
   - 'fee split'

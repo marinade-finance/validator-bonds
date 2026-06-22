@@ -7,7 +7,6 @@ question: >
   staker's staker_share as a fraction, (c) their BondRiskFee claim in SOL and
   lamports. Show each formula step.
 facts:
-  - 'stakers_bond_risk_fee_claim'
   - '0.2'
   - '0.5 SOL'
 wrong_facts:

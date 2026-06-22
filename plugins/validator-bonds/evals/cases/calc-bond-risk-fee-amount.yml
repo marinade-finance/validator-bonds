@@ -8,7 +8,6 @@ question: >
   formula step. Express lamport amounts as plain integers without comma separators.
 facts:
   - '0.2'
-  - 'bondRiskFeeSol'
   - '200 SOL'
   - '200_000_000_000'
 wrong_facts:

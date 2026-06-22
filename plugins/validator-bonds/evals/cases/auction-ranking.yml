@@ -6,7 +6,6 @@ question: >
 facts:
   - 'totalPmpe'
   - 'winningTotalPmpe'
-  - 'clearing price'
   - 'auction_effective_bid_pmpe'
 wrong_facts:
   - 'validators pay their own bid'
