@@ -103,16 +103,10 @@ pub struct BidSettlementTotals {
     pub fees: Decimal,
 }
 
-/// Sums stake, staker rewards, and fees across bid/priority-fee settlements.
-///
-/// `stake` (the pmpe denominator) is active + redelegation — the stake that
-/// actually earned this epoch. This basis is fixed by definition to match how
-/// APY/SSR (SSI) pmpe is calculated across Marinade services: the resulting
-/// pmpe is compared against the SSR fetched from apy.marinade.finance (see
-/// apy_api.rs), so the two must share the same denominator. Activating stake is
-/// deliberately excluded — it earns no yield this epoch (it gets a forward bid
-/// instead). Do NOT add activating stake to the denominator: it would break
-/// commensurability with the SSR and silently corrupt the staker-yield floor.
+/// `stake` is active + redelegation (stake that earned this epoch) — the fixed
+/// APY/SSR pmpe basis the result is compared against (apy_api.rs). Don't add
+/// activating stake: it earns no yield (gets a forward bid) and would break SSR
+/// commensurability.
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
     let bidding_votes: HashSet<Pubkey> = settlements
@@ -139,12 +133,9 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                // PriorityFee stake/rewards are only a fallback for validators with no
-                // Bidding settlement (active stakers earned nothing). When a Bidding
-                // settlement exists its total_marinade_stakers_rewards already includes
-                // this activating_bid_claim (worker: total = active_stakers_rewards +
-                // activating_bid_claim), so folding the PriorityFee settlement in here
-                // too would double-count the bid.
+                // Fallback only: a Bidding settlement already folds activating_bid_claim
+                // into total_marinade_stakers_rewards, so counting PriorityFee too would
+                // double-count the bid.
                 if !bidding_votes.contains(&settlement.vote_account) {
                     totals.stake += Decimal::from(value.total_marinade_active_stake);
                     totals.rewards +=

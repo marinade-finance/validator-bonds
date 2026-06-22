@@ -491,10 +491,8 @@ fn aggregate_rewards(
         .values()
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
-    // Compare in whole SOL with a 1-SOL tolerance — the same threshold the
-    // pre-fix code used (it divided each sum by LAMPORTS_PER_SOL before the
-    // abs_diff), so this fails on exactly the discrepancies the original would
-    // have, no more. Sub-SOL rounding in the input data is tolerated.
+    // 1-SOL tolerance (divide before abs_diff) — matches the pre-fix threshold,
+    // tolerating sub-SOL rounding in the input data.
     let total_rewards_sol = total_rewards / LAMPORTS_PER_SOL;
     let total_stakers_sol = total_stakers_rewards / LAMPORTS_PER_SOL;
     let total_validators_sol = total_validators_rewards / LAMPORTS_PER_SOL;
