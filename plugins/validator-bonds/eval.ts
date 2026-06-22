@@ -171,6 +171,15 @@ if (values.list) {
   const runClaude = (flags: string[], prompt: string): Promise<string> =>
     $`claude ${flags} -p ${prompt}`.cwd(runRoot).text()
 
+  // Bun `$` throws a ShellError carrying the subprocess stderr/stdout as
+  // Buffers; surface that output, not just the generic "exit code N".
+  const errorText = (error: unknown): string => {
+    if (!(error instanceof Error)) return String(error)
+    const { stderr, stdout } = error as { stderr?: Buffer; stdout?: Buffer }
+    const output = (stderr?.toString() || stdout?.toString() || '').trim()
+    return output ? `${error.message}: ${output}` : error.message
+  }
+
   const checkFact = async (
     answer: string,
     fact: string,
@@ -196,12 +205,7 @@ if (values.list) {
         method: 'haiku',
       }
     } catch (error) {
-      return {
-        fact,
-        passed: false,
-        method: 'error',
-        error: error instanceof Error ? error.message : String(error),
-      }
+      return { fact, passed: false, method: 'error', error: errorText(error) }
     }
   }
 
@@ -268,7 +272,7 @@ if (values.list) {
         if (values.verbose)
           console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = errorText(error)
         log.cases.push({ case: name, result: 'error', error: message })
         console.log(`⚠ ${name}`)
         console.log(`  error: ${message}`)
