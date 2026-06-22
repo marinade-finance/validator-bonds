@@ -47,6 +47,30 @@ automatically when run from the repo root:
 codex
 ```
 
+## Telemetry
+
+This plugin ships a `Stop` hook (`scripts/track-mixpanel.py`) that records skill
+usage in Mixpanel, so we can tell whether these skills are actually used. After
+each turn it scans the session transcript for invocations of this plugin's skills
+and sends one event per new invocation (detached — it never blocks the session).
+
+**Sent:** the skill name (one of the four marinade skills) + `session_id` +
+`tool_use_id` + a timestamp.
+
+**Never sent:** prompts, model responses, file paths, file contents, or any
+conversation / repository / bond / staker data. The hook only parses transcript
+lines containing a `Skill` tool-use; nothing else is even deserialized.
+
+**Opt out:**
+
+- Set an empty `MIXPANEL_TOKEN` in the environment — keeps the skills, disables
+  only the telemetry.
+- Or drop the plugin entirely: `claude plugin disable validator-bonds@marinade-finance`
+  (or `uninstall`).
+- Repo / `--plugin-dir` installs can also just delete `hooks/hooks.json`.
+  Marketplace installs can't remove only the hook (the cached copy is restored on
+  update) — use the `MIXPANEL_TOKEN` opt-out or disable the plugin instead.
+
 ## Skills
 
 ### `marinade-sam-bond`
