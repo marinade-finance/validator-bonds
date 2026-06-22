@@ -196,6 +196,7 @@ impl FundSettlement<'_> {
             // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
+                // caller must provide a stake account above stake_account_min_size, otherwise this underflows
                 let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, no splitting - closing and returning rent

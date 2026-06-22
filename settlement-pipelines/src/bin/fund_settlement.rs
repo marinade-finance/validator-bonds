@@ -56,7 +56,7 @@ use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::stake_accounts::{
     collect_stake_accounts, get_clock, get_stake_history, obtain_delegated_stake_accounts,
-    obtain_funded_stake_accounts_for_settlement, CollectedStakeAccount, CollectedStakeAccounts,
+    CollectedStakeAccount, CollectedStakeAccounts,
 };
 
 #[derive(Parser, Debug)]
@@ -226,20 +226,6 @@ async fn prepare_funding(
         get_on_chain_bond_stake_accounts(&all_stake_accounts, &withdrawer_authority, &clock)
             .await?;
 
-    let settlement_addresses: Vec<Pubkey> = settlement_records
-        .iter()
-        .flat_map(|(_, d)| d.iter().map(|s| s.settlement_address))
-        .collect();
-    let funded_to_settlement_stakes = obtain_funded_stake_accounts_for_settlement(
-        all_stake_accounts,
-        config_address,
-        settlement_addresses,
-        &clock,
-        &stake_history,
-    )
-    .await
-    .map_err(CliError::retry_able)?;
-
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in settlement_records
         .iter_mut()
@@ -299,8 +285,7 @@ async fn prepare_funding(
                 );
                 settlement
                     .max_total_claim
-                    .saturating_sub(settlement.lamports_claimed)
-                    .saturating_sub(settlement_amount_funded)
+                    .saturating_sub(settlement.lamports_funded)
             },
         );
 
@@ -330,11 +315,6 @@ async fn prepare_funding(
                     build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     epoch,
                     build_balance_message(amount_to_fund, false, false)
-                );
-                info!(
-                    "Max total claim: {}, lamports in stake: {:?}",
-                    build_balance_message(settlement_record.max_total_claim_sum, false, false),
-                    funded_to_settlement_stakes.get(&settlement_record.settlement_address)
                 );
                 settlement_record.funder =
                     SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
@@ -390,7 +370,10 @@ async fn prepare_funding(
 
                 // for the found and fitting stake accounts: taking first one and trying to merge other ones into it
                 let stake_account_to_fund: Option<(FundBondStakeAccount, StakeAccountStateType)> =
-                    if stake_accounts_to_fund.is_empty() || funding_lamports_accumulated == 0 {
+                    // below the on-chain minimal stake size the program cannot split nor fund-whole (would underflow at fund_settlement.rs:199), so skip
+                    if stake_accounts_to_fund.is_empty()
+                        || funding_lamports_accumulated <= minimal_stake_lamports
+                    {
                         None
                     } else {
                         let account = stake_accounts_to_fund.remove(0);
@@ -403,28 +386,11 @@ async fn prepare_funding(
                         stake_account: destination_stake,
                         split_stake_account: destination_split_stake,
                         state: destination_stake_state,
-                        lamports: destination_lamports,
                         ..
                     },
                     destination_stake_state_type,
                 )) = stake_account_to_fund
                 {
-                    info!(
-                        "Settlement: {} will be funded with {} stake accounts with {} SOLs, possibly merged into {}",
-                        settlement_record.settlement_address,
-                        stake_accounts_to_fund.len() + 1,
-                        build_balance_message(
-                            destination_lamports + stake_accounts_to_fund
-                                .iter()
-                                .map(|s| s.lamports)
-                                .sum::<u64>(), false, false
-                        ),
-                        destination_stake
-                    );
-                    validator_bonds_funders.push(SettlementFunderValidatorBond {
-                        stake_account_to_fund: destination_stake,
-                    });
-
                     let possible_to_merge = stake_accounts_to_fund
                         .iter()
                         .map(|f| f.into())
@@ -445,11 +411,68 @@ async fn prepare_funding(
                         &stake_history,
                     )
                     .await?;
-                    validator_bonds_funders.extend(non_mergeable.into_iter().map(
-                        |stake_account_address| SettlementFunderValidatorBond {
+
+                    // the destination absorbs every mergeable account; non-mergeable ones stay out and are funded on their own
+                    let non_mergeable_lamports: u64 = non_mergeable
+                        .iter()
+                        .map(|address| {
+                            possible_to_merge
+                                .iter()
+                                .find(|(a, _, _)| a == address)
+                                .map_or(0, |(_, lamports, _)| *lamports)
+                        })
+                        .sum();
+                    let destination_merged_lamports =
+                        funding_lamports_accumulated.saturating_sub(non_mergeable_lamports);
+                    // below the minimum stake size the destination funding underflows on-chain (fund_settlement.rs:200), so skip funding it (the merge pipeline consolidates it later)
+                    let fund_destination = destination_merged_lamports > minimal_stake_lamports;
+                    if fund_destination {
+                        info!(
+                            "Settlement: {} will be funded with destination {} of merged size {} SOLs and {} non-mergeable stake accounts funded on their own",
+                            settlement_record.settlement_address,
+                            destination_stake,
+                            build_balance_message(destination_merged_lamports, false, false),
+                            non_mergeable.len(),
+                        );
+                        validator_bonds_funders.push(SettlementFunderValidatorBond {
+                            stake_account_to_fund: destination_stake,
+                        });
+                    } else {
+                        reporting.warning().with_msg(format!(
+                            "Settlement {} (vote account {}, epoch {}, reason: {}): skipping merge destination {} as its merged size {} SOLs does not exceed the minimum stake size {} SOLs required to fund",
+                            settlement_record.settlement_address,
+                            settlement_record.vote_account_address,
+                            epoch,
+                            reason_display(&settlement_record.reason),
+                            destination_stake,
+                            build_balance_message(destination_merged_lamports, false, false),
+                            build_balance_message(minimal_stake_lamports, false, false),
+                        )).with_vote(settlement_record.vote_account_address).add();
+                    }
+
+                    // each non-mergeable account is funded on its own; below the minimum stake size it would underflow on-chain (fund_settlement.rs:200), so skip it (the merge pipeline consolidates same-state siblings later)
+                    for stake_account_address in non_mergeable {
+                        let lamports = possible_to_merge
+                            .iter()
+                            .find(|(address, _, _)| *address == stake_account_address)
+                            .map_or(0, |(_, lamports, _)| *lamports);
+                        if lamports <= minimal_stake_lamports {
+                            reporting.warning().with_msg(format!(
+                                "Settlement {} (vote account {}, epoch {}, reason: {}): skipping non-mergeable stake account {} as its {} SOLs does not exceed the minimum stake size {} SOLs required to fund",
+                                settlement_record.settlement_address,
+                                settlement_record.vote_account_address,
+                                epoch,
+                                reason_display(&settlement_record.reason),
+                                stake_account_address,
+                                build_balance_message(lamports, false, false),
+                                build_balance_message(minimal_stake_lamports, false, false),
+                            )).with_vote(settlement_record.vote_account_address).add();
+                            continue;
+                        }
+                        validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: stake_account_address,
-                        },
-                    ));
+                        });
+                    }
 
                     match funding_lamports_accumulated
                         .cmp(&(amount_to_fund + minimal_stake_lamports))
@@ -485,9 +508,10 @@ async fn prepare_funding(
                             let lamports_available_after_split = funding_lamports_accumulated
                                 .saturating_sub(amount_to_fund)
                                 .saturating_sub(minimal_stake_lamports);
-                            // only re-use the split account for next settlement if it has enough lamports
-                            // to hold a valid stake account; otherwise the on-chain split would fail
-                            if lamports_available_after_split >= minimal_stake_lamports {
+                            // only re-use the split account for next settlement if the destination was funded (the split is created on-chain by that FundSettlement) and it holds enough lamports for a valid stake account
+                            if fund_destination
+                                && lamports_available_after_split >= minimal_stake_lamports
+                            {
                                 funding_stake_accounts.push(FundBondStakeAccount {
                                     lamports: lamports_available_after_split,
                                     stake_account: destination_split_stake.pubkey(),
@@ -502,12 +526,14 @@ async fn prepare_funding(
                     }
                 } else {
                     reporting.warning().with_msg(format!(
-                        "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded as no stake account available",
+                        "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded: available stake {} SOLs does not exceed the minimum stake size {} SOLs required to fund",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
                         reason_display(&settlement_record.reason),
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
+                        build_balance_message(funding_lamports_accumulated, false, false),
+                        build_balance_message(minimal_stake_lamports, false, false),
                     )).with_vote(settlement_record.vote_account_address).add();
                 }
                 // we've got to place in code where we wanted to fund something
@@ -635,6 +661,7 @@ async fn fund_settlements(
                     ..
                 } in validator_bonds_funders
                 {
+                    // prepare_funding skips non-mergeable accounts below the minimum stake size (fund_settlement.rs:200 would otherwise underflow)
                     // Settlement funding could be of two types: from validator bond or from operator wallet
                     let split_stake_account_keypair = Arc::new(Keypair::new());
                     let req = program
