@@ -72,7 +72,10 @@ def skill_invocations(transcript_path):
                         skill = (b.get("input") or {}).get("skill", "")
                         tid = b.get("id")
                         if skill and tid:
-                            yield tid, skill
+                            # skill may be plugin-namespaced (e.g.
+                            # "validator-bonds:find") — strip to the bare name
+                            # so it matches TRACKED_SKILLS.
+                            yield tid, skill.split(":")[-1]
     except OSError:
         return
 
