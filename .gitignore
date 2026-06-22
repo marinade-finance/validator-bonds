@@ -49,3 +49,4 @@ regression-data*
 # Local session artifacts
 .diary/
 .specs/
+BUGS.md
