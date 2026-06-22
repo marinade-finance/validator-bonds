@@ -260,6 +260,9 @@ if (values.list) {
     await writeFile(reportPath, stringify(log))
 
     console.log(`\n${passed}/${passed + failed} passed -> ${reportPath}`)
+  } catch (error) {
+    process.exitCode = 1
+    throw error
   } finally {
     if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
   }
