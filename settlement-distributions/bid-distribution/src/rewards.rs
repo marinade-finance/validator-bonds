@@ -491,17 +491,19 @@ fn aggregate_rewards(
         .values()
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
-    let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
-    // 1 lamport tolerance for rounding; anything larger means bad input data
+    // Compare in whole SOL with a 1-SOL tolerance — the same threshold the
+    // pre-fix code used (it divided each sum by LAMPORTS_PER_SOL before the
+    // abs_diff), so this fails on exactly the discrepancies the original would
+    // have, no more. Sub-SOL rounding in the input data is tolerated.
+    let total_rewards_sol = total_rewards / LAMPORTS_PER_SOL;
+    let total_stakers_sol = total_stakers_rewards / LAMPORTS_PER_SOL;
+    let total_validators_sol = total_validators_rewards / LAMPORTS_PER_SOL;
     assert!(
-        mismatch <= 1,
-        "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
+        total_rewards_sol.abs_diff(total_stakers_sol + total_validators_sol) <= 1,
+        "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} (SOL: {total_rewards_sol} vs {total_stakers_sol}+{total_validators_sol})"
     );
     info!(
-        "Aggregated rewards (total: {} SOL, stakers: {} SOL, validators: {} SOL) for {} vote accounts",
-        total_rewards / LAMPORTS_PER_SOL,
-        total_stakers_rewards / LAMPORTS_PER_SOL,
-        total_validators_rewards / LAMPORTS_PER_SOL,
+        "Aggregated rewards (total: {total_rewards_sol} SOL, stakers: {total_stakers_sol} SOL, validators: {total_validators_sol} SOL) for {} vote accounts",
         rewards_map.len()
     );
 
