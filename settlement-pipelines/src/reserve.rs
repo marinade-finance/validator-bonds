@@ -4,7 +4,7 @@ use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::anyhow;
 use clap::Args;
 use log::info;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 
@@ -77,22 +77,17 @@ impl ReserveConfig {
 /// Gated to `ValidatorBond` funder so only the bond-funded staker payout is
 /// inflated, not Marinade-funded settlements (e.g. PSR).
 ///
-/// INVARIANT: the inflation MUST equal the amount the reserve actually pre-funds
-/// (see the early pre-fund pass). If the reserve fronts less, the bond over-funds
-/// and the reserve over-recovers. Apply this in every binary that reads the
-/// on-chain `max_total_claim` (init sets it; fund targets it), so both sides stay
-/// consistent and the funding assert holds.
-pub fn apply_reserve_inflation(
-    records_by_epoch: &mut HashMap<u64, Vec<SettlementRecord>>,
-    reserve: &ReserveConfig,
-) {
-    for records in records_by_epoch.values_mut() {
-        for record in records.iter_mut() {
-            if reserve.is_enabled(&record.vote_account_address)
-                && matches!(record.funder, SettlementFunderType::ValidatorBond(_))
-            {
-                record.max_total_claim_sum += reserve.prefund_lamports;
-            }
+/// INVARIANT: the inflation MUST equal the amount the reserve actually fronts from
+/// `marinade_wallet` during normal funding. If the reserve fronts less, the bond
+/// over-funds and the reserve over-recovers. Apply this in every binary that reads
+/// the on-chain `max_total_claim` (init sets it; fund targets it), so both sides
+/// stay consistent and the funding assert holds.
+pub fn apply_reserve_inflation(records: &mut [SettlementRecord], reserve: &ReserveConfig) {
+    for record in records.iter_mut() {
+        if reserve.is_enabled(&record.vote_account_address)
+            && matches!(record.funder, SettlementFunderType::ValidatorBond(_))
+        {
+            record.max_total_claim_sum += reserve.prefund_lamports;
         }
     }
 }

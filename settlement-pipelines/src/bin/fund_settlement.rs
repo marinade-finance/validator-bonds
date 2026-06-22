@@ -20,6 +20,7 @@ use settlement_pipelines::reporting::{
     ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
+use settlement_pipelines::reserve::{apply_reserve_inflation, ReserveConfig, ReserveOpts};
 use settlement_pipelines::settlement_data::{
     reason_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
     SettlementRecord,
@@ -89,6 +90,9 @@ struct Args {
     rent_payer: Option<String>,
 
     #[clap(flatten)]
+    reserve_opts: ReserveOpts,
+
+    #[clap(flatten)]
     report_opts: ReportOpts,
 }
 
@@ -149,6 +153,14 @@ async fn real_main(
 
     let mut settlement_records_per_epoch =
         load_merkle_tree_with_on_chain(rpc_client.clone(), &collections, args.epoch).await?;
+
+    // Option B: inflate max_total_claim by the reserve prefund so the assert against
+    // the on-chain max (set at init) holds and the bond funds toward the inflated max.
+    if let Some(reserve) = ReserveConfig::load(&args.reserve_opts)? {
+        settlement_records_per_epoch
+            .values_mut()
+            .for_each(|records| apply_reserve_inflation(records, &reserve));
+    }
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 

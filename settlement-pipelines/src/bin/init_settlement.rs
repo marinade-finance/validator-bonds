@@ -23,6 +23,7 @@ use settlement_pipelines::reporting::{
 use settlement_pipelines::reporting_data::{
     ReportingFunderSettlement, ReportingReasonSettlement, SettlementsReportData,
 };
+use settlement_pipelines::reserve::{apply_reserve_inflation, ReserveConfig, ReserveOpts};
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -69,6 +70,9 @@ struct Args {
     /// keypair payer for rent of accounts, if not provided, fee payer keypair is used
     #[arg(long)]
     rent_payer: Option<String>,
+
+    #[clap(flatten)]
+    reserve_opts: ReserveOpts,
 
     #[clap(flatten)]
     report_opts: ReportOpts,
@@ -130,6 +134,12 @@ async fn real_main(
     // Load on-chain data for Settlement accounts that we need to create
     let mut settlement_records =
         load_on_chain_data(rpc_client.clone(), &collections, args.epoch).await?;
+
+    // Option B: inflate max_total_claim by the reserve prefund for reserve-enabled
+    // settlements, so the created on-chain max matches what the bond funds and reaps.
+    if let Some(reserve) = ReserveConfig::load(&args.reserve_opts)? {
+        apply_reserve_inflation(&mut settlement_records, &reserve);
+    }
 
     let epoch = args
         .epoch
