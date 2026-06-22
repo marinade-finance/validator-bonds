@@ -1,6 +1,9 @@
 question: >
   What are the sources of rewards that make up a Bidding settlement payout?
-  List each component, its origin, and which code struct tracks it.
+  Find the struct definition in source code that tracks each component.
+  For every field in the struct: name the field, state what reward it represents,
+  and its origin. Also include the staker proportional share field.
+  Name the struct. Cite the source file and line for the struct definition.
 facts:
   - 'inflation_commission_claim'
   - 'mev_commission_claim'

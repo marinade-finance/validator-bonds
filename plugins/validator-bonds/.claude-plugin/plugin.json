@@ -2,7 +2,7 @@
   "name": "validator-bonds",
   "displayName": "Marinade Validator Bonds",
   "version": "0.1.0",
-  "description": "Protocol context skills for the Marinade Validator Bonds protocol — SAM auction, bond collateral, PSR, settlement lifecycle, and protocol research tools.",
+  "description": "Validator Bonds context skills — SAM auction, bond collateral, PSR, settlement lifecycle, and research tools.",
   "author": {
     "name": "Marinade Finance",
     "email": "hello@marinade.finance"

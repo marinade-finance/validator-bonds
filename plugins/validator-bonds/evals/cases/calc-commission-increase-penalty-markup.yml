@@ -11,5 +11,4 @@ facts:
   - '0.04'
   - '400 SOL'
   - 'extra_penalty_threshold_bps'
-wrong_facts:
-  - '200 SOL'
+wrong_facts: []

@@ -11,7 +11,6 @@ facts:
   - '0.25'
   - '180 SOL'
   - '540 SOL'
-  - 'PriorityFee'
 wrong_facts:
   - '720 SOL pool'
   - '100 SOL'

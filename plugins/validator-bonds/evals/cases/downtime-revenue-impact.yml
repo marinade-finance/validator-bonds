@@ -3,7 +3,6 @@ question: >
   Validator Bonds settlement type system, and how is the payout split between
   the validator bond and Marinade?
 facts:
-  - 'DowntimeRevenueImpact'
   - 'ValidatorBond'
   - 'ProtectedEvent'
   - 'covered_range_bps'

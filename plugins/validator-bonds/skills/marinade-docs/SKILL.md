@@ -1,6 +1,6 @@
 ---
 name: marinade-docs
-description: Index of Marinade documentation site URLs, live API base URLs/endpoints/OpenAPI schemas, GCS bucket paths, and per-repo clone commands. NOT for protocol internals (use marinade-sam-bond), the repo/program-ID/SDK map (use marinade-ecosystem), or deep code research (use find).
+description: Index of Marinade documentation site URLs, live API base URLs/endpoints/OpenAPI schemas, GCS bucket paths, and per-repo clone commands. NOT for Validator Bonds internals (use marinade-sam-bond), the repo/program-ID/SDK map (use marinade-ecosystem), or deep code research (use find).
 when_to_use: where do I find, which API, API endpoint, OpenAPI schema, docs URL, docs.marinade.finance, bonds API URL, scoring API, validators API, finance API, institutional staking API, select API, psr dashboard URL, clone a repo, repo URL, .refs clone command, GCS bucket path, where to look, what URL, live API base url
 user-invocable: true
 ---

@@ -29,10 +29,14 @@ Currently 24 validators. Get the live list from the dashboard at
 
 ## Pipeline
 
-1. Each epoch: payout amounts computed and stored to
-   `gs://marinade-institutional-staking-mainnet/{epoch}/` (public GCS bucket)
-2. `institutional-distribution-cli` reads that JSON and produces settlement
-   collection files (off-chain)
+1. Each epoch: the private `institutional-staking` repo computes payout amounts
+   and stores per-validator JSON to `gs://marinade-institutional-staking-mainnet/{epoch}/`
+2. `institutional-distribution-cli` reads those pre-computed amounts and produces
+   settlement collection files (off-chain). Key fields it reads:
+   - `payout_stakers` — lamport amount to distribute to stakers
+   - `payout_distributors` — lamport amount for distributor fee
+   - `psr_percentile_apy` — the percentile APY floor used as guarantee
+   - `apy_percentile_diff` — shortfall vs floor (basis of the payout)
 3. validator-bonds settlement pipeline (`init-settlement`, `fund-settlement`,
    `claim-settlement`) creates and funds the on-chain accounts
 

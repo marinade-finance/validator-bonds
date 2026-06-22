@@ -49,6 +49,11 @@ regression-data*
 # Session artifacts
 .diary/
 .ship/
+**/.claude/tmp/
 
-# eval harness output
+# Eval run logs (per-run; committed snapshot is plugins/validator-bonds/evals/report_<date>.yml)
 plugins/validator-bonds/evals/report/
+
+# Demo recordings
+*.cast
+*.gif

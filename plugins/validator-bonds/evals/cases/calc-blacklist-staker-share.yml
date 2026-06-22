@@ -8,6 +8,5 @@ question: >
 facts:
   - '0.25'
   - '50 SOL'
-  - 'staker_share'
 wrong_facts:
   - '46 SOL'

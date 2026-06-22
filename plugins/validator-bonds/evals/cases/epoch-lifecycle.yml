@@ -7,6 +7,7 @@ facts:
   - 'init-settlement'
   - 'epochs_to_claim_settlement'
   - 'close-settlement'
+  - 'bonds_withdrawer_authority'
 wrong_facts:
   - 'fixed 4-epoch window'
   - 'funds are burned'

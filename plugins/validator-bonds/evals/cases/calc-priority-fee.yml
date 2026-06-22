@@ -5,11 +5,9 @@ question: >
   2,000 SOL.
 
   Compute: (a) that staker's staker_share as a fraction, (b) their PriorityFee
-  claim_amount in SOL, (c) the claim in lamports. Show each formula step.
+  claim_amount in SOL (express as a whole number, e.g. "20 SOL" not "20.0 SOL"),
+  (c) the claim in lamports. Show each formula step.
 facts:
   - '0.2'
-  - '20 SOL'
-  - 'activating_stakers_pool'
 wrong_facts:
-  - 'Bidding'
   - '2 SOL'

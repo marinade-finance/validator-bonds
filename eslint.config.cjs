@@ -24,12 +24,6 @@ module.exports = [
     },
   },
   {
-    files: ['plugins/**/eval.ts'],
-    rules: {
-      'import/no-extraneous-dependencies': 'off',
-    },
-  },
-  {
     files: ['**/*.spec.ts', '**/__tests__/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-member-access': 'off',

@@ -1,30 +1,57 @@
 # Validator Bonds Agent Plugin
 
-Agent plugin skills for the Marinade Validator Bonds protocol. It provides
-context covering SAM auction mechanics, settlement types, bond lifecycle, and
-ecosystem navigation.
+Agent plugin skills for Marinade Validator Bonds. Covers SAM auction mechanics,
+settlement types, bond lifecycle, and ecosystem navigation.
 
 ## Install
 
-Codex:
+### Claude Code
+
+Add the marketplace (once), then install:
 
 ```sh
-codex plugin marketplace add marinade-finance/validator-bonds
-codex plugin add validator-bonds@marinade
+claude plugin marketplace add marinade-finance/validator-bonds
+claude plugin install validator-bonds@marinade-finance
 ```
 
-Claude Code:
+Or as slash commands inside a session:
+
+```
+/plugin marketplace add marinade-finance/validator-bonds
+/plugin install validator-bonds@marinade-finance
+```
+
+Once loaded, skills auto-trigger on relevant keywords (CPMPE, PSR, settlement,
+SAM auction, etc.) or invoke explicitly: `/marinade-sam-bond`, `/find`,
+`/marinade-docs`, `/marinade-ecosystem`.
+
+**From this repo** — no install needed. `.claude/skills/` is already symlinked
+to the plugin skills and `settings.local.json` enables the plugin:
 
 ```sh
-/plugin marketplace add marinade-finance/validator-bonds
-/plugin install validator-bonds@marinade
+claude
+```
+
+### Codex
+
+Install from the marketplace:
+
+```sh
+codex plugin add marinade-finance/validator-bonds
+```
+
+**From this repo** — no install needed. Codex picks up `.agents/skills`
+automatically when run from the repo root:
+
+```sh
+codex
 ```
 
 ## Skills
 
 ### `marinade-sam-bond`
 
-The core protocol context skill. Covers SAM (Stake Auction Marketplace) auction
+The core Validator Bonds context skill. Covers SAM (Stake Auction Marketplace) auction
 mechanics, all settlement types and their `SettlementReason` enum variants
 (`Bidding`, `PriorityFee`, `BidTooLowPenalty`, `BlacklistPenalty`, `BondRiskFee`,
 `InstitutionalPayout`, `ProtectedEvent`), the epoch lifecycle from bid submission
@@ -55,7 +82,7 @@ facts exist and are sufficient, answers directly; otherwise spawns subagents to
 research, verify, and persist findings under `facts/`.
 
 Use `find` for code-level detail once `marinade-sam-bond` has established what
-you are looking for. Do not use it for ecosystem navigation or protocol overview
+you are looking for. Do not use it for ecosystem navigation or program overview
 questions — those belong to `marinade-ecosystem` and `marinade-sam-bond`.
 
 **Triggers:** research X, verify X, dig into the code, check the source,
@@ -66,7 +93,7 @@ what do I know about X, recall, check the facts.
 
 Index of documentation URLs, live API base URLs with endpoint lists, GCS bucket
 paths, and clone commands for every public and private repo. Does not cover
-protocol internals — use `marinade-sam-bond` for those.
+Validator Bonds internals — use `marinade-sam-bond` for those.
 
 **Triggers:** where do I find, which API, API endpoint, OpenAPI schema, docs URL,
 bonds API URL, scoring API, clone a repo, repo URL, GCS bucket path, what URL.
@@ -83,10 +110,7 @@ cross-repo navigation, what does this repo do, file an issue.
 
 ## Eval System
 
-Quality harness for the plugin's skills. Each `evals/cases/*.yml` asks Claude
-a question via `claude -p` with the plugin loaded and checks required facts and
-forbidden terms. See `evals/README.md` for commands and `evals/CLAUDE.md` for
-case authoring rules.
+See [`evals/README.md`](evals/README.md).
 
 ## Directory Layout
 

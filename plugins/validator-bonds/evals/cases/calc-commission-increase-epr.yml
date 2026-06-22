@@ -6,6 +6,7 @@ question: >
   Compute: (a) expected_commission_pmpe, (b) expected_epr, (c) actual_epr,
   (d) epr_loss_bps, (e) base_cps, (f) which markup applies and the final
   claim_per_stake, (g) the payout in SOL. Show each formula step.
+  Express basis-point values as plain integers (no comma separators).
 facts:
   - '0.16'
   - '0.1'
