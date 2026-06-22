@@ -8,6 +8,7 @@ pub mod institutional_validators;
 pub mod json_data;
 pub mod reporting;
 pub mod reporting_data;
+pub mod reserve;
 pub mod settlement_data;
 pub mod settlements;
 pub mod stake_accounts;
