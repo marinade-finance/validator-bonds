@@ -129,8 +129,12 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
                 let Ok(value) = PriorityFeeSettlementDetails::deserialize(details) else {
                     continue;
                 };
-                // Only use PriorityFee stake/rewards as fallback for validators where no
-                // Bidding settlement was generated (active stakers earned nothing).
+                // PriorityFee stake/rewards are only a fallback for validators with no
+                // Bidding settlement (active stakers earned nothing). When a Bidding
+                // settlement exists its total_marinade_stakers_rewards already includes
+                // this activating_bid_claim (worker: total = active_stakers_rewards +
+                // activating_bid_claim), so folding the PriorityFee settlement in here
+                // too would double-count the bid.
                 if !bidding_votes.contains(&settlement.vote_account) {
                     totals.stake += Decimal::from(value.total_marinade_active_stake);
                     totals.rewards +=
