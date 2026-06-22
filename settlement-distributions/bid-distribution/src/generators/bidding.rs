@@ -103,6 +103,16 @@ pub struct BidSettlementTotals {
     pub fees: Decimal,
 }
 
+/// Sums stake, staker rewards, and fees across bid/priority-fee settlements.
+///
+/// `stake` (the pmpe denominator) is active + redelegation — the stake that
+/// actually earned this epoch. This basis is fixed by definition to match how
+/// APY/SSR (SSI) pmpe is calculated across Marinade services: the resulting
+/// pmpe is compared against the SSR fetched from apy.marinade.finance (see
+/// apy_api.rs), so the two must share the same denominator. Activating stake is
+/// deliberately excluded — it earns no yield this epoch (it gets a forward bid
+/// instead). Do NOT add activating stake to the denominator: it would break
+/// commensurability with the SSR and silently corrupt the staker-yield floor.
 pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlementTotals {
     let mut totals = BidSettlementTotals::default();
     let bidding_votes: HashSet<Pubkey> = settlements
