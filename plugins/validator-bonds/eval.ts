@@ -206,6 +206,7 @@ if (values.list) {
   }
 
   let failed = 0
+  let errored = 0
 
   try {
     let passed = 0
@@ -221,43 +222,58 @@ if (values.list) {
 
     for (const file of files) {
       const name = basename(file).replace(/\.yml$/, '')
-      const testCase = await readCase(file)
-      const answer = await runClaude(claudeFlags, testCase.question)
-      const facts = await Promise.all(
-        testCase.facts.map(fact => checkFact(answer, fact)),
-      )
-      const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
-        fact,
-        passed: !containsFact(answer, fact),
-        method: 'exact',
-      }))
-      const ok =
-        facts.every(fact => fact.passed) &&
-        wrongFacts.every(fact => fact.passed)
+      try {
+        const testCase = await readCase(file)
+        const answer = await runClaude(claudeFlags, testCase.question)
+        const facts = await Promise.all(
+          testCase.facts.map(fact => checkFact(answer, fact)),
+        )
+        const wrongFacts = (testCase.wrong_facts ?? []).map(fact => ({
+          fact,
+          passed: !containsFact(answer, fact),
+          method: 'exact',
+        }))
+        const judgeError = facts.some(fact => fact.method === 'error')
+        const ok =
+          facts.every(fact => fact.passed) &&
+          wrongFacts.every(fact => fact.passed)
+        const result = judgeError ? 'error' : ok ? 'pass' : 'fail'
 
-      log.cases.push({
-        case: name,
-        result: ok ? 'pass' : 'fail',
-        question: testCase.question,
-        answer: answer.trim(),
-        facts,
-        ...(wrongFacts.length ? { wrong_facts: wrongFacts } : {}),
-      })
+        log.cases.push({
+          case: name,
+          result,
+          question: testCase.question,
+          answer: answer.trim(),
+          facts,
+          ...(wrongFacts.length ? { wrong_facts: wrongFacts } : {}),
+        })
 
-      if (ok) {
-        console.log(`✓ ${name}`)
-        passed++
-      } else {
-        console.log(`✗ ${name}`)
-        for (const fact of facts.filter(fact => !fact.passed))
-          console.log(`  missing: ${fact.fact}`)
-        for (const fact of wrongFacts.filter(fact => !fact.passed))
-          console.log(`  wrong_fact: ${fact.fact}`)
-        failed++
+        if (judgeError) {
+          console.log(`⚠ ${name}`)
+          for (const fact of facts.filter(fact => fact.method === 'error'))
+            console.log(`  judge error: ${fact.fact}: ${fact.error}`)
+          errored++
+        } else if (ok) {
+          console.log(`✓ ${name}`)
+          passed++
+        } else {
+          console.log(`✗ ${name}`)
+          for (const fact of facts.filter(fact => !fact.passed))
+            console.log(`  missing: ${fact.fact}`)
+          for (const fact of wrongFacts.filter(fact => !fact.passed))
+            console.log(`  wrong_fact: ${fact.fact}`)
+          failed++
+        }
+
+        if (values.verbose)
+          console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        log.cases.push({ case: name, result: 'error', error: message })
+        console.log(`⚠ ${name}`)
+        console.log(`  error: ${message}`)
+        errored++
       }
-
-      if (values.verbose)
-        console.log(`\n--- ${name} answer ---\n${answer.trim()}\n`)
     }
 
     await mkdir(join(reportRoot, tag), { recursive: true })
@@ -268,7 +284,10 @@ if (values.list) {
     )
     await writeFile(reportPath, stringify(log))
 
-    console.log(`\n${passed}/${passed + failed} passed -> ${reportPath}`)
+    const errNote = errored ? `, ${errored} errored` : ''
+    console.log(
+      `\n${passed}/${passed + failed + errored} passed${errNote} -> ${reportPath}`,
+    )
   } catch (error) {
     process.exitCode = 1
     throw error
@@ -276,5 +295,5 @@ if (values.list) {
     if (tempRoot) await rm(tempRoot, { recursive: true, force: true })
   }
 
-  if (failed > 0) process.exitCode = 1
+  if (failed > 0 || errored > 0) process.exitCode = 1
 }
