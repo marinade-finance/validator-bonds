@@ -16,8 +16,8 @@ Token: MIXPANEL_PROJECT_TOKEN is a Mixpanel *project* token — write-only inges
 safe to ship public. Override with the MIXPANEL_TOKEN env var.
 
 The launcher re-execs itself detached (`start_new_session`) so the Mixpanel call
-never blocks the session; the detached worker self-terminates after
-WORKER_TIMEOUT_SECONDS so it can never linger as a zombie.
+never blocks the session; the detached worker installs a SIGALRM handler and arms a
+WORKER_TIMEOUT_SECONDS alarm, so it self-terminates rather than lingering.
 
 Test:
   echo '{"transcript_path":"/abs/path.jsonl","session_id":"t1"}' \
@@ -31,6 +31,15 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from itertools import islice
+
+try:
+    from itertools import batched  # Python 3.12+
+except ImportError:  # fallback for older runtimes (e.g. system python 3.9)
+    def batched(iterable, n):
+        it = iter(iterable)
+        while chunk := tuple(islice(it, n)):
+            yield chunk
 
 MIXPANEL_PROJECT_TOKEN = "c5c1dd7c6d81894e620f333e0cc937ba"
 TOKEN = os.environ.get("MIXPANEL_TOKEN", MIXPANEL_PROJECT_TOKEN)
@@ -51,9 +60,10 @@ def skill_invocations(transcript_path):
                     rec = json.loads(line)
                 except Exception:
                     continue
-                msg = rec.get("message") or {}
-                content = msg.get("content") if isinstance(msg, dict) else None
-                for b in content or []:
+                msg = rec.get("message")
+                if not isinstance(msg, dict):
+                    continue
+                for b in msg.get("content") or []:
                     if (
                         isinstance(b, dict)
                         and b.get("type") == "tool_use"
@@ -67,28 +77,25 @@ def skill_invocations(transcript_path):
         return
 
 
-def build_events(ev):
+def iter_events(ev):
+    """Yield a Mixpanel `skill_used` event for each tracked skill invocation."""
     sid = ev.get("session_id", "unknown")
     now = int(time.time())
-    events = []
     for tid, skill in skill_invocations(ev.get("transcript_path")):
         if skill in TRACKED_SKILLS:
-            events.append(
-                {
-                    "event": "skill_used",
-                    "properties": {
-                        "token": TOKEN,
-                        "distinct_id": sid,
-                        "$insert_id": tid,  # server-side dedup key
-                        "time": now,
-                        "skill": skill,
-                        "tool_use_id": tid,
-                        "hook_event": "Stop",
-                        "source": "claude-code",
-                    },
-                }
-            )
-    return events
+            yield {
+                "event": "skill_used",
+                "properties": {
+                    "token": TOKEN,
+                    "distinct_id": sid,
+                    "$insert_id": tid,  # server-side dedup key
+                    "time": now,
+                    "skill": skill,
+                    "tool_use_id": tid,
+                    "hook_event": "Stop",
+                    "source": "claude-code",
+                },
+            }
 
 
 def post(events):
@@ -118,26 +125,30 @@ def run(raw):
         return
     if not ev.get("transcript_path"):
         return
-    events = build_events(ev)
-    for i in range(0, len(events), MIXPANEL_BATCH):
-        post(events[i : i + MIXPANEL_BATCH])
+    for batch in batched(iter_events(ev), MIXPANEL_BATCH):
+        post(list(batch))
+
+
+def _expire(_signum, _frame):
+    os._exit(0)  # hard-exit a timed-out detached worker; no lingering process
 
 
 def main():
     raw = sys.stdin.read()
 
-    # Worker (and verbose/testing) path: do the work, with a hard self-timeout so
-    # a detached worker can never hang around.
+    # Worker (and verbose/testing) path: do the work under a hard self-timeout so a
+    # detached worker can never hang around.
     if VERBOSE or os.environ.get("_TRACK_WORKER"):
         try:
+            signal.signal(signal.SIGALRM, _expire)
             signal.alarm(WORKER_TIMEOUT_SECONDS)
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError, OSError):
             pass  # no SIGALRM (e.g. Windows / non-main thread)
         run(raw)
         return
 
-    # Launcher: detach a worker and return immediately. If we can't detach, drop
-    # it rather than block the session (a synchronous POST is not worth the stall).
+    # Launcher: detach a worker and return immediately. If we can't detach, drop it
+    # rather than block the session (a synchronous POST is not worth the stall).
     try:
         p = subprocess.Popen(
             [sys.executable, __file__],
