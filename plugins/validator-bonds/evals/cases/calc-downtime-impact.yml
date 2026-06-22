@@ -1,0 +1,17 @@
+question: >
+  A validator has actual_non_bid_pmpe = 80, actual_credits = 950,000, and
+  expected_credits = 1,000,000. The settlement covers stake = 10,000 SOL.
+
+  Compute: (a) uptime, (b) actual_epr, (c) claim_per_stake, (d) the
+  loss-range claim after the clamp, (e) the bond-funded payout in SOL. Show
+  each formula step.
+facts:
+  - '0.95'
+  - '0.076'
+  - '0.004'
+  - '40 SOL'
+  - 'DowntimeRevenueImpact'
+wrong_facts:
+  - '400 SOL'
+  - 'CommissionSamIncrease'
+  - 'BidTooLowPenalty'

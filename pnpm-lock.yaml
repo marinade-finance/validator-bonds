@@ -71,7 +71,7 @@ importers:
         specifier: 5.4.5
         version: 5.4.5
       yaml:
-        specifier: ^2.8.1
+        specifier: ^2.9.0
         version: 2.9.0
 
   packages/bonds-eventing:

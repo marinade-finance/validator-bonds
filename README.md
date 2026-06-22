@@ -11,17 +11,28 @@ Mono repository for Validator Bonds product
 ## Repository structure
 
 - [`programs/validator-bonds`](./programs/validator-bonds/) - Anchor on-chain contract project
-- [`packages/`](./packages/) - TypeScript packages related to on-chain program (SDK, CLI)
-  ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/))
+- [`packages/`](./packages/) - TypeScript packages related to on-chain program
+  ([SDK](./packages/validator-bonds-sdk/), [CLI](./packages/validator-bonds-cli/),
+  [CLI Core](./packages/validator-bonds-cli-core/),
+  [CLI Institutional](./packages/validator-bonds-cli-institutional/),
+  [Codama](./packages/validator-bonds-codama/),
+  [Sanity Check](./packages/validator-bonds-sanity-check/),
+  [Bonds Eventing](./packages/bonds-eventing/))
 - [`api/`](./api/) - in Rust developed OpenAPI service that publishes bonds data ([API endpoint](https://validator-bonds-api.marinade.finance/docs))
 - [`bonds-collector`](./bonds-collector/) - a CLI tool for loading on-chain bond data into a YAML file
 - [`.buildkite/`](./.buildkite/) - automated pipelines that prepare data for bonds claiming, updating API data and similar
-- [`settlement-distribution/`](settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
+- [`settlement-distributions/`](./settlement-distributions/) - CLIs for generating Settlement and Merkle Tree JSON data,
   which serve as the foundation for on-chain initialization and claim settlement transactions
+  ([bid-distribution](./settlement-distributions/bid-distribution/),
+  [institutional-distribution](./settlement-distributions/institutional-distribution/),
+  [merkle-generator](./settlement-distributions/merkle-generator/),
+  [settlement-common](./settlement-distributions/settlement-common/))
+- [`common-rs/`](./common-rs/) - shared Rust library for common utilities across the workspace
 - [`merkle-tree/`](./merkle-tree/) - generic Rust library implementing the merkle tree data structure management
 - [`migrations/`](./migrations/) - SQL scripts to prepare and change DB schemas
+- [`runbooks/`](./runbooks/) - Surfpool runbooks for program deployment and testing
 - [`scripts/`](./scripts/) - scripts used in pipeline and to manage and integrate various repository parts
-- [`settlement-pipelines`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program
+- [`settlement-pipelines/`](./settlement-pipelines/) - a set of CLI binaries that works as a pipeline off-chain management for the Validator Bonds Program
 
 ## Validator Bonds Programs Flow
 
@@ -42,6 +53,26 @@ The flow is encoded in code within [`buildkite` pipelines](./.buildkite)
   or other reasons of creating the settlement
 - `close-settlements` Reset (close) the `Settlement accounts` when they expire
   (defined in `Config` by value of field `epochs_to_claim_settlement`)
+
+## Agent skills
+
+Protocol context skills live in [`plugins/validator-bonds/`](./plugins/validator-bonds/).
+See the [plugin README](./plugins/validator-bonds/README.md) for full install instructions.
+
+**Claude Code** (add marketplace once, then install):
+
+```sh
+claude plugin marketplace add marinade-finance/validator-bonds
+claude plugin install validator-bonds@marinade-finance
+```
+
+**Codex:**
+
+```sh
+codex plugin add marinade-finance/validator-bonds
+```
+
+From this repo, no install needed — Codex auto-loads `.agents/skills`.
 
 ## Development
 

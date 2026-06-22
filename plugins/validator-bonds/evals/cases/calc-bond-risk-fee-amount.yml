@@ -1,0 +1,15 @@
+question: >
+  For an underfunded validator the auction computed value = 1,000 SOL of forced
+  undelegation, with onchainDistributedPmpe = 150 and auctionEffectiveBidPmpe =
+  50. The config has bondRiskFeeMult = 1.
+
+  Compute: (a) feeCoef, (b) bondRiskFeeSol,
+  (c) the equivalent in lamports (the stakers_bond_risk_fee_claim). Show each
+  formula step. Express lamport amounts as plain integers without comma separators.
+facts:
+  - '0.2'
+  - '200 SOL'
+  - '200_000_000_000'
+wrong_facts:
+  - '0.5 SOL'
+  - 'fee split'

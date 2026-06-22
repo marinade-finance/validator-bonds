@@ -1,0 +1,36 @@
+{
+  "name": "validator-bonds",
+  "version": "0.1.0",
+  "description": "Marinade Validator Bonds: SAM auction, settlement types, PSR, bond lifecycle, and ecosystem map.",
+  "author": {
+    "name": "Marinade Finance",
+    "email": "hello@marinade.finance"
+  },
+  "homepage": "https://psr.marinade.finance",
+  "repository": "https://github.com/marinade-finance/validator-bonds",
+  "license": "ISC",
+  "keywords": [
+    "solana",
+    "marinade",
+    "validator-bonds",
+    "sam",
+    "staking",
+    "defi"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Marinade Validator Bonds",
+    "shortDescription": "Skills for Validator Bonds, SAM, PSR, and settlements.",
+    "longDescription": "Adds Marinade Validator Bonds context to Codex: SAM auction mechanics, PSR settlement types, bond lifecycle, ecosystem navigation, and research workflows.",
+    "developerName": "Marinade Finance",
+    "category": "Productivity",
+    "capabilities": ["Knowledge", "Research", "Write"],
+    "websiteURL": "https://psr.marinade.finance",
+    "defaultPrompt": [
+      "Explain how Validator Bonds settlements work.",
+      "Find where SAM bid penalties are calculated.",
+      "Map the Marinade repos used by Validator Bonds."
+    ],
+    "brandColor": "#19FB9B"
+  }
+}

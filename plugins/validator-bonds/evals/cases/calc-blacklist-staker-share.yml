@@ -1,0 +1,12 @@
+question: >
+  A blacklisted validator has blacklist_penalty_pmpe = 50 and
+  total_marinade_active_stake = 4,000 SOL. One staker (stake_authority +
+  withdraw_authority pair) holds active_stake = 1,000 SOL of that 4,000 SOL.
+
+  Compute: (a) staker_share as a fraction, (b) that staker's BlacklistPenalty
+  claim in SOL, (c) the claim in lamports. Show each formula step.
+facts:
+  - '0.25'
+  - '50 SOL'
+wrong_facts:
+  - '46 SOL'

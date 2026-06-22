@@ -1,0 +1,14 @@
+question: >
+  A validator has bid_too_low_penalty_pmpe = 80 and
+  total_marinade_active_stake = 2,500 SOL.
+
+  Compute in SOL: (a) total BidTooLowPenalty settlement amount, (b) stakers'
+  share, (c) DAO share, (d) Marinade share. Show each formula step.
+facts:
+  - '200 SOL'
+  - '184 SOL'
+  - '16 SOL'
+  - 'BidTooLowPenaltyDetails'
+wrong_facts:
+  - 'Marinade receives 16'
+  - 'stakers receive 200 SOL'

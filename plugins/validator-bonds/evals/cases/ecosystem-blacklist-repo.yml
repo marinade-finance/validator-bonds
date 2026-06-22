@@ -1,0 +1,16 @@
+question: >
+  A validator is being investigated for potential blacklisting. Explain:
+  (a) which repo and pipeline stage produces the blacklist decision,
+  (b) what the two detection criteria are and their thresholds,
+  (c) how the decision flows into the settlement system and which
+  SettlementReason it produces, (d) what happens to the full bond stake
+  when a validator is blacklisted.
+facts:
+  - 'sam-blacklist'
+  - 'sandwich'
+  - 'slow'
+  - 'BlacklistPenalty'
+  - 'stakers'
+wrong_facts:
+  - 'ds-scoring'
+  - 'marinade_fee_bps is deducted'

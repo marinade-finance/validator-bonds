@@ -1,0 +1,18 @@
+question: >
+  A validator has:
+  - total_active_stake = 5,000,000 SOL (all owned by Marinade, no other stakers)
+  - auction_effective_static_bid_pmpe = 200 (winningTotalPmpe = 200)
+  - no commission breach (inflation_commission_in_bond_dec = None)
+  - no activating stake
+
+  Compute: (a) the total Bidding settlement claim in SOL (before fees),
+  (b) stakers_total_claim in SOL, (c) DAO fee in SOL, (d) Marinade fee in SOL.
+  Show each formula step.
+facts:
+  - '1,000,000 SOL'
+  - '920,000 SOL'
+  - '80,000 SOL'
+  - 'static_bid_claim'
+wrong_facts:
+  - 'Marinade receives 80,000'
+  - 'stakers receive 1,000,000 SOL'
