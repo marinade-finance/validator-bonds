@@ -285,11 +285,11 @@ async fn prepare_funding(
             continue;
         }
 
-        let settlement_amount_funded = funded_to_settlement_stakes
-            .get(&settlement_record.settlement_address)
-            .map_or(0, |(lamports_in_accounts, funded_accounts)|
-                // Amount funded has to be calculated without the minimal stake amount that is not part of the claim
-                *lamports_in_accounts - (funded_accounts.len() as u64 * minimal_stake_lamports));
+        // derive from on-chain fields; stake-account balances under-reserve for stakes funded before a minimum_stake_lamports increase and underflowed
+        let settlement_amount_funded = settlement_record
+            .settlement_account
+            .as_ref()
+            .map_or(0, |s| s.lamports_funded.saturating_sub(s.lamports_claimed));
         let amount_to_fund = settlement_record.settlement_account.as_ref().map_or(
             settlement_record.max_total_claim_sum,
             |settlement| {
