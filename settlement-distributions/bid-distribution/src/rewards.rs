@@ -492,11 +492,11 @@ fn aggregate_rewards(
         .map(|r| r.validators_total_amount)
         .sum::<u64>();
     let mismatch = total_rewards.abs_diff(total_stakers_rewards + total_validators_rewards);
-    if mismatch > 1 {
-        log::warn!(
-            "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
-        );
-    }
+    // 1 lamport tolerance for rounding; anything larger means bad input data
+    assert!(
+        mismatch <= 1,
+        "Rewards mismatch: total={total_rewards} stakers={total_stakers_rewards} validators={total_validators_rewards} delta={mismatch} lamports"
+    );
     info!(
         "Aggregated rewards (total: {} SOL, stakers: {} SOL, validators: {} SOL) for {} vote accounts",
         total_rewards / LAMPORTS_PER_SOL,
