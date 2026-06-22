@@ -1,0 +1,12 @@
+question: >
+  What is DowntimeRevenueImpact? What triggers it, where does it sit in the
+  Validator Bonds settlement type system, and how is the payout split between
+  the validator bond and Marinade?
+facts:
+  - 'ValidatorBond'
+  - 'ProtectedEvent'
+  - 'covered_range_bps'
+wrong_facts:
+  - 'bond covers all'
+  - 'validator covers 100%'
+  - 'bond covers 100'

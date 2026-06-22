@@ -97,6 +97,26 @@ scheduler-bidding → prepare-bid-distribution → init-settlements
 - [Neodyme](https://neodyme.io), tag [`contract-v2.1.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v2.1.0),
   commit `4a5b009` — [audit document](./resources/audit/v2.1.0-neodyme-audit-validator-bonds.pdf)
 
+## Agent skills
+
+Protocol context skills live in [`plugins/validator-bonds/`](./plugins/validator-bonds/).
+See the [plugin README](./plugins/validator-bonds/README.md) for full install instructions.
+
+**Claude Code** (add marketplace once, then install):
+
+```sh
+claude plugin marketplace add marinade-finance/validator-bonds
+claude plugin install validator-bonds@marinade-finance
+```
+
+**Codex:**
+
+```sh
+codex plugin add marinade-finance/validator-bonds
+```
+
+From this repo, no install needed — Codex auto-loads `.agents/skills`.
+
 ## Further Reading
 
 - [CLAUDE.md](./CLAUDE.md) — component index, bid-distribution engine internals, key constraints

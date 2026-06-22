@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "api"
 version = "0.0.0"
 edition = "2021"
@@ -13,6 +14,7 @@ path = "src/bin/cli.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+clap = { workspace = true }
 chrono = { workspace = true }
 env_logger = { workspace = true }
 gcp-bigquery-client = { workspace = true }
@@ -29,7 +31,6 @@ settlement-common = { workspace = true }
 openssl = { workspace = true }
 postgres-openssl = { workspace = true }
 solana-sdk = { workspace = true }
-structopt = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
 tracing = { workspace = true }

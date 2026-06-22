@@ -5,31 +5,31 @@ use api::rate_limit::{
     public_routes_limiter, recover_rate_limited, spawn_limiter_gc, with_rate_limit,
 };
 use api::repositories::protected_events::spawn_protected_events_cache;
+use clap::Parser;
 use env_logger::Env;
 use log::{error, info};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use std::convert::Infallible;
 use std::sync::Arc;
-use structopt::StructOpt;
 use tokio::sync::RwLock;
 use warp::Filter;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 pub struct Params {
-    #[structopt(long = "postgres-url")]
+    #[arg(long = "postgres-url")]
     pub postgres_url: String,
 
-    #[structopt(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
+    #[arg(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
     pub postgres_ssl_root_cert: String,
 
-    #[structopt(long = "gcp-project-id")]
+    #[arg(long = "gcp-project-id")]
     pub gcp_project_id: Option<String>,
 
-    #[structopt(long = "gcp-sa-key")]
+    #[arg(long = "gcp-sa-key")]
     pub gcp_sa_key: Option<String>,
 
-    #[structopt(long = "port", default_value = "8000")]
+    #[arg(long = "port", default_value = "8000")]
     pub port: u16,
 }
 
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     info!("Launching API");
 
-    let params = Params::from_args();
+    let params = Params::parse();
 
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     builder.set_ca_file(&params.postgres_ssl_root_cert)?;

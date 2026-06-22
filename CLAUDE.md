@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Solana monorepo for **Validator Bonds** — an on-chain protocol where validators post bonds as collateral for Marinade stake. Settlements distribute SOL to stakers affected by protected events (PSR) or validator bidding.
 
+Program ID: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+
 Key data flow: snapshot → bid-distribution CLI → settlement JSON → merkle trees → on-chain settlements → claims.
 
 ## Build & Test
@@ -54,6 +56,8 @@ pnpm publish:sdk
 
 Rust toolchain: `1.88.0` (see `rust-toolchain.toml`). Anchor: `0.31.1`, Solana: `2.3.1` (see `Anchor.toml`). Node ≥ 20.18.0 required.
 
+**Footgun:** consumer TS packages (e.g. `bonds-eventing`) fail `eslint` with cryptic `"Unsafe … of a value of type error"` diagnostics until the workspace SDK is built, because typescript-eslint falls back to `error` for unresolved `@marinade.finance/validator-bonds-sdk` imports. Run `pnpm --filter @marinade.finance/validator-bonds-sdk build` (or `pnpm -r build`) before `pnpm check` on a fresh checkout.
+
 ## Simulation & Regression
 
 ```sh
@@ -83,6 +87,15 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
 | `settlement-distributions/merkle-generator`           | Generates Merkle tree JSON from settlement collections          |
 | `settlement-distributions/settlement-common`          | Shared types: `SettlementCollection`, `StakeMetaIndex`          |
 
+### On-chain program (`programs/validator-bonds/`)
+
+Anchor program: 6 state accounts, 23 active instructions (v1 handlers in `instructions/v1/` are commented out at `lib.rs:194-199`, kept for type exports only).
+
+- **States:** Config, Bond (PDA: config+vote_account), BondProduct (PDA: bond+product_type), Settlement (PDA: bond+merkle_root+epoch), SettlementClaims (bitmap dedup), WithdrawRequest (PDA: bond, one per bond).
+- **Instructions:** config/ (init, configure, emergency pause/resume), bond/ (init, configure, configure_with_mint, mint, fund), bond_product/ (init, configure), settlement/ (init, fund, close_v2, cancel, claim_v2, upsize_claims), withdraw/ (init, cancel, claim), stake/ (merge, reset, withdraw).
+- **Access control:** admin_authority (config), operator_authority (settlements/funding), pause_authority (emergency), bond authority or validator identity (bond mgmt), permissionless (claims via merkle proof, closing expired settlements).
+- **PDA seeds:** Bond: `b"bond_account"` + config + vote_account | Settlement: `b"settlement_account"` + bond + merkle_root + epoch_le_bytes | Bonds Withdrawer Authority: `b"bonds_authority"` + config | WithdrawRequest: `b"withdraw_account"` + bond
+
 ### TypeScript packages (`packages/`)
 
 | Package                             | Purpose                                      |
@@ -107,6 +120,23 @@ The core off-chain computation. Inputs: SAM scores JSON, stakes snapshot JSON, r
 - `sam_meta.rs` — parses SAM scoring JSON
 - `apy_api.rs` — fetches SSI/SSR PMPE from `apy.marinade.finance`
 
+### Settlement pipelines (`settlement-pipelines/`)
+
+Each binary handles one stage of the on-chain settlement lifecycle:
+
+| Binary                 | Purpose                                      | Access         |
+| ---------------------- | -------------------------------------------- | -------------- |
+| `init-settlement`      | Create Settlement accounts from merkle trees | operator       |
+| `fund-settlement`      | Fund from bond stake accounts                | operator       |
+| `claim-settlement`     | Claim via merkle proofs                      | permissionless |
+| `close-settlement`     | Close expired, reset/withdraw stakes         | permissionless |
+| `verify-settlement`    | Sanity check on-chain vs JSON                | read-only      |
+| `merge-stakes`         | Consolidate stake accounts per validator     | permissionless |
+| `list-settlement`      | Merkle tree JSON -> settlement listing       | offline        |
+| `list-claimable-epoch` | Query claimable epochs                       | read-only      |
+
+Exit code 100 = retriable failure (Buildkite retries up to 5x).
+
 ### Pipeline automation (`.buildkite/`)
 
 Each YAML pipeline corresponds to a stage in the epoch settlement cycle:
@@ -117,6 +147,14 @@ Data is staged in GCS bucket `marinade-validator-bonds-mainnet/<epoch>/`.
 ### Configuration
 
 `settlement-config.yaml` at repo root configures the bid-distribution CLI (fee parameters, whitelist authorities, settlement types). This is the production config — simulation overrides use separate flags or env vars.
+
+| Source          | Location                                                     |
+| --------------- | ------------------------------------------------------------ |
+| GCS bonds       | `gs://marinade-validator-bonds-mainnet/{epoch}/`             |
+| GCS ETL         | `gs://marinade-stakes-etl-mainnet/{epoch}/`                  |
+| Scoring API     | `https://scoring.marinade.finance/api/v1/scores/sam?epoch=N` |
+| ds-sam-pipeline | GitHub `marinade-finance/ds-sam-pipeline`                    |
+| Bonds API       | `https://validator-bonds-api.marinade.finance`               |
 
 ### Deployment runbooks (`runbooks/`)
 

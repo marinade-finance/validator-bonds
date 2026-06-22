@@ -46,7 +46,16 @@ fuzzing/
 regression-data*
 .tmp-mp-inject-*
 
-# Local session artifacts
+# Session artifacts
 .diary/
 .specs/
+.ship/
 BUGS.md
+**/.claude/tmp/
+
+# Eval run logs (per-run; committed snapshot is plugins/validator-bonds/evals/report_<date>.yml)
+plugins/validator-bonds/evals/report/
+
+# Demo recordings
+*.cast
+*.gif

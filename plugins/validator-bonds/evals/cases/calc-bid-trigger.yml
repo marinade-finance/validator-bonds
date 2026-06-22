@@ -1,0 +1,12 @@
+question: >
+  A validator had bidPmpe=100 in epoch N-1 and bidPmpe=97 in epoch N.
+
+  (a) What is the exact threshold value?
+  (b) Does this trigger a BidTooLowPenalty?
+  Show each formula step.
+facts:
+  - '99.999'
+  - 'previous_bidPmpe'
+wrong_facts:
+  - 'no penalty'
+  - 'below minimum threshold'

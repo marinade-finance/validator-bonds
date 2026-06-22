@@ -1,0 +1,17 @@
+question: >
+  A validator has total_marinade_activating_stake = 4,000 SOL,
+  activating_stake_pmpe = 50, a static_bid_claim of 600 SOL, and (after the
+  distributor fee) stakers_total_claim = 720 SOL.
+
+  Compute: (a) activating_bid_claim, (b) settlement_claim.sum(),
+  (c) activating_fraction, (d) activating_stakers_pool (the PriorityFee pool),
+  (e) active_stakers_pool (the Bidding pool). Show each formula step.
+facts:
+  - '200 SOL'
+  - '0.25'
+  - '180 SOL'
+  - '540 SOL'
+wrong_facts:
+  - '720 SOL pool'
+  - '100 SOL'
+  - 'pool is 720'
