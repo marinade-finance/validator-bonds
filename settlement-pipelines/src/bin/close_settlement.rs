@@ -164,6 +164,7 @@ async fn real_main(
         expired_settlements,
         &listed_settlements,
         &config_address,
+        &config,
         &operator_authority_keypair,
         &marinade_wallet,
         &priority_fee_policy,
@@ -259,6 +260,7 @@ async fn reset_stake_accounts(
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
     listed_settlements: &[BondSettlement],
     config_address: &Pubkey,
+    config: &Config,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
     priority_fee_policy: &PriorityFeePolicy,
@@ -292,6 +294,7 @@ async fn reset_stake_accounts(
             .map_err(CliError::retry_able)?;
     let settlement_funded_stake_accounts =
         filter_settlement_funded(all_bonds_stake_accounts, &clock);
+    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
     for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
@@ -360,7 +363,18 @@ async fn reset_stake_accounts(
                 lamports,
             );
         } else if let Some(settlement_vote_account) = reset_data.vote_account {
-            // Delegated stake account can be reset to a bond
+            // Delegated stake account can be reset to a bond.
+            // ResetStake re-delegates the stake; the on-chain DelegateStake CPI rejects a stake
+            // whose delegatable amount is below the network minimum delegation (custom error 0xc).
+            if lamports < minimal_stake_lamports {
+                reporting.warning().with_msg(format!(
+                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its {} does not exceed the minimum stake size {} required to re-delegate. Manual intervention needed.",
+                    reset_data.settlement,
+                    build_balance_message(lamports, false, false),
+                    build_balance_message(minimal_stake_lamports, false, false),
+                )).add();
+                continue;
+            }
             let req = program
                 .request()
                 .accounts(validator_bonds::accounts::ResetStake {
@@ -542,8 +556,8 @@ impl PrintReportable for CloseSettlementReport {
                     "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (with rent: {})",
                     reset_stake_number,
                     build_balance_message(
-                        reset_stake_lamports -
-                            (reset_stake_number * minimal_stake_account_lamports), false, false
+                        reset_stake_lamports
+                            .saturating_sub(reset_stake_number * minimal_stake_account_lamports), false, false
                     ),
                     build_balance_message(reset_stake_lamports, false, false),
                 ),
@@ -552,8 +566,8 @@ impl PrintReportable for CloseSettlementReport {
                     self.withdraw_wallet,
                     withdrawn_stake_number,
                     build_balance_message(
-                        withdrawn_stake_lamports -
-                            (withdrawn_stake_number * minimal_stake_account_lamports), false, false
+                        withdrawn_stake_lamports
+                            .saturating_sub(withdrawn_stake_number * minimal_stake_account_lamports), false, false
                     ),
                     build_balance_message(withdrawn_stake_lamports, false, false),
                 ),
