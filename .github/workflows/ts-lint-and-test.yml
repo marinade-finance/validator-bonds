@@ -46,10 +46,20 @@ jobs:
         with:
           version: 10
 
-      - name: 🦿 Install Rust tookchain
+      - name: 🔎 Read Rust toolchain version
+        id: rust-toolchain
+        run: |
+          channel=$(grep '^channel' rust-toolchain.toml | sed -E 's/.*"(.+)".*/\1/')
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+      - name: 🦿 Install Rust toolchain
+        # SHA pins the action code; this action does NOT read rust-toolchain.toml,
+        # so the channel is fed in explicitly to keep the toml the single source of truth.
         uses: dtolnay/rust-toolchain@e814c742d4444ce2f3f6abddea7faf00161ed941 # 1.88.0
         with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
       - name: 🧠 Cache Rust dependencies
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
