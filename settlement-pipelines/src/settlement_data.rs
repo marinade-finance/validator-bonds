@@ -43,7 +43,7 @@ pub struct SettlementRecord {
     pub funding_sources: HashMap<SettlementFunder, u64>,
     // Lamports the reserve fronts for this settlement on this run.
     // Set by prepare_funding; consumed by fund_settlements to emit the Marinade-route front.
-    pub reserve_front_lamports: u64,
+    pub reserve_front: u64,
 }
 
 /// Two SettlementRecords are equal if they are of the same bond and have the same epoch and merkle root.
@@ -214,7 +214,7 @@ pub fn parse_from_merkle_tree_collections(
                 funding_sources: merkle_tree.funding_sources.clone(),
                 bond_account: None,
                 settlement_account: None,
-                reserve_front_lamports: 0,
+                reserve_front: 0,
             };
 
             settlement_records_by_epoch
@@ -291,7 +291,7 @@ pub fn parse_settlements_from_json(
                     funding_sources: merkle_tree.funding_sources.clone(),
                     bond_account: None,
                     settlement_account: None,
-                    reserve_front_lamports: 0,
+                    reserve_front: 0,
                 } ;
                 Ok(settlement_record)
             } else {
