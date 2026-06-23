@@ -20,7 +20,9 @@ use settlement_pipelines::reporting::{
     ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
-use settlement_pipelines::reserve::{apply_reserve_inflation, ReserveConfig, ReserveOpts};
+use settlement_pipelines::reserve::{
+    apply_reserve_inflation, reserve_front_lamports, ReserveConfig, ReserveOpts,
+};
 use settlement_pipelines::settlement_data::{
     reason_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
     SettlementRecord,
@@ -156,10 +158,11 @@ async fn real_main(
 
     // Option B: inflate max_total_claim by the reserve prefund so the assert against
     // the on-chain max (set at init) holds and the bond funds toward the inflated max.
-    if let Some(reserve) = ReserveConfig::load(&args.reserve_opts)? {
+    let reserve = ReserveConfig::load(&args.reserve_opts)?;
+    if let Some(reserve) = &reserve {
         settlement_records_per_epoch
             .values_mut()
-            .for_each(|records| apply_reserve_inflation(records, &reserve));
+            .for_each(|records| apply_reserve_inflation(records, reserve));
     }
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
@@ -181,6 +184,7 @@ async fn real_main(
         &config,
         fee_payer.clone(),
         operator_authority.clone(),
+        reserve.as_ref(),
         &priority_fee_policy,
         reporting,
     )
@@ -215,6 +219,7 @@ async fn prepare_funding(
     config: &Config,
     fee_payer: Arc<Keypair>,
     operator_authority: Arc<Keypair>,
+    reserve: Option<&ReserveConfig>,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
@@ -283,24 +288,44 @@ async fn prepare_funding(
             continue;
         }
 
+        // derive from on-chain fields; stake-account balances under-reserve for
+        // stakes funded before a minimum_stake_lamports increase and underflowed
         let settlement_amount_funded = settlement_record
             .settlement_account
             .as_ref()
             .map_or(0, |s| s.lamports_funded.saturating_sub(s.lamports_claimed));
-        let amount_to_fund = settlement_record.settlement_account.as_ref().map_or(
-            settlement_record.max_total_claim_sum,
-            |settlement| {
+
+        // Reserve front (Coord Goal 2): on first touch of a reserve-enabled bond
+        // settlement, the reserve fronts R from marinade_wallet (emitted in
+        // fund_settlements) so stakers can claim on time. The bond then funds the
+        // remainder toward the inflated max (its reimbursement), so the bond target
+        // is reduced by the front to avoid double-funding within this run.
+        let reserve_front = reserve_front_lamports(
+            reserve,
+            &settlement_record.vote_account_address,
+            matches!(
+                settlement_record.funder,
+                SettlementFunderType::ValidatorBond(_)
+            ),
+            settlement_amount_funded,
+        );
+        settlement_record.reserve_front_lamports = reserve_front;
+
+        let amount_to_fund = settlement_record
+            .settlement_account
+            .as_ref()
+            .map_or(settlement_record.max_total_claim_sum, |settlement| {
                 assert_eq!(
                     settlement.max_total_claim,
-                    settlement_record.max_total_claim_sum,
+                    settlement_record.max_total_claim_sum
                 );
                 settlement
                     .max_total_claim
                     .saturating_sub(settlement.lamports_funded)
-            },
-        );
+            })
+            .saturating_sub(reserve_front);
 
-        if amount_to_fund == 0 {
+        if amount_to_fund == 0 && reserve_front == 0 {
             info!(
                 "Settlement {} (vote account {}, epoch {}, funder {:?}) already funded by {}, skipping funding",
                 settlement_record.settlement_address,
@@ -572,6 +597,9 @@ async fn prepare_funding(
 }
 
 fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
+    if settlement_record.reserve_front_lamports > 0 {
+        return true;
+    }
     match &settlement_record.funder {
         SettlementFunderType::Marinade(data) => {
             if let Some(SettlementFunderMarinade { amount_to_fund }) = data {
@@ -627,6 +655,39 @@ async fn fund_settlements(
                 settlement_record.funder
             );
             continue;
+        }
+        // Reserve front (Coord Goal 2): create a stake account funded from
+        // marinade_wallet so a reserve-enabled settlement is claimable immediately.
+        // The bond funds the remainder below; at close the unclaimed leftover (the
+        // fronted amount) is reaped back to marinade_wallet via WithdrawStake.
+        if settlement_record.reserve_front_lamports > 0 {
+            let new_stake_account_keypair = Arc::new(Keypair::new());
+            transaction_builder.add_signer_checked(&new_stake_account_keypair);
+            info!(
+                "Settlement: {} (vote account {}, epoch {}) reserve front {} from marinade_wallet, stake account {}",
+                settlement_record.settlement_address,
+                settlement_record.vote_account_address,
+                settlement_record.epoch,
+                build_balance_message(settlement_record.reserve_front_lamports, false, false),
+                new_stake_account_keypair.pubkey()
+            );
+            let instructions = create_stake_account_instructions(
+                &marinade_wallet.pubkey(),
+                &new_stake_account_keypair.pubkey(),
+                &Authorized {
+                    withdrawer: withdrawer_authority,
+                    staker: settlement_record.settlement_staker_authority,
+                },
+                &Lockup {
+                    unix_timestamp: 0,
+                    epoch: 0,
+                    custodian: withdrawer_authority,
+                },
+                // after claiming the rest has to be still a living stake account
+                settlement_record.reserve_front_lamports + minimal_stake_lamports,
+            );
+            transaction_builder.add_instructions(instructions)?;
+            transaction_builder.finish_instruction_pack();
         }
         match &settlement_record.funder {
             SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
