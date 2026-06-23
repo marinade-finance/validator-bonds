@@ -105,11 +105,11 @@ enum PoolKind {
     Activating,
 }
 
-fn fraction_or_fallback(numerator: Decimal, denominator: Decimal, fallback: Decimal) -> Decimal {
+fn checked_fraction(numerator: Decimal, denominator: Decimal) -> Option<Decimal> {
     if denominator > Decimal::ZERO {
-        numerator / denominator
+        Some(numerator / denominator)
     } else {
-        fallback
+        None
     }
 }
 
@@ -259,12 +259,12 @@ fn staker_rewards_breakdown(
         let staker_block_rewards =
             mr.block * (Decimal::ONE - commissions.block_rewards_commission_dec);
         let staker_bid_rewards = result_claims.static_bid_claim;
-        let total = staker_inflation_rewards
+        let active_total = staker_inflation_rewards
             + staker_mev_rewards
             + staker_block_rewards
             + staker_bid_rewards;
         StakerRewards {
-            active_total: total,
+            active_total,
             inflation: Some(staker_inflation_rewards),
             mev: Some(staker_mev_rewards),
             block: Some(staker_block_rewards),
@@ -272,9 +272,9 @@ fn staker_rewards_breakdown(
         }
     } else {
         let total_rev_share = validator.rev_share.total_pmpe / Decimal::ONE_THOUSAND;
-        let total = Decimal::from(totals.marinade_active) * total_rev_share;
+        let active_total = Decimal::from(totals.marinade_active) * total_rev_share;
         StakerRewards {
-            active_total: total,
+            active_total,
             inflation: None,
             mev: None,
             block: None,
@@ -318,11 +318,9 @@ fn split_distributor_fee(
     let stakers_total_claim = settlement_claim_sum.saturating_sub(distributor_fee_claim);
     // Split stakers_total_claim between active stakers (earned rewards + static bid)
     // and activating stakers (activating charge), proportional to each pool's share.
-    let activating_fraction = fraction_or_fallback(
-        result_claims.activating_bid_claim,
-        result_claims.sum(),
-        Decimal::ZERO,
-    );
+    let activating_fraction =
+        checked_fraction(result_claims.activating_bid_claim, result_claims.sum())
+            .unwrap_or(Decimal::ZERO);
     let activating_pool: u64 = (Decimal::from(stakers_total_claim) * activating_fraction)
         .to_u64()
         .unwrap_or(0);
@@ -518,15 +516,15 @@ pub(crate) fn generate_bid_settlements_worker(
         );
 
         // Split fee claims proportionally between active and activating pools
-        let activating_fee_fraction = fraction_or_fallback(
+        let activating_fee_fraction = checked_fraction(
             Decimal::from(fee.activating_pool),
             Decimal::from(fee.stakers_total_claim),
-            if fee.settlement_claim_sum > 0 {
-                fee.activating_fraction
-            } else {
-                Decimal::ZERO
-            },
-        );
+        )
+        .unwrap_or(if fee.settlement_claim_sum > 0 {
+            fee.activating_fraction
+        } else {
+            Decimal::ZERO
+        });
         let (marinade_fee_for_priority, marinade_fee_for_bidding) =
             split_by_fraction(fee.marinade_fee, activating_fee_fraction);
         let (dao_fee_for_priority, dao_fee_for_bidding) =

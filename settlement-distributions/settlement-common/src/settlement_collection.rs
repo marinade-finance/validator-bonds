@@ -140,9 +140,6 @@ pub enum SettlementFunder {
     Marinade,
 }
 
-// Retained for the settlement-config YAML input and the protected-events API response,
-// both of which still carry the nested `{ "meta": { "funder": ... } }` shape. The
-// generated settlement JSON itself now stores `funder` directly on Settlement.
 #[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, utoipa::ToSchema)]
 pub struct SettlementMeta {
     pub funder: SettlementFunder,
