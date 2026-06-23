@@ -20,9 +20,7 @@ use settlement_pipelines::reporting::{
     with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
     ReportSerializable,
 };
-use settlement_pipelines::reporting_data::{
-    ReportingFunderSettlement, ReportingReasonSettlement, SettlementsReportData,
-};
+use settlement_pipelines::reporting_data::{ReportingFunderSettlement, SettlementsReportData};
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -461,23 +459,17 @@ impl PrintReportable for InitSettlementReport {
             settlements_max_claim_sum: loaded_settlements_max_claim_sum,
             max_merkle_nodes_sum: loaded_max_merkle_nodes_sum,
         } = self.list_loaded_settlements_data();
-        let settlements_info_by_reason: Vec<String> = self.list_settlements_data_by_reason()
-            .iter()
-            .flat_map(|(reason, (loaded_data, created_data))| {
-                vec![
+        let settlements_info_by_reason: Vec<String> =
+            SettlementsReportData::desired_amount_by_reason(&self.json_loaded_settlements)
+                .iter()
+                .map(|(reason, desired_amount)| {
                     format!(
-                        "    Reason: {}, created settlements {}/{}, merkle nodes {}/{}, created claim amounts: {}/{}",
+                        "    Reason: {}, desired claim amount: {}",
                         reason,
-                        created_data.settlements_count,
-                        loaded_data.settlements_count,
-                        created_data.max_merkle_nodes_sum,
-                        loaded_data.max_merkle_nodes_sum,
-                        build_balance_message(created_data.settlements_max_claim_sum, false, true),
-                        build_balance_message(loaded_data.settlements_max_claim_sum, false, true),
+                        build_balance_message(*desired_amount, false, true),
                     )
-                ]
-            })
-            .collect();
+                })
+                .collect();
         let settlements_info_by_funder: Vec<String> = ReportingFunderSettlement::items()
             .iter()
             .filter_map(|funder| {
@@ -603,28 +595,6 @@ impl InitSettlementReport {
                 .iter()
                 .collect::<Vec<&SettlementRecord>>(),
         )
-    }
-
-    /// Loading and created settlement data grouped by settlement reason.
-    /// The returned data contains a tuple of (Loaded, Created) SettlementsReportData.
-    fn list_settlements_data_by_reason(
-        &self,
-    ) -> HashMap<ReportingReasonSettlement, (SettlementsReportData, SettlementsReportData)> {
-        let mut data = HashMap::new();
-        for report_type in ReportingReasonSettlement::items() {
-            let (loaded_data, created_data) = (
-                SettlementsReportData::calculate_for_reason(
-                    &report_type,
-                    &self.json_loaded_settlements,
-                ),
-                SettlementsReportData::calculate_for_reason(
-                    &report_type,
-                    &self.created_settlements,
-                ),
-            );
-            data.insert(report_type, (loaded_data, created_data));
-        }
-        data
     }
 
     fn list_settlements_data(settlement_records: &[&SettlementRecord]) -> SettlementsReportData {
