@@ -135,7 +135,7 @@ async fn real_main(
     let mut settlement_records =
         load_on_chain_data(rpc_client.clone(), &collections, args.epoch).await?;
 
-    // Option B: inflate max_total_claim by the reserve prefund for reserve-enabled
+    // Inflate max_total_claim by the reserve prefund for reserve-enabled
     // settlements, so the created on-chain max matches what the bond funds and reaps.
     if let Some(reserve) = ReserveConfig::load(&args.reserve_opts)? {
         apply_reserve_inflation(&mut settlement_records, &reserve);

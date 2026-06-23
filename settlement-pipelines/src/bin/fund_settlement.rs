@@ -156,7 +156,7 @@ async fn real_main(
     let mut settlement_records_per_epoch =
         load_merkle_tree_with_on_chain(rpc_client.clone(), &collections, args.epoch).await?;
 
-    // Option B: inflate max_total_claim by the reserve prefund so the assert against
+    // Inflate max_total_claim by the reserve prefund so the assert against
     // the on-chain max (set at init) holds and the bond funds toward the inflated max.
     let reserve = ReserveConfig::load(&args.reserve_opts)?;
     if let Some(reserve) = &reserve {

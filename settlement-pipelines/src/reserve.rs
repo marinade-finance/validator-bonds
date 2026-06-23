@@ -78,7 +78,7 @@ impl ReserveConfig {
     }
 }
 
-/// Option B: inflate on-chain `max_total_claim` by the reserve prefund for every
+/// Inflate on-chain `max_total_claim` by the reserve prefund for every
 /// reserve-enabled, bond-funded settlement. The merkle root still commits to the
 /// real claims (their sum is unchanged); the extra `prefund_lamports` headroom is
 /// funded by the validator bond, never claimed (no merkle node covers it), and
