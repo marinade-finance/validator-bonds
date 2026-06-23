@@ -19,9 +19,9 @@ use settlement_pipelines::reporting::{
     with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
     ReportSerializable,
 };
-use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
+use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::{
-    reason_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
+    reasons_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
     SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
@@ -254,7 +254,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                reason_display(&settlement_record.reason),
+                reasons_display(&settlement_record.reason_amounts),
             )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
@@ -265,7 +265,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                reason_display(&settlement_record.reason),
+                reasons_display(&settlement_record.reason_amounts),
             )).with_vote(settlement_record.vote_account_address).add();
             continue;
         }
@@ -276,7 +276,7 @@ async fn prepare_funding(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
-                reason_display(&settlement_record.reason),
+                reasons_display(&settlement_record.reason_amounts),
             )).with_vote(settlement_record.vote_account_address).add();
             reporting
                 .reportable
@@ -326,7 +326,7 @@ async fn prepare_funding(
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
-                    reason_display(&settlement_record.reason),
+                    reasons_display(&settlement_record.reason_amounts),
                     build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     epoch,
                     build_balance_message(amount_to_fund, false, false)
@@ -361,7 +361,7 @@ async fn prepare_funding(
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         settlement_record.bond_address,
-                        reason_display(&settlement_record.reason),
+                        reasons_display(&settlement_record.reason_amounts),
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                         epoch,
                         build_balance_message(amount_to_fund, false, false),
@@ -460,7 +460,7 @@ async fn prepare_funding(
                                 settlement_record.settlement_address,
                                 settlement_record.vote_account_address,
                                 epoch,
-                                reason_display(&settlement_record.reason),
+                                reasons_display(&settlement_record.reason_amounts),
                                 build_balance_message(settlement_record.max_total_claim_sum, false, false),
                                 build_balance_message(amount_to_fund, false, false),
                                 build_balance_message(amount_to_fund + minimal_stake_lamports, false, false),
@@ -506,7 +506,7 @@ async fn prepare_funding(
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
-                        reason_display(&settlement_record.reason),
+                        reasons_display(&settlement_record.reason_amounts),
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                     )).with_vote(settlement_record.vote_account_address).add();
                 }
@@ -592,7 +592,7 @@ async fn fund_settlements(
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 settlement_record.epoch,
-                reason_display(&settlement_record.reason),
+                reasons_display(&settlement_record.reason_amounts),
                 settlement_record.funder
             );
             continue;
@@ -607,7 +607,7 @@ async fn fund_settlements(
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.epoch,
-                    reason_display(&settlement_record.reason),
+                    reasons_display(&settlement_record.reason_amounts),
                     settlement_record.funder,
                     new_stake_account_keypair.pubkey()
                 );
@@ -670,7 +670,7 @@ async fn fund_settlements(
                             settlement_record.settlement_address,
                             settlement_record.bond_address,
                             settlement_record.vote_account_address,
-                            reason_display(&settlement_record.reason),
+                            reasons_display(&settlement_record.reason_amounts),
                             stake_account_to_fund,
                         ),
                     )?;
@@ -684,7 +684,7 @@ async fn fund_settlements(
                     settlement_record.vote_account_address,
                     settlement_record.bond_address,
                     settlement_record.epoch,
-                    reason_display(&settlement_record.reason),
+                    reasons_display(&settlement_record.reason_amounts),
                     settlement_record.funder
                 );
             }
@@ -847,42 +847,6 @@ impl FundSettlementsReport {
     fn mut_ref(&mut self, epoch: u64) -> &mut FundSettlementReport {
         self.settlements_per_epoch.entry(epoch).or_default()
     }
-
-    fn add_reason_specific_report(
-        report: &mut Vec<String>,
-        reason: ReportingReasonSettlement,
-        funded_data: &FundSettlementReport,
-    ) {
-        let json_loaded = SettlementsReportData::calculate_for_reason(
-            &reason,
-            &funded_data.json_loaded_settlements,
-        );
-
-        let funded = SettlementsReportData::calculate_sum_amount_for_reason(
-            &reason,
-            &funded_data.funded_settlements,
-        );
-
-        let already_funded = SettlementsReportData::calculate_sum_amount_for_reason(
-            &reason,
-            &funded_data.already_funded_settlements,
-        );
-
-        if json_loaded.settlements_count > 0 {
-            report.push(format!(
-                "  - {}: funded {}/{} settlements with {}/{} SOLs (before this already funded {}/{} settlements with {}/{} SOLs)",
-                reason,
-                funded.0.settlements_count,
-                json_loaded.settlements_count,
-                build_balance_message(funded.1, false, false),
-                build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
-                already_funded.0.settlements_count,
-                json_loaded.settlements_count,
-                build_balance_message(already_funded.1, false, false),
-                build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
-            ));
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -903,10 +867,7 @@ struct EpochFundingSummary {
 #[derive(Debug, Clone, Serialize)]
 struct ReasonFundingSummary {
     reason: String,
-    funded_settlements: u64,
-    total_settlements: u64,
-    funded_amount_sol: f64,
-    total_amount_sol: f64,
+    desired_amount_sol: f64,
 }
 
 impl PrintReportable for FundSettlementsReport {
@@ -942,8 +903,14 @@ impl PrintReportable for FundSettlementsReport {
                     build_balance_message(funded_data.already_funded_amount(), false, false),
                     build_balance_message(json_loaded.settlements_max_claim_sum, false, false),
                 ));
-                for reason in ReportingReasonSettlement::items() {
-                    Self::add_reason_specific_report(&mut report, reason, funded_data);
+                for (reason, desired_amount) in SettlementsReportData::desired_amount_by_reason(
+                    &funded_data.json_loaded_settlements,
+                ) {
+                    report.push(format!(
+                        "  - {}: desired claim amount {}",
+                        reason,
+                        build_balance_message(desired_amount, false, false),
+                    ));
                 }
                 if funded_data.not_funded_by_validator_bond_count > 0 {
                     report.push(format!(
@@ -1015,44 +982,17 @@ impl ReportSerializable for FundSettlementsReport {
                     let funded_amount =
                         funded_data.funded_amount() + funded_data.already_funded_amount();
 
-                    // Build per-reason breakdown
-                    let reasons: Vec<ReasonFundingSummary> = ReportingReasonSettlement::items()
+                    // Per-reason desired (intended) amount split. Funding is tracked only per
+                    // settlement on-chain and a unified settlement may merge reasons, so the
+                    // funded amount is reported at epoch/funder level only, not per reason.
+                    let reasons: Vec<ReasonFundingSummary> =
+                        SettlementsReportData::desired_amount_by_reason(
+                            &funded_data.json_loaded_settlements,
+                        )
                         .into_iter()
-                        .filter_map(|reason| {
-                            let json_loaded_for_reason =
-                                SettlementsReportData::calculate_for_reason(
-                                    &reason,
-                                    &funded_data.json_loaded_settlements,
-                                );
-
-                            // Skip reasons with no settlements
-                            if json_loaded_for_reason.settlements_count == 0 {
-                                return None;
-                            }
-
-                            let funded = SettlementsReportData::calculate_sum_amount_for_reason(
-                                &reason,
-                                &funded_data.funded_settlements,
-                            );
-                            let already_funded =
-                                SettlementsReportData::calculate_sum_amount_for_reason(
-                                    &reason,
-                                    &funded_data.already_funded_settlements,
-                                );
-
-                            let total_funded =
-                                funded.0.settlements_count + already_funded.0.settlements_count;
-                            let total_funded_amount = funded.1 + already_funded.1;
-
-                            Some(ReasonFundingSummary {
-                                reason: reason.to_string(),
-                                funded_settlements: total_funded,
-                                total_settlements: json_loaded_for_reason.settlements_count,
-                                funded_amount_sol: lamports_to_sol(total_funded_amount),
-                                total_amount_sol: lamports_to_sol(
-                                    json_loaded_for_reason.settlements_max_claim_sum,
-                                ),
-                            })
+                        .map(|(reason, desired_amount)| ReasonFundingSummary {
+                            reason: reason.to_string(),
+                            desired_amount_sol: lamports_to_sol(desired_amount),
                         })
                         .collect();
 

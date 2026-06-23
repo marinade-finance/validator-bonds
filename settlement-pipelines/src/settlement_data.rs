@@ -3,8 +3,8 @@ use anyhow::{anyhow, ensure};
 use log::debug;
 use merkle_tree::psr_claim::TreeNode;
 use settlement_common::merkle_tree_collection::MerkleTreeCollection;
-use settlement_common::settlement_collection::{SettlementFunder, SettlementReason};
-use std::collections::HashMap;
+use settlement_common::settlement_collection::{SettlementFunder, SettlementReasonKind};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -37,8 +37,8 @@ pub struct SettlementRecord {
     pub max_total_claim: u64,
     // The funder of the settlement, from the JSON file (or derived/defaulted when loaded from merkle-tree-only)
     pub funder: SettlementFunderType,
-    // The reason for the settlement (protected event, bidding...), from the JSON file (None when loaded from merkle-tree-only)
-    pub reason: Option<SettlementReason>,
+    // Desired claim lamports split by settlement reason (empty when not carried by the source data)
+    pub reason_amounts: BTreeMap<SettlementReasonKind, u64>,
     // Per-funder funding amounts from the merkle tree
     pub funding_sources: HashMap<SettlementFunder, u64>,
 }
@@ -111,12 +111,16 @@ impl Display for SettlementFunderType {
     }
 }
 
-/// Display helper for optional reason
-pub fn reason_display(reason: &Option<SettlementReason>) -> String {
-    match reason {
-        Some(r) => r.to_string(),
-        None => "Unknown".to_string(),
+/// Display helper for the reasons present in a settlement's desired-amount split
+pub fn reasons_display(reason_amounts: &BTreeMap<SettlementReasonKind, u64>) -> String {
+    if reason_amounts.is_empty() {
+        return "Unknown".to_string();
     }
+    reason_amounts
+        .keys()
+        .map(|k| k.to_string())
+        .collect::<Vec<_>>()
+        .join("+")
 }
 
 /// Display helper for funder type
@@ -207,7 +211,7 @@ pub fn parse_from_merkle_tree_collections(
                 max_total_claim_sum: merkle_tree.max_total_claim_sum,
                 max_total_claim: merkle_tree.max_total_claims as u64,
                 funder,
-                reason: None,
+                reason_amounts: merkle_tree.reason_amounts.clone(),
                 funding_sources: merkle_tree.funding_sources.clone(),
                 bond_account: None,
                 settlement_account: None,
@@ -283,7 +287,10 @@ pub fn parse_settlements_from_json(
                     max_total_claim_sum: merkle_tree.max_total_claim_sum,
                     max_total_claim: merkle_tree.max_total_claims as u64,
                     funder: SettlementFunderType::new(&settlement.meta.funder),
-                    reason: Some(settlement.reason.clone()),
+                    reason_amounts: BTreeMap::from([(
+                        SettlementReasonKind::from(&settlement.reason),
+                        merkle_tree.max_total_claim_sum,
+                    )]),
                     funding_sources: merkle_tree.funding_sources.clone(),
                     bond_account: None,
                     settlement_account: None,
