@@ -370,7 +370,7 @@ async fn prepare_funding(
 
                 // for the found and fitting stake accounts: taking first one and trying to merge other ones into it
                 let stake_account_to_fund: Option<(FundBondStakeAccount, StakeAccountStateType)> =
-                    // below the on-chain minimal stake size the program cannot split nor fund-whole (would underflow at fund_settlement.rs:199), so skip
+                    // below the on-chain minimal stake size the program cannot split nor fund-whole (would underflow on-chain), so skip
                     if stake_accounts_to_fund.is_empty()
                         || funding_lamports_accumulated <= minimal_stake_lamports
                     {
@@ -424,9 +424,13 @@ async fn prepare_funding(
                         .sum();
                     let destination_merged_lamports =
                         funding_lamports_accumulated.saturating_sub(non_mergeable_lamports);
-                    // below the minimum stake size the destination funding underflows on-chain (fund_settlement.rs:200), so skip funding it (the merge pipeline consolidates it later)
+                    // below the minimum stake size the destination funding underflows on-chain, so skip funding it (the merge pipeline consolidates it later)
                     let fund_destination = destination_merged_lamports > minimal_stake_lamports;
+                    // lamports actually published to funding (net of the on-chain min-size reserve), reported as funded
+                    let mut published_funding_lamports: u64 = 0;
                     if fund_destination {
+                        published_funding_lamports +=
+                            destination_merged_lamports.saturating_sub(minimal_stake_lamports);
                         info!(
                             "Settlement: {} will be funded with destination {} of merged size {} SOLs and {} non-mergeable stake accounts funded on their own",
                             settlement_record.settlement_address,
@@ -450,7 +454,7 @@ async fn prepare_funding(
                         )).with_vote(settlement_record.vote_account_address).add();
                     }
 
-                    // each non-mergeable account is funded on its own; below the minimum stake size it would underflow on-chain (fund_settlement.rs:200), so skip it (the merge pipeline consolidates same-state siblings later)
+                    // each non-mergeable account is funded on its own; below the minimum stake size it would underflow on-chain, so skip it (the merge pipeline consolidates same-state siblings later)
                     for stake_account_address in non_mergeable {
                         let lamports = possible_to_merge
                             .iter()
@@ -469,6 +473,8 @@ async fn prepare_funding(
                             )).with_vote(settlement_record.vote_account_address).add();
                             continue;
                         }
+                        published_funding_lamports +=
+                            lamports.saturating_sub(minimal_stake_lamports);
                         validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: stake_account_address,
                         });
@@ -489,17 +495,8 @@ async fn prepare_funding(
                                 build_balance_message(amount_to_fund + minimal_stake_lamports, false, false),
                                 build_balance_message(funding_lamports_accumulated, false, false)
                             )).with_vote(settlement_record.vote_account_address).add();
-                            reporting.reportable.add_funded_settlement(
-                                settlement_record,
-                                funding_lamports_accumulated.saturating_sub(minimal_stake_lamports),
-                            );
                         }
-                        Ordering::Equal => {
-                            // fully funded and whole stake account is used for the settlement funding
-                            reporting
-                                .reportable
-                                .add_funded_settlement(settlement_record, amount_to_fund);
-                        }
+                        Ordering::Equal => {}
                         Ordering::Greater => {
                             // the stake account has got (or having after merging) more lamports than needed for the settlement in the current for-loop,
                             // the rest of lamports will be available in the split stake account
@@ -519,10 +516,15 @@ async fn prepare_funding(
                                     state: destination_stake_state,
                                 });
                             }
-                            reporting
-                                .reportable
-                                .add_funded_settlement(settlement_record, amount_to_fund);
                         }
+                    }
+                    // report what was actually published to funding (capped by the need known from the merkle tree), not the planned total
+                    // only count it as funded when something was really published (all-dust corner publishes nothing)
+                    let published_funding = published_funding_lamports.min(amount_to_fund);
+                    if published_funding > 0 {
+                        reporting
+                            .reportable
+                            .add_funded_settlement(settlement_record, published_funding);
                     }
                 } else {
                     reporting.warning().with_msg(format!(
@@ -661,7 +663,7 @@ async fn fund_settlements(
                     ..
                 } in validator_bonds_funders
                 {
-                    // prepare_funding skips non-mergeable accounts below the minimum stake size (fund_settlement.rs:200 would otherwise underflow)
+                    // prepare_funding skips non-mergeable accounts below the minimum stake size (would otherwise underflow on-chain)
                     // Settlement funding could be of two types: from validator bond or from operator wallet
                     let split_stake_account_keypair = Arc::new(Keypair::new());
                     let req = program
