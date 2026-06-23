@@ -89,10 +89,16 @@ impl ProtectedEvent {
 
     fn claim_per_stake(&self) -> Decimal {
         match self {
-            ProtectedEvent::CommissionSamIncrease { expected_epr, actual_epr, .. }
-            | ProtectedEvent::DowntimeRevenueImpact { expected_epr, actual_epr, .. } => {
-                expected_epr - actual_epr
+            ProtectedEvent::CommissionSamIncrease {
+                expected_epr,
+                actual_epr,
+                ..
             }
+            | ProtectedEvent::DowntimeRevenueImpact {
+                expected_epr,
+                actual_epr,
+                ..
+            } => expected_epr - actual_epr,
             non_implemented => {
                 panic!("Claim per stake is not implemented for event {non_implemented:?}")
             }
