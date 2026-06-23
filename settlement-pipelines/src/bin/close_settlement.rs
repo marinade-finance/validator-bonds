@@ -368,7 +368,7 @@ async fn reset_stake_accounts(
             // whose delegatable amount is below the network minimum delegation (custom error 0xc).
             if lamports < minimal_stake_lamports {
                 reporting.warning().with_msg(format!(
-                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its {} does not exceed the minimum stake size {} required to re-delegate. Manual intervention needed.",
+                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate. Manual intervention needed.",
                     reset_data.settlement,
                     build_balance_message(lamports, false, false),
                     build_balance_message(minimal_stake_lamports, false, false),
