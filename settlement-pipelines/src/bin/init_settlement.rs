@@ -137,7 +137,7 @@ async fn real_main(
 
     // Inflate max_total_claim by the reserve prefund for reserve-enabled
     // settlements, so the created on-chain max matches what the bond funds and reaps.
-    if let Some(reserve) = ReserveConfig::load(&args.reserve_opts)? {
+    if let Some(reserve) = ReserveConfig::load(&args.reserve_opts) {
         apply_reserve_inflation(&mut settlement_records, &reserve);
     }
 

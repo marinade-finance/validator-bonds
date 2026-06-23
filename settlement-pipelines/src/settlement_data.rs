@@ -41,7 +41,7 @@ pub struct SettlementRecord {
     pub reason: Option<SettlementReason>,
     // Per-funder funding amounts from the merkle tree
     pub funding_sources: HashMap<SettlementFunder, u64>,
-    // Lamports the reserve fronts for this settlement on this run (0 = no reserve front).
+    // Lamports the reserve fronts for this settlement on this run.
     // Set by prepare_funding; consumed by fund_settlements to emit the Marinade-route front.
     pub reserve_front_lamports: u64,
 }

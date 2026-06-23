@@ -1,27 +1,14 @@
-use crate::arguments::load_pubkey;
 use crate::settlement_data::{SettlementFunderType, SettlementRecord};
-use anchor_client::anchor_lang::prelude::Pubkey;
-use anyhow::anyhow;
 use clap::Args;
 use log::info;
-use std::collections::HashSet;
-use std::fs;
-use std::path::PathBuf;
 
-/// CLI options for the global reserve that fronts mSOL bid payouts (Coord Goal 2).
-/// When the gate file is unset/empty or the prefund is zero, the feature is OFF
-/// and behavior is identical to today.
+/// CLI options for the global reserve that fronts mSOL bid payouts. A zero
+/// prefund turns the feature off and the pipeline behaves as it did before.
 #[derive(Debug, Clone, Args)]
 pub struct ReserveOpts {
-    /// File of vote accounts (one base58 pubkey per line; '#' comments allowed)
-    /// whose bond-funded settlements are fronted from the reserve. Absent/empty
-    /// => feature off.
-    #[arg(long, env)]
-    pub reserve_enabled_vote_accounts: Option<PathBuf>,
-
-    /// Lamports the reserve pre-funds per reserve-enabled settlement (R). The
-    /// on-chain max_total_claim is inflated by exactly this amount so the bond's
-    /// funding reimburses the reserve and the leftover is reaped back at close.
+    /// Lamports the reserve pre-funds per bond settlement (R). The on-chain
+    /// max_total_claim is inflated by exactly this amount so the bond's funding
+    /// reimburses the reserve and the leftover is reaped back at close.
     #[arg(long, env, default_value_t = 0)]
     pub reserve_prefund_lamports: u64,
 }
@@ -29,96 +16,63 @@ pub struct ReserveOpts {
 /// Resolved reserve configuration; build via [`ReserveConfig::load`].
 #[derive(Debug, Clone)]
 pub struct ReserveConfig {
-    enabled_vote_accounts: HashSet<Pubkey>,
     pub prefund_lamports: u64,
 }
 
 impl ReserveConfig {
-    /// Resolve [`ReserveOpts`]. Returns `None` when the feature is off (no gate
-    /// file, empty gate, or zero prefund), so callers skip all reserve behavior.
-    pub fn load(opts: &ReserveOpts) -> anyhow::Result<Option<Self>> {
-        let path = match &opts.reserve_enabled_vote_accounts {
-            Some(path) => path,
-            None => return Ok(None),
-        };
-        let contents = fs::read_to_string(path)
-            .map_err(|e| anyhow!("Could not read reserve gate file '{}': {e}", path.display()))?;
-        let enabled_vote_accounts = contents
-            .lines()
-            .map(str::trim)
-            .filter(|line| !line.is_empty() && !line.starts_with('#'))
-            .map(load_pubkey)
-            .collect::<anyhow::Result<HashSet<Pubkey>>>()?;
-        let config = Self::from_enabled(enabled_vote_accounts, opts.reserve_prefund_lamports);
-        if let Some(config) = &config {
-            info!(
-                "Reserve enabled for {} vote accounts, prefund {} lamports each",
-                config.enabled_vote_accounts.len(),
-                config.prefund_lamports,
-            );
+    /// Resolve [`ReserveOpts`]. Returns `None` when the prefund is zero, so
+    /// callers skip all reserve behavior.
+    pub fn load(opts: &ReserveOpts) -> Option<Self> {
+        if opts.reserve_prefund_lamports == 0 {
+            return None;
         }
-        Ok(config)
-    }
-
-    /// Build a config, returning `None` when the feature is effectively off
-    /// (no enabled vote accounts, or zero prefund).
-    fn from_enabled(enabled_vote_accounts: HashSet<Pubkey>, prefund_lamports: u64) -> Option<Self> {
-        if enabled_vote_accounts.is_empty() || prefund_lamports == 0 {
-            None
-        } else {
-            Some(Self {
-                enabled_vote_accounts,
-                prefund_lamports,
-            })
-        }
-    }
-
-    pub fn is_enabled(&self, vote_account: &Pubkey) -> bool {
-        self.enabled_vote_accounts.contains(vote_account)
+        info!(
+            "Reserve enabled for all bond settlements, prefund {} lamports each",
+            opts.reserve_prefund_lamports,
+        );
+        Some(Self {
+            prefund_lamports: opts.reserve_prefund_lamports,
+        })
     }
 }
 
-/// Inflate on-chain `max_total_claim` by the reserve prefund for every
-/// reserve-enabled, bond-funded settlement. The merkle root still commits to the
-/// real claims (their sum is unchanged); the extra `prefund_lamports` headroom is
-/// funded by the validator bond, never claimed (no merkle node covers it), and
-/// reaped back to the reserve at close.
+/// Whether the reserve fronts this settlement. Bond-funded only: Marinade-funded
+/// settlements (e.g. PSR) fund from `marinade_wallet` directly, are already
+/// claimable on time, and have no bond to reimburse a front.
+fn is_reserve_target(record: &SettlementRecord) -> bool {
+    matches!(record.funder, SettlementFunderType::ValidatorBond(_))
+}
+
+/// Inflate on-chain `max_total_claim` by the reserve prefund for every bond-funded
+/// settlement. The merkle root still commits to the real claims (their sum is
+/// unchanged); the extra `prefund_lamports` headroom is funded by the validator
+/// bond, never claimed (no merkle node covers it), and reaped back to the reserve
+/// at close.
 ///
-/// Gated to `ValidatorBond` funder so only the bond-funded staker payout is
-/// inflated, not Marinade-funded settlements (e.g. PSR).
-///
-/// INVARIANT: the inflation MUST equal the amount the reserve actually fronts from
-/// `marinade_wallet` during normal funding. If the reserve fronts less, the bond
-/// over-funds and the reserve over-recovers. Apply this in every binary that reads
-/// the on-chain `max_total_claim` (init sets it; fund targets it), so both sides
-/// stay consistent and the funding assert holds.
+/// INVARIANT: the inflation MUST equal what [`reserve_front_lamports`] fronts —
+/// same target, same `prefund_lamports` — so the bond funds toward exactly the
+/// inflated max and the funding assert holds.
 pub fn apply_reserve_inflation(records: &mut [SettlementRecord], reserve: &ReserveConfig) {
     for record in records.iter_mut() {
-        if reserve.is_enabled(&record.vote_account_address)
-            && matches!(record.funder, SettlementFunderType::ValidatorBond(_))
-        {
+        if is_reserve_target(record) {
             record.max_total_claim_sum += reserve.prefund_lamports;
         }
     }
 }
 
-/// Lamports to front from the reserve for this settlement on this funding run. Fronts
-/// the prefund R only for a reserve-enabled, bond-funded settlement that has nothing
-/// funded yet (`settlement_amount_funded == 0`); otherwise 0. Fronting only on first
-/// touch keeps inflate-by-R == front-by-R: later runs see `settlement_amount_funded > 0`,
-/// so the bond's normal funding target already accounts for the front.
+/// Lamports to front from the reserve for this settlement on this funding run.
+/// Fronts the prefund R only for a bond-funded settlement with nothing funded yet
+/// (`settlement_amount_funded == 0`); otherwise 0. Fronting only on first touch
+/// keeps front-by-R == inflate-by-R: later runs see `settlement_amount_funded > 0`
+/// (the bond's FundSettlement CPI bumped `lamports_funded`), so the normal funding
+/// target already accounts for the front.
 pub fn reserve_front_lamports(
     reserve: Option<&ReserveConfig>,
-    vote_account: &Pubkey,
-    is_validator_bond: bool,
+    record: &SettlementRecord,
     settlement_amount_funded: u64,
 ) -> u64 {
     match reserve {
-        Some(reserve)
-            if is_validator_bond
-                && settlement_amount_funded == 0
-                && reserve.is_enabled(vote_account) =>
-        {
+        Some(reserve) if settlement_amount_funded == 0 && is_reserve_target(record) => {
             reserve.prefund_lamports
         }
         _ => 0,
@@ -129,16 +83,13 @@ pub fn reserve_front_lamports(
 mod tests {
     use super::*;
     use crate::settlement_data::{SettlementFunderType, SettlementRecord};
+    use anchor_client::anchor_lang::prelude::Pubkey;
     use std::collections::HashMap;
 
-    fn cfg(votes: &[Pubkey], prefund: u64) -> ReserveConfig {
-        ReserveConfig::from_enabled(votes.iter().copied().collect(), prefund).unwrap()
-    }
-
-    fn record(vote: Pubkey, funder: SettlementFunderType, claim_sum: u64) -> SettlementRecord {
+    fn record(funder: SettlementFunderType, claim_sum: u64) -> SettlementRecord {
         SettlementRecord {
             epoch: 0,
-            vote_account_address: vote,
+            vote_account_address: Pubkey::new_unique(),
             bond_address: Pubkey::default(),
             bond_account: None,
             settlement_address: Pubkey::default(),
@@ -155,65 +106,58 @@ mod tests {
         }
     }
 
-    #[test]
-    fn from_enabled_gates_off_when_empty_or_zero() {
-        assert!(ReserveConfig::from_enabled(HashSet::new(), 1_000).is_none());
-        assert!(
-            ReserveConfig::from_enabled([Pubkey::new_unique()].into_iter().collect(), 0).is_none()
-        );
-        assert!(
-            ReserveConfig::from_enabled([Pubkey::new_unique()].into_iter().collect(), 1).is_some()
-        );
+    fn cfg(prefund: u64) -> ReserveConfig {
+        ReserveConfig {
+            prefund_lamports: prefund,
+        }
     }
 
     #[test]
-    fn inflation_targets_only_enabled_bond_settlements() {
-        let on = Pubkey::new_unique();
-        let off = Pubkey::new_unique();
-        let reserve = cfg(&[on], 1_000);
+    fn load_off_when_zero_prefund() {
+        assert!(ReserveConfig::load(&ReserveOpts {
+            reserve_prefund_lamports: 0
+        })
+        .is_none());
+        assert!(ReserveConfig::load(&ReserveOpts {
+            reserve_prefund_lamports: 1
+        })
+        .is_some());
+    }
+
+    #[test]
+    fn inflation_targets_only_bond_settlements() {
+        let reserve = cfg(1_000);
         let mut records = vec![
-            record(on, SettlementFunderType::ValidatorBond(vec![]), 100),
-            record(on, SettlementFunderType::Marinade(None), 100),
-            record(off, SettlementFunderType::ValidatorBond(vec![]), 100),
+            record(SettlementFunderType::ValidatorBond(vec![]), 100),
+            record(SettlementFunderType::Marinade(None), 100),
         ];
         apply_reserve_inflation(&mut records, &reserve);
-        assert_eq!(
-            records[0].max_total_claim_sum, 1_100,
-            "enabled bond inflated by R"
-        );
+        assert_eq!(records[0].max_total_claim_sum, 1_100, "bond inflated by R");
         assert_eq!(records[1].max_total_claim_sum, 100, "marinade not inflated");
-        assert_eq!(
-            records[2].max_total_claim_sum, 100,
-            "disabled vote not inflated"
-        );
     }
 
     #[test]
-    fn front_only_on_first_touch_of_enabled_bond() {
-        let on = Pubkey::new_unique();
-        let reserve = cfg(&[on], 1_000);
+    fn front_only_on_first_touch_of_bond() {
+        let reserve = cfg(1_000);
+        let bond = record(SettlementFunderType::ValidatorBond(vec![]), 100);
+        let marinade = record(SettlementFunderType::Marinade(None), 100);
         assert_eq!(
-            reserve_front_lamports(Some(&reserve), &on, true, 0),
+            reserve_front_lamports(Some(&reserve), &bond, 0),
             1_000,
-            "enabled+bond+unfunded"
+            "bond + unfunded"
         );
         assert_eq!(
-            reserve_front_lamports(Some(&reserve), &on, true, 1),
+            reserve_front_lamports(Some(&reserve), &bond, 1),
             0,
             "already funded: no front"
         );
         assert_eq!(
-            reserve_front_lamports(Some(&reserve), &on, false, 0),
+            reserve_front_lamports(Some(&reserve), &marinade, 0),
             0,
             "marinade: no front"
         );
         assert_eq!(
-            reserve_front_lamports(Some(&reserve), &Pubkey::new_unique(), true, 0),
-            0,
-            "disabled vote: no front"
-        );
-        assert_eq!(
-            reserve_front_lamports(None, &on, true, 0),
+            reserve_front_lamports(None, &bond, 0),
             0,
             "reserve off: no front"
         );
