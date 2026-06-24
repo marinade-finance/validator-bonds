@@ -79,25 +79,32 @@ Epoch N + epochsToClaimSettlement + 1  — claim window closed
     CloseSettlementV2 closes the on-chain Settlement account.
     All remaining stakes still carry staker = settlement_staker_authority.
 
-    Undelegated stakes → WithdrawStake → marinade_wallet:
-      • reserve front remainder  (if stakers did not consume it)
-      • bond stake remainder     (bond funded C total; claims consumed C;
-        exactly R of bond-originated lamports remains → reaps to marinade)
+    Stake-state categorisation (by StakeStateV2 variant, not by provenance):
+      Initialized (never-delegated) → WithdrawStake → marinade_wallet
+        • the reserve front (undelegated from creation)
+      StakeStateV2::Stake (delegated / deactivated bond stakes) → ResetStake → bond
 
-    Delegated stakes (bond stakes not yet deactivated) → ResetStake → bond.
+    The claim pipeline sorts claimable stakes so bond stakes (Stake-state,
+    deactivated) are drained first, leaving the Initialized reserve-front
+    stake intact for the close-pipeline's WithdrawStake → marinade reap.
 
-    Net: marinade recovers R via the bond's second fund run. ✓
+    Net: the reserve-front lamports (R) circulate as:
+      marinade_wallet → reserve stake (undelegated)
+      → (unclaimed remainder) → WithdrawStake back → marinade_wallet  ✓
+
+    The bond's second run fills the R-gap in lamports_funded (→ C total).
+    At close, those bond lamports reset to the bond (not to marinade).
 ```
 
 ### Invariants
 
-| #   | Invariant                            | How enforced                                                |
-| --- | ------------------------------------ | ----------------------------------------------------------- |
-| 1   | `max_total_claim = C` — no inflation | `init-settlement` applies no reserve inflation              |
-| 2   | Reserve fires at most once           | guard: `on_chain lamports_funded == 0`                      |
-| 3   | Total claims bounded to C            | program: `lamports_claimed + claim ≤ max_total_claim`       |
-| 4   | Bond reaches `lamports_funded = C`   | fund pipeline retries until max is reached                  |
-| 5   | R reaps to marinade at close         | pipeline: undelegated → `WithdrawStake` → `marinade_wallet` |
+| #   | Invariant                            | How enforced                                                                                          |
+| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| 1   | `max_total_claim = C` — no inflation | `init-settlement` applies no reserve inflation                                                        |
+| 2   | Reserve fires at most once           | guard: `on_chain lamports_funded == 0`                                                                |
+| 3   | Total claims bounded to C            | program: `lamports_claimed + claim ≤ max_total_claim`                                                 |
+| 4   | Bond reaches `lamports_funded = C`   | fund pipeline retries until max is reached                                                            |
+| 5   | R reaps to marinade at close         | close: `Initialized` stake → `WithdrawStake` → `marinade_wallet`; claim sorts to leave reserve intact |
 
 ### CLI flags
 
@@ -113,9 +120,10 @@ Zero is a no-op: no reserve front, pipeline behaves exactly as before.
 ### Limitation
 
 `ClaimSettlementV2` accepts any stake with `staker == settlement_staker_authority`
-as the claim source, including the reserve front. In practice the Marinade-operated
-claim pipeline uses bond stakes (available once deactivated in epoch N+1), leaving
-the reserve front intact for the close reap. A complete fix requires a `reserve: u64`
+as the claim source, including the reserve front. The claim pipeline sorts claimable
+stakes to drain Stake-state (bond) accounts first, preserving the Initialized
+reserve-front stake for the close-pipeline reap. This ordering is a pipeline
+convention, not an on-chain constraint. A complete fix requires a `reserve: u64`
 field on the `Settlement` account so the reserve amount is unclaimable on-chain
 (future program change).
 
