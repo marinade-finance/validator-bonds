@@ -33,6 +33,92 @@ There are 6 pipelines used for the binary commands.
   from gcloud and checking if the on-chain state does not contain some unknown `Settlement` in comparison
   to gcloud list.
 
+## Reserve Front (Coord Goal 2)
+
+The reserve front makes mSOL bid-settlement APY realize on time. Without it,
+validators must fund their bond stake before stakers can claim, adding a 2–6
+epoch lag. The reserve eliminates that lag by pre-funding each bond settlement
+from `marinade_wallet`.
+
+### Epoch-by-epoch timeline
+
+```
+Epoch N  — settlement created
+  init-settlement
+    on-chain: max_total_claim = C   (real merkle sum, no inflation)
+              lamports_funded  = 0
+
+  fund-settlement  run 1   (on_chain lamports_funded == 0 → reserve fires)
+    marinade_wallet → undelegated stake R+min_stake  [reserve front]
+      staker = settlement_staker_authority
+      immediately claimable (undelegated from the start)
+    validator bond → FundSettlement C-R
+      FundSettlement deactivates the bond stake so it becomes
+      undelegated and withdrawable in epoch N+1
+      on-chain lamports_funded = C-R
+
+Epoch N+1  — bond stake finishes deactivating
+  Both pools now undelegated, both claimable via ClaimSettlementV2:
+    reserve front   R   lamports  (undelegated since epoch N)
+    bond stake    C-R   lamports  (deactivated in epoch N, now undelegated)
+  Total available = C = max_total_claim
+
+  Stakers claim (may begin as early as epoch N from the reserve front):
+    ClaimSettlementV2 calls StakeWithdraw on any stake with
+    staker == settlement_staker_authority.
+    Bound: lamports_claimed + claim ≤ max_total_claim = C.
+    No check against lamports_funded — reserve lamports count toward claims
+    even though they are not tracked by lamports_funded.
+
+  fund-settlement  run 2+  (lamports_funded = C-R ≠ 0 → reserve does not re-fire)
+    bond funds remaining R → lamports_funded = C = max_total_claim
+    The bond's second-run R is what ultimately reimburses marinade at close.
+
+Epoch N + epochsToClaimSettlement + 1  — claim window closed
+  close-settlement
+    CloseSettlementV2 closes the on-chain Settlement account.
+    All remaining stakes still carry staker = settlement_staker_authority.
+
+    Undelegated stakes → WithdrawStake → marinade_wallet:
+      • reserve front remainder  (if stakers did not consume it)
+      • bond stake remainder     (bond funded C total; claims consumed C;
+        exactly R of bond-originated lamports remains → reaps to marinade)
+
+    Delegated stakes (bond stakes not yet deactivated) → ResetStake → bond.
+
+    Net: marinade recovers R; bond reimburses through its second fund run. ✓
+```
+
+### Invariants
+
+| #   | Invariant                            | How enforced                                                |
+| --- | ------------------------------------ | ----------------------------------------------------------- |
+| 1   | `max_total_claim = C` — no inflation | `init-settlement` applies no reserve inflation              |
+| 2   | Reserve fires at most once           | guard: `on_chain lamports_funded == 0`                      |
+| 3   | Total claims bounded to C            | program: `lamports_claimed + claim ≤ max_total_claim`       |
+| 4   | Bond reaches `lamports_funded = C`   | fund pipeline retries until max is reached                  |
+| 5   | R reaps to marinade at close         | pipeline: undelegated → `WithdrawStake` → `marinade_wallet` |
+
+### CLI flags
+
+`init-settlement` and `fund-settlement` both accept:
+
+```
+--reserve-prefund-lamports <LAMPORTS>
+    env: RESERVE_PREFUND_LAMPORTS   default: 0 (disabled)
+```
+
+Zero is a no-op: no reserve front, pipeline behaves exactly as before.
+
+### Known POC limitation
+
+`ClaimSettlementV2` accepts any stake with `staker == settlement_staker_authority`
+as the claim source, including the reserve front. In practice the Marinade-operated
+claim pipeline uses bond stakes (available once deactivated in epoch N+1), leaving
+the reserve front intact for the close reap. A complete fix requires a `reserve: u64`
+field on the `Settlement` account so the reserve amount is unclaimable on-chain
+(future program change).
+
 ## Usage
 
 ```bash
