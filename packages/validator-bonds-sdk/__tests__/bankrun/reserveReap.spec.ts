@@ -5,7 +5,6 @@ import {
 } from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import BN from 'bn.js'
 
 import { initBankrunTest } from './bankrun'
 import {
@@ -32,10 +31,10 @@ import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 // Reserve front (Coord Goal 2) money-flow, end to end at the program level:
-// init inflates the on-chain max_total_claim by R, the reserve fronts R from
-// marinade_wallet as an undelegated stake, and the unclaimed R is reaped back to
-// marinade_wallet at close. The merkle root still commits only to the real claims
-// (sum C), so R is never claimable and the reserve is made whole at close.
+// the fund pass creates an undelegated stake of R from marinade_wallet so stakers
+// can claim immediately; max_total_claim stays C (no inflation); at close the
+// undelegated leftover reaps back to marinade_wallet. The merkle root commits only
+// to the real claims (sum C), so claims can drain at most C from the settlement.
 describe('Validator Bonds reserve front reap', () => {
   const epochsToClaimSettlement = 1
   const reserveFront = 2 * LAMPORTS_PER_SOL // R
@@ -70,10 +69,11 @@ describe('Validator Bonds reserve front reap', () => {
     })
   })
 
-  it('inflates max by R and reaps the front to marinade_wallet at close', async () => {
-    // Real claim sum C (committed by the merkle root) and the inflated max C + R.
+  it('reaps the undelegated reserve front to marinade_wallet at close', async () => {
+    // max_total_claim == real claim sum C; the reserve R sits as extra undelegated
+    // lamports outside that max (never claimable via merkle proofs, reaped at close).
     const realClaimSum = totalClaimVoteAccount2
-    const maxTotalClaim = realClaimSum.add(new BN(reserveFront))
+    const maxTotalClaim = realClaimSum
     const rentCollector = Keypair.generate()
 
     const { settlementAccount } = await executeInitSettlement({
@@ -89,7 +89,7 @@ describe('Validator Bonds reserve front reap', () => {
       maxTotalClaim,
     })
 
-    // init set the on-chain max to exactly C + R
+    // init set the on-chain max to exactly C (no inflation)
     const settlement = await getSettlement(program, settlementAccount)
     expect(settlement.maxTotalClaim.toString()).toEqual(
       maxTotalClaim.toString(),
