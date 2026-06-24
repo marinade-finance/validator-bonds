@@ -584,6 +584,52 @@ async fn prepare_funding(
     Ok(())
 }
 
+/// Create a stake account funded from marinade_wallet, authorized to the
+/// settlement, and push it as its own instruction pack. `label` distinguishes
+/// the reserve-front front-loading from the Marinade-PSR funder in the log.
+fn add_marinade_funded_stake_account(
+    transaction_builder: &mut TransactionBuilder,
+    marinade_wallet: &Keypair,
+    withdrawer_authority: &Pubkey,
+    settlement_record: &SettlementRecord,
+    amount: u64,
+    minimal_stake_lamports: u64,
+    label: &str,
+) -> anyhow::Result<()> {
+    let new_stake_account_keypair = Arc::new(Keypair::new());
+    transaction_builder.add_signer_checked(&new_stake_account_keypair);
+    info!(
+        "Settlement: {} (vote account {}, bond {}, epoch {}, reason: {}, funder: {}), {} {} from marinade_wallet, stake account {}",
+        settlement_record.settlement_address,
+        settlement_record.vote_account_address,
+        settlement_record.bond_address,
+        settlement_record.epoch,
+        reason_display(&settlement_record.reason),
+        settlement_record.funder,
+        label,
+        build_balance_message(amount, false, false),
+        new_stake_account_keypair.pubkey()
+    );
+    let instructions = create_stake_account_instructions(
+        &marinade_wallet.pubkey(),
+        &new_stake_account_keypair.pubkey(),
+        &Authorized {
+            withdrawer: *withdrawer_authority,
+            staker: settlement_record.settlement_staker_authority,
+        },
+        &Lockup {
+            unix_timestamp: 0,
+            epoch: 0,
+            custodian: *withdrawer_authority,
+        },
+        // after claiming the rest has to be still a living stake account
+        amount + minimal_stake_lamports,
+    );
+    transaction_builder.add_instructions(instructions)?;
+    transaction_builder.finish_instruction_pack();
+    Ok(())
+}
+
 fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
     if settlement_record.reserve_front > 0 {
         return true;
@@ -648,65 +694,27 @@ async fn fund_settlements(
         // bond settlement is claimable immediately. The bond funds the remainder
         // below; at close the unclaimed leftover is reaped back to marinade_wallet.
         if settlement_record.reserve_front > 0 {
-            let new_stake_account_keypair = Arc::new(Keypair::new());
-            transaction_builder.add_signer_checked(&new_stake_account_keypair);
-            info!(
-                "Settlement: {} (vote account {}, epoch {}) reserve front {} from marinade_wallet, stake account {}",
-                settlement_record.settlement_address,
-                settlement_record.vote_account_address,
-                settlement_record.epoch,
-                build_balance_message(settlement_record.reserve_front, false, false),
-                new_stake_account_keypair.pubkey()
-            );
-            let instructions = create_stake_account_instructions(
-                &marinade_wallet.pubkey(),
-                &new_stake_account_keypair.pubkey(),
-                &Authorized {
-                    withdrawer: withdrawer_authority,
-                    staker: settlement_record.settlement_staker_authority,
-                },
-                &Lockup {
-                    unix_timestamp: 0,
-                    epoch: 0,
-                    custodian: withdrawer_authority,
-                },
-                // after claiming the rest has to be still a living stake account
-                settlement_record.reserve_front + minimal_stake_lamports,
-            );
-            transaction_builder.add_instructions(instructions)?;
-            transaction_builder.finish_instruction_pack();
+            add_marinade_funded_stake_account(
+                &mut transaction_builder,
+                &marinade_wallet,
+                &withdrawer_authority,
+                settlement_record,
+                settlement_record.reserve_front,
+                minimal_stake_lamports,
+                "reserve front",
+            )?;
         }
         match &settlement_record.funder {
             SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
-                let new_stake_account_keypair = Arc::new(Keypair::new());
-                transaction_builder.add_signer_checked(&new_stake_account_keypair);
-                info!(
-                    "Settlement: {} (vote account {}, bond {}, epoch {}, reason: {}, funder: {}), creating Marinade stake account {}",
-                    settlement_record.settlement_address,
-                    settlement_record.vote_account_address,
-                    settlement_record.bond_address,
-                    settlement_record.epoch,
-                    reason_display(&settlement_record.reason),
-                    settlement_record.funder,
-                    new_stake_account_keypair.pubkey()
-                );
-                let instructions = create_stake_account_instructions(
-                    &marinade_wallet.pubkey(),
-                    &new_stake_account_keypair.pubkey(),
-                    &Authorized {
-                        withdrawer: withdrawer_authority,
-                        staker: settlement_record.settlement_staker_authority,
-                    },
-                    &Lockup {
-                        unix_timestamp: 0,
-                        epoch: 0,
-                        custodian: withdrawer_authority,
-                    },
-                    // after claiming the rest has to be still living stake account
-                    amount_to_fund + minimal_stake_lamports,
-                );
-                transaction_builder.add_instructions(instructions)?;
-                transaction_builder.finish_instruction_pack();
+                add_marinade_funded_stake_account(
+                    &mut transaction_builder,
+                    &marinade_wallet,
+                    &withdrawer_authority,
+                    settlement_record,
+                    *amount_to_fund,
+                    minimal_stake_lamports,
+                    "creating Marinade stake account",
+                )?;
             }
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
