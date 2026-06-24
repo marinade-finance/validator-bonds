@@ -53,8 +53,6 @@ jobs:
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
 
       - name: 🦿 Install Rust toolchain
-        # SHA pins the action code; this action does NOT read rust-toolchain.toml,
-        # so the channel is fed in explicitly to keep the toml the single source of truth.
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           toolchain: ${{ steps.rust-toolchain.outputs.channel }}
