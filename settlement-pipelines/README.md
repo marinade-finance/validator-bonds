@@ -33,7 +33,7 @@ There are 6 pipelines used for the binary commands.
   from gcloud and checking if the on-chain state does not contain some unknown `Settlement` in comparison
   to gcloud list.
 
-## Reserve Front (Coord Goal 2)
+## Reserve Front
 
 The reserve front makes mSOL bid-settlement APY realize on time. Without it,
 validators must fund their bond stake before stakers can claim, adding a 2–6
@@ -86,7 +86,7 @@ Epoch N + epochsToClaimSettlement + 1  — claim window closed
 
     Delegated stakes (bond stakes not yet deactivated) → ResetStake → bond.
 
-    Net: marinade recovers R; bond reimburses through its second fund run. ✓
+    Net: marinade recovers R via the bond's second fund run. ✓
 ```
 
 ### Invariants
@@ -110,7 +110,7 @@ Epoch N + epochsToClaimSettlement + 1  — claim window closed
 
 Zero is a no-op: no reserve front, pipeline behaves exactly as before.
 
-### Known POC limitation
+### Limitation
 
 `ClaimSettlementV2` accepts any stake with `staker == settlement_staker_authority`
 as the claim source, including the reserve front. In practice the Marinade-operated
