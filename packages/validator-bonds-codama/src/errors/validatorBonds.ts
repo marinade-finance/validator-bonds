@@ -172,6 +172,12 @@ export const VALIDATOR_BONDS_ERROR__BOND_PRODUCT_SETUP_NOT_PERMITTED = 0x17bc //
 export const VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS = 0x17bd // 6077
 /** ProductTypeConfigValidationFailure: Fail to validate ProductConfig value */
 export const VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE = 0x17be // 6078
+/** StakeNotFullyDeactivated: Stake account is not fully deactivated, cannot be withdrawn */
+export const VALIDATOR_BONDS_ERROR__STAKE_NOT_FULLY_DEACTIVATED = 0x17bf // 6079
+/** StakeAccountIsBigEnoughToReset: Stake account is big enough to be reset, withdraw is not permitted */
+export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_BIG_ENOUGH_TO_RESET = 0x17c0 // 6080
+/** StakeAccountNotBigEnoughToFund: Stake account is not big enough to be funded to settlement */
+export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND = 0x17c1 // 6081
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -234,12 +240,15 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_CLOSED
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_EXPIRED
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING
+  | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_BIG_ENOUGH_TO_RESET
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT
+  | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_DELEGATION_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__STAKE_LOCKED_UP
   | typeof VALIDATOR_BONDS_ERROR__STAKE_NOT_DELEGATED
+  | typeof VALIDATOR_BONDS_ERROR__STAKE_NOT_FULLY_DEACTIVATED
   | typeof VALIDATOR_BONDS_ERROR__STAKER_AUTHORITY_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__UNEXPECTED_REMAINING_ACCOUNTS
   | typeof VALIDATOR_BONDS_ERROR__UNINITIALIZED_STAKE
@@ -317,12 +326,15 @@ if (process.env.NODE_ENV !== 'production') {
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_CLOSED]: `Settlement has to be closed`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_EXPIRED]: `Settlement has not expired yet`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING]: `Settlement slots to start claiming not expired yet`,
+    [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_BIG_ENOUGH_TO_RESET]: `Stake account is big enough to be reset, withdraw is not permitted`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT]: `Provided stake account has been already funded to a settlement`,
+    [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND]: `Stake account is not big enough to be funded to settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT]: `Stake account is not big enough to be split`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT]: `Provided stake account is not funded under the settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_DELEGATION_MISMATCH]: `Delegation of provided stake account mismatches`,
     [VALIDATOR_BONDS_ERROR__STAKE_LOCKED_UP]: `Provided stake account is locked-up`,
     [VALIDATOR_BONDS_ERROR__STAKE_NOT_DELEGATED]: `Provided stake cannot be used for bonds, it's not delegated`,
+    [VALIDATOR_BONDS_ERROR__STAKE_NOT_FULLY_DEACTIVATED]: `Stake account is not fully deactivated, cannot be withdrawn`,
     [VALIDATOR_BONDS_ERROR__STAKER_AUTHORITY_MISMATCH]: `Stake account's staker does not match with the provided authority`,
     [VALIDATOR_BONDS_ERROR__UNEXPECTED_REMAINING_ACCOUNTS]: `Instruction context was provided with unexpected set of remaining accounts`,
     [VALIDATOR_BONDS_ERROR__UNINITIALIZED_STAKE]: `Stake is not initialized`,

@@ -20,8 +20,8 @@ use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
 };
 use settlement_pipelines::stake_accounts::{
-    filter_settlement_funded, IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST,
-    STAKE_ACCOUNT_RENT_EXEMPTION,
+    filter_settlement_funded, get_stake_state_type, StakeAccountStateType,
+    IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST, STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -51,7 +51,9 @@ use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements;
-use validator_bonds_common::stake_accounts::{collect_stake_accounts, get_clock};
+use validator_bonds_common::stake_accounts::{
+    collect_stake_accounts, get_clock, get_stake_history,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -288,6 +290,9 @@ async fn reset_stake_accounts(
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
     let all_bonds_stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&bonds_withdrawer_authority), None)
             .await
@@ -367,12 +372,55 @@ async fn reset_stake_accounts(
             // ResetStake re-delegates the stake; the on-chain DelegateStake CPI rejects a stake
             // whose delegatable amount is below the network minimum delegation (custom error 0xc).
             if lamports < minimal_stake_lamports {
-                reporting.warning().with_msg(format!(
-                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate. Manual intervention needed.",
-                    reset_data.settlement,
-                    build_balance_message(lamports, false, false),
-                    build_balance_message(minimal_stake_lamports, false, false),
-                )).add();
+                // Too small to re-delegate (DelegateStake rejects below the 1 SOL network minimum).
+                // If the stake is already fully deactivated it is non-live collateral and can be
+                // swept to the operator wallet via WithdrawStake (the on-chain instruction accepts
+                // delegated + fully-deactivated + sub-minimal stakes). If it is not yet fully
+                // deactivated it cannot be withdrawn yet -> warn and skip.
+                // NOTE: this must match the on-chain `check_stake_is_fully_deactivated` (which uses
+                // stake history), otherwise we would schedule a WithdrawStake the program rejects.
+                let fully_deactivated = get_stake_state_type(&stake_state, &clock, &stake_history)
+                    == StakeAccountStateType::DelegatedAndDeactivated;
+                if fully_deactivated {
+                    transaction_builder.add_signer_checked(operator_authority_keypair);
+                    let req = program
+                        .request()
+                        .accounts(validator_bonds::accounts::WithdrawStake {
+                            config: *config_address,
+                            operator_authority: operator_authority_keypair.pubkey(),
+                            settlement: reset_data.settlement,
+                            stake_account: stake_pubkey,
+                            bonds_withdrawer_authority,
+                            withdraw_to: *marinade_wallet,
+                            stake_history: stake_history_sysvar_id,
+                            clock: clock_sysvar_id,
+                            stake_program: stake_program_id,
+                            program: validator_bonds_id,
+                            event_authority: find_event_authority().0,
+                        })
+                        .args(validator_bonds::instruction::WithdrawStake {});
+                    add_instruction_to_builder(
+                        transaction_builder,
+                        &req,
+                        format!(
+                            "Withdraw undelegatable (sub-min, deactivated) stake account {stake_pubkey} for settlement {} to operator wallet",
+                            reset_data.settlement
+                        ),
+                    )?;
+                    reporting.reportable.add_withdraw_stake(
+                        reset_data.settlement,
+                        *marinade_wallet,
+                        reset_data.epoch,
+                        lamports,
+                    );
+                } else {
+                    reporting.warning().with_msg(format!(
+                        "Skipping stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate and it is not yet fully deactivated. Deactivate then re-run; manual intervention may be needed.",
+                        reset_data.settlement,
+                        build_balance_message(lamports, false, false),
+                        build_balance_message(minimal_stake_lamports, false, false),
+                    )).add();
+                }
                 continue;
             }
             let req = program
