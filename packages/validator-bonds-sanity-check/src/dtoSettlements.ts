@@ -237,7 +237,7 @@ function assertNotLegacyFormat(inputJson: string, path?: string): void {
     const legacyClaim =
       Array.isArray(settlement?.claims) &&
       settlement.claims.length > 0 &&
-      settlement.claims.every((claim: any) => claim?.kind === undefined)
+      settlement.claims.some((claim: any) => claim?.kind === undefined)
     return legacyFunder || legacyClaim
   }
   if (settlements.some(isLegacy)) {
