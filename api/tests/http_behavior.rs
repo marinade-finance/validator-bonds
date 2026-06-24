@@ -14,6 +14,18 @@ use std::time::Duration;
 
 use api::routes::{meta_routes, with_global_middleware, with_public_rate_limit};
 
+/// Wait until the spawned server is actually accepting connections, instead of a
+/// fixed sleep that can flake on loaded CI runners.
+async fn wait_until_accepting(addr: SocketAddr) {
+    for _ in 0..100 {
+        if tokio::net::TcpStream::connect(addr).await.is_ok() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("server at {addr} did not start accepting connections in time");
+}
+
 /// Build the no-DB routes with the same public-tier rate limit + global
 /// middleware as `routes::build_app`, bind an ephemeral port, spawn the
 /// server, and return its base URL. The DB-backed routes are excluded (they
@@ -34,8 +46,7 @@ async fn spawn_test_server() -> String {
         .await
         .unwrap();
     });
-    // Give the spawned server a moment to start accepting connections.
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    wait_until_accepting(addr).await;
     format!("http://{addr}")
 }
 
@@ -57,7 +68,7 @@ async fn spawn_internal_server() -> String {
             .await
             .unwrap();
     });
-    tokio::time::sleep(Duration::from_millis(50)).await;
+    wait_until_accepting(addr).await;
     format!("http://{addr}")
 }
 
