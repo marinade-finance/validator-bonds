@@ -1,3 +1,4 @@
+use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
@@ -192,6 +193,14 @@ async fn real_main(
 
     let mut settlement_claimed_amounts: HashMap<Pubkey, u64> = HashMap::new();
     let mut stake_accounts_to_cache = StakeAccountsCache::default();
+
+    // Drain delegated (deactivated) bond stakes before Initialized reserve-front stakes so
+    // the reserve front stays intact for the close-pipeline's WithdrawStake → marinade reap.
+    for claimable_settlement in &mut claimable_settlements {
+        claimable_settlement
+            .stake_accounts
+            .sort_by_key(|(_, _, state)| matches!(state, StakeStateV2::Initialized(_)) as u8);
+    }
 
     for claimable_settlement in claimable_settlements {
         let json_matching_settlement = match get_settlement_from_json(
