@@ -14,12 +14,91 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
-    #[serde(with = "map_pubkey_string_conversion")]
-    pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
-    pub activating_stake: u64,
     pub claim_amount: u64,
+    #[serde(flatten)]
+    pub detail: ClaimDetail,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "kind")]
+pub enum ClaimDetail {
+    StakerPayout {
+        active_stake: u64,
+        activating_stake: u64,
+        #[serde(with = "map_pubkey_string_conversion")]
+        stake_accounts: HashMap<Pubkey, u64>,
+    },
+    FeeDeposit,
+    // Zero-amount placeholder distinguishing Marinade- vs ValidatorBond-funded merkle
+    // roots when claim amounts would otherwise coincide. Not a real payout.
+    Marker,
+}
+
+impl SettlementClaim {
+    pub fn staker_payout(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        active_stake: u64,
+        activating_stake: u64,
+        claim_amount: u64,
+        stake_accounts: HashMap<Pubkey, u64>,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            claim_amount,
+            detail: ClaimDetail::StakerPayout {
+                active_stake,
+                activating_stake,
+                stake_accounts,
+            },
+        }
+    }
+
+    pub fn fee_deposit(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        claim_amount: u64,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            claim_amount,
+            detail: ClaimDetail::FeeDeposit,
+        }
+    }
+
+    pub fn marker() -> Self {
+        Self {
+            withdraw_authority: Pubkey::default(),
+            stake_authority: Pubkey::default(),
+            claim_amount: 0,
+            detail: ClaimDetail::Marker,
+        }
+    }
+
+    pub fn stake_accounts(&self) -> Option<&HashMap<Pubkey, u64>> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { stake_accounts, .. } => Some(stake_accounts),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
+
+    pub fn active_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { active_stake, .. } => Some(*active_stake),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
+
+    pub fn activating_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout {
+                activating_stake, ..
+            } => Some(*activating_stake),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -69,14 +148,14 @@ pub struct SettlementMeta {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Settlement {
     pub reason: SettlementReason,
-    pub meta: SettlementMeta,
+    pub funder: SettlementFunder,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
     pub claims_count: usize,
     pub claims_amount: u64,
     pub claims: Vec<SettlementClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<serde_json::Value>,
+    pub details: Option<crate::settlement_details::SettlementDetails>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]

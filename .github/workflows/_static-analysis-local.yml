@@ -1,0 +1,595 @@
+name: Static Analysis (local copy - TEMPORARY)
+
+# TEMPORARY verbatim copy of marinade-finance/.github static-analysis.yml carrying the
+# bonds fixes (libudev, repo-local deny.toml override, anchor-lints migration). Called by
+# test-static-analysis.yml as a LOCAL reusable workflow so the fixes can be validated from
+# this PR without touching the shared .github repo. Delete once the fixes land in .github@main.
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      run-rust:
+        description: "Run clippy + cargo-deny: 'auto' | 'true' | 'false'"
+        required: false
+        default: 'auto'
+        type: string
+      run-solana:
+        description: "Run Sec3 X-Ray + solana-lints: 'auto' | 'true' | 'false'. Does not control verifiable-build — see run-verifiable-build."
+        required: false
+        default: 'auto'
+        type: string
+      run-verifiable-build:
+        description: "Run verifiable-build: 'auto' | 'true' | 'false'. In 'auto' mode the job runs only on push to the default branch and on workflow_dispatch, and only when Anchor.toml is present. 'true' forces the job on any event (still requires Anchor.toml). 'false' always skips. Decoupled from run-solana so a caller can ask for just verifiable-build without running sec3-xray / solana-lints."
+        required: false
+        default: 'auto'
+        type: string
+      rust-workspace:
+        description: 'Path to Rust workspace root (must contain Cargo.toml)'
+        required: false
+        default: '.'
+        type: string
+      anchor-workspace:
+        description: 'Path to Anchor workspace root (must contain Anchor.toml). Falls back to rust-workspace when empty.'
+        required: false
+        default: ''
+        type: string
+      anchor-programs-path:
+        description: "Path Sec3 X-Ray scans, resolved relative to anchor-workspace (the sec3-xray job's working directory). When empty, defaults to `programs` (i.e. <anchor-workspace>/programs)."
+        required: false
+        default: ''
+        type: string
+      rust-toolchain:
+        description: "Toolchain for clippy when the workspace doesn't pin its own via rust-toolchain[.toml]. When a pin exists, that toolchain wins and clippy is installed on it."
+        required: false
+        default: 'stable'
+        type: string
+      solana-lints-toolchain:
+        description: "Nightly toolchain for the dylint lints (must match the lints repo's rust-toolchain). otter-sec/anchor-lints pins nightly-2025-09-18 (rustc 1.91); the legacy crytic/trailofbits solana-lints is stuck on nightly-2025-01-09 (rustc 1.86), too old for workspaces whose deps require rustc 1.88. Forced via RUSTUP_TOOLCHAIN at dylint time so a workspace rust-toolchain[.toml] pin can't override it."
+        required: false
+        default: 'nightly-2025-09-18'
+        type: string
+      clippy-deny-warnings:
+        description: 'Treat clippy warnings as errors'
+        required: false
+        default: true
+        type: boolean
+      xray-version:
+        description: 'Sec3 X-Ray release tag to install'
+        required: false
+        default: 'v0.0.6'
+        type: string
+      xray-sha256:
+        description: 'SHA256 of the Sec3 X-Ray linux-amd64 tarball. Optional but strongly recommended: when set, the downloaded archive is verified against this checksum before extraction, protecting against tampered release artifacts. Leave empty to skip verification.'
+        required: false
+        default: ''
+        type: string
+      anchor-cli-version:
+        description: 'anchor-cli version installed for the sec3-xray job. X-Ray shells out to `anchor` for IDL extraction; missing it produces incomplete analysis.'
+        required: false
+        default: '0.31.1'
+        type: string
+      solana-lints-repo:
+        description: 'Git URL of the dylint lints to build. Default is otter-sec/anchor-lints (actively maintained, Anchor-focused, edition 2024, a single Cargo workspace). The legacy trailofbits/crytic solana-lints is dormant and stuck on nightly-2025-01-09.'
+        required: false
+        default: 'https://github.com/otter-sec/anchor-lints.git'
+        type: string
+      solana-lints-ref:
+        description: 'Git ref (commit SHA or tag) of solana-lints-repo to build lints from. Must be compatible with solana-lints-toolchain.'
+        required: false
+        default: 'd8116dd619414c1b4dd9d17cd66458e66f699c0a'
+        type: string
+      cargo-dylint-version:
+        description: 'cargo-dylint / dylint-link version to install. Must match the dylint_linting version the lints repo builds against — otter-sec/anchor-lints uses dylint 5.x; cargo-dylint 5.0.0 builds cleanly on the nightly-2025-09-18 (rustc 1.91) the lints pin.'
+        required: false
+        default: '5.0.0'
+        type: string
+      deny-config:
+        description: 'URL of the cargo-deny config to use. Pin to a tag/SHA for stable behavior across reusable-workflow versions.'
+        required: false
+        # TEMPORARY: pointed at this wrapper branch so pre-merge validation
+        # exercises the deny.toml that PR #6 introduces (matching the branch
+        # the `uses:` in static-analysis-required.yml is pinned to). Revert
+        # to `.../main/deny.toml` before merging this PR.
+        default: 'https://raw.githubusercontent.com/marinade-finance/.github/claude/static-analysis-required-wrapper/deny.toml'
+        type: string
+      solana-verify-version:
+        description: 'solana-verify CLI version (Ellipsis Labs/solana-verifiable-build) to install for the verifiable-build job.'
+        required: false
+        default: '0.4.15'
+        type: string
+
+jobs:
+  detect:
+    runs-on: ubuntu-24.04
+    outputs:
+      has-rust: ${{ steps.check.outputs.has-rust }}
+      has-anchor: ${{ steps.check.outputs.has-anchor }}
+      # File-existence-only signal for Anchor.toml; independent of run-solana
+      # so callers with run-solana=false can still run verifiable-build.
+      anchor-present: ${{ steps.check.outputs.anchor-present }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - id: check
+        shell: bash
+        env:
+          RUN_RUST: ${{ inputs.run-rust }}
+          RUN_SOLANA: ${{ inputs.run-solana }}
+          RUN_VERIFIABLE_BUILD: ${{ inputs.run-verifiable-build }}
+          RUST_WORKSPACE: ${{ inputs.rust-workspace }}
+          ANCHOR_WORKSPACE_INPUT: ${{ inputs.anchor-workspace }}
+          ANCHOR_WORKSPACE: ${{ inputs.anchor-workspace || inputs.rust-workspace }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! -d "$RUST_WORKSPACE" ]]; then
+            echo "::error::rust-workspace '$RUST_WORKSPACE' does not exist"
+            exit 1
+          fi
+
+          # Fail fast on missing Anchor.toml when a flag explicitly requires it.
+          if { [[ "$RUN_SOLANA" != "false" ]] && \
+               [[ -n "$ANCHOR_WORKSPACE_INPUT" || "$RUN_SOLANA" == "true" ]]; } || \
+             [[ "$RUN_VERIFIABLE_BUILD" == "true" ]]; then
+            if [[ ! -d "$ANCHOR_WORKSPACE" ]]; then
+              echo "::error::anchor-workspace '$ANCHOR_WORKSPACE' does not exist"
+              exit 1
+            fi
+            if [[ ! -f "$ANCHOR_WORKSPACE/Anchor.toml" ]]; then
+              echo "::error::Anchor.toml not found at '$ANCHOR_WORKSPACE/Anchor.toml'"
+              exit 1
+            fi
+          fi
+
+          if [[ "$RUN_RUST" == "true" ]]; then
+            if [[ ! -f "$RUST_WORKSPACE/Cargo.toml" ]]; then
+              echo "::error::run-rust='true' but Cargo.toml not found at '$RUST_WORKSPACE/Cargo.toml'"
+              exit 1
+            fi
+            HAS_RUST=true
+          elif [[ "$RUN_RUST" == "false" ]]; then
+            HAS_RUST=false
+          elif [[ -f "$RUST_WORKSPACE/Cargo.toml" ]]; then
+            HAS_RUST=true
+          else
+            HAS_RUST=false
+          fi
+
+          if [[ -d "$ANCHOR_WORKSPACE" && -f "$ANCHOR_WORKSPACE/Anchor.toml" ]]; then
+            ANCHOR_PRESENT=true
+          else
+            ANCHOR_PRESENT=false
+          fi
+
+          if [[ "$RUN_SOLANA" == "true" ]]; then
+            HAS_ANCHOR=true
+          elif [[ "$RUN_SOLANA" == "false" ]]; then
+            HAS_ANCHOR=false
+          else
+            HAS_ANCHOR=$ANCHOR_PRESENT
+          fi
+
+          echo "has-rust=$HAS_RUST" >> "$GITHUB_OUTPUT"
+          echo "has-anchor=$HAS_ANCHOR" >> "$GITHUB_OUTPUT"
+          echo "anchor-present=$ANCHOR_PRESENT" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Detection results"
+            echo "- Rust workspace: \`$RUST_WORKSPACE\` → has-rust=\`$HAS_RUST\`"
+            echo "- Anchor workspace: \`$ANCHOR_WORKSPACE\` → has-anchor=\`$HAS_ANCHOR\` (anchor-present=\`$ANCHOR_PRESENT\`)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  clippy:
+    needs: detect
+    if: needs.detect.outputs.has-rust == 'true'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ inputs.rust-workspace }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+          components: clippy
+
+      # If the workspace pins its own toolchain via rust-toolchain[.toml],
+      # `cargo clippy` uses that pin — not the one dtolnay just installed.
+      # Pull the pinned toolchain name out of `rustup show active-toolchain`
+      # (which reads the toml without needing the toolchain to be installed
+      # yet), then install it explicitly with clippy. Using `--toolchain`
+      # avoids any "which toolchain is active right now?" ambiguity that
+      # bit the earlier `rustup component add clippy` approach.
+      - name: Install clippy on workspace-pinned toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f rust-toolchain.toml && ! -f rust-toolchain ]]; then
+            echo "No workspace-pinned toolchain; relying on the one dtolnay installed."
+            exit 0
+          fi
+          ACTIVE=$(rustup show active-toolchain | awk '{print $1}')
+          if [[ -z "$ACTIVE" ]]; then
+            echo "::error::rust-toolchain[.toml] present but rustup couldn't resolve the pinned toolchain"
+            exit 1
+          fi
+          echo "Workspace pins '$ACTIVE'; installing it with clippy."
+          rustup toolchain install "$ACTIVE" --component clippy --no-self-update
+          rustup show
+
+      # Some workspaces transitively depend on clang-sys (via bindgen etc.).
+      # Its build script needs libclang + llvm-config at compile time, and
+      # the ubuntu-24.04 image doesn't ship libclang-dev by default — only
+      # the runtime .so under /usr/lib/llvm-*/lib, which clang-sys won't
+      # discover without llvm-config in PATH. Install on demand based on
+      # Cargo.lock so repos that don't pull clang-sys pay no extra time.
+      - name: Install libclang for clang-sys (if used)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f Cargo.lock ]] && grep -q '^name = "clang-sys"' Cargo.lock; then
+            echo "clang-sys detected in Cargo.lock — installing libclang-dev"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libclang-dev
+          fi
+
+      # `cargo clippy --all-features` can pull `hidapi` (Solana hardware-wallet
+      # support behind a feature), whose build script resolves `libudev` via
+      # pkg-config — not on the runner by default. Install on demand by Cargo.lock.
+      - name: Install libudev for hidapi (if used)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f Cargo.lock ]] && grep -q '^name = "hidapi"' Cargo.lock; then
+            echo "hidapi detected in Cargo.lock — installing libudev-dev"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libudev-dev pkg-config
+          fi
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          workspaces: ${{ inputs.rust-workspace }}
+
+      - name: cargo clippy
+        run: |
+          if [[ "${{ inputs.clippy-deny-warnings }}" == "true" ]]; then
+            cargo clippy --all-targets --all-features -- -D warnings
+          else
+            cargo clippy --all-targets --all-features
+          fi
+
+  cargo-deny:
+    needs: detect
+    if: needs.detect.outputs.has-rust == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      # Write deny.toml inside the workspace, not ${{ runner.temp }}: the
+      # cargo-deny-action's docker container mounts /home/runner/work/_temp
+      # to /github/runner_temp, so an absolute host path doesn't exist
+      # inside the container and cargo-deny silently falls back to its
+      # default config.
+      # A repo-local `deny.toml` at the rust-workspace root overrides the org-wide
+      # config, letting a repo own its advisory/ban policy; otherwise fetch the org one.
+      - name: Resolve cargo-deny config
+        env:
+          DENY_CONFIG_URL: ${{ inputs.deny-config }}
+          REPO_DENY_CONFIG: ${{ inputs.rust-workspace }}/deny.toml
+          DENY_CONFIG_PATH: ${{ inputs.rust-workspace }}/.ci-deny.toml
+        run: |
+          set -euo pipefail
+          if [[ -f "$REPO_DENY_CONFIG" ]]; then
+            echo "Using repo-local deny.toml: $REPO_DENY_CONFIG"
+            cp "$REPO_DENY_CONFIG" "$DENY_CONFIG_PATH"
+          else
+            echo "Fetching org cargo-deny config: $DENY_CONFIG_URL"
+            curl -fsSL "$DENY_CONFIG_URL" -o "$DENY_CONFIG_PATH"
+          fi
+
+      - uses: EmbarkStudios/cargo-deny-action@5bb39ff5d5a0e94dc9e2dc94eced0c6129743a57 # v2
+        with:
+          command: check
+          manifest-path: ${{ inputs.rust-workspace }}/Cargo.toml
+          command-arguments: --config ${{ inputs.rust-workspace }}/.ci-deny.toml all
+
+  sec3-xray:
+    needs: detect
+    if: needs.detect.outputs.has-anchor == 'true'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ inputs.anchor-workspace || inputs.rust-workspace }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: stable
+
+      - name: Cache anchor-cli binary
+        id: cache-anchor
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/anchor
+          key: anchor-cli-${{ runner.os }}-${{ inputs.anchor-cli-version }}
+
+      - name: Install anchor-cli
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}
+        run: cargo install --locked anchor-cli --version ${{ inputs.anchor-cli-version }}
+
+      - name: Install Sec3 X-Ray
+        working-directory: ${{ github.workspace }}
+        env:
+          XRAY_VERSION: ${{ inputs.xray-version }}
+          XRAY_SHA256: ${{ inputs.xray-sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.xray"
+          TARBALL="${RUNNER_TEMP:-/tmp}/xray.tar.gz"
+          curl -fsSL \
+            "https://github.com/sec3-product/x-ray/releases/download/${XRAY_VERSION}/x-ray-${XRAY_VERSION}-linux-amd64.tar.gz" \
+            -o "$TARBALL"
+          if [[ -n "$XRAY_SHA256" ]]; then
+            echo "$XRAY_SHA256  $TARBALL" | sha256sum -c -
+          else
+            echo "::warning::xray-sha256 not set — skipping integrity check of X-Ray tarball. Pin a SHA256 via the xray-sha256 input to guard against tampered release artifacts."
+            sha256sum "$TARBALL"
+          fi
+          tar -xz -C "$HOME/.xray" -f "$TARBALL"
+          rm -f "$TARBALL"
+          echo "$HOME/.xray/bin" >> "$GITHUB_PATH"
+
+      - name: Verify tool installations
+        working-directory: ${{ github.workspace }}
+        # Wrap `xray --help | head -20` so SIGPIPE from `head` doesn't fail
+        # the step under `pipefail`.
+        run: |
+          set -euo pipefail
+          if ! xray --version 2>&1; then
+            { xray --help 2>&1 | head -20; } || true
+          fi
+          anchor --version
+
+      - name: Run X-Ray
+        env:
+          ANCHOR_PROGRAMS_PATH: ${{ inputs.anchor-programs-path || 'programs' }}
+        # X-Ray exits 0 even when sub-tools emit errors, so capture the log
+        # and fail on subprocess failures (`sh: <n>:`) and X-Ray's own fatal
+        # output (`Error:` / `ERROR:`). Do NOT match generic `: error: `
+        # MLIR/LLVM diagnostics — X-Ray's IR-lowering pass emits those on
+        # perfectly valid Anchor code (e.g. `'llvm.call' op calling function
+        # with void result must not produce values` on `&mut` references).
+        run: |
+          set -euo pipefail
+          if [[ ! -d "$ANCHOR_PROGRAMS_PATH" ]]; then
+            echo "::error::anchor-programs-path '$ANCHOR_PROGRAMS_PATH' does not exist"
+            exit 1
+          fi
+
+          LOG="${RUNNER_TEMP:-/tmp}/xray.log"
+          set -o pipefail
+          xray "$ANCHOR_PROGRAMS_PATH" 2>&1 | tee "$LOG"
+
+          if grep -nE '(^sh: [0-9]+:|^Error:|^ERROR:)' "$LOG" > /dev/null; then
+            echo "::error::X-Ray reported errors during analysis (see annotations below)"
+            while IFS= read -r line; do
+              echo "::error::$line"
+            done < <(grep -nE '(^sh: [0-9]+:|^Error:|^ERROR:)' "$LOG")
+            exit 1
+          fi
+
+  solana-lints:
+    needs: detect
+    if: needs.detect.outputs.has-anchor == 'true'
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ inputs.anchor-workspace || inputs.rust-workspace }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      # Install stable BEFORE nightly. dtolnay/rust-toolchain makes the
+      # most-recently-installed toolchain the rustup default, and we want
+      # nightly to win for the dylint run. Installing stable first also
+      # ensures taiki-e's cargo-install fallback for cargo-dylint /
+      # dylint-link builds against stable, not the pinned nightly.
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: stable
+
+      - name: Install dylint
+        uses: taiki-e/install-action@cca35edeb1d01366c2843b68fc3ca441446d73d3 # v2
+        with:
+          tool: cargo-dylint@${{ inputs.cargo-dylint-version }},dylint-link@${{ inputs.cargo-dylint-version }}
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: ${{ inputs.solana-lints-toolchain }}
+          components: rustc-dev, llvm-tools-preview
+
+      # See identical step in clippy job; cargo dylint compiles the
+      # workspace via `cargo check`, so any clang-sys build script in the
+      # dep tree triggers the same libclang lookup.
+      - name: Install libclang for clang-sys (if used)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f Cargo.lock ]] && grep -q '^name = "clang-sys"' Cargo.lock; then
+            echo "clang-sys detected in Cargo.lock — installing libclang-dev"
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends libclang-dev
+          fi
+
+      - uses: Swatinem/rust-cache@42dc69e1aa15d09112580998cf2ef0119e2e91ae # v2
+        with:
+          workspaces: ${{ inputs.anchor-workspace || inputs.rust-workspace }}
+
+      # Solana repos often lock dependency versions that no longer compile on
+      # a modern rustc, even though they build fine on the workspace's own
+      # stable/pinned toolchain. The dylint run forces a recent nightly, so
+      # bump the known offenders to their patched semver-compatible releases:
+      #   - ahash < 0.7.8 / < 0.8.7 probes the compiler at build time and
+      #     enables its `stdsimd` nightly feature on any nightly, but
+      #     `feature(stdsimd)` was removed in rustc 1.78 (E0635).
+      #   - wasm-bindgen < 0.2.88 is rejected outright by rustc >= 1.76
+      #     ("older versions of the `wasm-bindgen` crate are incompatible
+      #     with current versions of Rust"). Its -macro/-backend/-shared
+      #     companions are pinned with `=` requirements, so cargo bumps them
+      #     in lockstep automatically.
+      # This only mutates the CI checkout's Cargo.lock; the repo's committed
+      # lockfile is untouched.
+      - name: Patch nightly-incompatible deps in Cargo.lock
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: ${{ inputs.solana-lints-toolchain }}
+        run: |
+          set -euo pipefail
+          [[ -f Cargo.lock ]] || { echo "No Cargo.lock; skipping."; exit 0; }
+          bump() {
+            echo "$1 $2 cannot build on the dylint nightly; updating to $3"
+            cargo update --package "$1@$2" --precise "$3"
+          }
+          while read -r name version; do
+            case "$name" in
+              ahash)
+                case "$version" in
+                  0.7.[0-7]) bump "$name" "$version" 0.7.8 ;;
+                  0.8.[0-6]) bump "$name" "$version" 0.8.7 ;;
+                esac ;;
+              wasm-bindgen)
+                case "$version" in
+                  0.2.*)
+                    if (( ${version##*.} < 88 )); then
+                      bump "$name" "$version" 0.2.88
+                    fi ;;
+                esac ;;
+            esac
+          done < <(awk '/^name = "(ahash|wasm-bindgen)"$/ {
+                          name = $3; gsub(/"/, "", name)
+                          getline; gsub(/version = |"/, "")
+                          print name, $0
+                        }' Cargo.lock)
+
+      - name: Clone dylint lints
+        env:
+          REPO: ${{ inputs.solana-lints-repo }}
+          REF: ${{ inputs.solana-lints-ref }}
+        run: |
+          set -euo pipefail
+          git clone "$REPO" /tmp/dylint-lints
+          git -C /tmp/dylint-lints checkout "$REF"
+
+      - name: Cache built lint libraries
+        id: lints-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: /tmp/dylint-lints/target/release
+          key: dylint-lints-${{ runner.os }}-${{ inputs.solana-lints-toolchain }}-${{ inputs.solana-lints-ref }}
+
+      # otter-sec/anchor-lints is a single Cargo workspace (members =
+      # ["anchor-lints-utils", "lints/*"]), so one workspace build compiles
+      # every lint cdylib into target/release. (The legacy crytic/trailofbits
+      # solana-lints was not a workspace and needed a per-lint build loop.)
+      - name: Build lints
+        if: steps.lints-cache.outputs.cache-hit != 'true'
+        working-directory: /tmp/dylint-lints
+        run: cargo build --release
+
+      - name: Run dylint
+        env:
+          DYLINT_LIBRARY_PATH: /tmp/dylint-lints/target/release
+          # RUSTUP_TOOLCHAIN beats a workspace rust-toolchain[.toml] pin in
+          # rustup's resolution order. The lint .so files and dylint driver
+          # are both built against `solana-lints-toolchain`; cargo running
+          # any other rustc would fail to load them.
+          RUSTUP_TOOLCHAIN: ${{ inputs.solana-lints-toolchain }}
+        run: cargo dylint --all -- --all-targets
+
+  verifiable-build:
+    needs: detect
+    # Gated on `anchor-present` (file existence), not `has-anchor` (which
+    # is overridden by run-solana), so a caller can ask for verifiable-build
+    # alone without sec3-xray / solana-lints.
+    if: >-
+      needs.detect.outputs.anchor-present == 'true' && (
+        inputs.run-verifiable-build == 'true' ||
+        (inputs.run-verifiable-build == 'auto' && (
+          (github.event_name == 'push' &&
+           github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+          || github.event_name == 'workflow_dispatch'
+        ))
+      )
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ inputs.anchor-workspace || inputs.rust-workspace }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # master
+        with:
+          toolchain: stable
+
+      - name: Cache solana-verify binary
+        id: cache-solana-verify
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cargo/bin/solana-verify
+          key: solana-verify-${{ runner.os }}-${{ inputs.solana-verify-version }}
+
+      - name: Install solana-verify
+        if: steps.cache-solana-verify.outputs.cache-hit != 'true'
+        working-directory: ${{ github.workspace }}
+        run: cargo install --locked solana-verify --version ${{ inputs.solana-verify-version }}
+
+      - name: Verifiable build
+        run: solana-verify build
+
+      - name: Compute executable hashes
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          binaries=(target/deploy/*.so)
+          if [[ ${#binaries[@]} -eq 0 ]]; then
+            echo "::error::solana-verify build produced no .so files in target/deploy"
+            exit 1
+          fi
+          {
+            echo "## Verifiable build"
+            echo ""
+            echo "solana-verify \`${{ inputs.solana-verify-version }}\`"
+            echo ""
+            echo "| Program | sha256 |"
+            echo "| --- | --- |"
+            for so in "${binaries[@]}"; do
+              name=$(basename "$so" .so)
+              hash=$(solana-verify get-executable-hash "$so")
+              echo "| \`$name\` | \`$hash\` |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload program binaries
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verifiable-build-${{ github.sha }}
+          path: ${{ inputs.anchor-workspace || inputs.rust-workspace }}/target/deploy/*.so
+          if-no-files-found: error
+          retention-days: 90
