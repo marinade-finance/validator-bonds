@@ -4305,6 +4305,21 @@ export type ValidatorBonds = {
       "code": 6078,
       "name": "productTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "stakeNotFullyDeactivated",
+      "msg": "Stake account is not fully deactivated, cannot be withdrawn"
+    },
+    {
+      "code": 6080,
+      "name": "stakeAccountIsBigEnoughToReset",
+      "msg": "Stake account is big enough to be reset, withdraw is not permitted"
+    },
+    {
+      "code": 6081,
+      "name": "stakeAccountNotBigEnoughToFund",
+      "msg": "Stake account is not big enough to be funded to settlement"
     }
   ],
   "types": [

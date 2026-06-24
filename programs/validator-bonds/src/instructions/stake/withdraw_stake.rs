@@ -1,19 +1,26 @@
 #![allow(deprecated)]
 // allowing deprecation as anchor 0.29.0 works with old version of StakeState struct
 
-use crate::checks::{check_stake_is_initialized_with_withdrawer_authority, is_closed};
+use crate::checks::{
+    check_stake_is_fully_deactivated, check_stake_is_initialized_with_withdrawer_authority,
+    is_closed,
+};
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
 use crate::events::stake::WithdrawStakeEvent;
 use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
+use crate::utils::minimal_size_stake_account;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{stake::state::StakeState, sysvar::stake_history};
+use anchor_lang::solana_program::stake::state::StakeState;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use std::ops::Deref;
 
-/// Withdrawing funded stake account belonging to removed settlement that has not been delegated (it's in Initialized state).
-/// Such a stake account is considered belonging to the operator of the config account.
+/// Withdrawing a funded stake account belonging to a removed (closed) settlement that is NOT live
+/// validator collateral: either non-delegated (Initialized), or delegated but fully deactivated and
+/// below the minimal delegatable size (cannot be re-delegated/reset). Such a stake account is
+/// considered belonging to the operator of the config account. Active stake, or an inactive stake
+/// big enough to be reset, is never withdrawn here — it returns to the validator via ResetStake.
 #[event_cpi]
 #[derive(Accounts)]
 pub struct WithdrawStake<'info> {
@@ -49,9 +56,7 @@ pub struct WithdrawStake<'info> {
     #[account(mut)]
     pub withdraw_to: UncheckedAccount<'info>,
 
-    /// CHECK: have no CPU budget to parse
-    #[account(address = stake_history::ID)]
-    pub stake_history: UncheckedAccount<'info>,
+    pub stake_history: Sysvar<'info, StakeHistory>,
 
     pub clock: Sysvar<'info, Clock>,
 
@@ -62,36 +67,20 @@ impl WithdrawStake<'_> {
     pub fn process(ctx: Context<WithdrawStake>) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
-        // The rule stipulates to withdraw only when the settlement does exist.
+        // withdraw is permitted only for a leftover stake account of an already closed settlement
         require!(
             is_closed(&ctx.accounts.settlement),
             ErrorCode::SettlementNotClosed
         );
 
-        // stake account is managed by bonds program and belongs under bond validator
-        check_stake_is_initialized_with_withdrawer_authority(
+        // stake account is managed by the bonds program (withdrawer == bonds withdrawer authority)
+        let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
             &ctx.accounts.stake_account,
             &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        let stake_state: &StakeState = ctx.accounts.stake_account.deref();
-        // operator is permitted to work only with Initialized non-delegated stake accounts
-        let stake_meta = match stake_state {
-            StakeState::Initialized(meta) => meta,
-            _ => {
-                return Err(
-                    error!(ErrorCode::WrongStakeAccountState).with_account_name("stake_account")
-                )
-            }
-        };
-        // stake account belongs under the bond config account
-        require_eq!(
-            stake_meta.authorized.withdrawer,
-            ctx.accounts.bonds_withdrawer_authority.key(),
-            ErrorCode::WrongStakeAccountWithdrawer
-        );
 
-        // check the stake account is funded to removed settlement
+        // the stake account must belong to the (closed) settlement by its staker authority
         let settlement_staker_authority =
             find_settlement_staker_authority(&ctx.accounts.settlement.key()).0;
         require_eq!(
@@ -99,6 +88,35 @@ impl WithdrawStake<'_> {
             settlement_staker_authority,
             ErrorCode::SettlementAuthorityMismatch
         );
+
+        // The operator may withdraw a leftover that is NOT live validator collateral:
+        //   * non-delegated (Initialized) — historical behaviour, considered operator owned; OR
+        //   * delegated but FULLY DEACTIVATED and BELOW the minimal delegatable size, i.e. it can
+        //     never be re-delegated/reset. Any active stake, or an inactive stake big enough to be
+        //     reset, must be returned to the validator via ResetStake instead of being withdrawn.
+        let stake_state: &StakeState = ctx.accounts.stake_account.deref();
+        match stake_state {
+            StakeState::Initialized(_) => { /* allowed, as before */ }
+            StakeState::Stake(_, _) => {
+                check_stake_is_fully_deactivated(
+                    &ctx.accounts.stake_account,
+                    ctx.accounts.clock.epoch,
+                    &ctx.accounts.stake_history,
+                    "stake_account",
+                )?;
+                let minimal_size = minimal_size_stake_account(&stake_meta, &ctx.accounts.config);
+                require_gt!(
+                    minimal_size,
+                    ctx.accounts.stake_account.get_lamports(),
+                    ErrorCode::StakeAccountIsBigEnoughToReset
+                );
+            }
+            _ => {
+                return Err(
+                    error!(ErrorCode::WrongStakeAccountState).with_account_name("stake_account")
+                )
+            }
+        }
 
         let withdrawn_amount = ctx.accounts.stake_account.get_lamports();
         withdraw(
