@@ -231,16 +231,19 @@ function assertNotLegacyFormat(inputJson: string, path?: string): void {
   if (!Array.isArray(settlements) || settlements.length === 0) {
     return
   }
-  const first = settlements[0]
-  const legacyFunder =
-    first?.funder === undefined && first?.meta?.funder !== undefined
-  const legacyClaim =
-    Array.isArray(first?.claims) &&
-    first.claims.length > 0 &&
-    first.claims.every((claim: any) => claim?.kind === undefined)
-  if (legacyFunder || legacyClaim) {
+  const isLegacy = (settlement: any): boolean => {
+    const legacyFunder =
+      settlement?.funder === undefined && settlement?.meta?.funder !== undefined
+    const legacyClaim =
+      Array.isArray(settlement?.claims) &&
+      settlement.claims.length > 0 &&
+      settlement.claims.every((claim: any) => claim?.kind === undefined)
+    return legacyFunder || legacyClaim
+  }
+  if (settlements.some(isLegacy)) {
+    const at = path !== undefined ? ` at path '${path}'` : ''
     throw CliCommandError.instance(
-      `'settlements' data at path '${path}' is in the legacy pre-refactor format (missing top-level 'funder' and/or per-claim 'kind'). Legacy files are not supported — regenerate this epoch with the current pipeline to produce the new format.`,
+      `'settlements' data${at} is in the legacy pre-refactor format (missing top-level 'funder' and/or per-claim 'kind'). Legacy files are not supported — regenerate this epoch with the current pipeline to produce the new format.`,
     )
   }
 }
