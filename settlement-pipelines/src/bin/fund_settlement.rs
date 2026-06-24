@@ -690,32 +690,34 @@ async fn fund_settlements(
             );
             continue;
         }
-        // Reserve front: create a stake account funded from marinade_wallet so a
-        // bond settlement is claimable immediately. The bond funds the remainder
-        // below; at close the unclaimed leftover is reaped back to marinade_wallet.
-        if settlement_record.reserve_front > 0 {
+        // Marinade-funded stake: either the reserve front fronted onto a bond
+        // settlement so it is claimable immediately (bond funds the remainder
+        // below; unclaimed leftover reaped to marinade_wallet at close), or a
+        // Marinade settlement funded in full from marinade_wallet. Mutually
+        // exclusive — a settlement triggers at most one.
+        let marinade_deposit = if settlement_record.reserve_front > 0 {
+            Some((settlement_record.reserve_front, "reserve front"))
+        } else if let SettlementFunderType::Marinade(Some(SettlementFunderMarinade {
+            amount_to_fund,
+        })) = &settlement_record.funder
+        {
+            Some((*amount_to_fund, "creating Marinade stake account"))
+        } else {
+            None
+        };
+        if let Some((amount, label)) = marinade_deposit {
             add_marinade_funded_stake_account(
                 &mut transaction_builder,
                 &marinade_wallet,
                 &withdrawer_authority,
                 settlement_record,
-                settlement_record.reserve_front,
+                amount,
                 minimal_stake_lamports,
-                "reserve front",
+                label,
             )?;
         }
         match &settlement_record.funder {
-            SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
-                add_marinade_funded_stake_account(
-                    &mut transaction_builder,
-                    &marinade_wallet,
-                    &withdrawer_authority,
-                    settlement_record,
-                    *amount_to_fund,
-                    minimal_stake_lamports,
-                    "creating Marinade stake account",
-                )?;
-            }
+            SettlementFunderType::Marinade(Some(_)) => {} // handled above
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
                     stake_account_to_fund,
@@ -763,7 +765,7 @@ async fn fund_settlements(
                     )?;
                 }
             }
-            _ => {
+            SettlementFunderType::Marinade(None) => {
                 // reason should be already part of reporting and we don't want to double-add
                 error!(
                     "Not possible to fund settlement {} (vote account {}, bond {}, epoch {}, reason {}, funder {:?})",
