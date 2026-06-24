@@ -2327,9 +2327,6 @@ fn test_generate_psr_commission_increase_basic() {
             min_settlement_lamports: 0,
             grace_increase_bps: None,
             covered_range_bps: [0, 10000],
-            extra_penalty_threshold_bps: 5000,
-            base_markup_bps: 1000,
-            penalty_markup_bps: 2000,
         },
     };
 
@@ -2347,11 +2344,9 @@ fn test_generate_psr_commission_increase_basic() {
         matches!(settlement.reason, SettlementReason::ProtectedEvent(_)),
         "Settlement reason should be ProtectedEvent"
     );
-    // base_cps = 0.001 - 0.0008 = 0.0002
-    // commissions (0.05) below threshold (0.5) → base_markup_bps=1000 (10%)
-    // claim_per_stake = 0.0002 + 0.0002 * 0.1 = 0.00022
-    // claim = 100_000_000_000 * 0.00022 = 22_000_000
-    assert_eq!(settlement.claims_amount, 22_000_000);
+    // claim_per_stake = 0.001 - 0.0008 = 0.0002
+    // claim = 100_000_000_000 * 0.0002 = 20_000_000
+    assert_eq!(settlement.claims_amount, 20_000_000);
 }
 
 #[test]

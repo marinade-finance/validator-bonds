@@ -87,40 +87,14 @@ impl ProtectedEvent {
         }
     }
 
-    fn claim_per_stake(&self, cfg: &SettlementConfig) -> Decimal {
-        use crate::settlement_config::SettlementConfigKind;
+    fn claim_per_stake(&self) -> Decimal {
         match self {
             ProtectedEvent::CommissionSamIncrease {
-                actual_inflation_commission,
-                actual_mev_commission,
                 expected_epr,
                 actual_epr,
                 ..
-            } => {
-                let base_cps = expected_epr - actual_epr;
-                match &cfg.kind {
-                    SettlementConfigKind::CommissionSamIncreaseSettlement {
-                        base_markup_bps,
-                        penalty_markup_bps,
-                        extra_penalty_threshold_bps,
-                        ..
-                    } => {
-                        let threshold = bps_to_fraction(*extra_penalty_threshold_bps);
-                        let markup = if *actual_inflation_commission <= threshold
-                            && actual_mev_commission.unwrap_or(Decimal::ZERO) <= threshold
-                        {
-                            *base_markup_bps
-                        } else {
-                            *penalty_markup_bps
-                        };
-                        base_cps + base_cps * bps_to_fraction(markup)
-                    }
-                    _ => {
-                        panic!("Can not process CommissionSamIncrease settlement with wrong config: {cfg:?}")
-                    }
-                }
             }
-            ProtectedEvent::DowntimeRevenueImpact {
+            | ProtectedEvent::DowntimeRevenueImpact {
                 expected_epr,
                 actual_epr,
                 ..
@@ -143,7 +117,7 @@ impl ProtectedEvent {
         let max_claim_per_stake = bps_to_fraction(upper_bps) * self.expected_epr();
         let ignored_claim_per_stake = bps_to_fraction(lower_bps) * self.expected_epr();
         let claim_per_stake =
-            self.claim_per_stake(cfg).min(max_claim_per_stake) - ignored_claim_per_stake;
+            self.claim_per_stake().min(max_claim_per_stake) - ignored_claim_per_stake;
 
         let amount = (Decimal::from(stake) * claim_per_stake).max(Decimal::ZERO);
         amount.to_u64().with_context(|| {
