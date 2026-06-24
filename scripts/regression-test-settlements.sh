@@ -757,7 +757,7 @@ process_epoch() {
   local sam_results_status="SKIP"
   local results_json=""
   if compgen -G "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" > /dev/null 2>&1; then
-    results_json=$(ls -d "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" 2>/dev/null | head -1)
+    results_json=$(ls -d "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" 2>/dev/null | sort -V | tail -1)
   fi
   if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -n "$results_json" ]]; then
     echo "Running bid-distribution-cli (--sam-results-collection)..."
