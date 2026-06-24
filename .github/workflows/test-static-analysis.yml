@@ -1,0 +1,25 @@
+name: TEST Static Analysis (temporary)
+
+# TEMPORARY, SELF-CONTAINED — calls a LOCAL copy of the reusable workflow
+# (_static-analysis-local.yml) so the marinade-finance/.github fixes can be validated
+# entirely from this PR, without pushing anything to the shared .github repo.
+# The local copy carries the bonds fixes:
+#   - clippy: install libudev (hidapi) + libclang (clang-sys) for --all-features
+#   - cargo-deny: repo-local deny.toml override; advisories cleared by the Cargo.lock bump
+#     (tokio-postgres 0.7.18 / postgres-protocol 0.6.12 / postgres-types 0.2.14 / quinn-proto 0.11.15)
+#   - solana-lints: otter-sec/anchor-lints (nightly-2025-09-18) instead of crytic (nightly-2025-01-09)
+# Once these land in marinade-finance/.github (@main), delete both this file and
+# _static-analysis-local.yml.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    uses: ./.github/workflows/_static-analysis-local.yml
+    with:
+      run-solana: true
