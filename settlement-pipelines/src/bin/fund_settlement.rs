@@ -20,7 +20,7 @@ use settlement_pipelines::reporting::{
     ReportSerializable,
 };
 use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
-use settlement_pipelines::reserve::{apply_reserve_inflation, is_reserve_target, ReserveOpts};
+use settlement_pipelines::reserve::{is_reserve_target, ReserveOpts};
 use settlement_pipelines::settlement_data::{
     reason_display, SettlementFunderMarinade, SettlementFunderType, SettlementFunderValidatorBond,
     SettlementRecord,
@@ -154,12 +154,7 @@ async fn real_main(
     let mut settlement_records_per_epoch =
         load_merkle_tree_with_on_chain(rpc_client.clone(), &collections, args.epoch).await?;
 
-    // Inflate max_total_claim by the reserve prefund so the assert against
-    // the on-chain max (set at init) holds and the bond funds toward the inflated max.
     let reserve_prefund_lamports = args.reserve_opts.reserve_prefund_lamports;
-    settlement_records_per_epoch
-        .values_mut()
-        .for_each(|records| apply_reserve_inflation(records, reserve_prefund_lamports));
 
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
@@ -289,10 +284,14 @@ async fn prepare_funding(
             .as_ref()
             .map_or(0, |s| s.lamports_funded.saturating_sub(s.lamports_claimed));
 
-        // Reserve fronts R from marinade_wallet on first touch so stakers claim on
-        // time; the bond funds the rest toward the inflated max, so its target is
-        // reduced by the front to avoid double-funding within this run.
-        let reserve_front = if settlement_amount_funded == 0 && is_reserve_target(settlement_record)
+        // Reserve fronts R from marinade_wallet on first touch (lamports_funded == 0,
+        // i.e., bond has not yet funded anything). Guard is on lamports_funded, not
+        // funded-claimed, so a post-claim rerun with funded==claimed never re-fronts.
+        let on_chain_lamports_funded = settlement_record
+            .settlement_account
+            .as_ref()
+            .map_or(0, |s| s.lamports_funded);
+        let reserve_front = if on_chain_lamports_funded == 0 && is_reserve_target(settlement_record)
         {
             reserve_prefund_lamports
         } else {
