@@ -151,7 +151,7 @@ describe('Validator Bonds swap settlement stake — full flow', () => {
       userStake,
       userAuthority,
     })
-    await provider.sendIx([userAuthority], swapIx)
+    await provider.sendIx([userAuthority, operatorAuthority], swapIx)
 
     // open the claim window (same epoch) and CLAIM from the swapped-in stake
     const settlementSlot = (await getSettlement(program, settlementAccount))

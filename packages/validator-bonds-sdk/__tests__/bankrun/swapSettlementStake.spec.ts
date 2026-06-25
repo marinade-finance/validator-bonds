@@ -124,7 +124,7 @@ describe('Validator Bonds swap settlement stake', () => {
       userStake,
       userAuthority,
     })
-    await provider.sendIx([userAuthority], instruction)
+    await provider.sendIx([userAuthority, operatorAuthority], instruction)
 
     // the settlement's (delegated) stake now belongs to the user
     const [settlementStakeState] = await getAndCheckStakeAccount(
@@ -174,7 +174,7 @@ describe('Validator Bonds swap settlement stake', () => {
       userAuthority,
     })
     try {
-      await provider.sendIx([userAuthority], instruction)
+      await provider.sendIx([userAuthority, operatorAuthority], instruction)
       throw new Error('should have failed: user stake is delegated')
     } catch (e) {
       verifyError(e, Errors, 6079, 'must not be delegated')
@@ -197,10 +197,35 @@ describe('Validator Bonds swap settlement stake', () => {
       userAuthority,
     })
     try {
-      await provider.sendIx([userAuthority], instruction)
+      await provider.sendIx([userAuthority, operatorAuthority], instruction)
       throw new Error('should have failed: unequal lamports')
     } catch (e) {
       verifyError(e, Errors, 6080, 'equal lamports')
+    }
+  })
+
+  it('cannot swap without the operator authority', async () => {
+    const userAuthority = Keypair.generate()
+    const wrongOperator = Keypair.generate()
+    const { stakeAccount: userStake } = await createInitializedStakeAccount({
+      provider,
+      rentExempt: settlementStakeLamports,
+      staker: userAuthority,
+      withdrawer: userAuthority,
+    })
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      settlementStake,
+      userStake,
+      userAuthority,
+      operatorAuthority: wrongOperator,
+    })
+    try {
+      await provider.sendIx([userAuthority, wrongOperator], instruction)
+      throw new Error('should have failed: wrong operator authority')
+    } catch (e) {
+      verifyError(e, Errors, 6003, 'operator authority')
     }
   })
 })

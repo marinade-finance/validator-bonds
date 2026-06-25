@@ -6,7 +6,7 @@ import {
   SYSVAR_STAKE_HISTORY_PUBKEY,
 } from '@solana/web3.js'
 
-import { getBond, getSettlement } from '../api'
+import { getBond, getConfig, getSettlement } from '../api'
 import { bondsWithdrawerAuthority, settlementStakerAuthority } from '../sdk'
 
 import type { ValidatorBondsProgram } from '../sdk'
@@ -18,7 +18,7 @@ import type { TransactionInstruction, Signer, Keypair } from '@solana/web3.js'
  * for a user-provided undelegated one of equal value. The user's stake is
  * delegated to the settlement's validator and instantly deactivated (claimable
  * now, reaps to the validator's bond at close); the user receives the
- * settlement's delegated stake. Permissionless.
+ * settlement's delegated stake. Permissioned to the operator authority (AML/KYC).
  */
 export async function swapSettlementStakeInstruction({
   program,
@@ -26,6 +26,7 @@ export async function swapSettlementStakeInstruction({
   settlementStake,
   userStake,
   userAuthority,
+  operatorAuthority,
   configAccount,
   bondAccount,
   voteAccount,
@@ -35,6 +36,7 @@ export async function swapSettlementStakeInstruction({
   settlementStake: PublicKey
   userStake: PublicKey
   userAuthority: PublicKey | Keypair | Signer | WalletInterface // signer
+  operatorAuthority?: PublicKey | Keypair | Signer | WalletInterface // signer
   configAccount?: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
@@ -50,9 +52,17 @@ export async function swapSettlementStakeInstruction({
     configAccount = configAccount ?? bondData.config
     voteAccount = voteAccount ?? bondData.voteAccount
   }
+  if (operatorAuthority === undefined) {
+    const configData = await getConfig(program, configAccount)
+    operatorAuthority = configData.operatorAuthority
+  }
 
   const userAuthorityPubkey =
     userAuthority instanceof PublicKey ? userAuthority : userAuthority.publicKey
+  const operatorAuthorityPubkey =
+    operatorAuthority instanceof PublicKey
+      ? operatorAuthority
+      : operatorAuthority.publicKey
 
   const instruction = await program.methods
     .swapSettlementStake()
@@ -72,6 +82,7 @@ export async function swapSettlementStakeInstruction({
       settlementStake,
       userStake,
       userAuthority: userAuthorityPubkey,
+      operatorAuthority: operatorAuthorityPubkey,
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
