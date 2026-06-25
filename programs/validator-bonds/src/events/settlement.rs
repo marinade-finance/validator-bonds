@@ -62,3 +62,16 @@ pub struct FundSettlementEvent {
     pub split_rent_collector: Option<Pubkey>,
     pub split_rent_amount: u64,
 }
+
+#[event]
+pub struct SwapSettlementStakeEvent {
+    pub bond: Pubkey,
+    pub settlement: Pubkey,
+    pub vote_account: Pubkey,
+    pub original_stake_account: Pubkey,
+    pub new_stake_account: Pubkey,
+    pub caller: Pubkey,
+    pub lamports: u64,
+    pub settlement_staker_authority: Pubkey,
+    pub bonds_withdrawer_authority: Pubkey,
+}

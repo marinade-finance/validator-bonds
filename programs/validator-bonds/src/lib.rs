@@ -153,6 +153,14 @@ pub mod validator_bonds {
         FundSettlement::process(ctx)
     }
 
+    pub fn swap_settlement_stake(
+        ctx: Context<SwapSettlementStake>,
+        swap_settlement_stake_args: SwapSettlementStakeArgs,
+    ) -> Result<()> {
+        check_context(&ctx)?;
+        SwapSettlementStake::process(ctx, swap_settlement_stake_args)
+    }
+
     pub fn merge_stake(ctx: Context<MergeStake>, merge_args: MergeStakeArgs) -> Result<()> {
         check_context(&ctx)?;
         MergeStake::process(ctx, merge_args)

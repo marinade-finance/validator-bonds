@@ -3329,6 +3329,273 @@ export type ValidatorBonds = {
       "args": []
     },
     {
+      "name": "swapSettlementStake",
+      "discriminator": [
+        167,
+        36,
+        114,
+        70,
+        240,
+        178,
+        57,
+        194
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "voteAccount"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "voteAccount",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "settlement",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlementStakerAuthority",
+          "docs": [
+            "staker authority of stake accounts funded to this settlement"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "docs": [
+            "authority that manages (owns) all stake accounts under the bonds program"
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeAccount",
+          "docs": [
+            "the original active stake account funded to the settlement; handed over to the caller"
+          ],
+          "writable": true
+        },
+        {
+          "name": "newStakeAccount",
+          "docs": [
+            "the replacement stake account the settlement keeps; delegated and deactivated in the same epoch"
+          ],
+          "writable": true
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "caller funds the replacement stake account and receives the original active one"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "stakeHistory",
+          "address": "SysvarStakeHistory1111111111111111111111111"
+        },
+        {
+          "name": "clock",
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "stakeProgram",
+          "address": "Stake11111111111111111111111111111111111111"
+        },
+        {
+          "name": "stakeConfig",
+          "address": "StakeConfig11111111111111111111111111111111"
+        },
+        {
+          "name": "eventAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": [
+        {
+          "name": "swapSettlementStakeArgs",
+          "type": {
+            "defined": {
+              "name": "swapSettlementStakeArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "upsizeSettlementClaims",
       "discriminator": [
         207,
@@ -3894,6 +4161,19 @@ export type ValidatorBonds = {
         10,
         195,
         177
+      ]
+    },
+    {
+      "name": "swapSettlementStakeEvent",
+      "discriminator": [
+        57,
+        161,
+        103,
+        153,
+        139,
+        135,
+        3,
+        157
       ]
     },
     {
@@ -6257,6 +6537,65 @@ export type ValidatorBonds = {
           {
             "name": "amount",
             "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "swapSettlementStakeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stakeAccountSeed",
+            "docs": [
+              "seed used to derive the new stake account via create_account_with_seed (base == caller)"
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "swapSettlementStakeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "voteAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "originalStakeAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "newStakeAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "caller",
+            "type": "pubkey"
+          },
+          {
+            "name": "lamports",
+            "type": "u64"
+          },
+          {
+            "name": "settlementStakerAuthority",
+            "type": "pubkey"
+          },
+          {
+            "name": "bondsWithdrawerAuthority",
+            "type": "pubkey"
           }
         ]
       }
