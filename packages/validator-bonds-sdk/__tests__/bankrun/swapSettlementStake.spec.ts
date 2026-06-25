@@ -1,7 +1,7 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { currentEpoch } from '@marinade.finance/bankrun-utils'
+import { currentEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import { signer } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, StakeProgram } from '@solana/web3.js'
 
 import { initBankrunTest, delegateAndFund } from './bankrun'
 import {
@@ -175,10 +175,55 @@ describe('Validator Bonds swap settlement stake', () => {
     })
     try {
       await provider.sendIx([userAuthority, operatorAuthority], instruction)
-      throw new Error('should have failed: user stake is delegated')
+      throw new Error('should have failed: user stake is actively delegated')
     } catch (e) {
-      verifyError(e, Errors, 6079, 'must not be delegated')
+      verifyError(e, Errors, 6079, 'actively delegated')
     }
+  })
+
+  it('swaps in a fully-deactivated user stake (reserve reuse)', async () => {
+    // a reserve stake reused across epochs is delegated + deactivated, not fresh
+    const userAuthority = Keypair.generate()
+    const userStake = await createDelegatedStakeAccount({
+      provider,
+      lamports: settlementStakeLamports,
+      voteAccount,
+      staker: userAuthority.publicKey,
+      withdrawer: userAuthority.publicKey,
+    })
+    await provider.sendIx(
+      [userAuthority],
+      StakeProgram.deactivate({
+        stakePubkey: userStake,
+        authorizedPubkey: userAuthority.publicKey,
+      }),
+    )
+    await warpToNextEpoch(provider) // let it fully deactivate (effective 0)
+
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      settlementStake,
+      userStake,
+      userAuthority,
+    })
+    await provider.sendIx([userAuthority, operatorAuthority], instruction)
+
+    // the reused stake is re-delegated to the validator + deactivated this epoch,
+    // and now owned by the settlement -> immediately claimable, reaps to bond
+    const [userStakeState] = await getAndCheckStakeAccount(
+      provider,
+      userStake,
+      StakeStates.Delegated,
+    )
+    expect(userStakeState.Stake!.meta.authorized.staker).toEqual(settlementAuth)
+    expect(userStakeState.Stake!.meta.authorized.withdrawer).toEqual(bondAuth)
+    expect(userStakeState.Stake!.stake.delegation.voterPubkey).toEqual(
+      voteAccount,
+    )
+    expect(userStakeState.Stake!.stake.delegation.deactivationEpoch).toEqual(
+      await currentEpoch(provider),
+    )
   })
 
   it('cannot swap stakes of unequal value', async () => {

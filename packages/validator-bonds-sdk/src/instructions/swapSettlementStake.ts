@@ -15,8 +15,9 @@ import type { TransactionInstruction, Signer, Keypair } from '@solana/web3.js'
 
 /**
  * Generate instruction to atomically swap a settlement's delegated stake account
- * for a user-provided undelegated one of equal value. The user's stake is
- * delegated to the settlement's validator and instantly deactivated (claimable
+ * for a user-provided stake of equal value that is not actively delegated
+ * (a fresh Initialized stake or a fully-deactivated reserve stake). It is
+ * (re)delegated to the settlement's validator and instantly deactivated (claimable
  * now, reaps to the validator's bond at close); the user receives the
  * settlement's delegated stake. Permissioned to the operator authority (AML/KYC).
  */
