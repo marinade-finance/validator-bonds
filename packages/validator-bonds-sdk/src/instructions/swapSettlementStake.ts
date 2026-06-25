@@ -1,4 +1,10 @@
-import { PublicKey, StakeProgram, SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js'
+import {
+  PublicKey,
+  StakeProgram,
+  STAKE_CONFIG_ID,
+  SYSVAR_CLOCK_PUBKEY,
+  SYSVAR_STAKE_HISTORY_PUBKEY,
+} from '@solana/web3.js'
 
 import { getBond, getSettlement } from '../api'
 import { bondsWithdrawerAuthority, settlementStakerAuthority } from '../sdk'
@@ -9,9 +15,10 @@ import type { TransactionInstruction, Signer, Keypair } from '@solana/web3.js'
 
 /**
  * Generate instruction to atomically swap a settlement's delegated stake account
- * for a user-provided undelegated (ready-to-claim) one of equal value.
- * The user receives the settlement's delegated stake; the settlement receives the
- * user's undelegated stake, which is immediately claimable. Permissionless.
+ * for a user-provided undelegated one of equal value. The user's stake is
+ * delegated to the settlement's validator and instantly deactivated (claimable
+ * now, reaps to the validator's bond at close); the user receives the
+ * settlement's delegated stake. Permissionless.
  */
 export async function swapSettlementStakeInstruction({
   program,
@@ -21,6 +28,7 @@ export async function swapSettlementStakeInstruction({
   userAuthority,
   configAccount,
   bondAccount,
+  voteAccount,
 }: {
   program: ValidatorBondsProgram
   settlementAccount: PublicKey
@@ -29,6 +37,7 @@ export async function swapSettlementStakeInstruction({
   userAuthority: PublicKey | Keypair | Signer | WalletInterface // signer
   configAccount?: PublicKey
   bondAccount?: PublicKey
+  voteAccount?: PublicKey
 }): Promise<{
   instruction: TransactionInstruction
 }> {
@@ -36,9 +45,10 @@ export async function swapSettlementStakeInstruction({
     const settlementData = await getSettlement(program, settlementAccount)
     bondAccount = settlementData.bond
   }
-  if (configAccount === undefined) {
+  if (configAccount === undefined || voteAccount === undefined) {
     const bondData = await getBond(program, bondAccount)
-    configAccount = bondData.config
+    configAccount = configAccount ?? bondData.config
+    voteAccount = voteAccount ?? bondData.voteAccount
   }
 
   const userAuthorityPubkey =
@@ -49,6 +59,7 @@ export async function swapSettlementStakeInstruction({
     .accountsPartial({
       config: configAccount,
       bond: bondAccount,
+      voteAccount,
       settlement: settlementAccount,
       settlementStakerAuthority: settlementStakerAuthority(
         settlementAccount,
@@ -61,8 +72,10 @@ export async function swapSettlementStakeInstruction({
       settlementStake,
       userStake,
       userAuthority: userAuthorityPubkey,
+      stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      stakeConfig: STAKE_CONFIG_ID,
     })
     .instruction()
   return {

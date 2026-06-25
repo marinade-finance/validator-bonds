@@ -139,17 +139,21 @@ describe('Validator Bonds swap settlement stake', () => {
       userAuthority.publicKey,
     )
 
-    // the user's (undelegated) stake now belongs to the settlement -> claimable
+    // the user's stake now belongs to the settlement, delegated to the validator
+    // and deactivated this epoch: claimable now (effective 0) and reaps to the
+    // bond at close (ResetStake, because it is a delegated stake of the validator)
     const [userStakeState] = await getAndCheckStakeAccount(
       provider,
       userStake,
-      StakeStates.Initialized,
+      StakeStates.Delegated,
     )
-    expect(userStakeState.Initialized!.meta.authorized.staker).toEqual(
-      settlementAuth,
+    expect(userStakeState.Stake!.meta.authorized.staker).toEqual(settlementAuth)
+    expect(userStakeState.Stake!.meta.authorized.withdrawer).toEqual(bondAuth)
+    expect(userStakeState.Stake!.stake.delegation.voterPubkey).toEqual(
+      voteAccount,
     )
-    expect(userStakeState.Initialized!.meta.authorized.withdrawer).toEqual(
-      bondAuth,
+    expect(userStakeState.Stake!.stake.delegation.deactivationEpoch).toEqual(
+      await currentEpoch(provider),
     )
   })
 
