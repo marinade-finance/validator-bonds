@@ -27,13 +27,20 @@ const SETTLEMENT_STAKER_AUTHORITY_SEED: &[u8] = b"settlement_authority";
 /// reaps back to the validator's bond at close (ResetStake). The user receives
 /// the settlement's original delegated stake.
 ///
-/// Permissionless: anyone willing to provide a matching undelegated stake may
-/// swap. Touches no claim accounting (orthogonal to ClaimSettlementV2).
+/// Permissioned to the operator authority (the operator co-signs, gating which
+/// users may swap, e.g. for AML/KYC). Touches no claim accounting (orthogonal to
+/// ClaimSettlementV2).
 #[event_cpi]
 #[derive(Accounts)]
 pub struct SwapSettlementStake<'info> {
     /// the config account under which the settlement was created
+    #[account(
+        has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
+    )]
     pub config: Box<Account<'info, Config>>,
+
+    /// operator signer authority permissions the swap (e.g. AML/KYC)
+    pub operator_authority: Signer<'info>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,

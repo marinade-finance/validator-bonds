@@ -3345,6 +3345,16 @@
           ]
         },
         {
+          "name": "operator_authority",
+          "docs": [
+            "operator signer authority permissions the swap (e.g. AML/KYC)"
+          ],
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
           "name": "bond",
           "pda": {
             "seeds": [

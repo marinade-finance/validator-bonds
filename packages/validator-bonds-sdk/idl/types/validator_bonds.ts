@@ -3351,6 +3351,16 @@ export type ValidatorBonds = {
           ]
         },
         {
+          "name": "operatorAuthority",
+          "docs": [
+            "operator signer authority permissions the swap (e.g. AML/KYC)"
+          ],
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
           "name": "bond",
           "pda": {
             "seeds": [
