@@ -3387,6 +3387,9 @@ export type ValidatorBonds = {
           ]
         },
         {
+          "name": "voteAccount"
+        },
+        {
           "name": "settlement",
           "pda": {
             "seeds": [
@@ -3519,12 +3522,19 @@ export type ValidatorBonds = {
           "signer": true
         },
         {
+          "name": "stakeHistory",
+          "address": "SysvarStakeHistory1111111111111111111111111"
+        },
+        {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
         },
         {
           "name": "stakeProgram",
           "address": "Stake11111111111111111111111111111111111111"
+        },
+        {
+          "name": "stakeConfig"
         },
         {
           "name": "eventAuthority",
