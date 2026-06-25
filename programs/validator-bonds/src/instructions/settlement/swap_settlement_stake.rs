@@ -20,12 +20,13 @@ use anchor_spl::stake::{
 const SETTLEMENT_STAKER_AUTHORITY_SEED: &[u8] = b"settlement_authority";
 
 /// Atomically swaps a settlement's delegated stake account for a user-provided
-/// undelegated one of equal value. The user's stake is delegated to the
-/// settlement's validator and instantly deactivated — leaving it effective-stake
-/// zero (so it is immediately claimable as a settlement stake) while remaining a
-/// delegated stake of that validator, so the settlement's unclaimed remainder
-/// reaps back to the validator's bond at close (ResetStake). The user receives
-/// the settlement's original delegated stake.
+/// stake of equal value that is not actively delegated (a fresh Initialized stake
+/// or a fully-deactivated one reused from the operator's reserve). The user's
+/// stake is (re)delegated to the settlement's validator and instantly deactivated
+/// — leaving it effective-stake zero (so it is immediately claimable as a
+/// settlement stake) while remaining a delegated stake of that validator, so the
+/// settlement's unclaimed remainder reaps back to the validator's bond at close
+/// (ResetStake). The user receives the settlement's original delegated stake.
 ///
 /// Permissioned to the operator authority (the operator co-signs, gating which
 /// users may swap, e.g. for AML/KYC). Touches no claim accounting (orthogonal to
@@ -142,8 +143,11 @@ impl SwapSettlementStake<'_> {
             "settlement_stake",
         )?;
 
-        // user_stake is fully owned by the user and undelegated (so it can be
-        // delegated to the settlement's validator below)
+        // user_stake is fully owned by the user and NOT actively delegated, so it
+        // can be (re)delegated to the settlement's validator below. It may be a
+        // fresh Initialized stake or a fully-deactivated one reused from the
+        // operator's reserve; only an active delegation is rejected (it cannot be
+        // cleanly re-delegated).
         let user_stake_meta = check_stake_is_initialized_with_withdrawer_authority(
             &ctx.accounts.user_stake,
             &ctx.accounts.user_authority.key(),
@@ -154,10 +158,12 @@ impl SwapSettlementStake<'_> {
             ctx.accounts.user_authority.key(),
             ErrorCode::WrongStakeAccountStaker,
         );
-        require!(
-            get_delegation(&ctx.accounts.user_stake)?.is_none(),
-            ErrorCode::SwapStakeAccountDelegated,
-        );
+        if let Some(delegation) = get_delegation(&ctx.accounts.user_stake)? {
+            require!(
+                delegation.deactivation_epoch != u64::MAX,
+                ErrorCode::SwapStakeAccountDelegated,
+            );
+        }
         check_stake_is_not_locked(&ctx.accounts.user_stake, &ctx.accounts.clock, "user_stake")?;
 
         // equal value keeps the settlement whole and the swap fair to the user

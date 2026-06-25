@@ -4575,7 +4575,7 @@ export type ValidatorBonds = {
     {
       "code": 6079,
       "name": "swapStakeAccountDelegated",
-      "msg": "Provided user stake account to swap must not be delegated"
+      "msg": "Provided user stake account to swap must not be actively delegated"
     },
     {
       "code": 6080,
