@@ -87,8 +87,7 @@ impl FeeConfig {
         if let Some(value) = self.min_yield_premium_over_ssr_pmpe {
             ensure!(
                 value.abs() <= dec!(0.1),
-                "min_yield_premium_over_ssr_pmpe {} exceeds ±0.1 PMPE (~2% APY)",
-                value
+                "min_yield_premium_over_ssr_pmpe {value} exceeds ±0.1 PMPE (~2% APY)"
             );
         }
         ensure!(
