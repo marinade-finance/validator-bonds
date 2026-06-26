@@ -74,16 +74,17 @@ do
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
 
-    # Sum staker active/activating stake. FeeDeposit claims carry neither field by design.
-    protected_stake_raw=$(<<<"$settlement" jq '[.claims[] | select(.kind == "StakerPayout") | .active_stake] | add // 0 | . / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    activating_stake_raw=$(<<<"$settlement" jq '[.claims[] | select(.kind == "StakerPayout") | .activating_stake] | add // 0 | . / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    if [ "$activating_stake_raw" != "0" ]; then
+    # Marinade stake the settlement charges the validator for, read from settlement details.
+    # Claim-level active_stake is 0 when the whole bid is captured as fee; ProtectedEvent has no details, so fall back to the claim sum.
+    active_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_active_stake // 0) as $a | (if $a > 0 then $a else ([.claims[].active_stake] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    activating_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_activating_stake // 0) as $g | (if $g > 0 then $g else ([.claims[].activating_stake // 0] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    if [ "$activating_basis" != "0" ]; then
         # Activating-stake settlement (PriorityFee): "+" sign before ☉ marks activating
         stake_sign="+"
-        stake_value="$activating_stake_raw"
+        stake_value="$activating_basis"
     else
         stake_sign=" "
-        stake_value="$protected_stake_raw"
+        stake_value="$active_basis"
     fi
     # Right-align integer part of value, left-align trailing (decimal/unit) so
     # units digits line up under each other regardless of suffix or fraction.
