@@ -320,6 +320,15 @@ async fn reset_stake_accounts(
                     debug!(
                         "Stake account {stake_pubkey} is dangling but it is in the list of known problematic stake accounts, skipping it."
                     );
+                } else if lamports < minimal_stake_lamports {
+                    // sub-minimal dangling dust can neither be re-delegated (DelegateStake rejects
+                    // below the network minimum) nor withdrawn by the current program, so it is
+                    // unrecoverable here; log instead of failing the pipeline
+                    info!(
+                        "Stake account {stake_pubkey} is dangling and below the minimum stake size {} (balance {}); cannot be cleaned up by the pipeline, skipping.",
+                        build_balance_message(minimal_stake_lamports, false, false),
+                        build_balance_message(lamports, false, false),
+                    );
                 } else {
                     reporting.error().with_msg(format!(
                         "Stake account {stake_pubkey} is dangling, not belonging to any Settlement. Manual intervention needed."
