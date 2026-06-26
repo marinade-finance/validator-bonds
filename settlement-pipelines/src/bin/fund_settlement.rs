@@ -3,7 +3,6 @@ use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
 use serde::Serialize;
-use settlement_common::settlement_collection::SettlementReason;
 use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
     init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
@@ -790,7 +789,13 @@ async fn swap_settlements(
         .map_err(CliError::retry_able)?;
 
     for settlement_record in settlement_records.iter().flat_map(|(_, r)| r.iter()) {
-        if !matches!(settlement_record.reason, Some(SettlementReason::Bidding)) {
+        // Only bond-funded settlements lag: FundSettlement splits a delegated bond
+        // stake that deactivates and is not claimable until next epoch. Marinade-
+        // funded settlements get a fresh claimable stake, so they never need a swap.
+        if !matches!(
+            settlement_record.funder,
+            SettlementFunderType::ValidatorBond(_)
+        ) {
             continue;
         }
         if settlement_record.settlement_account.is_none() {
