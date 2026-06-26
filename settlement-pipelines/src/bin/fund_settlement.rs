@@ -37,6 +37,7 @@ use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::instruction::create_account as create_stake_account_instructions;
 use solana_sdk::stake::instruction::split as split_stake_instructions;
 use solana_sdk::stake::program::ID as stake_program_id;
+use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
     stake_history::ID as stake_history_sysvar_id,
@@ -210,7 +211,6 @@ async fn real_main(
             fee_payer.clone(),
             operator_authority.clone(),
             reserve_wallet,
-            rent_payer.clone(),
             &priority_fee_policy,
             reporting,
         )
@@ -774,7 +774,6 @@ async fn swap_settlements(
     fee_payer: Arc<Keypair>,
     operator_authority: Arc<Keypair>,
     marinade_wallet: Arc<Keypair>,
-    _rent_payer: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
@@ -788,12 +787,20 @@ async fn swap_settlements(
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
 
     // Marinade-owned reserve stakes that are not actively delegated (staker ==
     // withdrawer == marinade_wallet). Used as the split source for the reserve-reuse
     // path; consumed/updated in-place across settlements within this pass.
-    let mut reserve_stakes =
-        collect_swap_reserve_stakes(rpc_client.clone(), &marinade_wallet.pubkey()).await?;
+    let mut reserve_stakes = collect_swap_reserve_stakes(
+        rpc_client.clone(),
+        &marinade_wallet.pubkey(),
+        &clock,
+        &stake_history,
+    )
+    .await?;
     let mut marinade_lamports = rpc_client
         .get_balance(&marinade_wallet.pubkey())
         .await
@@ -827,22 +834,27 @@ async fn swap_settlements(
             find_settlement_staker_authority(&settlement_record.settlement_address);
 
         for (settlement_stake, lamports, state) in settlement_stakes {
-            // Idempotency: a stake re-delegated by a prior swap this epoch carries
-            // activation_epoch == current epoch (the bond's funded stake delegated
-            // in an earlier epoch does not). Skip those, and skip Initialized stakes
-            // (no delegation to hand over).
-            match state.delegation() {
-                Some(delegation) if delegation.activation_epoch == clock.epoch => {
+            // Only a still-active settlement stake needs swapping. A stake that is
+            // already fully deactivated (effective stake 0) is withdrawable as-is:
+            // that covers a stake a prior swap delegated-and-deactivated this epoch
+            // (so the pass is idempotent) and a bond stake that finished cooling
+            // down. Initialized / unauthorized stakes carry no delegation to hand
+            // over. Skip all of those.
+            match get_stake_state_type(&state, &clock, &stake_history) {
+                StakeAccountStateType::DelegatedAndDeactivating
+                | StakeAccountStateType::DelegatedAndActivating
+                | StakeAccountStateType::DelegatedAndActive => {}
+                StakeAccountStateType::DelegatedAndDeactivated
+                | StakeAccountStateType::Initialized
+                | StakeAccountStateType::NonAuthorized => {
                     debug!(
-                        "Settlement {} (vote account {}): stake {} already swapped this epoch, skipping",
+                        "Settlement {} (vote account {}): settlement stake {} is already withdrawable, skipping swap",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         settlement_stake,
                     );
                     continue;
                 }
-                Some(_) => {}
-                None => continue,
             }
 
             // Provide a Marinade-owned, not-actively-delegated reserve stake of
@@ -970,6 +982,8 @@ struct SwapReserveStake {
 async fn collect_swap_reserve_stakes(
     rpc_client: Arc<RpcClient>,
     marinade_wallet: &Pubkey,
+    clock: &Clock,
+    stake_history: &StakeHistory,
 ) -> Result<Vec<SwapReserveStake>, CliError> {
     let stake_accounts = collect_stake_accounts(
         rpc_client.clone(),
@@ -981,12 +995,13 @@ async fn collect_swap_reserve_stakes(
     let reserve_stakes = stake_accounts
         .into_iter()
         .filter(|(_, _, state)| {
-            // not actively delegated: an active delegation cannot be cleanly
-            // re-delegated by the swap, so it is unusable as a reserve source
-            match state.delegation() {
-                Some(delegation) => delegation.deactivation_epoch != u64::MAX,
-                None => true,
-            }
+            // usable as a swap input only if the swap can (re)delegate it: a fresh
+            // Initialized stake or one that has fully deactivated (effective 0). A
+            // still-active or still-deactivating stake cannot be re-delegated.
+            matches!(
+                get_stake_state_type(state, clock, stake_history),
+                StakeAccountStateType::Initialized | StakeAccountStateType::DelegatedAndDeactivated
+            )
         })
         .map(|(stake_account, lamports, _)| SwapReserveStake {
             stake_account,
