@@ -3718,6 +3718,92 @@ fn test_ssr_activating_only_uses_min_fee() {
 }
 
 #[test]
+fn test_redelegation_only_takes_yield_capped_fee_not_max() {
+    // Regression guard for the fee gate in split_distributor_fee: a validator with
+    // active=0 but redelegation (deactivating, non-exiting) > 0 and activating
+    // stake > 0 must still take the yield-capped fee, not max_fee. The pre-refactor
+    // gate was `active + redelegation > 0`; a refactor narrowed it to `active > 0`,
+    // which wrongly fell through to max_fee here and overcharged the distributor.
+    //
+    // We invoke generate_bid_settlements_worker directly with a fixed fee config so
+    // the per-validator gate is exercised in isolation (the public entry point runs
+    // a global fee bisection that independently zeroes the fee when no active stake
+    // exists, which would mask the gate).
+    //
+    // redelegation=1000 SOL, activating=1000 SOL, active=0.
+    // static_bid=0, activating_stake_pmpe=40 → activating_bid_claim = 1000 SOL * 40/1000 = 40 SOL
+    // total_marinade_stakers_rewards = 40 SOL (no active stake → active rewards are 0)
+    // staker_yield_pmpe = 40 / (0 + 1000) * 1000                 = 40
+    // target=28 → fee_cap = 1 - 28/40 = 0.30; max=0.50 so the cap binds, not max.
+    // distributor_fee = min(40 * 0.30, 40) = 12 SOL  (max_fee would charge 20 SOL).
+    let epoch: u64 = 100;
+    let vote_account = test_vote_account(14);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: vec![
+            create_stake_meta_with_activating(
+                test_stake_account(50),
+                vote_account,
+                test_withdraw_authority(50),
+                TEST_PUBKEY_MARINADE,
+                0,
+                1000 * LAMPORTS_PER_SOL,
+            ),
+            create_stake_meta_with_deactivating(
+                test_stake_account(51),
+                vote_account,
+                test_withdraw_authority(51),
+                TEST_PUBKEY_MARINADE,
+                0,
+                1000 * LAMPORTS_PER_SOL,
+            ),
+        ],
+    };
+
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
+        .total_pmpe(0.0)
+        .static_bid(0.0)
+        .activating_stake_pmpe(40.0)
+        .build();
+
+    let groups = crate::generators::bidding::build_staker_stake_groups(
+        stake_meta_index
+            .iter_grouped_stake_metas(&vote_account)
+            .unwrap(),
+    );
+    let validator_groups = vec![(&sam_meta, groups)];
+
+    let settlements = crate::generators::bidding::generate_bid_settlements_worker(
+        &validator_groups,
+        epoch,
+        &RewardsCollection {
+            epoch,
+            rewards_by_vote_account: HashMap::new(),
+        },
+        &create_test_settlement_config(),
+        &ssr_fee_config(5000, 0, 0.0),
+        &|pk: &Pubkey| *pk == TEST_PUBKEY_MARINADE,
+        &|_| false,
+        Decimal::try_from(28.0).unwrap(),
+    )
+    .unwrap();
+
+    let marinade_fee =
+        sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);
+    let dao_fee = sum_claims_for_authority(&settlements, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO);
+    assert_eq!(dao_fee, 0, "dao share is 0 in ssr_fee_config");
+    assert!(
+        marinade_fee.abs_diff(12 * LAMPORTS_PER_SOL) <= 2,
+        "redelegation-only validator must take the yield-capped fee (~12 SOL at fee_cap=0.30), \
+         not max_fee (20 SOL); got {marinade_fee}"
+    );
+}
+
+#[test]
 fn test_psr_epoch_mismatch_returns_error() {
     let slot = 1000;
     let vote_account = test_vote_account(1);
@@ -3769,10 +3855,6 @@ fn test_psr_epoch_mismatch_returns_error() {
     );
 
     assert!(result.is_err(), "epoch mismatch must return an error");
-}
-
-fn make_bid_settlement(stake: u64, rewards: &str, fee: u64) -> Settlement {
-    make_bid_settlement_for(Pubkey::default(), stake, rewards, fee)
 }
 
 fn make_bid_settlement_for(
@@ -3846,8 +3928,29 @@ fn test_calculate_bid_settlement_totals_sums_bidding() {
 
 #[test]
 fn test_calculate_bid_settlement_totals_skips_non_bidding() {
-    let mut other = make_bid_settlement(1_000_000, "500", 50);
-    other.reason = SettlementReason::BidTooLowPenalty;
+    // A non-Bidding/PriorityFee settlement (a BidTooLowPenalty carrying its own
+    // details, as produced in practice) must contribute nothing to the bid fee
+    // totals — the function tallies only the Bidding and PriorityFee detail variants.
+    let other = Settlement {
+        reason: SettlementReason::BidTooLowPenalty,
+        funder: SettlementFunder::ValidatorBond,
+        vote_account: test_vote_account(1),
+        claims_count: 0,
+        claims_amount: 0,
+        claims: vec![],
+        details: Some(SettlementDetails::BidTooLowPenalty(
+            BidTooLowPenaltyDetails {
+                total_marinade_active_stake: 1_000_000,
+                effective_sam_marinade_active_stake: 1_000_000,
+                bid_too_low_penalty_pmpe: "10".to_string(),
+                bid_too_low_penalty_total_claim: "500".to_string(),
+                distributor_bid_too_low_penalty_claim: 50,
+                stakers_bid_too_low_penalty_claim: 450,
+                dao_bid_too_low_penalty_claim: 0,
+                marinade_bid_too_low_penalty_claim: 50,
+            },
+        )),
+    };
     let totals = calculate_bid_settlement_totals(&[other]);
     assert!(totals.stake.is_zero());
     assert!(totals.rewards.is_zero());

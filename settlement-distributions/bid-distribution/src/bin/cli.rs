@@ -241,6 +241,19 @@ fn main() -> anyhow::Result<()> {
             !sam_validator_metas.is_empty(),
             "SAM settlement configs are present but the SAM input contains no validators"
         );
+        // Each meta drives a full settlement-claim set over the validator's staker stake,
+        // so a duplicate vote account would double that validator's claims. Upstream
+        // (ds-sam) emits one row per vote account; fail loudly if that ever breaks.
+        let mut seen_votes = HashSet::with_capacity(sam_validator_metas.len());
+        let duplicate_votes: Vec<_> = sam_validator_metas
+            .iter()
+            .filter(|m| !seen_votes.insert(m.vote_account))
+            .map(|m| m.vote_account)
+            .collect();
+        anyhow::ensure!(
+            duplicate_votes.is_empty(),
+            "SAM input contains duplicate vote accounts: {duplicate_votes:?}"
+        );
 
         info!("Loading rewards from directory: {rewards_dir:?}");
         let rewards_collection = load_rewards_from_directory(rewards_dir, &stake_meta_collection)?;

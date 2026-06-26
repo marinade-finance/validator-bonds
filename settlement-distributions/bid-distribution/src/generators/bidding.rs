@@ -293,7 +293,7 @@ fn split_distributor_fee(
     vote_account: &Pubkey,
 ) -> anyhow::Result<FeeSplit> {
     let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
-        && totals.marinade_active > 0
+        && (totals.marinade_active + totals.marinade_redelegation) > 0
     {
         let staker_yield_pmpe = total_marinade_stakers_rewards
             / (Decimal::from(totals.marinade_active) + Decimal::from(totals.marinade_redelegation))
