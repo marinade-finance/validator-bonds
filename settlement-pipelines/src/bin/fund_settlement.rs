@@ -126,11 +126,16 @@ async fn real_main(
     } else {
         fee_payer.clone()
     };
-    let marinade_wallet = if let Some(marinade_wallet) = args.marinade_wallet.clone() {
-        load_keypair("--marinade-wallet", &marinade_wallet)?
-    } else {
-        fee_payer.clone()
+    // The swap reserve is the explicitly-provided marinade wallet. When absent we
+    // fall back to fee_payer for the legacy Marinade funding path, but the swap pass
+    // runs only when the reserve wallet is explicitly provided (see below).
+    let swap_reserve_wallet = match args.marinade_wallet.clone() {
+        Some(marinade_wallet) => Some(load_keypair("--marinade-wallet", &marinade_wallet)?),
+        None => None,
     };
+    let marinade_wallet = swap_reserve_wallet
+        .clone()
+        .unwrap_or_else(|| fee_payer.clone());
 
     let collections = load_merkle_tree_collections(&args.json_files, args.global_opts.config)?;
     if collections.is_empty() {
@@ -192,21 +197,27 @@ async fn real_main(
     )
     .await?;
 
-    swap_settlements(
-        &program,
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &settlement_records_per_epoch,
-        &config_address,
-        &config,
-        fee_payer.clone(),
-        operator_authority.clone(),
-        marinade_wallet.clone(),
-        rent_payer.clone(),
-        &priority_fee_policy,
-        reporting,
-    )
-    .await?;
+    // Swap runs only when a reserve wallet is explicitly provided; without it there
+    // is no reserve to source swap stakes from, so funding behaves as before.
+    if let Some(reserve_wallet) = swap_reserve_wallet {
+        swap_settlements(
+            &program,
+            rpc_client.clone(),
+            transaction_executor.clone(),
+            &settlement_records_per_epoch,
+            &config_address,
+            &config,
+            fee_payer.clone(),
+            operator_authority.clone(),
+            reserve_wallet,
+            rent_payer.clone(),
+            &priority_fee_policy,
+            reporting,
+        )
+        .await?;
+    } else {
+        info!("Swap pass skipped: no --marinade-wallet reserve provided");
+    }
 
     Ok(())
 }
