@@ -874,6 +874,45 @@ describe('Validator Bonds fund settlement', () => {
     },
   )
 
+  it('cannot fund settlement with a stake account at the minimal size', async () => {
+    // a stake account holding exactly the minimal stake size has nothing fundable above
+    // the min size; the on-chain guard must reject it instead of underflowing
+    const maxTotalClaim = LAMPORTS_PER_SOL * 10
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim,
+    })
+
+    const stakeAccount = await createBondsFundedStakeAccountActivated(
+      stakeAccountMinimalAmount,
+    )
+    expect(
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
+    ).toEqual(stakeAccountMinimalAmount)
+
+    const { instruction, splitStakeAccount } = await fundSettlementInstruction({
+      program,
+      settlementAccount,
+      stakeAccount,
+    })
+    try {
+      await provider.sendIx(
+        [signer(splitStakeAccount), operatorAuthority],
+        instruction,
+      )
+      throw new Error('Expected error; stake account is only the minimal size')
+    } catch (e) {
+      verifyError(e, Errors, 6081, 'not big enough to be funded')
+    }
+    const settlementData = await getSettlement(program, settlementAccount)
+    expect(settlementData.lamportsFunded).toEqual(0)
+  })
+
   it('double fund settlement minimum delegated amount', async () => {
     const maxTotalClaim = 50 * LAMPORTS_PER_SOL
     const { settlementAccount } = await executeInitSettlement({

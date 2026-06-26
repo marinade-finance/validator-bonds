@@ -222,6 +222,39 @@ pub fn check_stake_exist_and_activating_or_activated(
     }
 }
 
+/// Verifies the stake account is fully inactive — no effective, activating, or
+/// deactivating stake — so the entire balance is safe to withdraw.
+/// A non-delegated (Initialized) account returns Ok (nothing is staked).
+pub fn check_stake_is_fully_deactivated(
+    stake_account: &StakeAccount,
+    epoch: Epoch,
+    stake_history: &StakeHistory,
+    stake_account_attribute_name: &str,
+) -> Result<()> {
+    if let Some(stake) = stake_account.stake() {
+        let StakeHistoryEntry {
+            effective,
+            activating,
+            deactivating,
+        } = stake
+            .delegation
+            .stake_activating_and_deactivating(epoch, stake_history, None);
+        if effective != 0 || activating != 0 || deactivating != 0 {
+            msg!(
+                "Stake account is not fully deactivated: {:?}",
+                stake_account.deref()
+            );
+            return Err(error!(ErrorCode::StakeNotFullyDeactivated)
+                .with_account_name(stake_account_attribute_name)
+                .with_values((
+                    "effective/activating/deactivating",
+                    format!("{effective}/{activating}/{deactivating}"),
+                )));
+        }
+    }
+    Ok(())
+}
+
 pub fn deserialize_stake_account(account: &UncheckedAccount) -> Result<StakeAccount> {
     require_keys_eq!(
         *account.owner,
@@ -734,6 +767,99 @@ mod tests {
                 &stake_history
             ),
             Ok(stake_activated)
+        );
+    }
+
+    #[test]
+    pub fn stake_is_fully_deactivated_check() {
+        let clock = get_clock();
+        let stake_history = StakeHistory::default();
+        assert!(clock.epoch > 0);
+
+        // not delegated -> Ok (nothing is staked)
+        for state in [
+            StakeStateV2::Uninitialized,
+            StakeStateV2::Initialized(Meta::default()),
+        ] {
+            assert_eq!(
+                check_stake_is_fully_deactivated(
+                    &get_stake_account(state),
+                    clock.epoch,
+                    &stake_history,
+                    "stake_account"
+                ),
+                Ok(())
+            );
+        }
+
+        // delegated, fully deactivated (deactivated before current epoch) -> Ok
+        let deactivated = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: u64::MAX,
+                    deactivation_epoch: clock.epoch - 1,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        ));
+        assert_eq!(
+            check_stake_is_fully_deactivated(
+                &deactivated,
+                clock.epoch,
+                &stake_history,
+                "stake_account"
+            ),
+            Ok(())
+        );
+
+        // delegated, currently activating -> Err
+        let activating = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: clock.epoch,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        ));
+        assert_eq!(
+            check_stake_is_fully_deactivated(
+                &activating,
+                clock.epoch,
+                &stake_history,
+                "stake_account"
+            ),
+            Err(ErrorCode::StakeNotFullyDeactivated.into())
+        );
+
+        // delegated, activated/effective -> Err
+        let activated = get_stake_account(StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 100,
+                    activation_epoch: clock.epoch - 1,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        ));
+        assert_eq!(
+            check_stake_is_fully_deactivated(
+                &activated,
+                clock.epoch,
+                &stake_history,
+                "stake_account"
+            ),
+            Err(ErrorCode::StakeNotFullyDeactivated.into())
         );
     }
 
