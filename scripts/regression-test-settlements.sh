@@ -73,6 +73,11 @@ INST_DAO_FEE_WITHDRAW_AUTHORITY="mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Local ds-sam auction outputs (`<epoch>.<slot>/outputs/results.json`). Production
+# feeds these to the bid CLI via --sam-results-collection; when present for an epoch
+# we verify that path produces the same settlements as the scoring-API --sam-meta path.
+DS_SAM_AUCTIONS_DIR="${DS_SAM_AUCTIONS_DIR:-$REPO_ROOT/../ds-sam-pipeline/auctions}"
+
 # ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
@@ -213,7 +218,7 @@ per_vote_claims() {
 # Usage: per_vote_funder_claims <file> [<file2> ...]
 per_vote_funder_claims() {
   jq -n '
-    [inputs.settlements[] | {vote_account, funder: .meta.funder, claims_amount}]
+    [inputs.settlements[] | {vote_account, funder: (.funder // .meta.funder), claims_amount}]
     | group_by([.vote_account, .funder])
     | map({vote_account: .[0].vote_account, funder: .[0].funder, total: (map(.claims_amount) | add)})
     | sort_by([.vote_account, .funder])
@@ -743,6 +748,48 @@ process_epoch() {
   fi
 
   # =====================================================================
+  # SAM INPUT-PATH EQUIVALENCE (production uses --sam-results-collection)
+  # =====================================================================
+  # When a local ds-sam results.json exists for this epoch, verify the production
+  # input path (--sam-results-collection, mapped by into_validator_sam_metas) yields
+  # the SAME settlements as the scoring-API --sam-meta-collection path compared above.
+  # Closes the gap where regression never exercised the mapping production runs.
+  local sam_results_status="SKIP"
+  local results_json=""
+  if compgen -G "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" > /dev/null 2>&1; then
+    results_json=$(ls -d "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" 2>/dev/null | sort -V | tail -1)
+  fi
+  if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -n "$results_json" ]]; then
+    echo "Running bid-distribution-cli (--sam-results-collection)..."
+    rm -f "$actual_dir/bid-settlements-from-results.json" "$actual_dir/.pe-results.json"
+    if ! "$BID_CLI" \
+        --settlement-config "$SETTLEMENT_CONFIG" \
+        --stake-meta-collection "$inputs_dir/stakes.json" \
+        --sam-results-collection "$results_json" \
+        --rewards-dir "$rewards_dir" \
+        --validator-meta-collection "$inputs_dir/validators.json" \
+        --revenue-expectation-collection "$inputs_dir/evaluation.json" \
+        --output-settlement-collection "$actual_dir/bid-settlements-from-results.json" \
+        --output-protected-event-collection "$actual_dir/.pe-results.json" \
+        2>&1 | tail -3; then
+      echo "  FAIL sam-results path: bid-distribution-cli error"
+      sam_results_status="ERROR"
+    else
+      # Order-independent full-object comparison (incl. details), normalized by vote+reason.
+      local norm='[.settlements[]] | sort_by(.vote_account, (.reason|tostring))'
+      if diff <(jq -S "$norm" "$actual_dir/bid-distribution-settlements.json") \
+              <(jq -S "$norm" "$actual_dir/bid-settlements-from-results.json") > /dev/null 2>&1; then
+        echo "  OK sam-results path: settlements identical to sam-meta path"
+        sam_results_status="MATCH"
+      else
+        echo "  FAIL sam-results path: settlements differ from sam-meta path"
+        sam_results_status="DIFFER"
+      fi
+    fi
+    rm -f "$actual_dir/bid-settlements-from-results.json" "$actual_dir/.pe-results.json"
+  fi
+
+  # =====================================================================
   # INSTITUTIONAL DISTRIBUTION
   # =====================================================================
 
@@ -751,9 +798,6 @@ process_epoch() {
 
   gcs_cached_download "$GS_BUCKET_INSTITUTIONAL/$epoch/institutional-payouts.json" \
     "$inst_inputs_dir/institutional-payouts.json" \
-    || missing_inst_input=true
-  gcs_cached_download "$GS_BUCKET_SNAPSHOT/$epoch/stakes.json" \
-    "$inst_inputs_dir/stakes.json" \
     || missing_inst_input=true
 
   echo "Downloading institutional expected outputs..."
@@ -783,7 +827,6 @@ process_epoch() {
 
     if ! "$INST_CLI" \
         --institutional-payouts "$inst_inputs_dir/institutional-payouts.json" \
-        --stake-meta-collection "$inst_inputs_dir/stakes.json" \
         --marinade-fee-stake-authority "$INST_MARINADE_FEE_STAKE_AUTHORITY" \
         --marinade-fee-withdraw-authority "$INST_MARINADE_FEE_WITHDRAW_AUTHORITY" \
         --dao-fee-split-share-bps "$INST_DAO_FEE_SPLIT_SHARE_BPS" \
@@ -894,13 +937,13 @@ process_epoch() {
   # ------- Determine overall status ---------------------------------------
 
   local overall="PASS"
-  for s in "$bid_claims_status" "$bid_merkle_status" "$inst_claims_status" "$inst_merkle_status"; do
+  for s in "$bid_claims_status" "$bid_merkle_status" "$sam_results_status" "$inst_claims_status" "$inst_merkle_status"; do
     case "$s" in
       DIFFER|ERROR) overall="FAIL" ;;
     esac
   done
 
-  results+=("$epoch $bid_claims_status $bid_merkle_status $inst_claims_status $inst_merkle_status $overall")
+  results+=("$epoch $bid_claims_status $bid_merkle_status $sam_results_status $inst_claims_status $inst_merkle_status $overall")
 }
 
 # ---------------------------------------------------------------------------
@@ -922,15 +965,15 @@ echo ""
 echo "================================================================"
 echo "  Summary"
 echo "================================================================"
-printf "%-7s | %-11s | %-11s | %-11s | %-11s | %s\n" \
-  "Epoch" "Bid Claims" "Bid Merkle" "Inst Claims" "Inst Merkle" "Status"
-printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
-  "-------" "-----------" "-----------" "-----------" "-----------" "------"
+printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" \
+  "Epoch" "Bid Claims" "Bid Merkle" "SAM results" "Inst Claims" "Inst Merkle" "Status"
+printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
+  "-------" "-----------" "-----------" "-----------" "-----------" "-----------" "------"
 
 any_fail=false
 for entry in "${results[@]}"; do
-  read -r ep bc bm ic im status <<< "$entry"
-  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$ic" "$im" "$status"
+  read -r ep bc bm sr ic im status <<< "$entry"
+  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$sr" "$ic" "$im" "$status"
   if [[ "$status" == "FAIL" ]]; then
     any_fail=true
   fi

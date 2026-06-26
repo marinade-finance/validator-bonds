@@ -31,6 +31,9 @@ bincode = { workspace = true }
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed", "event-cpi"] }
 anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associated_token", "token_2022", "metadata"] }
+# Direct dep so Anchor's `#[program]`/`#[derive(Accounts)]` IDL codegen can resolve
+# bare `solana_program` under the `idl-build` feature (enabled by `clippy --all-features`).
+solana-program = { workspace = true }
 solana-security-txt = { workspace = true }
 solana-sdk-ids = { workspace = true }
 merkle-tree = { workspace = true }

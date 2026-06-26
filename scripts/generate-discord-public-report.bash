@@ -2,6 +2,9 @@
 
 set -e
 
+# Deterministic decimal-point formatting regardless of the caller's locale
+export LC_NUMERIC=C
+
 settlement_collection_file="$1"
 settlement_type="$2"
 if [[ -z $settlement_collection_file ]]
@@ -16,6 +19,14 @@ if (( settlements_count == 0 ))
 then
     echo "No settlements in epoch '$epoch'."
     exit
+fi
+
+# Stake sums below rely on the claim 'kind' tag; legacy (pre-kind) JSON would silently report 0
+untagged_claims=$(<"$settlement_collection_file" jq '[.settlements[].claims[] | select(has("kind") | not)] | length' -r)
+if (( untagged_claims > 0 ))
+then
+    echo "Error: $untagged_claims claims without 'kind' field — '$settlement_collection_file' is a legacy (pre-kind) settlement collection; regenerate it or use the pre-refactor script version." >&2
+    exit 1
 fi
 
 decimal_format="%0.9f"
@@ -35,7 +46,7 @@ echo "Settlements${label} in epoch $epoch: $settlements_count total, ☉$total_a
 
 # Per-reason breakdown: count and total amount
 while IFS=$'\t' read -r reason_key count amount; do
-  echo "  $reason_key: $count settlements, ☉$(LC_NUMERIC=C printf $decimal_format "$amount")"
+  echo "  $reason_key: $count settlements, ☉$(printf $decimal_format "$amount")"
 done < <(<"$settlement_collection_file" jq -r '
   [.settlements[] | {
     reason_key: (
@@ -160,7 +171,7 @@ do
       continue
     fi
 
-    funder=$(<<<"$settlement" jq '.meta.funder' -r)
+    funder=$(<<<"$settlement" jq '.funder // .meta.funder' -r)
     case $funder in
         Marinade)
           funder_info="Marinade DAO"
