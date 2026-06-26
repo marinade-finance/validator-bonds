@@ -39,15 +39,15 @@ pub fn calculate_bid_settlement_totals(settlements: &[Settlement]) -> BidSettlem
         .map(|s| s.vote_account)
         .collect();
     for settlement in settlements {
-        match (&settlement.reason, &settlement.details) {
-            (SettlementReason::Bidding, Some(SettlementDetails::Bidding(value))) => {
+        match &settlement.details {
+            Some(SettlementDetails::Bidding(value)) => {
                 totals.stake += Decimal::from(value.total_marinade_active_stake)
                     + Decimal::from(value.total_marinade_redelegation_stake);
                 totals.rewards += Decimal::from_str(&value.total_marinade_stakers_rewards)
                     .unwrap_or(Decimal::ZERO);
                 totals.fees += Decimal::from(value.marinade_fee_claim + value.dao_fee_claim);
             }
-            (SettlementReason::PriorityFee, Some(SettlementDetails::PriorityFee(value))) => {
+            Some(SettlementDetails::PriorityFee(value)) => {
                 // Only use PriorityFee stake/rewards as fallback for validators where no
                 // Bidding settlement was generated (active stakers earned nothing).
                 if !bidding_votes.contains(&settlement.vote_account) {

@@ -25,7 +25,8 @@ curl -o "${pipeline_dir}/results.json" \
 
 # evaluation.json: produced by ds-sam `analyze-revenues` over the auction
 # inputs/outputs and validators.json (see the "DS SAM generates PMPE bids data"
-# step in the buildkite pipeline)
+# step in the buildkite pipeline), or fetch the pre-generated copy from GCS:
+gcloud storage cp "gs://$bucket/$epoch/bid-psr-distribution-evaluation.json" "${pipeline_dir}/evaluation.json"
 
 # SSI/SSR pmpe for the scoring epoch is fetched by the CLI from apy-api at
 # GET <apy-api>/v1/epoch-pmpe/ssr — the pipeline cannot run an epoch until apy-api
