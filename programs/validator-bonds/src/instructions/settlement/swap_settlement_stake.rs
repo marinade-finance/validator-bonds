@@ -8,7 +8,7 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::{invoke, invoke_signed};
+use anchor_lang::solana_program::program::invoke;
 use anchor_lang::solana_program::stake::state::StakeAuthorize;
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
