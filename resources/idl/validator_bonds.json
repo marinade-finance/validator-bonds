@@ -4579,6 +4579,11 @@
       "code": 6078,
       "name": "ProductTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "SwapStakeNotDeactivatedThisEpoch",
+      "msg": "Settlement stake account can be swapped only within the epoch it was deactivated"
     }
   ],
   "types": [

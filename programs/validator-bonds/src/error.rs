@@ -242,4 +242,7 @@ pub enum ErrorCode {
 
     #[msg("Fail to validate ProductConfig value")]
     ProductTypeConfigValidationFailure, // 6078 0x17be
+
+    #[msg("Settlement stake account can be swapped only within the epoch it was deactivated")]
+    SwapStakeNotDeactivatedThisEpoch, // 6079 0x17bf
 }

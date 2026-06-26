@@ -12,6 +12,7 @@ import {
   initBankrunTest,
   StakeActivationState,
   stakeActivation,
+  warpOffsetSlot,
 } from './bankrun'
 import {
   Errors,
@@ -35,7 +36,6 @@ import {
   StakeStates,
   createBondsFundedStakeAccount,
   createDelegatedStakeAccount,
-  createSettlementFundedDelegatedStake,
   createVoteAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
@@ -280,6 +280,41 @@ describe('Validator Bonds swap settlement stake', () => {
       verifyError(e, Errors, 6054, 'Emergency Pause is Active')
     }
   })
+
+  it('cannot swap a stake that already finished deactivating', async () => {
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim: LAMPORTS_PER_SOL * 10,
+    })
+    const stakeAccount = await fundSettlementWithActiveStake(
+      settlementAccount,
+      5 * LAMPORTS_PER_SOL,
+    )
+    // let the funded stake fully deactivate (deactivation_epoch < current epoch)
+    await warpToNextEpoch(provider)
+
+    const caller = await createUserAndFund({
+      provider,
+      lamports: 6 * LAMPORTS_PER_SOL,
+    })
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      stakeAccount,
+      caller: pubkey(caller),
+    })
+    try {
+      await provider.sendIx([signer(caller)], instruction)
+      throw new Error('should have failed; stake already finished deactivating')
+    } catch (e) {
+      verifyError(e, Errors, 6079, 'only within the epoch it was deactivated')
+    }
+  })
 })
 
 describe('Validator Bonds swap settlement stake enables same-epoch claiming', () => {
@@ -318,6 +353,16 @@ describe('Validator Bonds swap settlement stake enables same-epoch claiming', ()
   })
 
   it('claims from the swapped stake in the same epoch the swap happened', async () => {
+    // a bond stake activated before funding, so fund_settlement deactivates it in the funding epoch
+    const bondStake = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      lamports: totalClaimVoteAccount1.toNumber() + 5 * LAMPORTS_PER_SOL,
+    })
+    await warpToNextEpoch(provider) // activate
+
     const settlementEpoch = await currentEpoch(provider)
     const { settlementAccount } = await executeInitSettlement({
       configAccount,
@@ -331,20 +376,20 @@ describe('Validator Bonds swap settlement stake enables same-epoch claiming', ()
       maxTotalClaim: totalClaimVoteAccount1,
     })
 
-    // an active settlement-funded stake account big enough to cover the claim
-    const fundedStake = await createSettlementFundedDelegatedStake({
-      program,
-      provider,
-      configAccount,
-      settlementAccount,
-      voteAccount,
-      lamports: totalClaimVoteAccount1.toNumber() + 5 * LAMPORTS_PER_SOL,
-    })
-    await warpToNextEpoch(provider) // activate; now past the claiming-start slot too
+    // fund_settlement deactivates the stake within the current epoch
+    const { instruction: fundIx, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: bondStake,
+      })
+    await provider.sendIx(
+      [signer(splitStakeAccount), operatorAuthority],
+      fundIx,
+    )
 
-    const stakeLamports = (
-      await provider.connection.getAccountInfo(fundedStake)
-    )?.lamports
+    const stakeLamports = (await provider.connection.getAccountInfo(bondStake))
+      ?.lamports
     const caller = await createUserAndFund({
       provider,
       lamports: stakeLamports! + LAMPORTS_PER_SOL,
@@ -353,7 +398,7 @@ describe('Validator Bonds swap settlement stake enables same-epoch claiming', ()
       await swapSettlementStakeInstruction({
         program,
         settlementAccount,
-        stakeAccount: fundedStake,
+        stakeAccount: bondStake,
         caller: pubkey(caller),
       })
     await provider.sendIx([signer(caller)], swapIx)
@@ -362,6 +407,9 @@ describe('Validator Bonds swap settlement stake enables same-epoch claiming', ()
     expect(await stakeActivation(provider, newStakeAccount)).toEqual(
       StakeActivationState.Deactivated,
     )
+
+    // pass the claiming-start slot gate; a small offset stays within the same epoch
+    await warpOffsetSlot(provider, slotsToStartSettlementClaiming + 1)
 
     // claim from the freshly swapped-in stake within the very same epoch
     const treeNode = treeNodeBy(voteAccount, withdrawer1)

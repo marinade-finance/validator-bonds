@@ -1,6 +1,5 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
-    check_stake_valid_delegation,
+    check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation,
 };
 use crate::constants::{BONDS_WITHDRAWER_AUTHORITY_SEED, SETTLEMENT_STAKER_AUTHORITY_SEED};
 use crate::error::ErrorCode;
@@ -139,13 +138,17 @@ impl SwapSettlementStake<'_> {
             ctx.accounts.settlement.staker_authority,
             ErrorCode::StakeAccountNotFundedToSettlement,
         );
-        check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
-        // the original is handed to the caller; a locked stake could be used to extort the caller and is rejected
-        check_stake_is_not_locked(
+        let stake_delegation = check_stake_valid_delegation(
             &ctx.accounts.stake_account,
-            &ctx.accounts.clock,
-            "stake_account",
+            &ctx.accounts.bond.vote_account,
         )?;
+        // Only a stake still deactivating in the current epoch benefits from the swap: one already
+        // fully deactivated is claimable as-is, and limiting to this epoch confines any swap churn
+        // to the funding epoch (afterwards the funded stake is inactive and can no longer be swapped).
+        require!(
+            stake_delegation.deactivation_epoch == ctx.accounts.clock.epoch,
+            ErrorCode::SwapStakeNotDeactivatedThisEpoch
+        );
 
         // the replacement must carry the same value so the settlement stays funded; enforced by construction
         let lamports = ctx.accounts.stake_account.get_lamports();

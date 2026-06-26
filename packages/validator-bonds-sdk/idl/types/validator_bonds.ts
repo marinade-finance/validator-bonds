@@ -4585,6 +4585,11 @@ export type ValidatorBonds = {
       "code": 6078,
       "name": "productTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "swapStakeNotDeactivatedThisEpoch",
+      "msg": "Settlement stake account can be swapped only within the epoch it was deactivated"
     }
   ],
   "types": [
