@@ -69,7 +69,7 @@ pub struct SwapSettlementStakeEvent {
     pub bond: Pubkey,
     pub settlement: Pubkey,
     pub settlement_stake: Pubkey,
-    pub user_stake: Pubkey,
-    pub user_authority: Pubkey,
+    pub new_stake_account: Pubkey,
+    pub caller: Pubkey,
     pub amount: u64,
 }

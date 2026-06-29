@@ -3351,16 +3351,6 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "operatorAuthority",
-          "docs": [
-            "operator signer authority permissions the swap (e.g. AML/KYC)"
-          ],
-          "signer": true,
-          "relations": [
-            "config"
-          ]
-        },
-        {
           "name": "bond",
           "pda": {
             "seeds": [
@@ -3513,23 +3503,28 @@ export type ValidatorBonds = {
         {
           "name": "settlementStake",
           "docs": [
-            "the settlement-owned delegated stake account, handed over to the user"
+            "the settlement-owned delegated stake account, handed over to the caller"
           ],
           "writable": true
         },
         {
-          "name": "userStake",
+          "name": "newStakeAccount",
           "docs": [
-            "the user-provided undelegated stake account, handed over to the settlement"
+            "the replacement stake account the settlement keeps; delegated and deactivated in the same epoch"
           ],
           "writable": true
         },
         {
-          "name": "userAuthority",
+          "name": "caller",
           "docs": [
-            "the user that provides `user_stake` and receives `settlement_stake`"
+            "the caller funds `new_stake_account` from their own SOL and receives `settlement_stake`"
           ],
+          "writable": true,
           "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "stakeHistory",
@@ -3538,6 +3533,10 @@ export type ValidatorBonds = {
         {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
           "name": "stakeProgram",
@@ -3579,7 +3578,16 @@ export type ValidatorBonds = {
           "name": "program"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "swapSettlementStakeArgs",
+          "type": {
+            "defined": {
+              "name": "swapSettlementStakeArgs"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "upsizeSettlementClaims",
@@ -4574,13 +4582,8 @@ export type ValidatorBonds = {
     },
     {
       "code": 6079,
-      "name": "swapStakeAccountDelegated",
-      "msg": "Provided user stake account to swap must not be actively delegated"
-    },
-    {
-      "code": 6080,
-      "name": "swapStakeAccountAmountMismatch",
-      "msg": "Swap stake accounts must hold equal lamports"
+      "name": "swapStakeAlreadyDeactivated",
+      "msg": "Settlement stake account has already finished deactivating, swap is not applicable"
     }
   ],
   "types": [
@@ -6538,6 +6541,21 @@ export type ValidatorBonds = {
       }
     },
     {
+      "name": "swapSettlementStakeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stakeAccountSeed",
+            "docs": [
+              "seed used to derive the new stake account via create_account_with_seed (base == caller)"
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
       "name": "swapSettlementStakeEvent",
       "type": {
         "kind": "struct",
@@ -6559,11 +6577,11 @@ export type ValidatorBonds = {
             "type": "pubkey"
           },
           {
-            "name": "userStake",
+            "name": "newStakeAccount",
             "type": "pubkey"
           },
           {
-            "name": "userAuthority",
+            "name": "caller",
             "type": "pubkey"
           },
           {

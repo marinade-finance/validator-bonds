@@ -243,9 +243,6 @@ pub enum ErrorCode {
     #[msg("Fail to validate ProductConfig value")]
     ProductTypeConfigValidationFailure, // 6078 0x17be
 
-    #[msg("Provided user stake account to swap must not be actively delegated")]
-    SwapStakeAccountDelegated, // 6079 0x17bf
-
-    #[msg("Swap stake accounts must hold equal lamports")]
-    SwapStakeAccountAmountMismatch, // 6080 0x17c0
+    #[msg("Settlement stake account has already finished deactivating, swap is not applicable")]
+    SwapStakeAlreadyDeactivated, // 6079 0x17bf
 }
