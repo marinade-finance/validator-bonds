@@ -3345,16 +3345,6 @@
           ]
         },
         {
-          "name": "operator_authority",
-          "docs": [
-            "operator signer authority permissions the swap (e.g. AML/KYC)"
-          ],
-          "signer": true,
-          "relations": [
-            "config"
-          ]
-        },
-        {
           "name": "bond",
           "pda": {
             "seeds": [
@@ -3507,23 +3497,28 @@
         {
           "name": "settlement_stake",
           "docs": [
-            "the settlement-owned delegated stake account, handed over to the user"
+            "the settlement-owned delegated stake account, handed over to the caller"
           ],
           "writable": true
         },
         {
-          "name": "user_stake",
+          "name": "new_stake_account",
           "docs": [
-            "the user-provided undelegated stake account, handed over to the settlement"
+            "the replacement stake account the settlement keeps; delegated and deactivated in the same epoch"
           ],
           "writable": true
         },
         {
-          "name": "user_authority",
+          "name": "caller",
           "docs": [
-            "the user that provides `user_stake` and receives `settlement_stake`"
+            "the caller funds `new_stake_account` from their own SOL and receives `settlement_stake`"
           ],
+          "writable": true,
           "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         },
         {
           "name": "stake_history",
@@ -3532,6 +3527,10 @@
         {
           "name": "clock",
           "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
         },
         {
           "name": "stake_program",
@@ -3573,7 +3572,16 @@
           "name": "program"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "swap_settlement_stake_args",
+          "type": {
+            "defined": {
+              "name": "SwapSettlementStakeArgs"
+            }
+          }
+        }
+      ]
     },
     {
       "name": "upsize_settlement_claims",
@@ -4568,13 +4576,8 @@
     },
     {
       "code": 6079,
-      "name": "SwapStakeAccountDelegated",
-      "msg": "Provided user stake account to swap must not be actively delegated"
-    },
-    {
-      "code": 6080,
-      "name": "SwapStakeAccountAmountMismatch",
-      "msg": "Swap stake accounts must hold equal lamports"
+      "name": "SwapStakeAlreadyDeactivated",
+      "msg": "Settlement stake account has already finished deactivating, swap is not applicable"
     }
   ],
   "types": [
@@ -6532,6 +6535,21 @@
       }
     },
     {
+      "name": "SwapSettlementStakeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "stake_account_seed",
+            "docs": [
+              "seed used to derive the new stake account via create_account_with_seed (base == caller)"
+            ],
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
       "name": "SwapSettlementStakeEvent",
       "type": {
         "kind": "struct",
@@ -6553,11 +6571,11 @@
             "type": "pubkey"
           },
           {
-            "name": "user_stake",
+            "name": "new_stake_account",
             "type": "pubkey"
           },
           {
-            "name": "user_authority",
+            "name": "caller",
             "type": "pubkey"
           },
           {

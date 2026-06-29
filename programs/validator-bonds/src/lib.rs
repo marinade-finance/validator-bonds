@@ -191,9 +191,12 @@ pub mod validator_bonds {
         ClaimSettlementV2::process(ctx, claim_settlement_args)
     }
 
-    pub fn swap_settlement_stake(ctx: Context<SwapSettlementStake>) -> Result<()> {
+    pub fn swap_settlement_stake(
+        ctx: Context<SwapSettlementStake>,
+        swap_settlement_stake_args: SwapSettlementStakeArgs,
+    ) -> Result<()> {
         check_context(&ctx)?;
-        SwapSettlementStake::process(ctx)
+        SwapSettlementStake::process(ctx, swap_settlement_stake_args)
     }
 
     // // Enable to force IDL to include ClaimSettlementV1

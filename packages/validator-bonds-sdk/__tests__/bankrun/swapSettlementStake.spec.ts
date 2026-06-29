@@ -1,20 +1,41 @@
 import { verifyError } from '@marinade.finance/anchor-common'
 import { currentEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
-import { signer } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL, StakeProgram } from '@solana/web3.js'
+import {
+  U64_MAX,
+  createUserAndFund,
+  pubkey,
+  signer,
+} from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest, delegateAndFund } from './bankrun'
+import {
+  initBankrunTest,
+  StakeActivationState,
+  stakeActivation,
+  warpOffsetSlot,
+} from './bankrun'
 import {
   Errors,
   bondsWithdrawerAuthority,
+  claimSettlementV2Instruction,
+  emergencyPauseInstruction,
   fundSettlementInstruction,
+  getSettlement,
   settlementStakerAuthority,
   swapSettlementStakeInstruction,
 } from '../../src'
 import {
+  MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+  configAccountKeypair,
+  totalClaimVoteAccount1,
+  treeNodeBy,
+  voteAccount1Keypair,
+  withdrawer1,
+} from '../utils/merkleTreeTestData'
+import {
   StakeStates,
+  createBondsFundedStakeAccount,
   createDelegatedStakeAccount,
-  createInitializedStakeAccount,
   createVoteAccount,
   getAndCheckStakeAccount,
 } from '../utils/staking'
@@ -26,251 +47,406 @@ import {
 
 import type { ValidatorBondsProgram } from '../../src'
 import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
-import type { PublicKey } from '@solana/web3.js'
+import type { Keypair, PublicKey } from '@solana/web3.js'
 
-// SwapSettlementStake: atomically swap a settlement's delegated stake for a
-// user-provided undelegated one of equal value, so the settlement becomes
-// immediately claimable while the validator's delegation moves to the user.
 describe('Validator Bonds swap settlement stake', () => {
   const epochsToClaimSettlement = 3
   let provider: BankrunExtendedProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
+  let adminAuthority: Keypair
   let operatorAuthority: Keypair
   let validatorIdentity: Keypair
-  let bondAccount: PublicKey
   let voteAccount: PublicKey
-  let bondAuth: PublicKey
-  let settlementAccount: PublicKey
-  let settlementAuth: PublicKey
-  let settlementStake: PublicKey
-  // the settlement-owned, delegated stake's lamports — what the user must match
-  let settlementStakeLamports: number
+  let settlementEpoch: bigint
 
   beforeAll(async () => {
     ;({ provider, program } = await initBankrunTest())
   })
 
   beforeEach(async () => {
-    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
-      {
+    ;({ configAccount, adminAuthority, operatorAuthority } =
+      await executeInitConfigInstruction({
         program,
         provider,
         epochsToClaimSettlement,
-      },
-    ))
+      }))
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
-    ;({ bondAccount } = await executeInitBondInstruction({
+    await executeInitBondInstruction({
       program,
       provider,
       configAccount,
       voteAccount,
       validatorIdentity,
-    }))
-    ;[bondAuth] = bondsWithdrawerAuthority(configAccount, program.programId)
+    })
+    settlementEpoch = await currentEpoch(provider)
+  })
 
-    // fund a settlement with a delegated bond stake -> that becomes settlementStake
-    const maxTotalClaim = 2 * LAMPORTS_PER_SOL
-    ;({ stakeAccount: settlementStake } = await delegateAndFund({
+  // funds a settlement with an active stake account (fund_settlement deactivates
+  // it in the current epoch, so the swap guard `deactivation_epoch >= epoch` holds)
+  async function fundSettlementWithActiveStake(
+    settlementAccount: PublicKey,
+    lamports: number,
+  ): Promise<PublicKey> {
+    const stakeAccount = await createBondsFundedStakeAccount({
       program,
       provider,
+      configAccount,
       voteAccount,
-      bondAccount,
-      lamports: maxTotalClaim,
-    }))
-    ;({ settlementAccount } = await executeInitSettlement({
+      lamports,
+    })
+    await warpToNextEpoch(provider) // activate the stake account
+    const { instruction, splitStakeAccount } = await fundSettlementInstruction({
+      program,
+      settlementAccount,
+      stakeAccount,
+    })
+    await provider.sendIx(
+      [signer(splitStakeAccount), operatorAuthority],
+      instruction,
+    )
+    return stakeAccount
+  }
+
+  it('swaps an active funded stake for an immediately inactive one', async () => {
+    const maxTotalClaim = LAMPORTS_PER_SOL * 10
+    const { settlementAccount } = await executeInitSettlement({
       configAccount,
       program,
       provider,
       voteAccount,
       operatorAuthority,
-      currentEpoch: await currentEpoch(provider),
+      currentEpoch: settlementEpoch,
       maxTotalClaim,
-    }))
-    ;[settlementAuth] = settlementStakerAuthority(
+    })
+
+    const settlementStake = await fundSettlementWithActiveStake(
+      settlementAccount,
+      maxTotalClaim + 5 * LAMPORTS_PER_SOL,
+    )
+    const lamportsFundedBefore = (
+      await getSettlement(program, settlementAccount)
+    ).lamportsFunded
+    expect(lamportsFundedBefore.toNumber()).toBeGreaterThan(0)
+    const stakeLamports = (
+      await provider.connection.getAccountInfo(settlementStake)
+    )?.lamports
+    expect(stakeLamports).toBeGreaterThan(0)
+
+    const caller = await createUserAndFund({
+      provider,
+      lamports: stakeLamports! + LAMPORTS_PER_SOL,
+    })
+    const { instruction, newStakeAccount } =
+      await swapSettlementStakeInstruction({
+        program,
+        settlementAccount,
+        settlementStake,
+        caller: pubkey(caller),
+      })
+    await provider.sendIx([signer(caller)], instruction)
+
+    // the 1:1 swap must leave the settlement funding untouched
+    expect(
+      (
+        await getSettlement(program, settlementAccount)
+      ).lamportsFunded.toNumber(),
+    ).toEqual(lamportsFundedBefore.toNumber())
+
+    // the caller walks away with the original stake account (both authorities)
+    const [originalStake] = await getAndCheckStakeAccount(
+      provider,
+      settlementStake,
+      StakeStates.Delegated,
+    )
+    expect(originalStake.Stake?.meta.authorized.staker).toEqual(pubkey(caller))
+    expect(originalStake.Stake?.meta.authorized.withdrawer).toEqual(
+      pubkey(caller),
+    )
+
+    // the replacement looks exactly like a funded settlement stake
+    const [newStake] = await getAndCheckStakeAccount(
+      provider,
+      newStakeAccount,
+      StakeStates.Delegated,
+    )
+    const [settlementAuth] = settlementStakerAuthority(
       settlementAccount,
       program.programId,
     )
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    expect(newStake.Stake?.meta.authorized.staker).toEqual(settlementAuth)
+    expect(newStake.Stake?.meta.authorized.withdrawer).toEqual(bondsAuth)
+    expect(newStake.Stake?.stake.delegation.voterPubkey).toEqual(voteAccount)
+    expect(
+      (await provider.connection.getAccountInfo(newStakeAccount))?.lamports,
+    ).toEqual(stakeLamports)
+
+    // delegated and deactivated within the same epoch => never effective => withdrawable at once
+    const executionEpoch = await currentEpoch(provider)
+    expect(newStake.Stake?.stake.delegation.activationEpoch).toEqual(
+      executionEpoch,
+    )
+    expect(newStake.Stake?.stake.delegation.deactivationEpoch).toEqual(
+      executionEpoch,
+    )
+    expect(newStake.Stake?.stake.delegation.deactivationEpoch).not.toEqual(
+      U64_MAX,
+    )
+    expect(await stakeActivation(provider, newStakeAccount)).toEqual(
+      StakeActivationState.Deactivated,
+    )
+  })
+
+  it('cannot swap a stake that is not funded to the settlement', async () => {
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim: LAMPORTS_PER_SOL * 10,
+    })
+
+    // a bond-funded stake account has the bonds withdrawer authority as staker, not the settlement authority
+    const bondStakeAccount = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      lamports: 2 * LAMPORTS_PER_SOL,
+    })
+    await warpToNextEpoch(provider)
+
+    const caller = await createUserAndFund({
+      provider,
+      lamports: 3 * LAMPORTS_PER_SOL,
+    })
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      settlementStake: bondStakeAccount,
+      caller: pubkey(caller),
+    })
+    try {
+      await provider.sendIx([signer(caller)], instruction)
+      throw new Error('should have failed; stake not funded to settlement')
+    } catch (e) {
+      verifyError(e, Errors, 6046, 'mismatches with the settlement authority')
+    }
+  })
+
+  it('cannot swap when the program is paused', async () => {
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim: LAMPORTS_PER_SOL * 10,
+    })
+    const settlementStake = await fundSettlementWithActiveStake(
+      settlementAccount,
+      5 * LAMPORTS_PER_SOL,
+    )
+
+    const { instruction: pauseIx } = await emergencyPauseInstruction({
+      program,
+      configAccount,
+      pauseAuthority: adminAuthority.publicKey,
+    })
+    await provider.sendIx([adminAuthority], pauseIx)
+
+    const caller = await createUserAndFund({
+      provider,
+      lamports: 6 * LAMPORTS_PER_SOL,
+    })
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      settlementStake,
+      caller: pubkey(caller),
+    })
+    try {
+      await provider.sendIx([signer(caller)], instruction)
+      throw new Error('should have failed; program is paused')
+    } catch (e) {
+      verifyError(e, Errors, 6054, 'Emergency Pause is Active')
+    }
+  })
+
+  it('cannot swap a stake that already finished deactivating', async () => {
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      maxTotalClaim: LAMPORTS_PER_SOL * 10,
+    })
+    const settlementStake = await fundSettlementWithActiveStake(
+      settlementAccount,
+      5 * LAMPORTS_PER_SOL,
+    )
+    // let the funded stake fully deactivate (deactivation_epoch < current epoch)
+    await warpToNextEpoch(provider)
+
+    const caller = await createUserAndFund({
+      provider,
+      lamports: 6 * LAMPORTS_PER_SOL,
+    })
+    const { instruction } = await swapSettlementStakeInstruction({
+      program,
+      settlementAccount,
+      settlementStake,
+      caller: pubkey(caller),
+    })
+    try {
+      await provider.sendIx([signer(caller)], instruction)
+      throw new Error('should have failed; stake already finished deactivating')
+    } catch (e) {
+      verifyError(e, Errors, 6079, 'already finished deactivating')
+    }
+  })
+})
+
+describe('Validator Bonds swap settlement stake enables same-epoch claiming', () => {
+  const epochsToClaimSettlement = 4
+  // small enough that the claiming window opens within the epoch the swap happens
+  const slotsToStartSettlementClaiming = 5
+  let provider: BankrunExtendedProvider
+  let program: ValidatorBondsProgram
+  let configAccount: PublicKey
+  let operatorAuthority: Keypair
+  let voteAccount: PublicKey
+
+  beforeAll(async () => {
+    ;({ provider, program } = await initBankrunTest())
+    ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
+      {
+        program,
+        provider,
+        epochsToClaimSettlement,
+        slotsToStartSettlementClaiming: BigInt(slotsToStartSettlementClaiming),
+        configAccountKeypair,
+      },
+    ))
+    const { validatorIdentity } = await createVoteAccount({
+      provider,
+      voteAccount: voteAccount1Keypair,
+    })
+    voteAccount = voteAccount1Keypair.publicKey
+    await executeInitBondInstruction({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      validatorIdentity,
+    })
+  })
+
+  it('claims from the swapped stake in the same epoch the swap happened', async () => {
+    // a bond stake activated before funding, so fund_settlement deactivates it in the funding epoch
+    const bondStake = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      lamports: totalClaimVoteAccount1.toNumber() + 5 * LAMPORTS_PER_SOL,
+    })
+    await warpToNextEpoch(provider) // activate
+
+    const settlementEpoch = await currentEpoch(provider)
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      merkleRoot: MERKLE_ROOT_VOTE_ACCOUNT_1_BUF,
+      maxMerkleNodes: 1,
+      maxTotalClaim: totalClaimVoteAccount1,
+    })
+
+    // fund_settlement deactivates the stake within the current epoch
     const { instruction: fundIx, splitStakeAccount } =
       await fundSettlementInstruction({
         program,
         settlementAccount,
-        stakeAccount: settlementStake,
+        stakeAccount: bondStake,
       })
     await provider.sendIx(
       [signer(splitStakeAccount), operatorAuthority],
       fundIx,
     )
-    settlementStakeLamports = (await provider.connection.getAccountInfo(
-      settlementStake,
-    ))!.lamports
-  })
 
-  it('swaps the settlement delegated stake for a user undelegated stake', async () => {
-    const userAuthority = Keypair.generate()
-    const { stakeAccount: userStake } = await createInitializedStakeAccount({
+    const stakeLamports = (await provider.connection.getAccountInfo(bondStake))
+      ?.lamports
+    const caller = await createUserAndFund({
       provider,
-      rentExempt: settlementStakeLamports,
-      staker: userAuthority,
-      withdrawer: userAuthority,
+      lamports: stakeLamports! + LAMPORTS_PER_SOL,
     })
+    const { instruction: swapIx, newStakeAccount } =
+      await swapSettlementStakeInstruction({
+        program,
+        settlementAccount,
+        settlementStake: bondStake,
+        caller: pubkey(caller),
+      })
+    await provider.sendIx([signer(caller)], swapIx)
 
-    const { instruction } = await swapSettlementStakeInstruction({
-      program,
-      settlementAccount,
-      settlementStake,
-      userStake,
-      userAuthority,
-    })
-    await provider.sendIx([userAuthority, operatorAuthority], instruction)
+    const swapEpoch = await currentEpoch(provider)
+    expect(await stakeActivation(provider, newStakeAccount)).toEqual(
+      StakeActivationState.Deactivated,
+    )
 
-    // the settlement's (delegated) stake now belongs to the user
-    const [settlementStakeState] = await getAndCheckStakeAccount(
+    // pass the claiming-start slot gate; a small offset stays within the same epoch
+    await warpOffsetSlot(provider, slotsToStartSettlementClaiming + 1)
+
+    // claim from the freshly swapped-in stake within the very same epoch
+    const treeNode = treeNodeBy(voteAccount, withdrawer1)
+    const stakeAccountTo = await createDelegatedStakeAccount({
       provider,
-      settlementStake,
-      StakeStates.Delegated,
-    )
-    expect(settlementStakeState.Stake!.meta.authorized.staker).toEqual(
-      userAuthority.publicKey,
-    )
-    expect(settlementStakeState.Stake!.meta.authorized.withdrawer).toEqual(
-      userAuthority.publicKey,
-    )
-
-    // the user's stake now belongs to the settlement, delegated to the validator
-    // and deactivated this epoch: claimable now (effective 0) and reaps to the
-    // bond at close (ResetStake, because it is a delegated stake of the validator)
-    const [userStakeState] = await getAndCheckStakeAccount(
-      provider,
-      userStake,
-      StakeStates.Delegated,
-    )
-    expect(userStakeState.Stake!.meta.authorized.staker).toEqual(settlementAuth)
-    expect(userStakeState.Stake!.meta.authorized.withdrawer).toEqual(bondAuth)
-    expect(userStakeState.Stake!.stake.delegation.voterPubkey).toEqual(
+      lamports: 3 * LAMPORTS_PER_SOL,
       voteAccount,
-    )
-    expect(userStakeState.Stake!.stake.delegation.deactivationEpoch).toEqual(
-      await currentEpoch(provider),
-    )
-  })
-
-  it('cannot swap in a delegated user stake', async () => {
-    const userAuthority = Keypair.generate()
-    const userStake = await createDelegatedStakeAccount({
-      provider,
-      lamports: settlementStakeLamports,
-      voteAccount,
-      staker: userAuthority.publicKey,
-      withdrawer: userAuthority.publicKey,
+      staker: treeNode.treeNode.stakeAuthority,
+      withdrawer: treeNode.treeNode.withdrawAuthority,
     })
-    const { instruction } = await swapSettlementStakeInstruction({
+    const { instruction: claimIx } = await claimSettlementV2Instruction({
       program,
+      claimAmount: treeNode.treeNode.claim,
+      index: treeNode.treeNode.index,
+      merkleProof: treeNode.proof,
       settlementAccount,
-      settlementStake,
-      userStake,
-      userAuthority,
+      stakeAccountFrom: newStakeAccount,
+      stakeAccountTo,
+      stakeAccountStaker: treeNode.treeNode.stakeAuthority,
+      stakeAccountWithdrawer: treeNode.treeNode.withdrawAuthority,
     })
-    try {
-      await provider.sendIx([userAuthority, operatorAuthority], instruction)
-      throw new Error('should have failed: user stake is actively delegated')
-    } catch (e) {
-      verifyError(e, Errors, 6079, 'actively delegated')
-    }
-  })
 
-  it('swaps in a fully-deactivated user stake (reserve reuse)', async () => {
-    // a reserve stake reused across epochs is delegated + deactivated, not fresh
-    const userAuthority = Keypair.generate()
-    const userStake = await createDelegatedStakeAccount({
-      provider,
-      lamports: settlementStakeLamports,
-      voteAccount,
-      staker: userAuthority.publicKey,
-      withdrawer: userAuthority.publicKey,
-    })
-    await provider.sendIx(
-      [userAuthority],
-      StakeProgram.deactivate({
-        stakePubkey: userStake,
-        authorizedPubkey: userAuthority.publicKey,
-      }),
-    )
-    await warpToNextEpoch(provider) // let it fully deactivate (effective 0)
+    const stakeToBefore = (
+      await provider.connection.getAccountInfo(stakeAccountTo)
+    )?.lamports
+    await provider.sendIx([], claimIx)
 
-    const { instruction } = await swapSettlementStakeInstruction({
-      program,
-      settlementAccount,
-      settlementStake,
-      userStake,
-      userAuthority,
-    })
-    await provider.sendIx([userAuthority, operatorAuthority], instruction)
-
-    // the reused stake is re-delegated to the validator + deactivated this epoch,
-    // and now owned by the settlement -> immediately claimable, reaps to bond
-    const [userStakeState] = await getAndCheckStakeAccount(
-      provider,
-      userStake,
-      StakeStates.Delegated,
-    )
-    expect(userStakeState.Stake!.meta.authorized.staker).toEqual(settlementAuth)
-    expect(userStakeState.Stake!.meta.authorized.withdrawer).toEqual(bondAuth)
-    expect(userStakeState.Stake!.stake.delegation.voterPubkey).toEqual(
-      voteAccount,
-    )
-    expect(userStakeState.Stake!.stake.delegation.deactivationEpoch).toEqual(
-      await currentEpoch(provider),
-    )
-  })
-
-  it('cannot swap stakes of unequal value', async () => {
-    const userAuthority = Keypair.generate()
-    const { stakeAccount: userStake } = await createInitializedStakeAccount({
-      provider,
-      rentExempt: settlementStakeLamports + LAMPORTS_PER_SOL,
-      staker: userAuthority,
-      withdrawer: userAuthority,
-    })
-    const { instruction } = await swapSettlementStakeInstruction({
-      program,
-      settlementAccount,
-      settlementStake,
-      userStake,
-      userAuthority,
-    })
-    try {
-      await provider.sendIx([userAuthority, operatorAuthority], instruction)
-      throw new Error('should have failed: unequal lamports')
-    } catch (e) {
-      verifyError(e, Errors, 6080, 'equal lamports')
-    }
-  })
-
-  it('cannot swap without the operator authority', async () => {
-    const userAuthority = Keypair.generate()
-    const wrongOperator = Keypair.generate()
-    const { stakeAccount: userStake } = await createInitializedStakeAccount({
-      provider,
-      rentExempt: settlementStakeLamports,
-      staker: userAuthority,
-      withdrawer: userAuthority,
-    })
-    const { instruction } = await swapSettlementStakeInstruction({
-      program,
-      settlementAccount,
-      settlementStake,
-      userStake,
-      userAuthority,
-      operatorAuthority: wrongOperator,
-    })
-    try {
-      await provider.sendIx([userAuthority, wrongOperator], instruction)
-      throw new Error('should have failed: wrong operator authority')
-    } catch (e) {
-      verifyError(e, Errors, 6003, 'operator authority')
-    }
+    // no epoch boundary was crossed between funding the swap and claiming
+    expect(await currentEpoch(provider)).toEqual(swapEpoch)
+    expect(
+      (await provider.connection.getAccountInfo(stakeAccountTo))?.lamports,
+    ).toEqual(stakeToBefore! + treeNode.treeNode.claim.toNumber())
+    expect(
+      (
+        await getSettlement(program, settlementAccount)
+      ).lamportsClaimed.toNumber(),
+    ).toEqual(treeNode.treeNode.claim.toNumber())
   })
 })

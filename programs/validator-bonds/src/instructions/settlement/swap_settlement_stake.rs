@@ -8,40 +8,36 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke;
-use anchor_lang::solana_program::stake::state::StakeAuthorize;
+use anchor_lang::solana_program::program::{invoke, invoke_signed};
+use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
 use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{stake, stake::config::ID as stake_config_id};
+use anchor_lang::solana_program::{
+    stake, stake::config::ID as stake_config_id, system_instruction,
+};
 use anchor_spl::stake::{
     authorize, deactivate_stake, Authorize, DeactivateStake, Stake, StakeAccount,
 };
 
 const SETTLEMENT_STAKER_AUTHORITY_SEED: &[u8] = b"settlement_authority";
 
-/// Atomically swaps a settlement's delegated stake account for a user-provided
-/// stake of equal value that is not actively delegated (a fresh Initialized stake
-/// or a fully-deactivated one reused from the operator's reserve). The user's
-/// stake is (re)delegated to the settlement's validator and instantly deactivated
-/// — leaving it effective-stake zero (so it is immediately claimable as a
-/// settlement stake) while remaining a delegated stake of that validator, so the
-/// settlement's unclaimed remainder reaps back to the validator's bond at close
-/// (ResetStake). The user receives the settlement's original delegated stake.
+/// Atomically swaps a settlement's delegated stake account for a freshly created
+/// one of equal value that is immediately claimable. The caller provides liquid
+/// SOL; the instruction creates the replacement stake (create_account_with_seed,
+/// base == caller), delegates it to the settlement's validator and instantly
+/// deactivates it — leaving it effective-stake zero (claimable now as a settlement
+/// stake) while remaining a delegated stake of that validator, so the settlement's
+/// unclaimed remainder reaps back to the validator's bond at close (ResetStake).
+/// The caller receives the settlement's original delegated stake.
 ///
-/// Permissioned to the operator authority (the operator co-signs, gating which
-/// users may swap, e.g. for AML/KYC). Touches no claim accounting (orthogonal to
-/// ClaimSettlementV2).
+/// Permission-less: only the caller signs. The swap is value neutral to the
+/// settlement (equal lamports, same delegation) and touches no claim accounting
+/// (orthogonal to ClaimSettlementV2).
 #[event_cpi]
 #[derive(Accounts)]
 pub struct SwapSettlementStake<'info> {
     /// the config account under which the settlement was created
-    #[account(
-        has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
-    )]
     pub config: Box<Account<'info, Config>>,
-
-    /// operator signer authority permissions the swap (e.g. AML/KYC)
-    pub operator_authority: Signer<'info>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -94,25 +90,28 @@ pub struct SwapSettlementStake<'info> {
     )]
     pub bonds_withdrawer_authority: UncheckedAccount<'info>,
 
-    /// the settlement-owned delegated stake account, handed over to the user
+    /// the settlement-owned delegated stake account, handed over to the caller
     #[account(mut)]
     pub settlement_stake: Box<Account<'info, StakeAccount>>,
 
-    /// the user-provided undelegated stake account, handed over to the settlement
-    #[account(
-        mut,
-        constraint = settlement_stake.key() != user_stake.key() @ ErrorCode::MergeMismatchSameSourceDestination,
-    )]
-    pub user_stake: Box<Account<'info, StakeAccount>>,
+    /// CHECK: created within the instruction via create_account_with_seed (base == caller), validated by the stake program CPIs
+    /// the replacement stake account the settlement keeps; delegated and deactivated in the same epoch
+    #[account(mut)]
+    pub new_stake_account: UncheckedAccount<'info>,
 
-    /// the user that provides `user_stake` and receives `settlement_stake`
-    pub user_authority: Signer<'info>,
+    /// the caller funds `new_stake_account` from their own SOL and receives `settlement_stake`
+    #[account(mut, owner = system_program.key())]
+    pub caller: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 
     /// CHECK: have no CPU budget to parse
     #[account(address = stake_history::ID)]
     pub stake_history: UncheckedAccount<'info>,
 
     pub clock: Sysvar<'info, Clock>,
+
+    pub rent: Sysvar<'info, Rent>,
 
     pub stake_program: Program<'info, Stake>,
 
@@ -121,8 +120,17 @@ pub struct SwapSettlementStake<'info> {
     pub stake_config: UncheckedAccount<'info>,
 }
 
+#[derive(AnchorDeserialize, AnchorSerialize)]
+pub struct SwapSettlementStakeArgs {
+    /// seed used to derive the new stake account via create_account_with_seed (base == caller)
+    pub stake_account_seed: String,
+}
+
 impl SwapSettlementStake<'_> {
-    pub fn process(ctx: Context<SwapSettlementStake>) -> Result<()> {
+    pub fn process(
+        ctx: Context<SwapSettlementStake>,
+        SwapSettlementStakeArgs { stake_account_seed }: SwapSettlementStakeArgs,
+    ) -> Result<()> {
         require!(!ctx.accounts.config.paused, ErrorCode::ProgramIsPaused);
 
         // settlement_stake is owned by the settlement: withdrawer is the bonds
@@ -143,116 +151,112 @@ impl SwapSettlementStake<'_> {
             "settlement_stake",
         )?;
 
-        // user_stake is fully owned by the user and NOT actively delegated, so it
-        // can be (re)delegated to the settlement's validator below. It may be a
-        // fresh Initialized stake or a fully-deactivated one reused from the
-        // operator's reserve; only an active delegation is rejected (it cannot be
-        // cleanly re-delegated).
-        let user_stake_meta = check_stake_is_initialized_with_withdrawer_authority(
-            &ctx.accounts.user_stake,
-            &ctx.accounts.user_authority.key(),
-            "user_stake",
-        )?;
-        require_keys_eq!(
-            user_stake_meta.authorized.staker,
-            ctx.accounts.user_authority.key(),
-            ErrorCode::WrongStakeAccountStaker,
-        );
-        if let Some(delegation) = get_delegation(&ctx.accounts.user_stake)? {
-            require!(
-                delegation.deactivation_epoch != u64::MAX,
-                ErrorCode::SwapStakeAccountDelegated,
-            );
-        }
-        check_stake_is_not_locked(&ctx.accounts.user_stake, &ctx.accounts.clock, "user_stake")?;
-
-        // equal value keeps the settlement whole and the swap fair to the user
-        require_eq!(
-            ctx.accounts.settlement_stake.get_lamports(),
-            ctx.accounts.user_stake.get_lamports(),
-            ErrorCode::SwapStakeAccountAmountMismatch,
+        // Only a stake that has NOT finished deactivating may be swapped: one already
+        // fully deactivated is claimable as-is, so swapping it adds nothing and would
+        // only let a permission-less caller churn the settlement's funded account. The
+        // replacement created below deactivates this epoch, so it too is frozen from
+        // further swaps next epoch — confining any churn to the deactivation epoch.
+        let deactivation_epoch = get_delegation(&ctx.accounts.settlement_stake)?
+            .map_or(0, |delegation| delegation.deactivation_epoch);
+        require!(
+            deactivation_epoch >= ctx.accounts.clock.epoch,
+            ErrorCode::SwapStakeAlreadyDeactivated,
         );
 
-        // Delegate the user stake to the settlement's validator and immediately
-        // deactivate it: effective stake stays 0 (claimable now) while it remains
-        // a delegated stake of this validator, so the unclaimed remainder reaps
-        // back to the validator's bond at close. Signed by the user (still staker).
-        let delegate_instruction = stake::instruction::delegate_stake(
-            &ctx.accounts.user_stake.key(),
-            &ctx.accounts.user_authority.key(),
-            &ctx.accounts.bond.vote_account,
-        );
+        // the replacement carries the same value, keeping the settlement whole; the
+        // caller funds exactly this amount when the account is created below
+        let amount = ctx.accounts.settlement_stake.get_lamports();
+
+        // create_account_with_seed lets the caller be the only signer (base == caller), avoiding a throw-away stake keypair
         invoke(
-            &delegate_instruction,
+            &system_instruction::create_account_with_seed(
+                &ctx.accounts.caller.key(),
+                &ctx.accounts.new_stake_account.key(),
+                &ctx.accounts.caller.key(),
+                &stake_account_seed,
+                amount,
+                std::mem::size_of::<StakeStateV2>() as u64,
+                &ctx.accounts.stake_program.key(),
+            ),
             &[
-                ctx.accounts.stake_program.to_account_info(),
-                ctx.accounts.user_stake.to_account_info(),
-                ctx.accounts.user_authority.to_account_info(),
-                ctx.accounts.vote_account.to_account_info(),
-                ctx.accounts.clock.to_account_info(),
-                ctx.accounts.stake_history.to_account_info(),
-                ctx.accounts.stake_config.to_account_info(),
+                ctx.accounts.caller.to_account_info(),
+                ctx.accounts.new_stake_account.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
             ],
         )?;
-        deactivate_stake(CpiContext::new(
-            ctx.accounts.stake_program.to_account_info(),
-            DeactivateStake {
-                stake: ctx.accounts.user_stake.to_account_info(),
-                staker: ctx.accounts.user_authority.to_account_info(),
-                clock: ctx.accounts.clock.to_account_info(),
+
+        // the replacement looks exactly like a funded settlement stake: settlement staker, bonds withdrawer
+        let initialize_instruction = stake::instruction::initialize(
+            ctx.accounts.new_stake_account.key,
+            &stake::state::Authorized {
+                staker: ctx.accounts.settlement_staker_authority.key(),
+                withdrawer: ctx.accounts.bonds_withdrawer_authority.key(),
             },
-        ))?;
-
-        // user_stake -> settlement: move staker and withdrawer to the settlement
-        // authorities (signed by the user, still the staker/withdrawer)
-        authorize(
-            CpiContext::new(
+            &stake::state::Lockup::default(),
+        );
+        invoke(
+            &initialize_instruction,
+            &[
                 ctx.accounts.stake_program.to_account_info(),
-                Authorize {
-                    stake: ctx.accounts.user_stake.to_account_info(),
-                    authorized: ctx.accounts.user_authority.to_account_info(),
-                    new_authorized: ctx.accounts.settlement_staker_authority.to_account_info(),
-                    clock: ctx.accounts.clock.to_account_info(),
-                },
-            ),
-            StakeAuthorize::Staker,
-            None,
-        )?;
-        authorize(
-            CpiContext::new(
-                ctx.accounts.stake_program.to_account_info(),
-                Authorize {
-                    stake: ctx.accounts.user_stake.to_account_info(),
-                    authorized: ctx.accounts.user_authority.to_account_info(),
-                    new_authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    clock: ctx.accounts.clock.to_account_info(),
-                },
-            ),
-            StakeAuthorize::Withdrawer,
-            None,
+                ctx.accounts.new_stake_account.to_account_info(),
+                ctx.accounts.rent.to_account_info(),
+            ],
         )?;
 
-        // settlement_stake -> user: move staker (signed by settlement authority)
-        // and withdrawer (signed by bonds authority) to the user
         let config_key = ctx.accounts.config.key();
         let settlement_key = ctx.accounts.settlement.key();
-        let bonds_authority_seeds: &[&[u8]] = &[
-            BONDS_WITHDRAWER_AUTHORITY_SEED,
-            config_key.as_ref(),
-            &[ctx.accounts.config.bonds_withdrawer_authority_bump],
-        ];
         let settlement_authority_seeds: &[&[u8]] = &[
             SETTLEMENT_STAKER_AUTHORITY_SEED,
             settlement_key.as_ref(),
             &[ctx.accounts.settlement.bumps.staker_authority],
         ];
+        let bonds_authority_seeds: &[&[u8]] = &[
+            BONDS_WITHDRAWER_AUTHORITY_SEED,
+            config_key.as_ref(),
+            &[ctx.accounts.config.bonds_withdrawer_authority_bump],
+        ];
+
+        // Delegate the new stake to the settlement's validator and immediately
+        // deactivate it: effective stake stays 0 (claimable now) while it remains a
+        // delegated stake of this validator, so the unclaimed remainder reaps back to
+        // the validator's bond at close. Signed by the settlement staker authority.
+        let delegate_instruction = stake::instruction::delegate_stake(
+            &ctx.accounts.new_stake_account.key(),
+            &ctx.accounts.settlement_staker_authority.key(),
+            &ctx.accounts.bond.vote_account,
+        );
+        invoke_signed(
+            &delegate_instruction,
+            &[
+                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.new_stake_account.to_account_info(),
+                ctx.accounts.settlement_staker_authority.to_account_info(),
+                ctx.accounts.vote_account.to_account_info(),
+                ctx.accounts.clock.to_account_info(),
+                ctx.accounts.stake_history.to_account_info(),
+                ctx.accounts.stake_config.to_account_info(),
+            ],
+            &[settlement_authority_seeds],
+        )?;
+        deactivate_stake(CpiContext::new_with_signer(
+            ctx.accounts.stake_program.to_account_info(),
+            DeactivateStake {
+                stake: ctx.accounts.new_stake_account.to_account_info(),
+                staker: ctx.accounts.settlement_staker_authority.to_account_info(),
+                clock: ctx.accounts.clock.to_account_info(),
+            },
+            &[settlement_authority_seeds],
+        ))?;
+
+        // settlement_stake -> caller: move staker (signed by settlement authority)
+        // and withdrawer (signed by bonds authority) to the caller
         authorize(
             CpiContext::new_with_signer(
                 ctx.accounts.stake_program.to_account_info(),
                 Authorize {
                     stake: ctx.accounts.settlement_stake.to_account_info(),
                     authorized: ctx.accounts.settlement_staker_authority.to_account_info(),
-                    new_authorized: ctx.accounts.user_authority.to_account_info(),
+                    new_authorized: ctx.accounts.caller.to_account_info(),
                     clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[settlement_authority_seeds],
@@ -266,7 +270,7 @@ impl SwapSettlementStake<'_> {
                 Authorize {
                     stake: ctx.accounts.settlement_stake.to_account_info(),
                     authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
-                    new_authorized: ctx.accounts.user_authority.to_account_info(),
+                    new_authorized: ctx.accounts.caller.to_account_info(),
                     clock: ctx.accounts.clock.to_account_info(),
                 },
                 &[bonds_authority_seeds],
@@ -280,9 +284,9 @@ impl SwapSettlementStake<'_> {
             bond: ctx.accounts.bond.key(),
             settlement: settlement_key,
             settlement_stake: ctx.accounts.settlement_stake.key(),
-            user_stake: ctx.accounts.user_stake.key(),
-            user_authority: ctx.accounts.user_authority.key(),
-            amount: ctx.accounts.settlement_stake.get_lamports(),
+            new_stake_account: ctx.accounts.new_stake_account.key(),
+            caller: ctx.accounts.caller.key(),
+            amount,
         });
 
         Ok(())
