@@ -232,19 +232,14 @@ pub fn filter_settlement_funded(
         .collect()
 }
 
-/// Claimable lamports already funded to a Settlement via on-chain stake accounts whose staker
-/// authority equals the settlement's `settlement_staker_authority`.
+/// Sum of lamports held by the stake accounts funding a Settlement — those whose staker authority
+/// is `settlement_staker_authority` — with each account's retained `minimal_stake_lamports` buffer
+/// excluded so the result reflects the claim-covering amount. It is a balance check only and does
+/// not consider delegation or lockup state.
 ///
-/// The on-chain `Settlement.lamports_funded` field is increased only by the `fund_settlement`
-/// instruction (the ValidatorBond funding path). Marinade-funded settlements are funded by
-/// creating a stake account assigned to the settlement staker authority directly, without calling
-/// `fund_settlement`, so their `lamports_funded` stays `0` forever. For those settlements the
-/// lamports held by the stake accounts under the settlement staker authority are the only on-chain
-/// source of truth for how much has been funded.
-///
-/// Each funding stake account must keep `minimal_stake_lamports` (minimum delegation + rent
-/// exemption) to remain a valid stake account once claims have drained it, so that buffer is
-/// excluded per account — the remainder is what is actually claimable.
+/// Used because Marinade-funded settlements are funded by creating such a stake account directly
+/// instead of via the `fund_settlement` instruction, so their `Settlement.lamports_funded` stays
+/// `0` and the stake accounts are the only on-chain record of how much was funded.
 pub fn settlement_funded_claimable_lamports(
     settlement_staker_authority: &Pubkey,
     stake_accounts: &CollectedStakeAccounts,
