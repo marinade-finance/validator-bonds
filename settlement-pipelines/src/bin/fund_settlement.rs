@@ -35,9 +35,7 @@ use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Keypair, Signer};
 use solana_sdk::stake::config::ID as stake_config_id;
 use solana_sdk::stake::instruction::create_account as create_stake_account_instructions;
-use solana_sdk::stake::instruction::split as split_stake_instructions;
 use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
     stake_history::ID as stake_history_sysvar_id,
@@ -51,6 +49,7 @@ use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
+use validator_bonds::instructions::SwapSettlementStakeArgs;
 use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::find_settlement_staker_authority;
 use validator_bonds::ID as validator_bonds_id;
@@ -127,14 +126,14 @@ async fn real_main(
     } else {
         fee_payer.clone()
     };
-    // The swap reserve is the explicitly-provided marinade wallet. When absent we
+    // The swap is funded from the explicitly-provided marinade wallet. When absent we
     // fall back to fee_payer for the legacy Marinade funding path, but the swap pass
-    // runs only when the reserve wallet is explicitly provided (see below).
-    let swap_reserve_wallet = match args.marinade_wallet.clone() {
+    // runs only when the marinade wallet is explicitly provided (see below).
+    let swap_funder_wallet = match args.marinade_wallet.clone() {
         Some(marinade_wallet) => Some(load_keypair("--marinade-wallet", &marinade_wallet)?),
         None => None,
     };
-    let marinade_wallet = swap_reserve_wallet
+    let marinade_wallet = swap_funder_wallet
         .clone()
         .unwrap_or_else(|| fee_payer.clone());
 
@@ -198,25 +197,23 @@ async fn real_main(
     )
     .await?;
 
-    // Swap runs only when a reserve wallet is explicitly provided; without it there
-    // is no reserve to source swap stakes from, so funding behaves as before.
-    if let Some(reserve_wallet) = swap_reserve_wallet {
+    // Swap runs only when a marinade wallet is explicitly provided; it funds the
+    // freshly created replacement stakes, so without it funding behaves as before.
+    if let Some(swap_funder_wallet) = swap_funder_wallet {
         swap_settlements(
             &program,
             rpc_client.clone(),
             transaction_executor.clone(),
             &settlement_records_per_epoch,
             &config_address,
-            &config,
             fee_payer.clone(),
-            operator_authority.clone(),
-            reserve_wallet,
+            swap_funder_wallet,
             &priority_fee_policy,
             reporting,
         )
         .await?;
     } else {
-        info!("Swap pass skipped: no --marinade-wallet reserve provided");
+        info!("Swap pass skipped: no --marinade-wallet provided");
     }
 
     Ok(())
@@ -752,17 +749,16 @@ async fn fund_settlements(
     Ok(())
 }
 
-/// Post-funding swap pass. For each freshly funded Bidding settlement it hands the
-/// settlement's delegated stake over to Marinade and replaces it in-place with a
-/// Marinade-owned, not-actively-delegated stake of equal value (re-delegated to the
-/// settlement's validator and instantly deactivated by `SwapSettlementStake`). The
-/// settlement stays immediately claimable while its unclaimed remainder still reaps
-/// back to the validator's bond at close; Marinade collects the original delegation.
+/// Post-funding swap pass. For each freshly funded bond settlement it replaces the
+/// settlement's still-deactivating delegated stake with a fresh, equal-value stake
+/// that `SwapSettlementStake` mints from Marinade SOL and instantly deactivates
+/// (claimable now; the unclaimed remainder still reaps back to the validator's bond
+/// at close). Marinade receives the settlement's original delegated stake in exchange.
 ///
 /// Runs as a separate pass after `fund_settlements` so the settlement stakes already
-/// exist on-chain. The Marinade reserve stake of `L` lamports is provided either by
-/// splitting an existing Marinade-owned reserve stake or, when none fits, by creating
-/// a fresh Initialized stake from Marinade lamports.
+/// exist on-chain. The instruction is permission-less and creates the replacement
+/// itself via create_account_with_seed (base == the Marinade wallet), so no reserve
+/// of pre-made stakes is needed; Marinade only needs liquid SOL.
 #[allow(clippy::too_many_arguments)]
 async fn swap_settlements(
     program: &Program<Arc<DynSigner>>,
@@ -770,19 +766,16 @@ async fn swap_settlements(
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &HashMap<u64, Vec<SettlementRecord>>,
     config_address: &Pubkey,
-    config: &Config,
     fee_payer: Arc<Keypair>,
-    operator_authority: Arc<Keypair>,
     marinade_wallet: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
     reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority);
+    // permission-less swap: the Marinade wallet signs only as caller/funder
     transaction_builder.add_signer_checked(&marinade_wallet);
 
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
     let clock = get_clock(rpc_client.clone())
         .await
@@ -791,16 +784,8 @@ async fn swap_settlements(
         .await
         .map_err(CliError::retry_able)?;
 
-    // Marinade-owned reserve stakes that are not actively delegated (staker ==
-    // withdrawer == marinade_wallet). Used as the split source for the reserve-reuse
-    // path; consumed/updated in-place across settlements within this pass.
-    let mut reserve_stakes = collect_swap_reserve_stakes(
-        rpc_client.clone(),
-        &marinade_wallet.pubkey(),
-        &clock,
-        &stake_history,
-    )
-    .await?;
+    // Marinade funds each replacement stake with the same lamports as the settlement
+    // stake it swaps out; track the wallet balance to warn instead of failing a tx.
     let mut marinade_lamports = rpc_client
         .get_balance(&marinade_wallet.pubkey())
         .await
@@ -834,12 +819,12 @@ async fn swap_settlements(
             find_settlement_staker_authority(&settlement_record.settlement_address);
 
         for (settlement_stake, lamports, state) in settlement_stakes {
-            // Only a still-active settlement stake needs swapping. A stake that is
-            // already fully deactivated (effective stake 0) is withdrawable as-is:
-            // that covers a stake a prior swap delegated-and-deactivated this epoch
-            // (so the pass is idempotent) and a bond stake that finished cooling
-            // down. Initialized / unauthorized stakes carry no delegation to hand
-            // over. Skip all of those.
+            // Only a not-yet-fully-deactivated settlement stake needs (and is allowed)
+            // a swap. A fully-deactivated stake is withdrawable as-is: that covers a
+            // stake a prior swap deactivated this epoch (so the pass is idempotent) and
+            // a bond stake that finished cooling down. Initialized / unauthorized stakes
+            // carry no delegation to hand over. The on-chain guard mirrors this; the
+            // pre-filter just avoids sending instructions that would be rejected.
             match get_stake_state_type(&state, &clock, &stake_history) {
                 StakeAccountStateType::DelegatedAndDeactivating
                 | StakeAccountStateType::DelegatedAndActivating
@@ -857,61 +842,9 @@ async fn swap_settlements(
                 }
             }
 
-            // Provide a Marinade-owned, not-actively-delegated reserve stake of
-            // exactly `lamports`. Reuse a reserve stake by splitting it off when one
-            // has enough to leave a living remainder; else create a fresh one.
-            let reserve_source = reserve_stakes
-                .iter()
-                .position(|r| r.lamports >= lamports + minimal_stake_lamports);
-            let user_stake = if let Some(idx) = reserve_source {
-                let reserve = &mut reserve_stakes[idx];
-                let split_stake_account = Arc::new(Keypair::new());
-                let instructions = split_stake_instructions(
-                    &reserve.stake_account,
-                    &marinade_wallet.pubkey(),
-                    lamports,
-                    &split_stake_account.pubkey(),
-                );
-                transaction_builder.add_signer_checked(&split_stake_account);
-                transaction_builder.add_instructions(instructions)?;
-                info!(
-                    "Settlement {} (vote account {}): splitting {} from reserve stake {} into {} to swap settlement stake {}",
-                    settlement_record.settlement_address,
-                    settlement_record.vote_account_address,
-                    build_balance_message(lamports, false, false),
-                    reserve.stake_account,
-                    split_stake_account.pubkey(),
-                    settlement_stake,
-                );
-                reserve.lamports -= lamports;
-                split_stake_account.pubkey()
-            } else if marinade_lamports >= lamports + STAKE_ACCOUNT_RENT_EXEMPTION {
-                let new_stake_account_keypair = Arc::new(Keypair::new());
-                let instructions = create_stake_account_instructions(
-                    &marinade_wallet.pubkey(),
-                    &new_stake_account_keypair.pubkey(),
-                    &Authorized {
-                        withdrawer: marinade_wallet.pubkey(),
-                        staker: marinade_wallet.pubkey(),
-                    },
-                    &Lockup::default(),
-                    lamports,
-                );
-                transaction_builder.add_signer_checked(&new_stake_account_keypair);
-                transaction_builder.add_instructions(instructions)?;
-                info!(
-                    "Settlement {} (vote account {}): creating fresh Marinade reserve stake {} of {} to swap settlement stake {}",
-                    settlement_record.settlement_address,
-                    settlement_record.vote_account_address,
-                    new_stake_account_keypair.pubkey(),
-                    build_balance_message(lamports, false, false),
-                    settlement_stake,
-                );
-                marinade_lamports = marinade_lamports.saturating_sub(lamports);
-                new_stake_account_keypair.pubkey()
-            } else {
+            if marinade_lamports < lamports {
                 reporting.warning().with_msg(format!(
-                    "Settlement {} (vote account {}, epoch {}): cannot swap settlement stake {} of {}; no Marinade reserve stake to split and not enough Marinade lamports ({}) to create a fresh reserve stake",
+                    "Settlement {} (vote account {}, epoch {}): cannot swap settlement stake {} of {}; Marinade wallet balance {} is insufficient to fund the replacement stake",
                     settlement_record.settlement_address,
                     settlement_record.vote_account_address,
                     settlement_record.epoch,
@@ -920,39 +853,61 @@ async fn swap_settlements(
                     build_balance_message(marinade_lamports, false, false),
                 )).with_vote(settlement_record.vote_account_address).add();
                 continue;
-            };
+            }
+
+            // SwapSettlementStake mints the replacement via create_account_with_seed
+            // with the Marinade wallet as base; derive the matching address. The seed is
+            // unique per settlement stake so swaps from the same wallet don't collide.
+            let stake_str = settlement_stake.to_string();
+            let stake_account_seed = stake_str[..stake_str.len().min(32)].to_string();
+            let new_stake_account = Pubkey::create_with_seed(
+                &marinade_wallet.pubkey(),
+                &stake_account_seed,
+                &stake_program_id,
+            )?;
+            marinade_lamports = marinade_lamports.saturating_sub(lamports);
 
             let req = program
                 .request()
                 .accounts(validator_bonds::accounts::SwapSettlementStake {
                     config: *config_address,
-                    operator_authority: operator_authority.pubkey(),
                     bond: settlement_record.bond_address,
                     vote_account: settlement_record.vote_account_address,
                     settlement: settlement_record.settlement_address,
                     settlement_staker_authority,
                     bonds_withdrawer_authority: withdrawer_authority,
                     settlement_stake,
-                    user_stake,
-                    user_authority: marinade_wallet.pubkey(),
+                    new_stake_account,
+                    caller: marinade_wallet.pubkey(),
+                    system_program: system_program::ID,
                     stake_history: stake_history_sysvar_id,
                     clock: clock_sysvar_id,
+                    rent: rent_sysvar_id,
                     stake_program: stake_program_id,
                     stake_config: stake_config_id,
                     program: validator_bonds_id,
                     event_authority: find_event_authority().0,
                 })
-                .args(validator_bonds::instruction::SwapSettlementStake {});
+                .args(validator_bonds::instruction::SwapSettlementStake {
+                    swap_settlement_stake_args: SwapSettlementStakeArgs { stake_account_seed },
+                });
+            info!(
+                "Settlement {} (vote account {}): swapping settlement stake {} for fresh Marinade-funded stake {}",
+                settlement_record.settlement_address,
+                settlement_record.vote_account_address,
+                settlement_stake,
+                new_stake_account,
+            );
             add_instruction_to_builder(
                 &mut transaction_builder,
                 &req,
                 format!(
-                    "SwapSettlementStake: {}, bond: {}, vote: {}, settlement_stake: {}, user_stake: {}",
+                    "SwapSettlementStake: {}, bond: {}, vote: {}, settlement_stake: {}, new_stake: {}",
                     settlement_record.settlement_address,
                     settlement_record.bond_address,
                     settlement_record.vote_account_address,
                     settlement_stake,
-                    user_stake,
+                    new_stake_account,
                 ),
             )?;
             transaction_builder.finish_instruction_pack();
@@ -970,45 +925,6 @@ async fn swap_settlements(
     reporting.add_tx_execution_result(execute_result_swap, "SwapSettlements");
 
     Ok(())
-}
-
-/// Marinade-owned stake accounts (staker == withdrawer == marinade_wallet) usable as
-/// a split source for swaps: either Initialized or a fully-deactivated delegation.
-struct SwapReserveStake {
-    stake_account: Pubkey,
-    lamports: u64,
-}
-
-async fn collect_swap_reserve_stakes(
-    rpc_client: Arc<RpcClient>,
-    marinade_wallet: &Pubkey,
-    clock: &Clock,
-    stake_history: &StakeHistory,
-) -> Result<Vec<SwapReserveStake>, CliError> {
-    let stake_accounts = collect_stake_accounts(
-        rpc_client.clone(),
-        Some(marinade_wallet),
-        Some(marinade_wallet),
-    )
-    .await
-    .map_err(CliError::retry_able)?;
-    let reserve_stakes = stake_accounts
-        .into_iter()
-        .filter(|(_, _, state)| {
-            // usable as a swap input only if the swap can (re)delegate it: a fresh
-            // Initialized stake or one that has fully deactivated (effective 0). A
-            // still-active or still-deactivating stake cannot be re-delegated.
-            matches!(
-                get_stake_state_type(state, clock, stake_history),
-                StakeAccountStateType::Initialized | StakeAccountStateType::DelegatedAndDeactivated
-            )
-        })
-        .map(|(stake_account, lamports, _)| SwapReserveStake {
-            stake_account,
-            lamports,
-        })
-        .collect();
-    Ok(reserve_stakes)
 }
 
 #[derive(Clone)]
