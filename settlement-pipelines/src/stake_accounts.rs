@@ -232,9 +232,31 @@ pub fn filter_settlement_funded(
         .collect()
 }
 
+/// Sum of lamports held by the stake accounts funding a Settlement — those whose staker authority
+/// is `settlement_staker_authority` — with each account's retained `minimal_stake_lamports` buffer
+/// excluded so the result reflects the claim-covering amount. It is a balance check only and does
+/// not consider delegation or lockup state.
+///
+/// Used because Marinade-funded settlements are funded by creating such a stake account directly
+/// instead of via the `fund_settlement` instruction, so their `Settlement.lamports_funded` stays
+/// `0` and the stake accounts are the only on-chain record of how much was funded.
+pub fn settlement_funded_claimable_lamports(
+    settlement_staker_authority: &Pubkey,
+    stake_accounts: &CollectedStakeAccounts,
+    minimal_stake_lamports: u64,
+) -> u64 {
+    stake_accounts
+        .iter()
+        .filter(|(_, _, state)| {
+            matches!(state.authorized(), Some(authorized) if authorized.staker == *settlement_staker_authority)
+        })
+        .map(|(_, lamports, _)| lamports.saturating_sub(minimal_stake_lamports))
+        .sum()
+}
+
 /// Preparing instructions to merge stake accounts from stake_accounts_to_merge into destination_stake
 /// Returning list of stake accounts addresses that cannot be merged.
-/// Prepared transactions are passed from the function through mutable referecne of `transaction_builder`.
+/// Prepared transactions are passed from the function through mutable reference of `transaction_builder`.
 #[allow(clippy::too_many_arguments)]
 pub async fn prepare_merge_instructions(
     stake_accounts_to_merge: Vec<&CollectedStakeAccount>,
@@ -292,4 +314,88 @@ pub async fn prepare_merge_instructions(
         }
     }
     Ok(non_mergeable_stake_accounts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::stake::state::{Authorized, Lockup, Meta};
+
+    const SOL: u64 = 1_000_000_000;
+    // minimum delegation (1 SOL) + rent exemption, matching `minimal_stake_lamports` used by the
+    // funding pipeline.
+    const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+
+    fn initialized_stake(staker: Pubkey, withdrawer: Pubkey) -> StakeStateV2 {
+        StakeStateV2::Initialized(Meta {
+            rent_exempt_reserve: STAKE_ACCOUNT_RENT_EXEMPTION,
+            authorized: Authorized { staker, withdrawer },
+            lockup: Lockup::default(),
+        })
+    }
+
+    #[test]
+    fn funded_claimable_sums_only_accounts_for_the_staker_authority() {
+        let staker = Pubkey::new_unique();
+        let other_staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![
+            // two accounts funded to `staker`: claimable is balance minus the min buffer each
+            (
+                Pubkey::new_unique(),
+                5 * SOL + MIN,
+                initialized_stake(staker, withdrawer),
+            ),
+            (
+                Pubkey::new_unique(),
+                3 * SOL + MIN,
+                initialized_stake(staker, withdrawer),
+            ),
+            // belongs to a different settlement -> must be ignored
+            (
+                Pubkey::new_unique(),
+                9 * SOL + MIN,
+                initialized_stake(other_staker, withdrawer),
+            ),
+        ];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            8 * SOL
+        );
+    }
+
+    #[test]
+    fn funded_claimable_is_zero_when_no_matching_stake_accounts() {
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![(
+            Pubkey::new_unique(),
+            10 * SOL,
+            initialized_stake(Pubkey::new_unique(), withdrawer),
+        )];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            0
+        );
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &vec![], MIN),
+            0
+        );
+    }
+
+    #[test]
+    fn funded_claimable_saturates_for_dust_below_the_min_buffer() {
+        // an account holding less than the min buffer contributes 0 (saturating_sub), never panics
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![(
+            Pubkey::new_unique(),
+            MIN / 2,
+            initialized_stake(staker, withdrawer),
+        )];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            0
+        );
+    }
 }
