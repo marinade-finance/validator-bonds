@@ -7,7 +7,7 @@ fee_config:
     stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
     withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
   dao:
-    fee_split_share_bps: 10000
+    fee_split_share_bps: 9000 # 90% DAO / 10% Marinade (BBaQ)
     stake_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
     withdraw_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
 
