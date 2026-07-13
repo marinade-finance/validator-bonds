@@ -162,13 +162,10 @@ fn verify_epoch_settlements(
             if let Some(onchain_settlement) =
                 onchain_settlements.get(&listed_settlement.settlement_address)
             {
-                // A settlement is funded if the on-chain `fund_settlement` instruction has run
-                // (ValidatorBond path bumps `lamports_funded`), OR it has already been (partially)
-                // claimed (claims are impossible without funding), OR it is funded by stake
-                // accounts assigned to its staker authority (the Marinade path, which never bumps
-                // `lamports_funded`). Without the latter two conditions every Marinade-funded
-                // settlement — even fully funded and fully claimed ones — is falsely reported as
-                // non-funded.
+                // Marinade funding never bumps `lamports_funded`; detect it via stake accounts
+                // assigned to the settlement staker authority. Funded if `lamports_funded > 0`, or
+                // any claim exists (claims are impossible without funding), or claimed + claimable
+                // covers `max_total_claim` (funds are conserved, so this holds at any claim stage).
                 let settlement_staker_authority =
                     find_settlement_staker_authority(&listed_settlement.settlement_address).0;
                 let funded_by_stake_accounts = settlement_funded_claimable_lamports(

@@ -271,21 +271,20 @@ async fn prepare_funding(
             continue;
         }
 
-        // `Settlement.lamports_funded` is increased only by the on-chain `fund_settlement`
-        // instruction, which is the ValidatorBond funding path. Marinade-funded settlements are
-        // funded by creating a stake account assigned to the settlement staker authority directly
-        // (no `fund_settlement` call), so their `lamports_funded` stays 0 forever. Deriving
-        // `amount_to_fund` from `lamports_funded` would therefore make Marinade funding
-        // non-idempotent: every run recomputes the full amount and creates yet another duplicate
-        // stake account. For the Marinade funder we reconstruct how much is already funded from
-        // on-chain reality instead — lamports already claimed plus claimable lamports still held by
-        // the settlement's stake accounts.
+        // Marinade funds a settlement by creating a stake account directly (no `fund_settlement`
+        // call), so `lamports_funded` stays 0 — deriving `amount_to_fund` from it would re-fund
+        // and duplicate the stake account every run. Reconstruct: claimed + claimable held in
+        // stake accounts.
         let already_funded = match &settlement_record.funder {
             SettlementFunderType::Marinade(_) => {
-                let lamports_claimed = settlement_record
-                    .settlement_account
-                    .as_ref()
-                    .map_or(0, |s| s.lamports_claimed);
+                let lamports_claimed =
+                    settlement_record
+                        .settlement_account
+                        .as_ref()
+                        .map_or(0, |s| {
+                            assert_eq!(s.max_total_claim, settlement_record.max_total_claim_sum);
+                            s.lamports_claimed
+                        });
                 lamports_claimed
                     + settlement_funded_claimable_lamports(
                         &settlement_record.settlement_staker_authority,
