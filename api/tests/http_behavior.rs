@@ -225,29 +225,34 @@ async fn metrics_endpoint_exposes_recorded_http_metrics() {
 async fn rate_limit_trips_429_and_429_carries_cors_headers() {
     let base = spawn_test_server().await;
     let c = client();
-    // Public tier = 30 rps burst; same client IP via cf-connecting-ip.
-    let mut last = None;
+    // Public tier = 30 rps burst. Fire 40 concurrently from one IP so the burst
+    // is exhausted within a single refill window, independent of runner speed.
+    let mut set = tokio::task::JoinSet::new();
     for _ in 0..40 {
-        let resp = c
-            .get(&base)
-            .header("cf-connecting-ip", "7.7.7.7")
-            .header("origin", "https://app.marinade.finance")
-            .send()
-            .await
-            .unwrap();
-        let status = resp.status();
-        if status == 429 {
+        let c = c.clone();
+        let base = base.clone();
+        set.spawn(async move {
+            c.get(&base)
+                .header("cf-connecting-ip", "7.7.7.7")
+                .header("origin", "https://app.marinade.finance")
+                .send()
+                .await
+                .map(|r| (r.status(), r.headers().clone()))
+        });
+    }
+    let mut saw_429 = false;
+    while let Some(joined) = set.join_next().await {
+        let (status, headers) = joined.unwrap().unwrap();
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             assert!(
-                resp.headers().contains_key("access-control-allow-origin"),
+                headers.contains_key("access-control-allow-origin"),
                 "a 429 from the limiter must still carry CORS headers",
             );
-            last = Some(status);
-            break;
+            saw_429 = true;
         }
     }
-    assert_eq!(
-        last,
-        Some(reqwest::StatusCode::TOO_MANY_REQUESTS),
+    assert!(
+        saw_429,
         "exceeding the public burst (30) from one IP must yield a 429",
     );
 }
