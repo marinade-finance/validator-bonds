@@ -1,14 +1,15 @@
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, ensure};
 use log::{debug, info};
 use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::MerkleTree;
 use settlement_common::merkle_tree_collection::{get_proof, MerkleTreeCollection, MerkleTreeMeta};
 use settlement_common::settlement_collection::{
     Settlement, SettlementClaim, SettlementCollection, SettlementFunder, SettlementKey,
+    SettlementReasonKind,
 };
 use settlement_common::utils::sort_merged_claims_deterministically;
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 use validator_bonds::state::bond::find_bond_address;
 use validator_bonds::state::settlement::find_settlement_address;
@@ -140,6 +141,14 @@ pub fn generate_merkle_tree_collection(
         // Derive bond account from vote account and config
         let (bond_account, _) = find_bond_address(&config.validator_bonds_config, &vote_account);
 
+        // Desired claim lamports split by reason, before merging collapses stakers across reasons
+        let mut reason_amounts: BTreeMap<SettlementReasonKind, u64> = BTreeMap::new();
+        for settlement in &settlements {
+            let kind = SettlementReasonKind::from(&settlement.reason);
+            let amount: u64 = settlement.claims.iter().map(|c| c.claim_amount).sum();
+            *reason_amounts.entry(kind).or_default() += amount;
+        }
+
         // Collect and merge all claims from all settlements for this validator
         let all_claims: Vec<SettlementClaim> =
             settlements.iter().flat_map(|s| s.claims.clone()).collect();
@@ -190,6 +199,12 @@ pub fn generate_merkle_tree_collection(
 
         let funding_sources = HashMap::from([(funder, max_total_claim_sum)]);
 
+        let reason_amounts_sum: u64 = reason_amounts.values().sum();
+        ensure!(
+            reason_amounts_sum == max_total_claim_sum,
+            "reason_amounts split {reason_amounts_sum} != max_total_claim_sum {max_total_claim_sum} for vote account {vote_account} epoch {epoch}"
+        );
+
         debug!(
             "Generated merkle tree for {vote_account}: {max_total_claims} claims, {max_total_claim_sum} lamports, root: {merkle_root:?}"
         );
@@ -202,6 +217,7 @@ pub fn generate_merkle_tree_collection(
             bond_account,
             settlement_account,
             funding_sources,
+            reason_amounts,
             tree_nodes,
         });
     }
@@ -474,6 +490,22 @@ mod tests {
         assert_eq!(
             tree.tree_nodes[0].claim, 1000,
             "tree node claim must be the summed amount"
+        );
+
+        // reason_amounts keep the per-reason desired split even though the node merged
+        assert_eq!(
+            tree.reason_amounts.get(&SettlementReasonKind::Bidding),
+            Some(&300)
+        );
+        assert_eq!(
+            tree.reason_amounts
+                .get(&SettlementReasonKind::BidTooLowPenalty),
+            Some(&700)
+        );
+        assert_eq!(
+            tree.reason_amounts.values().sum::<u64>(),
+            tree.max_total_claim_sum,
+            "reason_amounts must sum to max_total_claim_sum"
         );
     }
 

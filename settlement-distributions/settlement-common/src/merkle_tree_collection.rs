@@ -1,6 +1,6 @@
-use crate::settlement_collection::SettlementFunder;
+use crate::settlement_collection::{SettlementFunder, SettlementReasonKind};
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use {
     merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
@@ -22,6 +22,9 @@ pub struct MerkleTreeMeta {
     /// Per-funder funding amounts (e.g., ValidatorBond -> lamports, Marinade -> lamports)
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub funding_sources: HashMap<SettlementFunder, u64>,
+    /// Desired claim lamports split by settlement reason. Sums to max_total_claim_sum.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub reason_amounts: BTreeMap<SettlementReasonKind, u64>,
     pub tree_nodes: Vec<TreeNode>,
 }
 

@@ -14,7 +14,7 @@ use settlement_pipelines::json_data::load_merkle_tree_collections;
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
-use settlement_pipelines::reporting_data::{ReportingReasonSettlement, SettlementsReportData};
+use settlement_pipelines::reporting_data::SettlementsReportData;
 use settlement_pipelines::settlement_data::{parse_from_merkle_tree_collections, SettlementRecord};
 use settlement_pipelines::settlements::{list_claimable_settlements, ClaimableSettlementsReturn};
 use settlement_pipelines::stake_accounts::{
@@ -563,16 +563,6 @@ struct AlreadyClaimed {
     max_merkle_nodes: u64,
 }
 
-impl AlreadyClaimed {
-    fn claimed(&self) -> (u64, u64) {
-        (self.number_of_set_bits, self.lamports_claimed)
-    }
-
-    fn total(&self) -> (u64, u64) {
-        (self.max_merkle_nodes, self.max_total_claim)
-    }
-}
-
 #[derive(Default)]
 struct ClaimSettlementReport {
     json_loaded_settlements: HashSet<SettlementRecord>,
@@ -793,35 +783,6 @@ impl ClaimSettlementReport {
         })
     }
 
-    /// (settlements number, nodes, lamports) by reason
-    fn sum_by_reason(
-        &self,
-        nodes_and_amounts: &HashMap<Pubkey, (u64, u64)>,
-    ) -> HashMap<ReportingReasonSettlement, (u64, u64, u64)> {
-        let settlement_pubkeys = nodes_and_amounts.keys().cloned().collect::<Vec<_>>();
-        let by_reason = SettlementsReportData::group_by_reason(
-            &self.json_loaded_settlements,
-            &settlement_pubkeys,
-        );
-
-        by_reason
-            .into_iter()
-            .map(|(reason, settlement_pubkeys)| {
-                let (settlements_count, claimed_nodes, claimed_lamports) = settlement_pubkeys
-                    .iter()
-                    .map(|pubkey| {
-                        nodes_and_amounts
-                            .get(pubkey)
-                            .map_or_else(|| (0, 0, 0), |(nodes, lamports)| (1, *nodes, *lamports))
-                    })
-                    .fold((0, 0, 0), |acc, (settlements, nodes, lamports)| {
-                        (acc.0 + settlements, acc.1 + nodes, acc.2 + lamports)
-                    });
-                (reason, (settlements_count, claimed_nodes, claimed_lamports))
-            })
-            .collect()
-    }
-
     /// returns sum of no stake account to claim (to, from)
     fn sum_update_no_account(&self) -> (u64, u64) {
         let sum_no_account_to = self.settlements_claimable_no_account_to.values().sum();
@@ -921,47 +882,14 @@ impl PrintReportable for ClaimSettlementsReport {
                     build_balance_message(already_funded_lamports, false, true),
                 ));
 
-                let already_by_reason = settlements_report.sum_by_reason(
-                    &settlements_report
-                        .already_claimed
-                        .iter()
-                        .map(|(p, i)| (*p, i.claimed()))
-                        .collect(),
-                );
-                let total_by_reason = settlements_report.sum_by_reason(
-                    &settlements_report
-                        .already_claimed
-                        .iter()
-                        .map(|(p, i)| (*p, i.total()))
-                        .collect(),
-                );
-                let after_by_reason = settlements_report.sum_by_reason(&after_amounts);
-                for reason in ReportingReasonSettlement::items() {
-                    let (_, already_reason_nodes, already_reason_lamports) =
-                        already_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
-                    let (_, total_reason_nodes, total_reason_lamports) =
-                        total_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
-                    let (after_reason_settlements, after_reason_nodes, after_reason_lamports) =
-                        after_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
-                    if after_reason_settlements > 0 {
-                        report.push(format!(
-                            "  Reason {} settlements {} with {}/{} merkle nodes in amount of {}/{} SOLs (before already claimed {}/{} nodes, {}/{} SOLs)",
-                            reason,
-                            after_reason_settlements,
-                            after_reason_nodes.saturating_sub(already_reason_nodes),
-                            total_reason_nodes,
-                            build_balance_message(after_reason_lamports.saturating_sub(already_reason_lamports), false, false),
-                            build_balance_message(total_reason_lamports, false, false),
-                            already_reason_nodes,
-                            total_reason_nodes,
-                            build_balance_message(already_reason_lamports, false, false),
-                            build_balance_message(total_reason_lamports, false, false),
-                        ));
-                    } else {
-                        report.push(format!(
-                            "  Reason {reason}, UNKNOWN state (JSON data not provided)"
-                        ));
-                    }
+                for (reason, desired_amount) in SettlementsReportData::desired_amount_by_reason(
+                    &settlements_report.json_loaded_settlements,
+                ) {
+                    report.push(format!(
+                        "  Reason {}, desired claim amount {}",
+                        reason,
+                        build_balance_message(desired_amount, false, false),
+                    ));
                 }
 
                 // for debugging purposes to list settlements with issue to be loaded from chain
@@ -1051,15 +979,7 @@ struct EpochClaimSummary {
 #[derive(Debug, Clone, Serialize)]
 struct ReasonClaimSummary {
     reason: String,
-    settlements: u64,
-    claimed_nodes: u64,
-    total_nodes: u64,
-    claimed_amount_sol: f64,
-    total_amount_sol: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    json_nodes: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    json_amount_sol: Option<f64>,
+    desired_amount_sol: f64,
 }
 
 impl ReportSerializable for ClaimSettlementsReport {
@@ -1121,40 +1041,17 @@ impl ReportSerializable for ClaimSettlementsReport {
                     let (after_claimed_nodes, after_claimed_lamports) =
                         ClaimSettlementReport::sum_claimed(&after_amounts);
 
-                    let total_by_reason = settlements_report.sum_by_reason(
-                        &settlements_report
-                            .already_claimed
-                            .iter()
-                            .map(|(pk, c)| (*pk, (c.max_merkle_nodes, c.max_total_claim)))
-                            .collect(),
-                    );
-
-                    let after_by_reason = settlements_report.sum_by_reason(&after_amounts);
-
-                    // Build per-reason breakdown with current chain state
-                    let reasons: Vec<ReasonClaimSummary> = ReportingReasonSettlement::items()
+                    // Per-reason desired (intended) amount split. Claiming is tracked only per
+                    // settlement on-chain and a unified settlement may merge reasons, so claimed
+                    // amounts are reported at the epoch level only, not per reason.
+                    let reasons: Vec<ReasonClaimSummary> =
+                        SettlementsReportData::desired_amount_by_reason(
+                            &settlements_report.json_loaded_settlements,
+                        )
                         .into_iter()
-                        .filter_map(|reason| {
-                            let (settlements, total_nodes, total_lamports) =
-                                total_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
-                            let (_, claimed_nodes, claimed_lamports) =
-                                after_by_reason.get(&reason).copied().unwrap_or((0, 0, 0));
-
-                            // Skip reasons with no settlements
-                            if settlements == 0 {
-                                return None;
-                            }
-
-                            Some(ReasonClaimSummary {
-                                reason: reason.to_string(),
-                                settlements,
-                                claimed_nodes,
-                                total_nodes,
-                                claimed_amount_sol: lamports_to_sol(claimed_lamports),
-                                total_amount_sol: lamports_to_sol(total_lamports),
-                                json_nodes: None,
-                                json_amount_sol: None,
-                            })
+                        .map(|(reason, desired_amount)| ReasonClaimSummary {
+                            reason: reason.to_string(),
+                            desired_amount_sol: lamports_to_sol(desired_amount),
                         })
                         .collect();
 

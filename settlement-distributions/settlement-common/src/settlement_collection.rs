@@ -53,6 +53,58 @@ impl Display for SettlementReason {
     }
 }
 
+/// Payload-free discriminant of [SettlementReason], usable as a map key.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    utoipa::ToSchema,
+)]
+pub enum SettlementReasonKind {
+    ProtectedEvent,
+    Bidding,
+    PriorityFee,
+    BidTooLowPenalty,
+    BlacklistPenalty,
+    BondRiskFee,
+    InstitutionalPayout,
+}
+
+impl From<&SettlementReason> for SettlementReasonKind {
+    fn from(reason: &SettlementReason) -> Self {
+        match reason {
+            SettlementReason::ProtectedEvent(_) => SettlementReasonKind::ProtectedEvent,
+            SettlementReason::Bidding => SettlementReasonKind::Bidding,
+            SettlementReason::PriorityFee => SettlementReasonKind::PriorityFee,
+            SettlementReason::BidTooLowPenalty => SettlementReasonKind::BidTooLowPenalty,
+            SettlementReason::BlacklistPenalty => SettlementReasonKind::BlacklistPenalty,
+            SettlementReason::BondRiskFee => SettlementReasonKind::BondRiskFee,
+            SettlementReason::InstitutionalPayout => SettlementReasonKind::InstitutionalPayout,
+        }
+    }
+}
+
+impl Display for SettlementReasonKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SettlementReasonKind::ProtectedEvent => write!(f, "ProtectedEvent"),
+            SettlementReasonKind::Bidding => write!(f, "Bidding"),
+            SettlementReasonKind::PriorityFee => write!(f, "PriorityFee"),
+            SettlementReasonKind::BidTooLowPenalty => write!(f, "BidTooLowPenalty"),
+            SettlementReasonKind::BlacklistPenalty => write!(f, "BlacklistPenalty"),
+            SettlementReasonKind::BondRiskFee => write!(f, "BondRiskFee"),
+            SettlementReasonKind::InstitutionalPayout => write!(f, "InstitutionalPayout"),
+        }
+    }
+}
+
 #[derive(
     Clone, Deserialize, Serialize, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, utoipa::ToSchema,
 )]
