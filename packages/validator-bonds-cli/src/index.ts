@@ -34,4 +34,8 @@ launchCliProgram({
     enabled: true,
     cliType: 'sam',
   },
+  // Bond guidance banner after SAM commands; the institutional CLI does not bid.
+  bondsApiConfig: {
+    enabled: true,
+  },
 })

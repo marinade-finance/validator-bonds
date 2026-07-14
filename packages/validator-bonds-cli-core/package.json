@@ -25,6 +25,9 @@
     "test": "jest --config jest.config.js --verbose",
     "prepublishOnly": "node ../../scripts/inject-mixpanel-token.js"
   },
+  "dependencies": {
+    "@marinade.finance/ds-sam-calc": "0.1.1"
+  },
   "devDependencies": {
     "@marinade.finance/validator-bonds-sdk": "workspace: *",
     "@coral-xyz/anchor": "0.31.1",

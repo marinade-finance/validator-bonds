@@ -777,6 +777,27 @@ validator-bonds -um show-bond <your-vote-account>
 
 **Note:** `show-bond` shows current state, which may differ from data used for a specific epoch's calculations.
 
+### Bond Guidance Banner
+
+After `show-bond`, `configure-bond`, `fund-bond`, `fund-bond-sol` and `init-withdraw-request`
+the CLI prints a next-step guidance banner for the validator to stderr — the same suggestion the
+[PSR dashboard](https://psr.marinade.finance/) shows (e.g. "raise `maxStakeWanted` to unlock more
+stake", "top up the bond to keep your stake", or how many epochs the bond still covers):
+
+```
+╔════════════ Marinade Stake Auction · Bond Guidance ════════════╗
+║ Raise maxStakeWanted to unlock up to 70,000 SOL more stake.     ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+The banner is best-effort and never blocks the command: it computes the tip from the latest Stake
+Auction Marketplace snapshot served by the [validator bonds API](https://validator-bonds-api.marinade.finance),
+using the same logic as the PSR dashboard. Since the auction runs once per epoch, the figures reflect
+that epoch's snapshot; the banner notes when the snapshot lags further behind. stdout stays clean
+(JSON/YAML output is unaffected and pipeable).
+
+Pass `--no-advice` to suppress it.
+
 ---
 
 ## Advanced Topics

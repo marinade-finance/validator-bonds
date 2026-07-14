@@ -12,6 +12,7 @@ import {
   transaction,
 } from '@marinade.finance/web3js-1x'
 
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordResolvedAccounts,
   setProgramTelemetryFields,
@@ -155,6 +156,7 @@ export async function manageFundBond({
       bondAccount,
     })
   }
+  await printBondTipBannerFromContext({ voteAccount })
 }
 
 export async function failIfUnexpectedFundingError({

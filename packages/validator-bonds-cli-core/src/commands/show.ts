@@ -32,6 +32,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
+import { printBondTipBannerFromContext } from '../bondTipBanner'
 import { recordResolvedAccounts, setProgramTelemetryFields } from '../cliUsage'
 import { getCliContext } from '../context'
 import { getBondFromAddress, formatUnit, formatToSolWithAll } from '../utils'
@@ -299,6 +300,8 @@ export async function showBond({
   const logger = cliContext.logger
 
   let data: BondShow<Bond> | BondShow<Bond>[]
+  // Vote account of the single bond being shown; drives the bond guidance banner.
+  let bannerVoteAccount: PublicKey | undefined = undefined
   if (address) {
     const bondData = await getBondFromAddress({
       program,
@@ -307,6 +310,7 @@ export async function showBond({
       config,
     })
     address = bondData.publicKey
+    bannerVoteAccount = bondData.account.data.voteAccount
     recordResolvedAccounts({
       bondAccount: bondData.publicKey,
       voteAccount: bondData.account.data.voteAccount,
@@ -472,6 +476,8 @@ export async function showBond({
 
   const reformatted = reformat(data, reformatBondFunction ?? reformatBond)
   printData(reformatted, format)
+
+  await printBondTipBannerFromContext({ voteAccount: bannerVoteAccount })
 }
 
 function constructBondMintAddress(

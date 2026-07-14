@@ -18,6 +18,7 @@ import {
 import BN from 'bn.js'
 
 import { failIfUnexpectedFundingError } from './fundBond'
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordAmountLamports,
   recordResolvedAccounts,
@@ -208,4 +209,5 @@ export async function manageFundBondWithSol({
       bondAccount,
     })
   }
+  await printBondTipBannerFromContext({ voteAccount })
 }
