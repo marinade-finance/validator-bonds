@@ -7,6 +7,7 @@ import {
   loadSamConfig,
 } from '@marinade.finance/ds-sam-sdk'
 
+import type { AuctionMeta } from './calc-relay'
 import type { EventingConfig } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -16,7 +17,7 @@ export async function runAuction(
 ): Promise<{
   validators: AuctionValidator[]
   epoch: number
-  winningTotalPmpe: number
+  meta: AuctionMeta
 }> {
   const productionConfig = await loadSamConfig()
 
@@ -48,6 +49,19 @@ export async function runAuction(
   return {
     validators,
     epoch,
-    winningTotalPmpe: result.winningTotalPmpe,
+    meta: {
+      epoch,
+      winningTotalPmpe: result.winningTotalPmpe,
+      marinadeSamTvlSol: result.auctionData.stakeAmounts.marinadeSamTvlSol,
+      minBondEpochs: sdkConfig.minBondEpochs,
+      idealBondEpochs: sdkConfig.idealBondEpochs,
+      minBondBalanceSol: sdkConfig.minBondBalanceSol,
+      bondRiskFeeMult: sdkConfig.bondRiskFeeMult,
+      bidTooLowPenaltyHistoryEpochs: sdkConfig.bidTooLowPenaltyHistoryEpochs,
+      bidTooLowPenaltyPermittedDeviationPmpe:
+        sdkConfig.bidTooLowPenaltyPermittedDeviationPmpe,
+      minMaxStakeWanted: sdkConfig.minMaxStakeWanted,
+      blacklist: [...result.auctionData.blacklist],
+    },
   }
 }

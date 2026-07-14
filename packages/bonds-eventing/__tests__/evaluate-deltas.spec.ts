@@ -1044,5 +1044,9 @@ describe('validatorToState', () => {
     expect(state.funded_amount_lamports).toBe(10_000_000_000n)
     expect(state.deficit_lamports).toBe(175_000_000_000n) // requiredSol(185) - bondBalance(10) = 175
     expect(state.sam_eligible).toBe(true)
+    expect(state.auction_validator).toBeDefined()
+    expect(
+      (state.auction_validator as Record<string, unknown>).voteAccount,
+    ).toBe(TEST_VOTE_ACCOUNT)
   })
 })

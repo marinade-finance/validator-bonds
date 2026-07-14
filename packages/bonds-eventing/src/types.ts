@@ -33,6 +33,9 @@ export interface ValidatorState {
   deficit_lamports: bigint
   sam_eligible: boolean
   updated_at: string
+  // Calc blob relayed to the CLI; set only on save (validatorToState), not loaded
+  // back — it is not part of the delta comparison.
+  auction_validator?: Record<string, unknown>
 }
 
 export interface EmitResult {

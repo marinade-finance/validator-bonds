@@ -6,6 +6,8 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { PublicKey } from '@solana/web3.js'
 
+import { toCalcValidator } from './calc-relay'
+
 import type {
   BondType,
   BondsEventV1,
@@ -705,5 +707,6 @@ export function validatorToState(
     deficit_lamports: solToLamports(computeDeficitMetrics(v).deficit_sol),
     sam_eligible: v.samEligible,
     updated_at: new Date().toISOString(),
+    auction_validator: toCalcValidator(v),
   }
 }

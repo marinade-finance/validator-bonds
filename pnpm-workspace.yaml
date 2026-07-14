@@ -8,6 +8,10 @@ allowBuilds:
   node-hid: true
   unrs-resolver: true
   utf-8-validate: true
+minimumReleaseAgeExclude:
+  - '@marinade.finance/ds-sam-calc@0.1.1'
+  - '@marinade.finance/ds-sam-sdk@0.1.1'
+  - '@marinade.finance/ts-common@4.3.2'
 overrides:
   glob@<8: ^10.3.10
   rpc-websockets: 9.3.10
