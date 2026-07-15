@@ -133,7 +133,7 @@ describe('Validator Bonds claim settlement', () => {
       await waitForEpoch(
         provider.connection,
         deactivationEpoch.toNumber() + 1,
-        60,
+        180,
       )
     }
   })

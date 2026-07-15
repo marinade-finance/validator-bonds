@@ -4,10 +4,55 @@ use crate::dto::SqlSerializableBondType;
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use rust_decimal::Decimal;
+use serde_json::Value;
 use std::collections::HashMap;
 use tokio_postgres::{types::ToSql, Client};
 use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
+
+/// ds-sam-calc relay from bonds-eventing: per-validator calc blobs (keyed by vote
+/// account) + the per-epoch meta. Untyped — the CLI's ds-sam-calc owns the shape.
+#[derive(Default)]
+pub struct AuctionContext {
+    pub meta: Option<Value>,
+    pub validators: HashMap<String, Value>,
+}
+
+pub async fn get_auction_context(
+    psql_client: &Client,
+    bond_type: BondType,
+) -> anyhow::Result<AuctionContext> {
+    let sql_bond_type: SqlSerializableBondType = bond_type.into();
+
+    // One statement → one snapshot: meta and the per-validator blobs can't come from two
+    // different auctions, and validators are pinned to the meta epoch so a partially-saved
+    // (failed-event) validator's stale-epoch blob is excluded from the reconstructed result.
+    let rows = psql_client
+        .query(
+            "SELECT
+               (SELECT data FROM bond_event_meta WHERE bond_type = $1) AS meta,
+               (SELECT json_object_agg(vote_account, auction_validator)
+                  FROM bond_event_state
+                  WHERE bond_type = $1
+                    AND auction_validator IS NOT NULL
+                    AND epoch = (SELECT epoch FROM bond_event_meta WHERE bond_type = $1)
+               ) AS validators",
+            &[&sql_bond_type],
+        )
+        .await?;
+
+    let Some(row) = rows.first() else {
+        return Ok(AuctionContext::default());
+    };
+
+    let meta = row.get::<_, Option<Value>>("meta");
+    let validators = match row.get::<_, Option<Value>>("validators") {
+        Some(Value::Object(map)) => map.into_iter().collect(),
+        _ => HashMap::new(),
+    };
+
+    Ok(AuctionContext { meta, validators })
+}
 
 fn pg_transient(err: tokio_postgres::Error) -> CliError {
     let is_transient = err.is_closed()

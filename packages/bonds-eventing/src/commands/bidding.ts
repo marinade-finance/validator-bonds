@@ -12,6 +12,7 @@ import { runAuction } from '../run-auction'
 import {
   deleteRemovedValidators,
   loadPreviousState,
+  saveAuctionMeta,
   saveCurrentState,
 } from '../state'
 
@@ -118,7 +119,7 @@ async function manageBidding(opts: Record<string, unknown>) {
   )
 
   // 1. Run auction simulation
-  const { validators, epoch } = await runAuction(config, logger)
+  const { validators, epoch, meta } = await runAuction(config, logger)
 
   // 2. Load previous state and evaluate deltas
   let previousState = new Map<string, ValidatorState>()
@@ -207,6 +208,7 @@ async function manageBidding(opts: Record<string, unknown>) {
           await saveCurrentState(tx, succeededStates, logger)
         }
         await deleteRemovedValidators(tx, bondType, keepVoteAccounts, logger)
+        await saveAuctionMeta(tx, bondType, meta, logger)
       })
     }
 

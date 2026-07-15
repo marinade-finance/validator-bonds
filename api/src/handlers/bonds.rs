@@ -1,13 +1,23 @@
 use crate::context::WrappedContext;
 use crate::error::CustomError;
-use crate::repositories::bond::get_bonds_by_type;
+use crate::repositories::bond::{get_auction_context, get_bonds_by_type};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct BondsResponse {
     bonds: Vec<ValidatorBondRecord>,
+}
+
+// ds-sam-calc relay for the CLI (separate endpoint keeps /bonds/bidding lean). Epoch
+// contract: reconcile `auction_meta.epoch` against a bond's `epoch` — separate pipelines.
+#[derive(Serialize, Debug, utoipa::ToSchema)]
+pub struct AuctionContextResponse {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    auction_meta: Option<serde_json::Value>,
+    auction_validators: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Deserialize, Serialize, Debug, utoipa::IntoParams)]
@@ -51,6 +61,33 @@ pub async fn handler_institutional(
             message: format!("Failed to fetch bonds. Error: {error:?}"),
         })),
     }
+}
+
+#[utoipa::path(
+    get,
+    tag = "Bonds",
+    operation_id = "Auction context for bidding validator bonds",
+    path = "/bonds/bidding/auction",
+    responses(
+        (status = 200, body = AuctionContextResponse),
+    )
+)]
+pub async fn handler_bidding_auction(
+    _query_params: QueryParams,
+    context: WrappedContext,
+) -> Result<impl Reply, warp::Rejection> {
+    // Best-effort: auxiliary CLI hints. Missing eventing tables (migration not yet
+    // applied) or empty → empty context, not a 500.
+    let auction = get_auction_context(&context.read().await.psql_client, BondType::Bidding)
+        .await
+        .unwrap_or_else(|error| {
+            tracing::warn!("Auction context unavailable: {error:?}");
+            Default::default()
+        });
+    Ok(json(&AuctionContextResponse {
+        auction_meta: auction.meta,
+        auction_validators: auction.validators,
+    }))
 }
 
 #[utoipa::path(

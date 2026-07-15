@@ -1,5 +1,13 @@
-import { type CommonQueryMethods, type DatabasePool, sql } from 'slonik'
+import {
+  type CommonQueryMethods,
+  type DatabasePool,
+  type SerializableValue,
+  sql,
+} from 'slonik'
 
+import { jsonSafe } from './calc-relay'
+
+import type { AuctionMeta } from './calc-relay'
 import type { BondType, ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -97,6 +105,7 @@ export async function saveCurrentState(
       ${state.auction_stake_lamports.toString()},
       ${state.deficit_lamports.toString()},
       ${state.sam_eligible},
+      ${sql.jsonb((state.auction_validator ?? null) as SerializableValue)},
       NOW()
     )`,
   )
@@ -107,7 +116,8 @@ export async function saveCurrentState(
       in_auction, bond_good_for_n_epochs, cap_constraint,
       cap_marinade_stake_sol,
       funded_amount_lamports, effective_amount_lamports,
-      auction_stake_lamports, deficit_lamports, sam_eligible, updated_at
+      auction_stake_lamports, deficit_lamports, sam_eligible,
+      auction_validator, updated_at
     ) VALUES
       ${sql.join(valueTuples, sql.fragment`, `)}
     ON CONFLICT (vote_account, bond_type) DO UPDATE SET
@@ -122,10 +132,31 @@ export async function saveCurrentState(
       auction_stake_lamports = EXCLUDED.auction_stake_lamports,
       deficit_lamports = EXCLUDED.deficit_lamports,
       sam_eligible = EXCLUDED.sam_eligible,
+      auction_validator = EXCLUDED.auction_validator,
       updated_at = NOW()
   `)
 
   logger.info(`Saved current state: ${states.length} validators`)
+}
+
+export async function saveAuctionMeta(
+  db: CommonQueryMethods,
+  bondType: BondType,
+  meta: AuctionMeta,
+  logger: LoggerWrapper,
+): Promise<void> {
+  await db.query(sql.unsafe`
+    INSERT INTO bond_event_meta (bond_type, epoch, data, updated_at)
+    VALUES (${bondType}, ${meta.epoch}, ${sql.jsonb(jsonSafe(meta) as unknown as SerializableValue)}, NOW())
+    ON CONFLICT (bond_type) DO UPDATE SET
+      epoch = EXCLUDED.epoch,
+      data = EXCLUDED.data,
+      updated_at = NOW()
+  `)
+
+  logger.info(
+    `Saved auction meta for bond_type=${bondType}, epoch=${meta.epoch}`,
+  )
 }
 
 export async function deleteRemovedValidators(
