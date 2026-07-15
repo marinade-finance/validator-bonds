@@ -1,18 +1,16 @@
-import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
+import type {
+  AuctionValidator,
+  DsSamConfig,
+} from '@marinade.finance/ds-sam-sdk'
 
 // Auction-wide context (one value per epoch, not per validator) the CLI needs to
 // reconstruct the AuctionResult for ds-sam-calc without re-running the auction.
-export interface AuctionMeta {
+// Extends the full DsSamConfig so new SDK config fields are carried through
+// automatically instead of requiring a matching edit here.
+export interface AuctionMeta extends DsSamConfig {
   epoch: number
   winningTotalPmpe: number
   marinadeSamTvlSol: number
-  minBondEpochs: number
-  idealBondEpochs: number
-  minBondBalanceSol: number
-  bondRiskFeeMult: number
-  bidTooLowPenaltyHistoryEpochs: number
-  bidTooLowPenaltyPermittedDeviationPmpe: number
-  minMaxStakeWanted: number | null
   blacklist: string[]
 }
 

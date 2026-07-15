@@ -50,17 +50,10 @@ export async function runAuction(
     validators,
     epoch,
     meta: {
+      ...sdkConfig,
       epoch,
       winningTotalPmpe: result.winningTotalPmpe,
       marinadeSamTvlSol: result.auctionData.stakeAmounts.marinadeSamTvlSol,
-      minBondEpochs: sdkConfig.minBondEpochs,
-      idealBondEpochs: sdkConfig.idealBondEpochs,
-      minBondBalanceSol: sdkConfig.minBondBalanceSol,
-      bondRiskFeeMult: sdkConfig.bondRiskFeeMult,
-      bidTooLowPenaltyHistoryEpochs: sdkConfig.bidTooLowPenaltyHistoryEpochs,
-      bidTooLowPenaltyPermittedDeviationPmpe:
-        sdkConfig.bidTooLowPenaltyPermittedDeviationPmpe,
-      minMaxStakeWanted: sdkConfig.minMaxStakeWanted,
       blacklist: [...result.auctionData.blacklist],
     },
   }
