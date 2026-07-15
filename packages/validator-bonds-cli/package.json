@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-cli",
-  "version": "2.4.8",
+  "version": "2.5.0",
   "description": "CLI of the validator bonds contract",
   "repository": {
     "type": "git",
@@ -35,18 +35,18 @@
     "README.md"
   ],
   "dependencies": {
-    "@marinade.finance/validator-bonds-sdk": "workspace: *",
-    "@marinade.finance/validator-bonds-cli-core": "workspace: *",
     "@coral-xyz/anchor": "0.31.1",
-    "@marinade.finance/anchor-common": "4.2.5",
-    "@marinade.finance/cli-common": "4.2.5",
-    "@marinade.finance/ts-common": "4.2.5",
-    "@marinade.finance/web3js-1x": "4.2.5",
-    "@marinade.finance/notifications-ts-subscription-client": "1.0.3",
     "@ledgerhq/errors": "6.31.0",
     "@ledgerhq/hw-app-solana": "7.9.0",
     "@ledgerhq/hw-transport-node-hid-noevents": "6.33.0",
+    "@marinade.finance/anchor-common": "4.2.5",
+    "@marinade.finance/cli-common": "4.2.5",
     "@marinade.finance/ledger-utils": "3.2.0",
+    "@marinade.finance/notifications-ts-subscription-client": "1.0.3",
+    "@marinade.finance/ts-common": "4.2.5",
+    "@marinade.finance/validator-bonds-cli-core": "workspace: *",
+    "@marinade.finance/validator-bonds-sdk": "workspace: *",
+    "@marinade.finance/web3js-1x": "4.2.5",
     "@solana/web3.js": "1.98.4",
     "bn.js": "5.2.3",
     "bs58": "6.0.0",
@@ -60,8 +60,8 @@
     "yaml": "2.9.0"
   },
   "devDependencies": {
-    "crypto-js": "4.2.0",
-    "@marinade.finance/jest-shell-matcher": "1.1.2"
+    "@marinade.finance/jest-shell-matcher": "1.1.2",
+    "crypto-js": "4.2.0"
   },
   "engines": {
     "node": ">=20.18.0"

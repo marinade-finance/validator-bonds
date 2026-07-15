@@ -495,7 +495,7 @@ mod tests {
         let addr = Pubkey::new_unique();
         // ValidatorBond funding bumps lamports_funded on-chain.
         let onchain = HashMap::from([(addr, make_settlement(5 * SOL, 5 * SOL, 0))]);
-        let listed = vec![bond_settlement(addr, epoch, 5 * SOL)];
+        let listed = [bond_settlement(addr, epoch, 5 * SOL)];
         let mut per_epoch: HashMap<u64, Vec<&BondSettlement>> = HashMap::new();
         per_epoch.insert(epoch, listed.iter().collect());
         let empty: CollectedStakeAccounts = vec![];
@@ -513,7 +513,7 @@ mod tests {
         let onchain = HashMap::from([(addr, make_settlement(11 * SOL, 0, 0))]);
         let staker = find_settlement_staker_authority(&addr).0;
         let stake_accounts: CollectedStakeAccounts = vec![stake_funded_to(staker, 4 * SOL + MIN)];
-        let listed = vec![bond_settlement(addr, epoch, 11 * SOL)];
+        let listed = [bond_settlement(addr, epoch, 11 * SOL)];
         let mut per_epoch: HashMap<u64, Vec<&BondSettlement>> = HashMap::new();
         per_epoch.insert(epoch, listed.iter().collect());
 
