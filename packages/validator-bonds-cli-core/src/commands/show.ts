@@ -301,7 +301,8 @@ export async function showBond({
 
   let data: BondShow<Bond> | BondShow<Bond>[]
   // Vote account of the single bond being shown; drives the bond guidance banner.
-  let bannerVoteAccount: PublicKey | undefined = undefined
+  // Seeded from the supplied filter so `show-bond --vote-account` still renders it.
+  let bannerVoteAccount: PublicKey | undefined = voteAccount
   if (address) {
     const bondData = await getBondFromAddress({
       program,

@@ -12,6 +12,7 @@ import {
 } from '@marinade.finance/validator-bonds-sdk'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { raceWithTimeout } from './async'
 import { Color, getBanner } from './banner'
 import { getCliContext } from './context'
 
@@ -22,7 +23,7 @@ import type {
   TipUrgency,
 } from '@marinade.finance/ds-sam-calc'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
-import type { PublicKey } from '@solana/web3.js'
+import type { EpochInfo, PublicKey } from '@solana/web3.js'
 
 interface BannerLogger {
   debug: (msg: string) => void
@@ -99,19 +100,14 @@ async function fetchAuctionContext(
 // reflected. Settlement stake is excluded. A pending withdraw request earmarks
 // funded stake that is not moved on-chain until claim, so it is subtracted from
 // the claimable figure (but not from the owned balance). Bounded by a timeout
-// and returns null on slow/refused RPC or no data — the caller then falls back
-// to the auction snapshot balance.
+// and returns null only on slow/refused RPC (the caller then falls back to the
+// auction snapshot); an empty result is a genuine zero balance, not a miss.
 async function fetchFreshBondBalanceSol(
   program: ValidatorBondsProgram,
   voteAccount: PublicKey,
   currentEpoch: number | undefined,
   logger?: BannerLogger,
 ): Promise<{ bondBalanceSol: number; claimableBondBalanceSol: number } | null> {
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<null>(resolve => {
-    timer = setTimeout(() => resolve(null), FRESH_BALANCE_TIMEOUT_MS)
-    timer.unref?.()
-  })
   const balance = (async () => {
     try {
       const stakeAccounts = await findBondNonSettlementStakeAccounts({
@@ -120,7 +116,6 @@ async function fetchFreshBondBalanceSol(
         voteAccount,
         currentEpoch,
       })
-      if (stakeAccounts.length === 0) return null
       const ownedLamports = stakeAccounts.reduce(
         (sum, s) => sum + s.account.lamports,
         0,
@@ -148,11 +143,7 @@ async function fetchFreshBondBalanceSol(
       return null
     }
   })()
-  try {
-    return await Promise.race([balance, timeout])
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
+  return raceWithTimeout(balance, FRESH_BALANCE_TIMEOUT_MS, null)
 }
 
 // Rebuild the AuctionResult the calc lib expects from the relayed blobs. The
@@ -306,12 +297,12 @@ export async function printBondTipBannerFromContext(params: {
   if (ctx.simulate || ctx.printOnly) return
   if (!ctx.bondsApiEnabled) return
 
-  let currentEpoch: number | undefined
-  try {
-    currentEpoch = (await ctx.provider.connection.getEpochInfo()).epoch
-  } catch {
-    currentEpoch = undefined
-  }
+  const epochInfo = await raceWithTimeout<EpochInfo | undefined>(
+    ctx.provider.connection.getEpochInfo(),
+    FRESH_BALANCE_TIMEOUT_MS,
+    undefined,
+  )
+  const currentEpoch = epochInfo?.epoch
 
   let fresh: Awaited<ReturnType<typeof fetchFreshBondBalanceSol>> = null
   if (params.voteAccount !== undefined) {

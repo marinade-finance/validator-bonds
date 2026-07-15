@@ -784,7 +784,7 @@ the CLI prints a next-step guidance banner for the validator to stderr — the s
 [PSR dashboard](https://psr.marinade.finance/) shows (e.g. "raise `maxStakeWanted` to unlock more
 stake", "top up the bond to keep your stake", or how many epochs the bond still covers):
 
-```
+```text
 ╔════════════ Marinade Stake Auction · Bond Guidance ════════════╗
 ║ Raise maxStakeWanted to unlock up to 70,000 SOL more stake.     ║
 ╚════════════════════════════════════════════════════════════════╝

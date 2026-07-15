@@ -198,6 +198,66 @@ describe('maybePrintBondTipBanner', () => {
     expect(errSpy.mock.calls[0][0] as string).toContain(expected.text)
   })
 
+  it('applies a zero fresh balance (empty stake accounts) over a positive snapshot', async () => {
+    // An empty fresh stake-account result is a genuine zero balance, so the
+    // caller passes 0 (not undefined). The override must flow through and not be
+    // dropped as falsy, so the tip reflects the drained bond, not the stale 500.
+    const context = makeContext()
+    mockFetch(context)
+
+    const zeroed = reconstructAuctionResult(
+      {
+        ...context,
+        auction_validators: {
+          ...context.auction_validators,
+          [VOTE.toBase58()]: {
+            ...context.auction_validators[VOTE.toBase58()],
+            bondBalanceSol: 0,
+            claimableBondBalanceSol: 0,
+          },
+        },
+      },
+      META,
+    )
+    const config = metaToConfig(META)
+    const augmented = augmentAuctionResult(zeroed, config.minBondBalanceSol)
+    const me = augmented.find(v => v.voteAccount === VOTE.toBase58())!
+    const expected = getValidatorTip(
+      me,
+      config,
+      META.winningTotalPmpe,
+      undefined,
+      zeroed.auctionData.blacklist,
+      selectRedelegationPriorityFrontierPmpe(zeroed, config.minBondBalanceSol),
+    )
+
+    const snapshot = reconstructAuctionResult(context, META)
+    const snapshotAugmented = augmentAuctionResult(
+      snapshot,
+      config.minBondBalanceSol,
+    )
+    const snapshotMe = snapshotAugmented.find(
+      v => v.voteAccount === VOTE.toBase58(),
+    )!
+    const snapshotTip = getValidatorTip(
+      snapshotMe,
+      config,
+      META.winningTotalPmpe,
+      undefined,
+      snapshot.auctionData.blacklist,
+      selectRedelegationPriorityFrontierPmpe(
+        snapshot,
+        config.minBondBalanceSol,
+      ),
+    )
+    expect(expected.text).not.toEqual(snapshotTip.text)
+
+    await call({ bondBalanceSol: 0, claimableBondBalanceSol: 0 })
+
+    expect(errSpy).toHaveBeenCalledTimes(1)
+    expect(errSpy.mock.calls[0][0] as string).toContain(expected.text)
+  })
+
   it('is a no-op when the auction meta is absent (field omitted on the wire)', async () => {
     // The API omits auction_meta (skip_serializing_if) rather than sending null.
     mockFetch({ auction_validators: {} })
