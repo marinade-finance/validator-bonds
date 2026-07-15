@@ -3329,6 +3329,259 @@ export type ValidatorBonds = {
       "args": []
     },
     {
+      "name": "swapSettlementStake",
+      "discriminator": [
+        167,
+        36,
+        114,
+        70,
+        240,
+        178,
+        57,
+        194
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "the config account under which the settlement was created"
+          ],
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "operatorAuthority",
+          "docs": [
+            "operator signer authority permissions the swap (e.g. AML/KYC)"
+          ],
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "bond",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.vote_account",
+                "account": "bond"
+              }
+            ]
+          },
+          "relations": [
+            "settlement"
+          ]
+        },
+        {
+          "name": "voteAccount"
+        },
+        {
+          "name": "settlement",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "bond"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.merkle_root",
+                "account": "settlement"
+              },
+              {
+                "kind": "account",
+                "path": "settlement.epoch_created_for",
+                "account": "settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlementStakerAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  101,
+                  116,
+                  116,
+                  108,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "settlement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "settlementStake",
+          "docs": [
+            "the settlement-owned delegated stake account, handed over to the user"
+          ],
+          "writable": true
+        },
+        {
+          "name": "userStake",
+          "docs": [
+            "the user-provided undelegated stake account, handed over to the settlement"
+          ],
+          "writable": true
+        },
+        {
+          "name": "userAuthority",
+          "docs": [
+            "the user that provides `user_stake` and receives `settlement_stake`"
+          ],
+          "signer": true
+        },
+        {
+          "name": "stakeHistory",
+          "address": "SysvarStakeHistory1111111111111111111111111"
+        },
+        {
+          "name": "clock",
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "stakeProgram",
+          "address": "Stake11111111111111111111111111111111111111"
+        },
+        {
+          "name": "stakeConfig"
+        },
+        {
+          "name": "eventAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  95,
+                  95,
+                  101,
+                  118,
+                  101,
+                  110,
+                  116,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "upsizeSettlementClaims",
       "discriminator": [
         207,
@@ -3897,6 +4150,19 @@ export type ValidatorBonds = {
       ]
     },
     {
+      "name": "swapSettlementStakeEvent",
+      "discriminator": [
+        57,
+        161,
+        103,
+        153,
+        139,
+        135,
+        3,
+        157
+      ]
+    },
+    {
       "name": "withdrawStakeEvent",
       "discriminator": [
         47,
@@ -4305,6 +4571,16 @@ export type ValidatorBonds = {
       "code": 6078,
       "name": "productTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "swapStakeAccountDelegated",
+      "msg": "Provided user stake account to swap must not be delegated"
+    },
+    {
+      "code": 6080,
+      "name": "swapStakeAccountAmountMismatch",
+      "msg": "Swap stake accounts must hold equal lamports"
     }
   ],
   "types": [
@@ -6252,6 +6528,42 @@ export type ValidatorBonds = {
         "fields": [
           {
             "name": "address",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "swapSettlementStakeEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlement",
+            "type": "pubkey"
+          },
+          {
+            "name": "settlementStake",
+            "type": "pubkey"
+          },
+          {
+            "name": "userStake",
+            "type": "pubkey"
+          },
+          {
+            "name": "userAuthority",
             "type": "pubkey"
           },
           {
