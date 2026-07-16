@@ -232,6 +232,8 @@ pub fn init_from_opts(
     let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
     let tip_policy = to_tip_policy(tip_policy_opts);
 
+    // anchor-client's Program/Client API dictates the Arc<DynSigner> handle type
+    #[allow(clippy::arc_with_non_send_sync)]
     let dyn_fee_payer = Arc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
     let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
 

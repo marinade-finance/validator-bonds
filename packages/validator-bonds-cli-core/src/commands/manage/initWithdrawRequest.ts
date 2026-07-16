@@ -17,6 +17,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordAmountLamports,
   recordResolvedAccounts,
@@ -233,6 +234,7 @@ export async function manageInitWithdrawRequest({
       withdrawRequestAccount,
     })
   }
+  await printBondTipBannerFromContext({ voteAccount })
 }
 
 async function failIfUnexpectedError({

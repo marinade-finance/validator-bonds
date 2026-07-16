@@ -39,6 +39,9 @@ import type { NotificationsConfig } from '../notifications'
 export const DEFAULT_NOTIFICATIONS_API_URL =
   'https://marinade-notifications.marinade.finance'
 
+export const DEFAULT_BONDS_API_URL =
+  'https://validator-bonds-api.marinade.finance'
+
 export function launchCliProgram({
   version,
   installAdditionalOptions,
@@ -46,6 +49,7 @@ export function launchCliProgram({
   npmRegistryUrl,
   notificationsConfig,
   cliUsageConfig,
+  bondsApiConfig,
 }: {
   version: string
   installAdditionalOptions: (program: Command) => void
@@ -53,6 +57,7 @@ export function launchCliProgram({
   npmRegistryUrl: string
   notificationsConfig?: NotificationsConfig
   cliUsageConfig?: CliUsageConfig
+  bondsApiConfig?: { enabled: boolean }
 }) {
   const logger = pino(pinoConfiguration('info'), pino.destination())
   logger.level = 'debug'
@@ -126,6 +131,20 @@ export function launchCliProgram({
         .hideHelp(),
     )
 
+  if (bondsApiConfig?.enabled) {
+    program
+      .addOption(
+        new Option('--bonds-api-url <url>', 'Override validator bonds API URL')
+          .env('BONDS_API_URL')
+          .default(DEFAULT_BONDS_API_URL)
+          .hideHelp(),
+      )
+      .option(
+        '--no-advice',
+        'Do not print the bond guidance banner after the command',
+      )
+  }
+
   installAdditionalOptions(program)
 
   let pendingCompletion: PendingCompletion | undefined
@@ -151,6 +170,11 @@ export function launchCliProgram({
     const mixProxyUrl = command.opts().mixProxyUrl as string
     const cluster = (command.opts().url ?? command.opts().cluster) as string
     const simulate = Boolean(command.opts().simulate)
+    const bondsApiUrl =
+      (command.opts().bondsApiUrl as string | undefined) ??
+      DEFAULT_BONDS_API_URL
+    const bondsApiEnabled =
+      (bondsApiConfig?.enabled ?? false) && command.opts().advice !== false
 
     if (notificationsConfig?.enabled) {
       startFetchingNotificationBanners(
@@ -206,6 +230,8 @@ export function launchCliProgram({
       command: commandName,
       notificationsApiUrl,
       notificationType: notificationsConfig?.notificationType ?? '',
+      bondsApiUrl,
+      bondsApiEnabled,
     })
 
     await requireLatestCliVersion(logger, npmRegistryUrl, version)

@@ -17,6 +17,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordResolvedAccounts,
   setProgramTelemetryFields,
@@ -285,6 +286,10 @@ export async function manageConfigureBond({
     sendOpts: { skipPreflight },
   })
   logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+
+  await printBondTipBannerFromContext({
+    voteAccount: bondAccountData.account.data.voteAccount,
+  })
 }
 
 async function verifyCommissionBondProductExistence(

@@ -27,7 +27,7 @@ fi
 for I in "$SCRIPT_DIR/../packages/"*sdk* "$SCRIPT_DIR/../packages/"*cli*; do
   echo "Package: $I"
   cd "$I"
-  pnpm version $UPDATE_NEW_VERSION --no-git-tag-version
+  pnpm version "$UPDATE_NEW_VERSION" --no-git-tag-version --no-git-checks
   cd -
 done
 
