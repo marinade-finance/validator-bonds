@@ -433,25 +433,44 @@ process_epoch() {
           # branch output, which is not a regression.
           #
           # We split comparison into two parts:
-          #   1) Regression check — restrict to vote accounts UNAFFECTED by the new
-          #      feature (no `PriorityFee` settlement in actual output). For those,
-          #      branch output must match production byte-for-byte on the extracted
-          #      metrics.
+          #   1) Regression check — exclude only vote accounts where the actual
+          #      output contains a `PriorityFee` settlement but the production
+          #      output does NOT (production for that epoch predates the feature,
+          #      so the difference is legitimate). Vote accounts with PriorityFee
+          #      on BOTH sides are post-#388 on both sides and are compared
+          #      byte-for-byte like everything else.
           #   2) New-feature check — summarize the PriorityFee settlements as
           #      informational; confirm funding integrity still holds on the full
           #      actual merkle tree.
           #
-          # When production eventually runs the post-#388 code, its outputs will
-          # contain PriorityFee settlements too and both sides can be compared
-          # directly — at which point the affected-set filter naturally becomes
-          # empty and this branch reduces to the old behavior.
+          # A vote account with PriorityFee in production but NOT in the actual
+          # output is deliberately kept in the comparison: the branch dropped a
+          # settlement production had, and the checks below must fail on it.
 
-          # Extract vote accounts whose actual output contains a PriorityFee
-          # settlement (these are affected by the new feature).
-          local priority_fee_votes priority_fee_count priority_fee_filter
-          priority_fee_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
+          local actual_pf_votes expected_pf_votes priority_fee_votes
+          local priority_fee_count priority_fee_filter
+          actual_pf_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
             "$actual_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
+          expected_pf_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
+            "$expected_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
+          # Exclusion set: PriorityFee present in actual only (actual minus expected).
+          # LC_ALL=C pins the collation so comm sees the exact order sort produced.
+          priority_fee_votes=$(comm -23 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
+                                        <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort))
           priority_fee_count=$(echo -n "$priority_fee_votes" | grep -c '^' || true)
+
+          local pf_both_count pf_expected_only
+          pf_both_count=$(comm -12 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
+                                   <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort) | grep -c '^' || true)
+          pf_expected_only=$(comm -13 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
+                                      <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort) | grep -c '^' || true)
+          if [[ "$pf_both_count" -gt 0 ]]; then
+            echo "  INFO PriorityFee on both sides for $pf_both_count vote account(s) — compared directly"
+          fi
+          if [[ "$pf_expected_only" -gt 0 ]]; then
+            echo "  INFO PriorityFee in PRODUCTION only for $pf_expected_only vote account(s) — kept in comparison (expected to FAIL if the branch dropped them)"
+          fi
+
           if [[ "$priority_fee_count" -gt 0 ]]; then
             # JSON array of affected vote accounts, consumable by jq --argjson
             priority_fee_filter=$(printf '%s\n' "$priority_fee_votes" | jq -R . | jq -s .)
@@ -460,12 +479,12 @@ process_epoch() {
               "$actual_dir/bid-distribution-settlements.json")
             priority_fee_lamports=$(jq '[.settlements[] | select(.reason == "PriorityFee") | .claims_amount] | add // 0' \
               "$actual_dir/bid-distribution-settlements.json")
-            echo "  INFO PR #388 feature: $priority_fee_count vote account(s) with PriorityFee settlements"
-            echo "       ($priority_fee_settlements new settlements, $priority_fee_lamports lamports of activating charge)"
+            echo "  INFO PR #388 feature: $priority_fee_count vote account(s) with PriorityFee in actual output only"
+            echo "       (actual output has $priority_fee_settlements PriorityFee settlements, $priority_fee_lamports lamports of activating charge)"
             echo "       these vote accounts are EXCLUDED from regression comparison below"
           else
             priority_fee_filter="[]"
-            echo "  INFO no PriorityFee settlements in actual output (epoch not affected by PR #388)"
+            echo "  INFO no actual-only PriorityFee settlements (feature parity with production output)"
           fi
 
           # Produce filtered copies of the files, restricted to UNAFFECTED vote accounts.

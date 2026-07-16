@@ -1,3 +1,49 @@
+/// Serializes a `u64` as a plain JSON number (unchanged wire format) but
+/// tolerates both a number and a decimal string on deserialize. JavaScript
+/// producers/consumers cannot represent integers above 2^53-1 in a JSON
+/// number, so string-encoded u64 is their only exact form — accepting it here
+/// lets the JSON format migrate field-by-field without a flag-day.
+pub mod u64_number_or_string {
+    use serde::{self, Deserializer, Serializer};
+    use std::fmt;
+
+    pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(*value)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct U64NumberOrStringVisitor;
+
+        impl serde::de::Visitor<'_> for U64NumberOrStringVisitor {
+            type Value = u64;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a u64 as a JSON number or a decimal string")
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<u64, E> {
+                Ok(v)
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<u64, E> {
+                u64::try_from(v).map_err(E::custom)
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<u64, E> {
+                v.parse::<u64>().map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_any(U64NumberOrStringVisitor)
+    }
+}
+
 pub mod pubkey_string_conversion {
     use {
         serde::{self, Deserialize, Deserializer, Serializer},

@@ -53,7 +53,7 @@ describe('parseSettlements typed-split discrimination', () => {
     expect(fee).toBeInstanceOf(FeeDepositClaim)
     expect((staker as StakerPayoutClaim).active_stake).toBe(1000n)
     expect((staker as StakerPayoutClaim).stake_accounts).toEqual({
-      '11111111111111111111111111111111': 1000,
+      '11111111111111111111111111111111': 1000n,
     })
   })
 

@@ -3,7 +3,7 @@
 import {
   CliCommandError,
   IsBigInt,
-  parseAndValidate,
+  validateAndReturn,
 } from '@marinade.finance/cli-common'
 import { getContext } from '@marinade.finance/ts-common'
 import { IsPublicKey } from '@marinade.finance/web3js-1x'
@@ -19,6 +19,8 @@ import {
   IsOptional,
   IsEnum,
 } from 'class-validator'
+
+import { parseLosslessJson } from './losslessJson'
 
 enum FunderType {
   ValidatorBond = 'ValidatorBond',
@@ -132,7 +134,16 @@ export abstract class SettlementClaim {
 export class StakerPayoutClaim extends SettlementClaim {
   @Expose()
   @IsDefined()
-  readonly stake_accounts!: Record<string, number>
+  @Transform(({ value }) =>
+    value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.entries(value as Record<string, number | bigint>).map(
+            ([stakeAccount, lamports]) => [stakeAccount, BigInt(lamports)],
+          ),
+        )
+      : value,
+  )
+  readonly stake_accounts!: Record<string, bigint>
 
   @Expose()
   @IsBigInt()
@@ -255,8 +266,11 @@ export async function parseSettlements(
   const { logger } = getContext()
   assertNotLegacyFormat(inputJson, path)
   try {
-    const { data: settlements } = await parseAndValidate<SettlementsDto>(
-      inputJson,
+    // Lossless parse (u64 above 2^53-1 arrives as bigint) + cli-common's
+    // validation machinery — parseAndValidate would round through JSON.parse.
+    const parsed = await parseLosslessJson(inputJson)
+    const settlements = await validateAndReturn<SettlementsDto>(
+      parsed,
       SettlementsDto,
     )
     logger.debug(
