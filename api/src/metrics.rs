@@ -9,7 +9,7 @@ use std::sync::LazyLock;
 use std::time::Instant;
 
 use axum::extract::{MatchedPath, Request};
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
 use prometheus::{register_histogram_vec, register_int_counter_vec, HistogramVec, IntCounterVec};
@@ -34,9 +34,17 @@ static HTTP_REQUEST_DURATION_SECONDS: LazyLock<HistogramVec> = LazyLock::new(|| 
 
 /// axum middleware: record request count + latency. Uses the matched route
 /// template (e.g. `/bonds/bidding`) as the `path` label to keep cardinality
-/// bounded; unmatched requests are bucketed under `unknown`.
+/// bounded; unmatched requests are bucketed under `unknown`. The `method`
+/// label is allowlisted for the same reason — hyper accepts any RFC token as
+/// method and labeled metric families never evict, so raw methods would let a
+/// client mint unbounded series.
 pub async fn track_metrics(req: Request, next: Next) -> Response {
-    let method = req.method().as_str().to_owned();
+    let method = match *req.method() {
+        Method::GET => "GET",
+        Method::HEAD => "HEAD",
+        Method::OPTIONS => "OPTIONS",
+        _ => "other",
+    };
     let path = req
         .extensions()
         .get::<MatchedPath>()
@@ -49,10 +57,10 @@ pub async fn track_metrics(req: Request, next: Next) -> Response {
     let status = response.status().as_u16().to_string();
 
     HTTP_REQUESTS_TOTAL
-        .with_label_values(&[&method, &path, &status])
+        .with_label_values(&[method, &path, &status])
         .inc();
     HTTP_REQUEST_DURATION_SECONDS
-        .with_label_values(&[&method, &path, &status])
+        .with_label_values(&[method, &path, &status])
         .observe(elapsed);
 
     response

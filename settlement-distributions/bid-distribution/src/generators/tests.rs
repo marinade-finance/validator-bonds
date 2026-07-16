@@ -1782,6 +1782,10 @@ fn test_golden_snapshot_bid_settlements() {
             fixture_path.display()
         )
     });
+    // Cover the runtime read path too: merkle-generator deserializes the flattened,
+    // internally-tagged `ClaimDetail` from JSON, which serialization alone doesn't exercise.
+    let _: Vec<Settlement> = serde_json::from_str(&expected)
+        .expect("golden fixture must deserialize back into Vec<Settlement>");
     assert_eq!(
         actual.trim(),
         expected.trim(),
