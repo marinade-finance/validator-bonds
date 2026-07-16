@@ -18,6 +18,15 @@ import type { BondsEventV1 } from '@marinade.finance/notifications-bonds-event-v
 
 export type BondType = BondsEventV1['bond_type']
 
+export interface InstitutionalValidatorData {
+  voteAccount: string
+  bondPubkey: string
+  fundedAmountLamports: bigint
+  effectiveAmountLamports: bigint
+  settlementClaimsLamports: bigint
+  institutionalStakeLamports: bigint
+}
+
 export interface ValidatorState {
   vote_account: string
   bond_pubkey: string | null
@@ -31,6 +40,8 @@ export interface ValidatorState {
   effective_amount_lamports: bigint
   auction_stake_lamports: bigint
   deficit_lamports: bigint
+  // Remaining settlement claims (bonds API); null = unknown (bidding rows)
+  settlement_claims_lamports: bigint | null
   sam_eligible: boolean
   updated_at: string
   // Calc blob relayed to the CLI; set only on save (validatorToState), not loaded
@@ -49,6 +60,7 @@ export interface EventingConfig {
   validatorsApiUrl: string
   scoringApiUrl: string
   tvlApiUrl: string
+  institutionalApiUrl: string
   notificationsApiUrl: string | undefined
   notificationsJwt: string | undefined
   postgresUrl: string | undefined

@@ -17,6 +17,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { Option } from 'commander'
 
+import { withConfigOption } from './config-option'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
 
@@ -99,6 +100,39 @@ export function configureSubscribe(program: Command): Command {
         'Do not open browser for Telegram deep link',
       ).hideHelp(),
     )
+}
+
+export function installSubscribe(
+  program: Command,
+  defaultConfigAddress: PublicKey,
+) {
+  withConfigOption(configureSubscribe(program), defaultConfigAddress).action(
+    async (
+      bondOrVoteAddress: Promise<PublicKey>,
+      {
+        config,
+        authority,
+        type,
+        address: channelAddress,
+        browser,
+      }: {
+        config?: Promise<PublicKey>
+        authority?: Promise<WalletInterface | PublicKey>
+        type: string
+        address: string
+        browser: boolean
+      },
+    ) => {
+      await manageSubscribe({
+        address: await bondOrVoteAddress,
+        config: (await config) ?? defaultConfigAddress,
+        authority: await authority,
+        type,
+        channelAddress,
+        browser,
+      })
+    },
+  )
 }
 
 export async function manageSubscribe({

@@ -96,6 +96,7 @@ function makePrevState(
     effective_amount_lamports: 10_000_000_000n,
     auction_stake_lamports: 1_000_000_000_000n,
     deficit_lamports: 175_000_000_000n, // requiredSol(185) - bondBalance(10) = 175 SOL
+    settlement_claims_lamports: null,
     sam_eligible: true,
     updated_at: '2025-01-01T00:00:00.000Z',
     ...overrides,
@@ -1043,6 +1044,7 @@ describe('validatorToState', () => {
     expect(state.cap_constraint).toBeNull()
     expect(state.funded_amount_lamports).toBe(10_000_000_000n)
     expect(state.deficit_lamports).toBe(175_000_000_000n) // requiredSol(185) - bondBalance(10) = 175
+    expect(state.settlement_claims_lamports).toBeNull()
     expect(state.sam_eligible).toBe(true)
     expect(state.auction_validator).toBeDefined()
     expect(

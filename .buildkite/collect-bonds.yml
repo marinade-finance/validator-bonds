@@ -132,11 +132,6 @@ steps:
     key: "emit-bond-events"
     commands:
     - bond_type=$(buildkite-agent meta-data get bond_type)
-    - |
-      if [ "$$bond_type" != "bidding" ]; then
-        echo "Skipping bond eventing for bond_type=$$bond_type (only bidding is supported)"
-        exit 0
-      fi
     - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
     - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
     - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
@@ -147,7 +142,7 @@ steps:
     - pnpm -r build
     - |
       pnpm ts-node packages/bonds-eventing/src/index.ts \
-        bidding \
+        "$$bond_type" \
         --retry-max-attempts "$$retry_max_attempts" \
         --retry-base-delay-ms "$$retry_base_delay_ms" \
         --emit-concurrency "$$emit_concurrency" \

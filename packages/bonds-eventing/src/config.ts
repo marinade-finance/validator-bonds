@@ -40,6 +40,7 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
     validatorsApiUrl: opts.validatorsApiUrl as string,
     scoringApiUrl: opts.scoringApiUrl as string,
     tvlApiUrl: opts.tvlApiUrl as string,
+    institutionalApiUrl: opts.institutionalApiUrl as string,
     notificationsApiUrl: opts.notificationsApiUrl as string | undefined,
     notificationsJwt: opts.notificationsJwt as string | undefined,
     postgresUrl: opts.postgresUrl as string | undefined,
