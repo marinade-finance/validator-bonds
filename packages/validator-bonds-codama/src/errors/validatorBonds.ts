@@ -180,6 +180,8 @@ export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_L
 export const VALIDATOR_BONDS_ERROR__MARINADE_LIQUID_ACCOUNTS_MISSING = 0x17c1 // 6081
 /** InvalidMarinadeLiquidAccount: Marinade liquid State or stake list account is invalid */
 export const VALIDATOR_BONDS_ERROR__INVALID_MARINADE_LIQUID_ACCOUNT = 0x17c2 // 6082
+/** RefundBondBalanceNoExcessLamports: Bond account has no lamports above the rent-exempt minimum */
+export const VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS = 0x17c3 // 6083
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -233,6 +235,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__OPERATOR_AND_PAUSE_AUTHORITY_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE
   | typeof VALIDATOR_BONDS_ERROR__PROGRAM_IS_PAUSED
+  | typeof VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS
   | typeof VALIDATOR_BONDS_ERROR__RENT_COLLECTOR_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_ACCOUNT_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_ALREADY_CLAIMED
@@ -320,6 +323,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__OPERATOR_AND_PAUSE_AUTHORITY_MISMATCH]: `Operation permitted only to operator or pause authority`,
     [VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE]: `Fail to validate ProductConfig value`,
     [VALIDATOR_BONDS_ERROR__PROGRAM_IS_PAUSED]: `Emergency Pause is Active`,
+    [VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS]: `Bond account has no lamports above the rent-exempt minimum`,
     [VALIDATOR_BONDS_ERROR__RENT_COLLECTOR_MISMATCH]: `Rent collector address does not match permitted rent collector`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_ACCOUNT_MISMATCH]: `Settlement account address does not match with the stored one`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_ALREADY_CLAIMED]: `Settlement has been already claimed`,

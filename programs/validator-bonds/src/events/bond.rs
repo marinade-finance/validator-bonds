@@ -37,6 +37,14 @@ pub struct FundBondEvent {
 }
 
 #[event]
+pub struct RefundBondBalanceEvent {
+    pub bond: Pubkey,
+    pub vote_account: Pubkey,
+    pub stake_account: Pubkey,
+    pub amount: u64,
+}
+
+#[event]
 pub struct MintBondEvent {
     pub bond: Pubkey,
     pub validator_identity: Pubkey,

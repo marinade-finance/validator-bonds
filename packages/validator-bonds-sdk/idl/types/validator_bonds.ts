@@ -2655,6 +2655,121 @@ export type ValidatorBonds = {
       "args": []
     },
     {
+      "name": "refundBondBalance",
+      "discriminator": [
+        172,
+        14,
+        125,
+        200,
+        69,
+        164,
+        179,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "relations": [
+            "bond"
+          ]
+        },
+        {
+          "name": "bond",
+          "docs": [
+            "bond account whose excess lamports are refunded into the stake account"
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  95,
+                  97,
+                  99,
+                  99,
+                  111,
+                  117,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              },
+              {
+                "kind": "account",
+                "path": "bond.voteAccount",
+                "account": "bond"
+              }
+            ]
+          }
+        },
+        {
+          "name": "bondsWithdrawerAuthority",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  110,
+                  100,
+                  115,
+                  95,
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "config"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stakeAccount",
+          "docs": [
+            "bond-funded stake account the excess lamports are credited to"
+          ],
+          "writable": true
+        },
+        {
+          "name": "clock",
+          "address": "SysvarC1ock11111111111111111111111111111111"
+        },
+        {
+          "name": "stakeHistory",
+          "address": "SysvarStakeHistory1111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        },
+        {
+          "name": "eventAuthority"
+        },
+        {
+          "name": "program"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "resetStake",
       "discriminator": [
         183,
@@ -3320,6 +3435,19 @@ export type ValidatorBonds = {
       ]
     },
     {
+      "name": "refundBondBalanceEvent",
+      "discriminator": [
+        172,
+        251,
+        101,
+        63,
+        250,
+        136,
+        195,
+        226
+      ]
+    },
+    {
       "name": "resetStakeEvent",
       "discriminator": [
         255,
@@ -3761,6 +3889,11 @@ export type ValidatorBonds = {
       "code": 6082,
       "name": "invalidMarinadeLiquidAccount",
       "msg": "Marinade liquid State or stake list account is invalid"
+    },
+    {
+      "code": 6083,
+      "name": "refundBondBalanceNoExcessLamports",
+      "msg": "Bond account has no lamports above the rent-exempt minimum"
     }
   ],
   "types": [
@@ -5435,6 +5568,30 @@ export type ValidatorBonds = {
           {
             "name": "new",
             "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "refundBondBalanceEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "bond",
+            "type": "pubkey"
+          },
+          {
+            "name": "voteAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "stakeAccount",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
           }
         ]
       }

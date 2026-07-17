@@ -24,6 +24,12 @@
        amount for the `Bond`. The funded amount will likely increase over time
        (when no protected events occur) as the `StakeAccount` is delegated
        and earns Solana inflation rewards.
+   - Lamports mistakenly transferred directly to the `Bond` account address can be swept
+     onto an existing bond-funded `StakeAccount` with the permission-less
+     [`refund bond balance`](./programs/validator-bonds/src/instructions/bond/refund_bond_balance.rs) operation.
+     The swept lamports count into the funded amount but are not delegated stake —
+     a partial `Bond` withdrawal may fail when splitting such a `StakeAccount`;
+     withdrawing the full funded amount always works.
 
 3. The `ProductBond` accounts are PDAs linked to the Bond account. They define configuration options that
    can be flexibly added, removed, or modified by adjusting separate PDA accounts.
