@@ -83,21 +83,30 @@ impl VoteAccountRewards {
         realized_commission_dec(self.block_rewards, self.stakers_priority_fee_rewards)
     }
 
-    /// Reward types whose realized commission came out negative — the stakers' share recorded for
-    /// the type exceeds the validator's gross. commission_eff clamps these (bonds are never
-    /// overcharged) but the validator's commission is silently dropped, and the aggregate rewards
-    /// assert can't catch them since per-validator excesses net out across the set.
-    fn negative_realized_commissions(&self) -> Vec<(&'static str, Decimal)> {
+    /// Reward types where the stakers' recorded share exceeds the validator's gross:
+    /// Some(c) — negative realized commission; None — stakers paid while gross is zero.
+    fn realized_commission_anomalies(&self) -> Vec<(&'static str, Option<Decimal>)> {
         [
-            ("inflation", self.realized_inflation_commission_dec()),
-            ("mev", self.realized_mev_commission_dec()),
-            ("block", self.realized_block_commission_dec()),
+            (
+                "inflation",
+                self.inflation_rewards,
+                self.stakers_inflation_rewards,
+            ),
+            ("mev", self.mev_rewards, self.stakers_mev_rewards),
+            (
+                "block",
+                self.block_rewards,
+                self.stakers_priority_fee_rewards,
+            ),
         ]
         .into_iter()
-        .filter_map(|(kind, c)| match c {
-            Some(c) if c < Decimal::ZERO => Some((kind, c)),
-            _ => None,
-        })
+        .filter_map(
+            |(kind, gross, stakers)| match realized_commission_dec(gross, stakers) {
+                Some(c) if c < Decimal::ZERO => Some((kind, Some(c))),
+                None if stakers > 0 => Some((kind, None)),
+                _ => None,
+            },
+        )
         .collect()
     }
 }
@@ -526,11 +535,17 @@ fn aggregate_rewards(
     // commission_eff clamps negative realized commissions so bonds are never overcharged, but the
     // aggregate assert above can't see per-validator excesses (they net out). Surface each offender.
     for rewards in rewards_map.values() {
-        for (kind, commission) in rewards.negative_realized_commissions() {
-            log::warn!(
-                "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — likely a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue)",
-                rewards.vote_account
-            );
+        for (kind, anomaly) in rewards.realized_commission_anomalies() {
+            match anomaly {
+                Some(commission) => log::warn!(
+                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — likely a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue)",
+                    rewards.vote_account
+                ),
+                None => log::warn!(
+                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — likely a rewards input discrepancy",
+                    rewards.vote_account
+                ),
+            }
         }
     }
 
@@ -617,7 +632,7 @@ mod tests {
     }
 
     #[test]
-    fn test_negative_realized_commissions() {
+    fn test_realized_commission_anomalies() {
         let healthy = VoteAccountRewards {
             inflation_rewards: 100,
             stakers_inflation_rewards: 95,
@@ -625,7 +640,7 @@ mod tests {
             stakers_priority_fee_rewards: 8,
             ..Default::default()
         };
-        assert!(healthy.negative_realized_commissions().is_empty());
+        assert!(healthy.realized_commission_anomalies().is_empty());
 
         // stakers priority fee (12) > block (10) → block commission -0.2
         let block_neg = VoteAccountRewards {
@@ -634,8 +649,8 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(
-            block_neg.negative_realized_commissions(),
-            vec![("block", Decimal::new(-2, 1))]
+            block_neg.realized_commission_anomalies(),
+            vec![("block", Some(Decimal::new(-2, 1)))]
         );
 
         // inflation and mev both exceed gross
@@ -647,19 +662,27 @@ mod tests {
             ..Default::default()
         };
         let kinds: Vec<_> = multi
-            .negative_realized_commissions()
+            .realized_commission_anomalies()
             .into_iter()
             .map(|(kind, _)| kind)
             .collect();
         assert_eq!(kinds, vec!["inflation", "mev"]);
 
-        // gross 0 → realized is None (no commission), not flagged
+        // stakers paid while gross is 0 → flagged without a finite commission ratio
         let zero_gross = VoteAccountRewards {
             block_rewards: 0,
             stakers_priority_fee_rewards: 5,
             ..Default::default()
         };
-        assert!(zero_gross.negative_realized_commissions().is_empty());
+        assert_eq!(
+            zero_gross.realized_commission_anomalies(),
+            vec![("block", None)]
+        );
+
+        // no rewards at all → nothing flagged
+        assert!(VoteAccountRewards::default()
+            .realized_commission_anomalies()
+            .is_empty());
     }
 
     #[test]

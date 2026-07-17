@@ -44,6 +44,34 @@ pub mod u64_number_or_string {
     }
 }
 
+/// `map_pubkey_string_conversion` with `u64_number_or_string`-tolerant values,
+/// for lamport maps (e.g. stake_accounts). Serializes values as plain numbers.
+pub mod map_pubkey_u64_number_or_string {
+    use super::{map_pubkey_string_conversion, u64_number_or_string};
+    use serde::{Deserialize, Deserializer, Serializer};
+    use solana_program::pubkey::Pubkey;
+    use std::collections::HashMap;
+
+    pub fn serialize<S>(map: &HashMap<Pubkey, u64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        map_pubkey_string_conversion::serialize(map, serializer)
+    }
+
+    #[derive(Deserialize)]
+    struct Tolerant(#[serde(with = "u64_number_or_string")] u64);
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Pubkey, u64>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map: HashMap<Pubkey, Tolerant> =
+            map_pubkey_string_conversion::deserialize(deserializer)?;
+        Ok(map.into_iter().map(|(k, Tolerant(v))| (k, v)).collect())
+    }
+}
+
 pub mod pubkey_string_conversion {
     use {
         serde::{self, Deserialize, Deserializer, Serializer},

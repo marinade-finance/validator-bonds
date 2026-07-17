@@ -44,6 +44,15 @@ describe('parseLosslessJson', () => {
   it('rejects malformed JSON', async () => {
     await expect(parseLosslessJson('{"broken": ')).rejects.toThrow()
   })
+
+  it('rejects trailing content after the root value (as JSON.parse does)', async () => {
+    await expect(parseLosslessJson('{"x":1} trailing')).rejects.toThrow()
+    await expect(parseLosslessJson('{"a":1}{"b":2}')).rejects.toThrow()
+  })
+
+  it('accepts trailing whitespace after the root value', async () => {
+    expect(await parseLosslessJson('{"x":1} \n\t ')).toEqual({ x: 1 })
+  })
 })
 
 describe('lossless end-to-end through settlement DTOs', () => {
@@ -108,5 +117,25 @@ describe('lossless end-to-end through settlement DTOs', () => {
     await expect(
       readLargeJsonFileLossless('/nonexistent/path/to/file.json'),
     ).rejects.toThrow()
+  })
+
+  it('readLargeJsonFileLossless rejects a file with trailing content', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lossless-'))
+    const filePath = join(dir, 'trailing.json')
+    writeFileSync(filePath, '{"a":1} garbage')
+    await expect(readLargeJsonFileLossless(filePath)).rejects.toThrow()
+  })
+
+  it('readLargeJsonFileLossless rejects malformed content mid-file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'lossless-'))
+    const filePath = join(dir, 'malformed.json')
+    // malformed token only after a large valid prefix — the streaming parser
+    // must reject once it reaches it, not just on an invalid document start
+    const chunk = 'x'.repeat(512 * 1024)
+    writeFileSync(
+      filePath,
+      `{"prefix":"${chunk}","broken":!!!,"tail":"${chunk}"}`,
+    )
+    await expect(readLargeJsonFileLossless(filePath)).rejects.toThrow()
   })
 })

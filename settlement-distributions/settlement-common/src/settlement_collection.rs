@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use {
     merkle_tree::serde_serialize::{
-        map_pubkey_string_conversion, pubkey_string_conversion, u64_number_or_string,
+        map_pubkey_u64_number_or_string, pubkey_string_conversion, u64_number_or_string,
     },
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
@@ -25,17 +25,20 @@ pub struct SettlementClaim {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "kind")]
 pub enum ClaimDetail {
+    // Invariant: a nonzero stake field is the basis claim_amount was calculated from;
+    // a field the settlement rules did not calculate from stays 0.
     StakerPayout {
         #[serde(with = "u64_number_or_string")]
         active_stake: u64,
         #[serde(with = "u64_number_or_string")]
         activating_stake: u64,
-        #[serde(with = "map_pubkey_string_conversion")]
+        #[serde(with = "map_pubkey_u64_number_or_string")]
         stake_accounts: HashMap<Pubkey, u64>,
     },
     FeeDeposit,
     // Zero-amount placeholder distinguishing Marinade- vs ValidatorBond-funded merkle
     // roots when claim amounts would otherwise coincide. Not a real payout.
+    // TODO: enforce Marker invariants on deserialize (claim_amount == 0, placeholder authorities)
     Marker,
 }
 
@@ -193,7 +196,7 @@ mod tests {
             "kind": "StakerPayout",
             "active_stake": 9007199254740995,
             "activating_stake": 0,
-            "stake_accounts": {}
+            "stake_accounts": {"9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs": 9007199254740997}
         }"#;
         let as_string = r#"{
             "withdraw_authority": "9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs",
@@ -202,7 +205,7 @@ mod tests {
             "kind": "StakerPayout",
             "active_stake": "9007199254740995",
             "activating_stake": "0",
-            "stake_accounts": {}
+            "stake_accounts": {"9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs": "9007199254740997"}
         }"#;
 
         let from_number: SettlementClaim = serde_json::from_str(as_number).unwrap();
@@ -213,14 +216,20 @@ mod tests {
         match (&from_number.detail, &from_string.detail) {
             (
                 ClaimDetail::StakerPayout {
-                    active_stake: a1, ..
+                    active_stake: a1,
+                    stake_accounts: s1,
+                    ..
                 },
                 ClaimDetail::StakerPayout {
-                    active_stake: a2, ..
+                    active_stake: a2,
+                    stake_accounts: s2,
+                    ..
                 },
             ) => {
                 assert_eq!(*a1, 9007199254740995);
                 assert_eq!(a1, a2);
+                assert_eq!(s1.values().sum::<u64>(), 9007199254740997);
+                assert_eq!(s1, s2);
             }
             other => panic!("expected StakerPayout on both sides, got {other:?}"),
         }

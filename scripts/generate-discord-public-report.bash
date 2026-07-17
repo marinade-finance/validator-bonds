@@ -3,6 +3,8 @@
 set -e
 
 # Deterministic decimal-point formatting regardless of the caller's locale
+# (an inherited LC_ALL would override LC_NUMERIC)
+unset LC_ALL
 export LC_NUMERIC=C
 
 settlement_collection_file="$1"

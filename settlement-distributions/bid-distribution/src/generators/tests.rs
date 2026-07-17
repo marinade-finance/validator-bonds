@@ -1533,19 +1533,19 @@ fn test_fee_claims_identified_by_authority_pair_across_all_kinds() {
         find_settlement_by_reason(&bid_settlements, |r| matches!(r, SettlementReason::Bidding))
             .expect("Bidding settlement must exist (static_bid > 0)");
     assert!(
-        find_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+        find_fee_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
             .map(|c| c.claim_amount > 0)
             .unwrap_or(false),
         "Marinade fee claim in Bidding must exist and be positive",
     );
     assert!(
-        find_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+        find_fee_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
             .map(|c| c.claim_amount > 0)
             .unwrap_or(false),
         "DAO fee claim in Bidding must exist and be positive",
     );
     assert!(
-        find_claim_by_authority(bidding, &staker_auth, &withdraw_auth)
+        find_staker_claim_by_authority(bidding, &staker_auth, &withdraw_auth)
             .map(|c| c.claim_amount > 0)
             .unwrap_or(false),
         "Staker claim in Bidding must exist (distinct authority pair)",
@@ -1556,9 +1556,10 @@ fn test_fee_claims_identified_by_authority_pair_across_all_kinds() {
     })
     .expect("PriorityFee settlement must exist (activating_stake_pmpe > 0)");
     assert!(
-        find_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE).is_some()
+        find_fee_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+            .is_some()
     );
-    assert!(find_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some());
+    assert!(find_fee_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some());
 
     let penalty_settlements = generate_penalty_settlements(
         &stake_meta_index,
@@ -1591,12 +1592,12 @@ fn test_fee_claims_identified_by_authority_pair_across_all_kinds() {
     })
     .expect("BidTooLowPenalty settlement must exist");
     assert!(
-        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+        find_fee_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
             .is_some(),
         "Marinade fee claim in BidTooLowPenalty must exist",
     );
     assert!(
-        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some(),
+        find_fee_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO).is_some(),
         "DAO fee claim in BidTooLowPenalty must exist",
     );
 }
@@ -1668,11 +1669,11 @@ fn test_bid_too_low_penalty_fee_claims_split_between_marinade_and_dao() {
     // Total = 100 SOL * 0.16/1000 = 16_000_000 lamports
     // distributor = 1_600_000; stakers = 14_400_000; dao = 800_000; marinade = 800_000
     let marinade_fee =
-        find_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+        find_fee_claim_by_authority(bid_too_low, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
             .expect("Marinade BidTooLowPenalty fee claim must exist");
-    let dao_fee = find_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+    let dao_fee = find_fee_claim_by_authority(bid_too_low, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
         .expect("DAO BidTooLowPenalty fee claim must exist");
-    let staker_claim = find_claim_by_authority(bid_too_low, &staker_auth, &withdraw_auth)
+    let staker_claim = find_staker_claim_by_authority(bid_too_low, &staker_auth, &withdraw_auth)
         .expect("Staker BidTooLowPenalty claim must exist");
 
     assert_eq!(marinade_fee.claim_amount, 800_000);
@@ -1849,9 +1850,9 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_active() {
     );
 
     let marinade_fee =
-        find_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+        find_fee_claim_by_authority(bidding, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
             .expect("Marinade fee claim must exist in Bidding");
-    let dao_fee = find_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+    let dao_fee = find_fee_claim_by_authority(bidding, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
         .expect("DAO fee claim must exist in Bidding");
     // 100 SOL * 0.5/1000 = 50_000_000 lamports total; dao_split=50% → 25M each
     assert_eq!(marinade_fee.claim_amount, 25_000_000);
@@ -1928,9 +1929,9 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_activating
     );
 
     let marinade_fee =
-        find_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
+        find_fee_claim_by_authority(priority, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE)
             .expect("Marinade fee claim must exist in PriorityFee");
-    let dao_fee = find_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
+    let dao_fee = find_fee_claim_by_authority(priority, &TEST_PUBKEY_DAO, &TEST_PUBKEY_DAO)
         .expect("DAO fee claim must exist in PriorityFee");
     // 50 SOL * 100/1000 = 5_000_000_000 total; dao_split=50% → 2.5B each
     assert_eq!(marinade_fee.claim_amount, 2_500_000_000);
@@ -2334,13 +2335,29 @@ fn find_settlement_by_reason(
     settlements.iter().find(|s| reason_matches(&s.reason))
 }
 
-fn find_claim_by_authority<'a>(
+// Kind-aware lookups: a staker sharing an authority pair with a fee claim must not satisfy
+// fee-existence assertions (and vice versa).
+fn find_fee_claim_by_authority<'a>(
     settlement: &'a Settlement,
     stake_authority: &Pubkey,
     withdraw_authority: &Pubkey,
 ) -> Option<&'a settlement_common::settlement_collection::SettlementClaim> {
     settlement.claims.iter().find(|c| {
-        c.stake_authority == *stake_authority && c.withdraw_authority == *withdraw_authority
+        matches!(c.detail, ClaimDetail::FeeDeposit)
+            && c.stake_authority == *stake_authority
+            && c.withdraw_authority == *withdraw_authority
+    })
+}
+
+fn find_staker_claim_by_authority<'a>(
+    settlement: &'a Settlement,
+    stake_authority: &Pubkey,
+    withdraw_authority: &Pubkey,
+) -> Option<&'a settlement_common::settlement_collection::SettlementClaim> {
+    settlement.claims.iter().find(|c| {
+        matches!(c.detail, ClaimDetail::StakerPayout { .. })
+            && c.stake_authority == *stake_authority
+            && c.withdraw_authority == *withdraw_authority
     })
 }
 

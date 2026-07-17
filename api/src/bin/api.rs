@@ -70,6 +70,10 @@ async fn main() -> anyhow::Result<()> {
         _ => anyhow::bail!("All GCP parameters must be used together."),
     };
 
+    if params.port == INTERNAL_PORT {
+        anyhow::bail!("Public port must differ from internal port {INTERNAL_PORT}");
+    }
+
     let public_addr = SocketAddr::from(([0, 0, 0, 0], params.port));
     let internal_addr = SocketAddr::from(([0, 0, 0, 0], INTERNAL_PORT));
 

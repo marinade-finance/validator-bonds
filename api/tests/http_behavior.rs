@@ -73,9 +73,12 @@ async fn spawn_internal_server() -> String {
 }
 
 /// reqwest client with redirects/compression off so raw headers are observable.
+/// no_gzip() keeps that true even if another workspace crate enables the
+/// reqwest `gzip` feature (auto Accept-Encoding + transparent decompression).
 fn client() -> reqwest::Client {
     reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
+        .no_gzip()
         .build()
         .unwrap()
 }
@@ -210,6 +213,16 @@ async fn metrics_endpoint_exposes_recorded_http_metrics() {
     let internal = spawn_internal_server().await;
     let resp = c.get(format!("{internal}/metrics")).send().await.unwrap();
     assert_eq!(resp.status(), 200);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        ct.contains("version=0.0.4"),
+        "metrics must use the Prometheus exposition content type; got {ct}",
+    );
     let body = resp.text().await.unwrap();
     assert!(
         body.contains("validator_bonds_api_http_requests_total"),
@@ -225,10 +238,11 @@ async fn metrics_endpoint_exposes_recorded_http_metrics() {
 async fn rate_limit_trips_429_and_429_carries_cors_headers() {
     let base = spawn_test_server().await;
     let c = client();
-    // Public tier = 30 rps burst. Fire 40 concurrently from one IP so the burst
-    // is exhausted within a single refill window, independent of runner speed.
+    // Public tier = 30 rps burst. Fire 90 concurrently from one IP: absorbing the
+    // 60 excess tokens would take >2s of refill, so a 429 is guaranteed unless the
+    // runner stalls pathologically mid-burst.
     let mut set = tokio::task::JoinSet::new();
-    for _ in 0..40 {
+    for _ in 0..90 {
         let c = c.clone();
         let base = base.clone();
         set.spawn(async move {

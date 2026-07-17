@@ -1,6 +1,13 @@
 /**
  * BigInt-safe JSON parsing.
  *
+ * TEMPORARY LOCAL COPY: this belongs in `@marinade.finance/cli-common`
+ * (typescript-common branch `cli-common-lossless-json` adds identical
+ * `parseLosslessJson` / `readLargeJsonFileLossless` next to
+ * `readLargeJsonFile`). Once a cli-common version carrying them is published
+ * and the dependency here is bumped, delete this file and import both
+ * functions from `@marinade.finance/cli-common` instead.
+ *
  * Native `JSON.parse` and `@streamparser/json`'s default tokenizer both turn
  * every numeric token into an IEEE-754 double BEFORE any DTO `@Transform`
  * runs, so integers above 2^53-1 (lamport-scale u64 values) are silently
@@ -53,9 +60,6 @@ function createLosslessParser(opts?: TokenizerOptions): LosslessParserHandle {
   const tokenParser = new TokenParser({ paths: ['$'] })
 
   tokenizer.onToken = tokenParser.write.bind(tokenParser)
-  tokenizer.onEnd = () => {
-    if (!tokenParser.isEnded) tokenParser.end()
-  }
   tokenParser.onError = tokenizer.error.bind(tokenizer)
 
   let result: unknown
@@ -72,8 +76,12 @@ function createLosslessParser(opts?: TokenizerOptions): LosslessParserHandle {
     result = value
     hasValue = true
   }
-  tokenParser.onEnd = () => {
-    if (!tokenizer.isEnded) tokenizer.end()
+  // Resolution waits for the END OF INPUT, not the root value's completion:
+  // trailing non-whitespace content must fail the parse (as JSON.parse does),
+  // and it only surfaces as a tokenizer/parser error after the root closed.
+  tokenParser.onEnd = () => {}
+  tokenizer.onEnd = () => {
+    if (!tokenParser.isEnded) tokenParser.end()
     if (settled) return
     settled = true
     if (hasValue) {
@@ -139,5 +147,8 @@ export async function readLargeJsonFileLossless(
   readStream.on('error', err => {
     parser.fail(err)
   })
+  // Tokenizer failures surface via its onError callback, never as a throw from
+  // parser.write, so stop the source explicitly once the parse has failed.
+  void parser.promise.catch(() => readStream.destroy())
   return parser.promise
 }

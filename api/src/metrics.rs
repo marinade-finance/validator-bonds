@@ -67,7 +67,9 @@ pub async fn track_metrics(req: Request, next: Next) -> Response {
 }
 
 /// Prometheus text-format exposition of the default registry.
-pub async fn metrics_handler() -> (StatusCode, String) {
+pub async fn metrics_handler() -> Response {
+    use axum::http::header::CONTENT_TYPE;
+    use axum::response::IntoResponse;
     use prometheus::{Encoder, TextEncoder};
     let encoder = TextEncoder::new();
     let mut buffer = Vec::new();
@@ -76,16 +78,20 @@ pub async fn metrics_handler() -> (StatusCode, String) {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             "failed to encode metrics".to_owned(),
-        );
+        )
+            .into_response();
     }
     match String::from_utf8(buffer) {
-        Ok(body) => (StatusCode::OK, body),
+        // Axum would default a String body to `text/plain; charset=utf-8`; Prometheus
+        // expects its exposition-format content type (`text/plain; version=0.0.4`).
+        Ok(body) => ([(CONTENT_TYPE, encoder.format_type())], body).into_response(),
         Err(err) => {
             log::error!("Metrics buffer was not valid UTF-8: {err}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "invalid metrics encoding".to_owned(),
             )
+                .into_response()
         }
     }
 }
@@ -101,16 +107,23 @@ pub async fn healthz() -> StatusCode {
 pub async fn readyz(
     axum::extract::State(context): axum::extract::State<crate::context::WrappedContext>,
 ) -> StatusCode {
-    match context
-        .read()
-        .await
-        .psql_client
-        .simple_query("SELECT 1")
-        .await
-    {
-        Ok(_) => StatusCode::OK,
-        Err(err) => {
+    // Bounded so a stalled DB connection fails the probe fast instead of piling up handler tasks.
+    let query = async {
+        context
+            .read()
+            .await
+            .psql_client
+            .simple_query("SELECT 1")
+            .await
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(2), query).await {
+        Ok(Ok(_)) => StatusCode::OK,
+        Ok(Err(err)) => {
             log::warn!("readyz DB connectivity check failed: {err}");
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+        Err(_) => {
+            log::warn!("readyz DB connectivity check timed out");
             StatusCode::SERVICE_UNAVAILABLE
         }
     }

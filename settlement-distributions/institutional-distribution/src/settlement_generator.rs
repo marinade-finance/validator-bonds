@@ -144,6 +144,8 @@ fn generate_institutional_settlements(
                     payout.withdrawer,
                     payout.staker,
                     payout.stake_amount,
+                    // institutional payouts are calculated from effective stake only,
+                    // never from activating stake — the activating basis is always 0
                     0,
                     payout.payout_lamports,
                     payout.stake_accounts,
@@ -158,14 +160,17 @@ fn generate_institutional_settlements(
         }
     }
 
-    settlements
+    let mut settlements = settlements
         .into_values()
         .map(|mut settlement| {
             sort_claims_deterministically(&mut settlement.claims);
             settlement.claims_count = settlement.claims.len();
             settlement
         })
-        .collect()
+        .collect::<Vec<_>>();
+    // HashMap::into_values() order is random per process; output must be reproducible
+    settlements.sort_by_key(|settlement| settlement.vote_account);
+    settlements
 }
 
 #[cfg(test)]
@@ -366,6 +371,31 @@ mod tests {
             dao_claims_amount + 1,
             (distributor_payout * TEST_CONFIG.dao_fee_split_share_bps) / 10_000
         );
+    }
+
+    // ClaimDetail invariant: institutional never calculates a claim from activating stake
+    #[test]
+    fn test_staker_payout_activating_stake_is_always_zero() {
+        for payout_fixture in ["marinade", "prime"] {
+            let institutional_payout = read_json_payout(payout_fixture);
+            let settlements =
+                generate_institutional_settlements(&TEST_CONFIG, &institutional_payout);
+            assert!(
+                settlements.windows(2).all(|w| w[0].vote_account <= w[1].vote_account),
+                "settlements must be ordered by vote_account for reproducible output ({payout_fixture})"
+            );
+            for claim in settlements.iter().flat_map(|s| s.claims.iter()) {
+                if let ClaimDetail::StakerPayout {
+                    activating_stake, ..
+                } = claim.detail
+                {
+                    assert_eq!(
+                        activating_stake, 0,
+                        "institutional StakerPayout must have activating_stake == 0 ({payout_fixture})"
+                    );
+                }
+            }
+        }
     }
 
     fn make_payout_staker(
