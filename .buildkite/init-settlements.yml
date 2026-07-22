@@ -124,8 +124,11 @@ steps:
      - claim_type=$(buildkite-agent meta-data get claim_type)
      - bash ./scripts/settlement-json-listing.sh --merkle-trees settlement-merkle-trees.json --claim-type $$claim_type
      - epoch=$(buildkite-agent meta-data get epoch)
-     - echo "========================================================"
-     - gcloud storage cp "$gs_bucket/$$epoch/$DISCORD_REPORT_FILE" - 2>/dev/null || echo "(discord report not available)"
+     - |
+       if [[ "$$claim_type" == "unified" ]]; then
+         echo "========================================================"
+         gcloud storage cp "$gs_bucket/$$epoch/$DISCORD_REPORT_FILE" - 2>/dev/null || echo "(discord report not available)"
+       fi
     depends_on: "download-json"
 
   - wait: ~
