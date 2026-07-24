@@ -1,10 +1,11 @@
 use api::api_docs::ApiDoc;
 use api::context::{Context, WrappedContext};
-use api::handlers::{bonds, docs, protected_events};
+use api::handlers::{bonds, docs, protected_events, verified_validators};
 use api::rate_limit::{
     public_routes_limiter, recover_rate_limited, spawn_limiter_gc, with_rate_limit,
 };
 use api::repositories::protected_events::spawn_protected_events_cache;
+use api::repositories::verified_validators as verified_validators_repo;
 use clap::Parser;
 use env_logger::Env;
 use log::{error, info};
@@ -31,6 +32,9 @@ pub struct Params {
 
     #[arg(long = "port", default_value = "8000")]
     pub port: u16,
+
+    #[arg(long = "verified-validators-config")]
+    pub verified_validators_config: Option<String>,
 }
 
 #[tokio::main]
@@ -52,10 +56,24 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    let verified_validators = match &params.verified_validators_config {
+        Some(path) => {
+            verified_validators_repo::load_verified_validators(path).unwrap_or_else(|err| {
+                error!("Failed to load verified validators config from {path}: {err}");
+                vec![]
+            })
+        }
+        None => {
+            error!("Verified validators config not provided, will serve an empty list.");
+            vec![]
+        }
+    };
+
     let protected_event_records = Arc::new(RwLock::new(vec![]));
     let context = Arc::new(RwLock::new(Context::new(
         psql_client,
         protected_event_records.clone(),
+        verified_validators,
     )?));
 
     match (params.gcp_project_id, params.gcp_sa_key) {
@@ -138,10 +156,18 @@ async fn main() -> anyhow::Result<()> {
     let route_protected_events = warp::path!("protected-events")
         .and(warp::path::end())
         .and(warp::get())
-        .and(with_rate_limit(public_limiter))
+        .and(with_rate_limit(public_limiter.clone()))
         .and(warp::query::<protected_events::QueryParams>())
         .and(with_context(context.clone()))
         .and_then(protected_events::handler);
+
+    let route_verified_validators = warp::path!("validators" / "verified")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and(with_rate_limit(public_limiter))
+        .and(warp::query::<verified_validators::QueryParams>())
+        .and(with_context(context.clone()))
+        .and_then(verified_validators::handler);
 
     let base_routes = top_level
         .or(route_api_docs_oas)
@@ -150,7 +176,8 @@ async fn main() -> anyhow::Result<()> {
         .or(route_bonds_bidding)
         .or(route_bonds_bidding_auction)
         .or(route_bonds_institutional)
-        .or(route_protected_events);
+        .or(route_protected_events)
+        .or(route_verified_validators);
 
     // Serve compressed responses only when client requests it via Accept-Encoding: gzip header
     let accepts_gzip = warp::header::optional::<String>("accept-encoding")

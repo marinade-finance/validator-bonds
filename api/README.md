@@ -52,7 +52,8 @@ export DB='validator-bonds'
 export PG_SSLROOTCERT="/tmp/${DB}-postgres-root-cert.pem"
 export POSTGRES_URL="postgresql://${DB}:${DB}@localhost:5444/${DB}"
 cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
-  --postgres-ssl-root-cert "$PG_SSLROOTCERT"
+  --postgres-ssl-root-cert "$PG_SSLROOTCERT" \
+  --verified-validators-config ./verified-validators.yaml
 
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
