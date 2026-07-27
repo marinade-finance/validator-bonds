@@ -25,8 +25,9 @@ use settlement_pipelines::settlement_data::{
     SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
-    get_delegated_amount, get_stake_state_type, prepare_merge_instructions,
-    settlement_funded_claimable_lamports, StakeAccountStateType, STAKE_ACCOUNT_RENT_EXEMPTION,
+    fund_settlement_split_underflow, get_delegated_amount, get_stake_state_type,
+    prepare_merge_instructions, settlement_funded_claimable_lamports, StakeAccountStateType,
+    STAKE_ACCOUNT_RENT_EXEMPTION,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -345,6 +346,31 @@ async fn prepare_funding(
                 let funding_stake_accounts = fund_bond_stake_accounts
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
+                let amount_needed = amount_to_fund + minimal_stake_lamports;
+                funding_stake_accounts.retain(|account| {
+                    match fund_settlement_split_underflow(
+                        &account.state,
+                        account.lamports,
+                        amount_needed,
+                        minimal_stake_lamports,
+                        STAKE_ACCOUNT_RENT_EXEMPTION,
+                    ) {
+                        Some(delegation_stake) => {
+                            reporting.warning().with_msg(format!(
+                                "Settlement {} (vote account {}, epoch {}, reason: {}): skipping stake account {} holding {} SOLs below its recorded delegation {} SOLs (deactivated with withdrawn lamports); funding it would split and underflow fund_settlement, awaiting reset",
+                                settlement_record.settlement_address,
+                                settlement_record.vote_account_address,
+                                epoch,
+                                reason_display(&settlement_record.reason),
+                                account.stake_account,
+                                build_balance_message(account.lamports, false, false),
+                                build_balance_message(delegation_stake, false, false),
+                            )).with_vote(settlement_record.vote_account_address).add();
+                            false
+                        }
+                        None => true,
+                    }
+                });
                 // prioritize the biggest undelegated (inactive) amounts first
                 funding_stake_accounts.sort_by_cached_key(|account| {
                     let delegated_amount =
