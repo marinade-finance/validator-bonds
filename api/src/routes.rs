@@ -15,6 +15,7 @@ use tower_governor::governor::GovernorConfigBuilder;
 use tower_governor::GovernorLayer;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::normalize_path::NormalizePath;
 
 use crate::api_docs::ApiDoc;
 use crate::context::WrappedContext;
@@ -109,9 +110,15 @@ pub fn with_global_middleware(router: Router) -> Router {
 
 /// Full public app: meta + data routes (public tier) wrapped in the global
 /// middleware.
-pub fn build_app(context: WrappedContext) -> Router {
+pub fn build_app(context: WrappedContext) -> NormalizePath<Router> {
     let public = with_public_rate_limit(meta_routes().merge(public_data_routes(context)));
-    with_global_middleware(public)
+    with_trailing_slash_tolerance(with_global_middleware(public))
+}
+
+/// Outermost, so it rewrites the path before routing: warp matched `/bonds/`
+/// as `/bonds`, axum does not, and clients rely on the old tolerance.
+pub fn with_trailing_slash_tolerance(router: Router) -> NormalizePath<Router> {
+    NormalizePath::trim_trailing_slash(router)
 }
 
 /// Internal `:9000` server: Prometheus metrics + liveness/readiness.

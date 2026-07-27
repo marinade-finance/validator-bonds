@@ -99,7 +99,7 @@ struct FeeSplit {
     activating_fraction: Decimal,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum PoolKind {
     Active,
     Activating,
@@ -370,17 +370,11 @@ fn distribute_pool(
             continue;
         }
         let staker_share = Decimal::from(sum) / Decimal::from(pool_total);
-        let claim_amount =
-            (staker_share * Decimal::from(pool))
-                .to_u64()
-                .ok_or_else(|| match kind {
-                    PoolKind::Active => anyhow!(
-                        "claim_amount is not representable as u64 for validator {vote_account}"
-                    ),
-                    PoolKind::Activating => anyhow!(
-                    "activating claim_amount not representable as u64 for validator {vote_account}"
-                ),
-                })?;
+        let claim_amount = (staker_share * Decimal::from(pool))
+            .to_u64()
+            .ok_or_else(|| {
+                anyhow!("{kind:?} claim_amount is not representable as u64 for validator {vote_account}")
+            })?;
         if claim_amount > 0 {
             let (active_stake, activating_stake) = match kind {
                 PoolKind::Active => (sum, 0),

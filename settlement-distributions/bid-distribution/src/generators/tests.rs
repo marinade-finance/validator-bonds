@@ -2519,10 +2519,7 @@ fn test_generate_settlements_from_json_values() {
     );
     // activating charge = 50/1000 * 10 SOL = 0.5 SOL
     // activating_bid_claim is in lamports: 50/1000 * 10 SOL = 500_000_000
-    let bid_details = match settlement.details.as_ref().unwrap() {
-        SettlementDetails::Bidding(d) => d,
-        other => panic!("expected Bidding details, got {other:?}"),
-    };
+    let bid_details = bidding_details(settlement);
     let activating_claim: Decimal =
         serde_json::from_value(bid_details.settlement_claims["activating_bid_claim"].clone())
             .unwrap();

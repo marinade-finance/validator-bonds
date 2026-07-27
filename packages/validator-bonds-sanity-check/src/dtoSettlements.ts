@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any */
 
 import {
   CliCommandError,
@@ -232,23 +232,33 @@ export class SettlementsDto {
 // instead of class-validator's cryptic `isEnum` error. Legacy files are not
 // supported: regenerate them with the current pipeline to get the new format.
 function assertNotLegacyFormat(inputJson: string, path?: string): void {
-  let parsed: any
+  const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+    typeof value === 'object' && value !== null
+      ? (value as Record<string, unknown>)
+      : undefined
+
+  let parsed: unknown
   try {
     parsed = JSON.parse(inputJson)
   } catch {
     return // leave malformed JSON to parseAndValidate's own error
   }
-  const settlements = parsed?.settlements
+  const settlements = asRecord(parsed)?.settlements
   if (!Array.isArray(settlements) || settlements.length === 0) {
     return
   }
-  const isLegacy = (settlement: any): boolean => {
+  const isLegacy = (settlement: unknown): boolean => {
+    const record = asRecord(settlement)
+    if (record === undefined) {
+      return false
+    }
     const legacyFunder =
-      settlement?.funder === undefined && settlement?.meta?.funder !== undefined
+      record.funder === undefined && asRecord(record.meta)?.funder !== undefined
+    const claims = record.claims
     const legacyClaim =
-      Array.isArray(settlement?.claims) &&
-      settlement.claims.length > 0 &&
-      settlement.claims.some((claim: any) => claim?.kind === undefined)
+      Array.isArray(claims) &&
+      claims.length > 0 &&
+      claims.some(claim => asRecord(claim)?.kind === undefined)
     return legacyFunder || legacyClaim
   }
   if (settlements.some(isLegacy)) {

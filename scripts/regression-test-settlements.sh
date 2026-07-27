@@ -78,6 +78,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # we verify that path produces the same settlements as the scoring-API --sam-meta path.
 DS_SAM_AUCTIONS_DIR="${DS_SAM_AUCTIONS_DIR:-$REPO_ROOT/../ds-sam-pipeline/auctions}"
 
+# Absent auction outputs mean the only check of production's input path did not run,
+# so that counts as failure unless the caller knowingly opts out.
+REQUIRE_SAM_RESULTS="${REQUIRE_SAM_RESULTS:-true}"
+
 # ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
@@ -200,6 +204,11 @@ http_cached_download() {
 # Usage: sum_claims <file> [<file2> ...]
 sum_claims() {
   jq -n "[inputs.settlements[].claims_amount] | add" "$@" 2>/dev/null || echo "null"
+}
+
+# Newline list normalized for comm: blanks dropped, collation pinned to sort's own
+norm_votes() {
+  printf '%s\n' "$1" | sed '/^$/d' | LC_ALL=C sort
 }
 
 # Per-vote-account claim totals as sorted JSON: [{vote_account, total}]
@@ -454,16 +463,12 @@ process_epoch() {
           expected_pf_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
             "$expected_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
           # Exclusion set: PriorityFee present in actual only (actual minus expected).
-          # LC_ALL=C pins the collation so comm sees the exact order sort produced.
-          priority_fee_votes=$(comm -23 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
-                                        <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort))
+          priority_fee_votes=$(comm -23 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes"))
           priority_fee_count=$(echo -n "$priority_fee_votes" | grep -c '^' || true)
 
           local pf_both_count pf_expected_only
-          pf_both_count=$(comm -12 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
-                                   <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort) | grep -c '^' || true)
-          pf_expected_only=$(comm -13 <(printf '%s\n' "$actual_pf_votes" | sed '/^$/d' | LC_ALL=C sort) \
-                                      <(printf '%s\n' "$expected_pf_votes" | sed '/^$/d' | LC_ALL=C sort) | grep -c '^' || true)
+          pf_both_count=$(comm -12 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes") | grep -c '^' || true)
+          pf_expected_only=$(comm -13 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes") | grep -c '^' || true)
           if [[ "$pf_both_count" -gt 0 ]]; then
             echo "  INFO PriorityFee on both sides for $pf_both_count vote account(s) — compared directly"
           fi
@@ -778,6 +783,11 @@ process_epoch() {
   if compgen -G "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" > /dev/null 2>&1; then
     results_json=$(ls -d "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" 2>/dev/null | sort -V | tail -1)
   fi
+  if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -z "$results_json" ]]; then
+    echo "  MISSING sam-results path: no results.json for epoch $epoch under $DS_SAM_AUCTIONS_DIR"
+    echo "    set DS_SAM_AUCTIONS_DIR to a ds-sam-pipeline auctions clone, or REQUIRE_SAM_RESULTS=false to waive"
+    sam_results_status="MISSING"
+  fi
   if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -n "$results_json" ]]; then
     echo "Running bid-distribution-cli (--sam-results-collection)..."
     rm -f "$actual_dir/bid-settlements-from-results.json" "$actual_dir/.pe-results.json"
@@ -959,6 +969,7 @@ process_epoch() {
   for s in "$bid_claims_status" "$bid_merkle_status" "$sam_results_status" "$inst_claims_status" "$inst_merkle_status"; do
     case "$s" in
       DIFFER|ERROR) overall="FAIL" ;;
+      MISSING) if [[ "$REQUIRE_SAM_RESULTS" == "true" ]]; then overall="FAIL"; fi ;;
     esac
   done
 

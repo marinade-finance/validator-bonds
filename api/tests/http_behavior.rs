@@ -12,7 +12,11 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use api::routes::{meta_routes, with_global_middleware, with_public_rate_limit};
+use api::routes::{
+    meta_routes, with_global_middleware, with_public_rate_limit, with_trailing_slash_tolerance,
+};
+use axum::extract::Request;
+use axum::ServiceExt;
 
 /// Wait until the spawned server is actually accepting connections, instead of a
 /// fixed sleep that can flake on loaded CI runners.
@@ -32,7 +36,9 @@ async fn wait_until_accepting(addr: SocketAddr) {
 /// need a live Postgres `Context`); the middleware stack under test is shared
 /// with production via the `api::routes` building blocks.
 async fn spawn_test_server() -> String {
-    let app = with_global_middleware(with_public_rate_limit(meta_routes()));
+    let app = with_trailing_slash_tolerance(with_global_middleware(with_public_rate_limit(
+        meta_routes(),
+    )));
 
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
@@ -41,7 +47,7 @@ async fn spawn_test_server() -> String {
     tokio::spawn(async move {
         axum::serve(
             listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
+            ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
         )
         .await
         .unwrap();
@@ -129,6 +135,23 @@ async fn docs_html_returns_redoc_page() {
 }
 
 #[tokio::test]
+async fn trailing_slash_resolves_to_the_same_route() {
+    let base = spawn_test_server().await;
+    let resp = client()
+        .get(format!("{base}/docs.json/"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "warp matched a trailing slash; the axum stack must keep doing so",
+    );
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body.get("openapi").is_some(), "must be an OpenAPI document");
+}
+
+#[tokio::test]
 async fn unknown_path_is_404() {
     let base = spawn_test_server().await;
     let resp = client()
@@ -176,9 +199,8 @@ async fn gzip_is_applied_only_when_requested() {
         "Accept-Encoding: gzip must yield a gzip-compressed response",
     );
 
-    let without = spawn_test_server().await;
     let no_gzip = client()
-        .get(format!("{without}/docs.json"))
+        .get(format!("{base}/docs.json"))
         .send()
         .await
         .unwrap();

@@ -174,7 +174,7 @@ do
       continue
     fi
 
-    funder=$(<<<"$settlement" jq '.funder // .meta.funder' -r)
+    funder=$(<<<"$settlement" jq '.funder' -r)
     case $funder in
         Marinade)
           funder_info="Marinade DAO"

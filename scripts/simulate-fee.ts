@@ -234,7 +234,7 @@ function runCli(cfgFile: string, inp: string): string {
     {
       env: {
         ...process.env,
-        RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+        RUST_LOG: 'warn,bid_distribution::generators::fee_optimizer=info',
       },
       stderr: 'pipe',
     },

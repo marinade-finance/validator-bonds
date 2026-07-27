@@ -1,6 +1,8 @@
 use api::context::{Context, WrappedContext};
 use api::repositories::protected_events::spawn_protected_events_cache;
 use api::routes::{build_app, internal_router};
+use axum::extract::Request;
+use axum::ServiceExt;
 use clap::Parser;
 use env_logger::Env;
 use log::{error, info};
@@ -90,7 +92,7 @@ async fn main() -> anyhow::Result<()> {
     let public_server = tokio::spawn(async move {
         axum::serve(
             public_listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
+            ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
         )
         .await
     });

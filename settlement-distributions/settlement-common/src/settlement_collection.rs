@@ -25,8 +25,7 @@ pub struct SettlementClaim {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(tag = "kind")]
 pub enum ClaimDetail {
-    // Invariant: a nonzero stake field is the basis claim_amount was calculated from;
-    // a field the settlement rules did not calculate from stays 0.
+    // Invariant: a nonzero stake field is the basis claim_amount was calculated from
     StakerPayout {
         #[serde(with = "u64_number_or_string")]
         active_stake: u64,
@@ -36,9 +35,7 @@ pub enum ClaimDetail {
         stake_accounts: HashMap<Pubkey, u64>,
     },
     FeeDeposit,
-    // Zero-amount placeholder distinguishing Marinade- vs ValidatorBond-funded merkle
-    // roots when claim amounts would otherwise coincide. Not a real payout.
-    // TODO: enforce Marker invariants on deserialize (claim_amount == 0, placeholder authorities)
+    // Zero-amount placeholder splitting Marinade- vs ValidatorBond-funded merkle roots; TODO enforce claim_amount == 0 on deserialize
     Marker,
 }
 

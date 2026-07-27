@@ -33,7 +33,7 @@ solana-sdk = { workspace = true }
 tokio = { workspace = true }
 tokio-postgres = { workspace = true }
 tower_governor = { version = "0.8.0", features = ["axum"] }
-tower-http = { version = "0.6.6", features = ["cors", "compression-gzip"] }
+tower-http = { version = "0.6.6", features = ["cors", "compression-gzip", "normalize-path"] }
 tracing = { workspace = true }
 tracing-log = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -41,8 +41,5 @@ utoipa = { workspace = true }
 validator-bonds-common = { workspace = true }
 
 [dev-dependencies]
-# Black-box HTTP characterization tests for the route/middleware stack
-# (rate-limit, CORS, gzip, routing). The test client disables decompression
-# explicitly (.no_gzip()) so the Content-Encoding header stays observable.
 reqwest = { workspace = true }
 tokio = { workspace = true }

@@ -7,8 +7,6 @@ use solana_client::{
 };
 use solana_program::stake::state::StakeStateV2;
 use solana_program::stake_history::StakeHistoryEntry;
-// solana_sdk::stake is deprecated in favor of solana-stake-interface; migration deferred
-#[allow(deprecated)]
 use solana_sdk::{
     clock::Clock,
     pubkey::Pubkey,
