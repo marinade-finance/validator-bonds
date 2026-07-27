@@ -347,30 +347,23 @@ async fn prepare_funding(
                     .get_mut(&settlement_record.vote_account_address)
                     .unwrap_or(&mut empty_vec);
                 let amount_needed = amount_to_fund + minimal_stake_lamports;
-                funding_stake_accounts.retain(|account| {
-                    match fund_settlement_split_underflow(
-                        &account.state,
-                        account.lamports,
-                        amount_needed,
-                        minimal_stake_lamports,
-                        STAKE_ACCOUNT_RENT_EXEMPTION,
-                    ) {
-                        Some(delegation_stake) => {
-                            reporting.warning().with_msg(format!(
-                                "Settlement {} (vote account {}, epoch {}, reason: {}): skipping stake account {} holding {} SOLs below its recorded delegation {} SOLs (deactivated with withdrawn lamports); funding it would split and underflow fund_settlement, awaiting reset",
-                                settlement_record.settlement_address,
-                                settlement_record.vote_account_address,
-                                epoch,
-                                reason_display(&settlement_record.reason),
-                                account.stake_account,
-                                build_balance_message(account.lamports, false, false),
-                                build_balance_message(delegation_stake, false, false),
-                            )).with_vote(settlement_record.vote_account_address).add();
-                            false
-                        }
-                        None => true,
-                    }
-                });
+                let underwater_stake_accounts = underwater_split_stake_accounts(
+                    funding_stake_accounts,
+                    amount_needed,
+                    minimal_stake_lamports,
+                );
+                for underwater in underwater_stake_accounts.iter() {
+                    reporting.warning().with_msg(format!(
+                        "Settlement {} (vote account {}, epoch {}, reason: {}): skipping stake account {} holding {} SOLs below its recorded delegation {} SOLs (deactivated with withdrawn lamports); funding it would split and underflow fund_settlement, awaiting reset",
+                        settlement_record.settlement_address,
+                        settlement_record.vote_account_address,
+                        epoch,
+                        reason_display(&settlement_record.reason),
+                        underwater.stake_account,
+                        build_balance_message(underwater.lamports, false, false),
+                        build_balance_message(underwater.delegation_stake, false, false),
+                    )).with_vote(settlement_record.vote_account_address).add();
+                }
                 // prioritize the biggest undelegated (inactive) amounts first
                 funding_stake_accounts.sort_by_cached_key(|account| {
                     let delegated_amount =
@@ -378,6 +371,12 @@ async fn prepare_funding(
                     account.lamports.saturating_sub(delegated_amount)
                 });
                 funding_stake_accounts.reverse();
+                let fundable_stake_accounts = funding_stake_accounts
+                    .iter()
+                    .filter(|account| {
+                        !is_underwater(&underwater_stake_accounts, &account.stake_account)
+                    })
+                    .collect::<Vec<&FundBondStakeAccount>>();
                 info!(
                         "Settlement {} (vote account {}, bond {}, reason {}, max claim {} SOLS, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",
                         settlement_record.settlement_address,
@@ -387,28 +386,24 @@ async fn prepare_funding(
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                         epoch,
                         build_balance_message(amount_to_fund, false, false),
-                        funding_stake_accounts.len(),
-                    funding_stake_accounts
+                        fundable_stake_accounts.len(),
+                    fundable_stake_accounts
                         .iter()
                         .map(|s| s.stake_account.to_string())
                         .collect::<Vec<String>>()
                         .join(","),
-                        build_balance_message(funding_stake_accounts
+                        build_balance_message(fundable_stake_accounts
                         .iter()
                         .map(|s| s.lamports)
                         .sum::<u64>(), false, false)
                     );
-                let mut funding_lamports_accumulated: u64 = 0;
-                let mut stake_accounts_to_fund: Vec<FundBondStakeAccount> = vec![];
-                funding_stake_accounts.retain(|stake_account| {
-                    if funding_lamports_accumulated < amount_to_fund + minimal_stake_lamports {
-                        funding_lamports_accumulated += stake_account.lamports;
-                        stake_accounts_to_fund.push(stake_account.clone());
-                        false // remove from pool, it will be used for funding
-                    } else {
-                        true // keep in pool, available for other settlements
-                    }
-                });
+                let mut stake_accounts_to_fund = take_stake_accounts_to_fund(
+                    funding_stake_accounts,
+                    &underwater_stake_accounts,
+                    amount_needed,
+                );
+                let funding_lamports_accumulated: u64 =
+                    stake_accounts_to_fund.iter().map(|s| s.lamports).sum();
 
                 // for the found and fitting stake accounts: taking first one and trying to merge other ones into it
                 let stake_account_to_fund: Option<(FundBondStakeAccount, StakeAccountStateType)> =
@@ -784,6 +779,64 @@ impl From<&FundBondStakeAccount> for CollectedStakeAccount {
     }
 }
 
+struct UnderwaterStakeAccount {
+    stake_account: Pubkey,
+    lamports: u64,
+    delegation_stake: u64,
+}
+
+fn underwater_split_stake_accounts(
+    stake_accounts: &[FundBondStakeAccount],
+    amount_needed: u64,
+    minimal_stake_lamports: u64,
+) -> Vec<UnderwaterStakeAccount> {
+    stake_accounts
+        .iter()
+        .filter_map(|account| {
+            fund_settlement_split_underflow(
+                &account.state,
+                account.lamports,
+                amount_needed,
+                minimal_stake_lamports,
+                STAKE_ACCOUNT_RENT_EXEMPTION,
+            )
+            .map(|delegation_stake| UnderwaterStakeAccount {
+                stake_account: account.stake_account,
+                lamports: account.lamports,
+                delegation_stake,
+            })
+        })
+        .collect()
+}
+
+fn is_underwater(underwater: &[UnderwaterStakeAccount], stake_account: &Pubkey) -> bool {
+    underwater
+        .iter()
+        .any(|account| &account.stake_account == stake_account)
+}
+
+fn take_stake_accounts_to_fund(
+    stake_accounts_pool: &mut Vec<FundBondStakeAccount>,
+    underwater: &[UnderwaterStakeAccount],
+    amount_needed: u64,
+) -> Vec<FundBondStakeAccount> {
+    let mut lamports_accumulated: u64 = 0;
+    let mut to_fund: Vec<FundBondStakeAccount> = vec![];
+    stake_accounts_pool.retain(|stake_account| {
+        // the split underflow depends on this settlement's amount, another one may fund the account safely
+        if is_underwater(underwater, &stake_account.stake_account)
+            || lamports_accumulated >= amount_needed
+        {
+            true // keep in pool, available for other settlements
+        } else {
+            lamports_accumulated += stake_account.lamports;
+            to_fund.push(stake_account.clone());
+            false // remove from pool, it will be used for funding
+        }
+    });
+    to_fund
+}
+
 /// Filtering stake accounts and creating a Map of vote account to stake accounts
 async fn get_on_chain_bond_stake_accounts(
     stake_accounts: &CollectedStakeAccounts,
@@ -1134,5 +1187,94 @@ impl ReportSerializable for FundSettlementsReport {
             serde_json::to_value(summary)
                 .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::stake::stake_flags::StakeFlags;
+    use solana_sdk::stake::state::{Delegation, Meta, Stake};
+
+    const SOL: u64 = 1_000_000_000;
+    const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+
+    fn stake_account(lamports: u64, delegation_stake: u64) -> FundBondStakeAccount {
+        FundBondStakeAccount {
+            lamports,
+            stake_account: Pubkey::new_unique(),
+            split_stake_account: Arc::new(Keypair::new()),
+            state: StakeStateV2::Stake(
+                Meta::default(),
+                Stake {
+                    delegation: Delegation {
+                        stake: delegation_stake,
+                        ..Delegation::default()
+                    },
+                    ..Stake::default()
+                },
+                StakeFlags::empty(),
+            ),
+        }
+    }
+
+    #[test]
+    fn underwater_account_skipped_for_splitting_settlement_stays_available_for_a_bigger_one() {
+        let underwater = stake_account(10 * SOL, 20 * SOL);
+        let healthy = stake_account(6 * SOL, 6 * SOL);
+        let (underwater_address, healthy_address) =
+            (underwater.stake_account, healthy.stake_account);
+        let mut pool = vec![underwater, healthy];
+
+        // 10 SOL available >= 3 + MIN + rent needed -> the program would split and underflow
+        let amount_needed_split = 3 * SOL;
+        let underwater_accounts = underwater_split_stake_accounts(&pool, amount_needed_split, MIN);
+        assert_eq!(underwater_accounts.len(), 1);
+        assert_eq!(underwater_accounts[0].stake_account, underwater_address);
+        assert_eq!(underwater_accounts[0].lamports, 10 * SOL);
+        assert_eq!(underwater_accounts[0].delegation_stake, 20 * SOL);
+
+        let to_fund =
+            take_stake_accounts_to_fund(&mut pool, &underwater_accounts, amount_needed_split);
+        assert_eq!(
+            to_fund.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![healthy_address]
+        );
+        assert_eq!(
+            pool.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![underwater_address]
+        );
+
+        // 10 SOL available < 10 + MIN + rent needed -> whole-account path, no underflow to avoid
+        let amount_needed_no_split = 10 * SOL;
+        let underwater_accounts =
+            underwater_split_stake_accounts(&pool, amount_needed_no_split, MIN);
+        assert!(underwater_accounts.is_empty());
+
+        let to_fund =
+            take_stake_accounts_to_fund(&mut pool, &underwater_accounts, amount_needed_no_split);
+        assert_eq!(
+            to_fund.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![underwater_address]
+        );
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn underwater_account_is_never_funded_even_as_the_only_candidate() {
+        let underwater = stake_account(10 * SOL, 20 * SOL);
+        let underwater_address = underwater.stake_account;
+        let mut pool = vec![underwater];
+
+        let amount_needed = 3 * SOL;
+        let underwater_accounts = underwater_split_stake_accounts(&pool, amount_needed, MIN);
+        assert_eq!(underwater_accounts.len(), 1);
+
+        let to_fund = take_stake_accounts_to_fund(&mut pool, &underwater_accounts, amount_needed);
+        assert!(to_fund.is_empty());
+        assert_eq!(
+            pool.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![underwater_address]
+        );
     }
 }
