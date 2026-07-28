@@ -32,6 +32,7 @@
     "cli": "pnpm ts-node ./src/"
   },
   "dependencies": {
+    "@streamparser/json": "0.0.22",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.2",
     "commander": "14.0.1",

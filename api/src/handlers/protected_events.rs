@@ -1,6 +1,7 @@
 use crate::{context::WrappedContext, dto::ProtectedEventRecord};
+use axum::extract::{Query, State};
+use axum::Json;
 use serde::{Deserialize, Serialize};
-use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct ProtectedEventsResponse {
@@ -21,9 +22,9 @@ pub struct QueryParams {}
     )
 )]
 pub async fn handler(
-    _query_params: QueryParams,
-    context: WrappedContext,
-) -> Result<impl Reply, warp::Rejection> {
+    State(context): State<WrappedContext>,
+    Query(_query_params): Query<QueryParams>,
+) -> Json<ProtectedEventsResponse> {
     let protected_events = context
         .read()
         .await
@@ -31,5 +32,5 @@ pub async fn handler(
         .read()
         .await
         .clone();
-    Ok(json(&ProtectedEventsResponse { protected_events }))
+    Json(ProtectedEventsResponse { protected_events })
 }

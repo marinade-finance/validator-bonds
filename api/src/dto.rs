@@ -86,6 +86,11 @@ pub struct ProtectedEventRecord {
     pub amount: u64,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
+    /// DEPRECATED: the `{ "funder": ... }` wrapper is retained only for backward
+    /// compatibility. The generated settlement JSON now exposes `funder` directly;
+    /// this nested `meta` field will be flattened to a top-level `funder` in a future
+    /// API version. Read `meta.funder` for now.
+    #[schema(deprecated)]
     pub meta: SettlementMeta,
     pub reason: SettlementReason,
 }
@@ -98,12 +103,15 @@ pub struct ValidatorBondRecordSchema {
     vote_account: String,
     authority: String,
     cpmpe: Decimal,
-    max_stake_wanted: f64,
+    // Decimal, not f64: the real DTO (validator_bonds_common::dto::ValidatorBondRecord)
+    // holds rust_decimal::Decimal, which serializes as a JSON *string* — an f64 here
+    // would advertise a lossy number type the API never actually emits.
+    max_stake_wanted: Decimal,
     epoch: u64,
-    funded_amount: f64,
-    effective_amount: f64,
-    remaining_witdraw_request_amount: f64,
-    remainining_settlement_claim_amount: f64,
+    funded_amount: Decimal,
+    effective_amount: Decimal,
+    remaining_witdraw_request_amount: Decimal,
+    remainining_settlement_claim_amount: Decimal,
     #[schema(format = "datetime")]
     updated_at: DateTime<Utc>,
     bond_type: String, // Using String to represent BondType

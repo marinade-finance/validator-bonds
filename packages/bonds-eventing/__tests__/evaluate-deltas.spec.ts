@@ -6,6 +6,7 @@ import {
   evaluateDeltas,
   validatorToState,
   configAddressForBondType,
+  solToLamports,
 } from '../src/evaluate-deltas'
 
 import type { ValidatorState } from '../src/types'
@@ -1048,5 +1049,38 @@ describe('validatorToState', () => {
     expect(
       (state.auction_validator as Record<string, unknown>).voteAccount,
     ).toBe(TEST_VOTE_ACCOUNT)
+  })
+})
+
+describe('solToLamports', () => {
+  it('converts whole and fractional SOL exactly', () => {
+    expect(solToLamports(0)).toBe(0n)
+    expect(solToLamports(1)).toBe(1_000_000_000n)
+    expect(solToLamports(1.5)).toBe(1_500_000_000n)
+    expect(solToLamports(0.000000001)).toBe(1n)
+    expect(solToLamports(123.456789123)).toBe(123_456_789_123n)
+  })
+
+  it('handles negative amounts', () => {
+    expect(solToLamports(-1.25)).toBe(-1_250_000_000n)
+  })
+
+  it('rounds sub-lamport fractions at lamport precision', () => {
+    expect(solToLamports(0.0000000014)).toBe(1n)
+    expect(solToLamports(0.0000000016)).toBe(2n)
+  })
+
+  it('returns 0 for null/undefined/non-finite', () => {
+    expect(solToLamports(null)).toBe(0n)
+    expect(solToLamports(undefined)).toBe(0n)
+    expect(solToLamports(Number.NaN)).toBe(0n)
+    expect(solToLamports(Number.POSITIVE_INFINITY)).toBe(0n)
+  })
+
+  it('matches printed decimal for values where float multiply drifts', () => {
+    // 8.316: 8.316 * 1e9 = 8316000000.000002 — Math.round is fine here, but
+    // the string path must agree with the double's printed representation.
+    expect(solToLamports(8.316)).toBe(8_316_000_000n)
+    expect(solToLamports(35.891)).toBe(35_891_000_000n)
   })
 })

@@ -57,3 +57,7 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
 ```
+
+The integration tests (`api/tests/http_behavior.rs`) cover routing/middleware only; the
+DB-backed routes (`/bonds/*`, `/protected-events`) and `readyz` are smoke-tested manually
+against the steps above.

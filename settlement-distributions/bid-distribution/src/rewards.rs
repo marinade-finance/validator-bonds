@@ -82,6 +82,33 @@ impl VoteAccountRewards {
     pub fn realized_block_commission_dec(&self) -> Option<Decimal> {
         realized_commission_dec(self.block_rewards, self.stakers_priority_fee_rewards)
     }
+
+    /// Reward types where the stakers' recorded share exceeds the validator's gross:
+    /// Some(c) — negative realized commission; None — stakers paid while gross is zero.
+    fn realized_commission_anomalies(&self) -> Vec<(&'static str, Option<Decimal>)> {
+        [
+            (
+                "inflation",
+                self.inflation_rewards,
+                self.stakers_inflation_rewards,
+            ),
+            ("mev", self.mev_rewards, self.stakers_mev_rewards),
+            (
+                "block",
+                self.block_rewards,
+                self.stakers_priority_fee_rewards,
+            ),
+        ]
+        .into_iter()
+        .filter_map(
+            |(kind, gross, stakers)| match realized_commission_dec(gross, stakers) {
+                Some(c) if c < Decimal::ZERO => Some((kind, Some(c))),
+                None if stakers > 0 => Some((kind, None)),
+                _ => None,
+            },
+        )
+        .collect()
+    }
 }
 
 fn realized_commission_dec(gross_rewards: u64, stakers_rewards: u64) -> Option<Decimal> {
@@ -505,6 +532,23 @@ fn aggregate_rewards(
         rewards_map.len()
     );
 
+    // commission_eff clamps negative realized commissions so bonds are never overcharged, but the
+    // aggregate assert above can't see per-validator excesses (they net out). Surface each offender.
+    for rewards in rewards_map.values() {
+        for (kind, anomaly) in rewards.realized_commission_anomalies() {
+            match anomaly {
+                Some(commission) => log::warn!(
+                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — likely a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue)",
+                    rewards.vote_account
+                ),
+                None => log::warn!(
+                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — likely a rewards input discrepancy",
+                    rewards.vote_account
+                ),
+            }
+        }
+    }
+
     Ok(rewards_map)
 }
 
@@ -585,6 +629,60 @@ mod tests {
             rewards.realized_block_commission_dec(),
             Some(Decimal::new(-2, 1))
         );
+    }
+
+    #[test]
+    fn test_realized_commission_anomalies() {
+        let healthy = VoteAccountRewards {
+            inflation_rewards: 100,
+            stakers_inflation_rewards: 95,
+            block_rewards: 10,
+            stakers_priority_fee_rewards: 8,
+            ..Default::default()
+        };
+        assert!(healthy.realized_commission_anomalies().is_empty());
+
+        // stakers priority fee (12) > block (10) → block commission -0.2
+        let block_neg = VoteAccountRewards {
+            block_rewards: 10,
+            stakers_priority_fee_rewards: 12,
+            ..Default::default()
+        };
+        assert_eq!(
+            block_neg.realized_commission_anomalies(),
+            vec![("block", Some(Decimal::new(-2, 1)))]
+        );
+
+        // inflation and mev both exceed gross
+        let multi = VoteAccountRewards {
+            inflation_rewards: 5,
+            stakers_inflation_rewards: 9,
+            mev_rewards: 3,
+            stakers_mev_rewards: 4,
+            ..Default::default()
+        };
+        let kinds: Vec<_> = multi
+            .realized_commission_anomalies()
+            .into_iter()
+            .map(|(kind, _)| kind)
+            .collect();
+        assert_eq!(kinds, vec!["inflation", "mev"]);
+
+        // stakers paid while gross is 0 → flagged without a finite commission ratio
+        let zero_gross = VoteAccountRewards {
+            block_rewards: 0,
+            stakers_priority_fee_rewards: 5,
+            ..Default::default()
+        };
+        assert_eq!(
+            zero_gross.realized_commission_anomalies(),
+            vec![("block", None)]
+        );
+
+        // no rewards at all → nothing flagged
+        assert!(VoteAccountRewards::default()
+            .realized_commission_anomalies()
+            .is_empty());
     }
 
     #[test]
