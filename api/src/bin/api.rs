@@ -6,9 +6,10 @@ use api::rate_limit::{
 };
 use api::repositories::protected_events::spawn_protected_events_cache;
 use api::repositories::verified_validators as verified_validators_repo;
+use anyhow::Context as _;
 use clap::Parser;
 use env_logger::Env;
-use log::{error, info};
+use log::{error, info, warn};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use std::convert::Infallible;
@@ -57,14 +58,10 @@ async fn main() -> anyhow::Result<()> {
     });
 
     let verified_validators = match &params.verified_validators_config {
-        Some(path) => {
-            verified_validators_repo::load_verified_validators(path).unwrap_or_else(|err| {
-                error!("Failed to load verified validators config from {path}: {err}");
-                vec![]
-            })
-        }
+        Some(path) => verified_validators_repo::load_verified_validators(path)
+            .with_context(|| format!("Failed to load verified validators config from {path}"))?,
         None => {
-            error!("Verified validators config not provided, will serve an empty list.");
+            warn!("Verified validators config not provided, will serve an empty list.");
             vec![]
         }
     };

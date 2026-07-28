@@ -4,6 +4,7 @@ use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct VerifiedValidatorsResponse {
+    #[schema(value_type = Vec<solana_sdk::pubkey::Pubkey>)]
     verified_validators: Vec<String>,
 }
 
