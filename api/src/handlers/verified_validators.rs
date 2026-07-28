@@ -1,10 +1,12 @@
 use crate::context::WrappedContext;
 use serde::{Deserialize, Serialize};
+#[allow(unused_imports)] // referenced only in the `value_type` schema attribute below
+use solana_sdk::pubkey::Pubkey;
 use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct VerifiedValidatorsResponse {
-    #[schema(value_type = Vec<solana_sdk::pubkey::Pubkey>)]
+    #[schema(value_type = Vec<Pubkey>)]
     verified_validators: Vec<String>,
 }
 
