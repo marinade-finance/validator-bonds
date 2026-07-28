@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use api::api_docs::ApiDoc;
 use api::context::{Context, WrappedContext};
 use api::handlers::{bonds, docs, protected_events, verified_validators};
@@ -6,7 +7,6 @@ use api::rate_limit::{
 };
 use api::repositories::protected_events::spawn_protected_events_cache;
 use api::repositories::verified_validators as verified_validators_repo;
-use anyhow::Context as _;
 use clap::Parser;
 use env_logger::Env;
 use log::{error, info, warn};
