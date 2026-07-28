@@ -105,6 +105,8 @@ pub struct SettlementMetaSchema {
     funder: SettlementFunder,
 }
 
+/// Amount fields are emitted as JSON doubles, so values above 2^53 are rounded — notably the
+/// `u64::MAX` "withdraw everything" sentinel that `remaining_witdraw_request_amount` carries.
 #[derive(ToSchema)]
 #[schema(as = ValidatorBondRecord)]
 #[allow(dead_code)]
@@ -126,7 +128,6 @@ pub struct ValidatorBondRecordSchema {
     remaining_witdraw_request_amount: Decimal,
     #[schema(value_type = f64)]
     remainining_settlement_claim_amount: Decimal,
-    #[schema(format = "datetime")]
     updated_at: DateTime<Utc>,
     bond_type: String, // Using String to represent BondType
     inflation_commission_bps: Option<i64>,
@@ -138,7 +139,7 @@ pub struct ValidatorBondRecordSchema {
 mod tests {
     use super::{SettlementFunder, SettlementMeta};
     use crate::api_docs::ApiDoc;
-    use chrono::Utc;
+    use chrono::{DateTime, Utc};
     use rust_decimal::Decimal;
     use utoipa::OpenApi;
     use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
@@ -244,5 +245,20 @@ mod tests {
                 serialized[field],
             );
         }
+
+        // `date-time` is the registered OpenAPI format; a custom spelling makes generators fall back to a plain string.
+        assert_eq!(
+            (
+                properties["updated_at"]["type"].as_str(),
+                properties["updated_at"]["format"].as_str(),
+            ),
+            (Some("string"), Some("date-time")),
+        );
+        assert!(
+            DateTime::parse_from_rfc3339(serialized["updated_at"].as_str().unwrap_or_default())
+                .is_ok(),
+            "updated_at serialized as {:?}, expected RFC 3339",
+            serialized["updated_at"],
+        );
     }
 }
