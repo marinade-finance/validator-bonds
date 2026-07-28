@@ -116,7 +116,7 @@ pub fn generate_merkle_tree_collection(
     for source in &sources {
         for settlement in &source.collection.settlements {
             grouped_settlements
-                .entry((settlement.vote_account, settlement.meta.funder.clone()))
+                .entry((settlement.vote_account, settlement.funder.clone()))
                 .or_default()
                 .push(settlement);
         }
@@ -237,9 +237,7 @@ pub fn generate_merkle_tree_collection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use settlement_common::settlement_collection::{
-        SettlementFunder, SettlementMeta, SettlementReason,
-    };
+    use settlement_common::settlement_collection::{SettlementFunder, SettlementReason};
     use solana_sdk::pubkey::Pubkey;
     use std::collections::HashMap;
 
@@ -251,14 +249,7 @@ mod tests {
     ) -> SettlementClaim {
         let mut stake_accounts = HashMap::new();
         stake_accounts.insert(Pubkey::new_unique(), stake_amount);
-        SettlementClaim {
-            withdraw_authority: withdraw,
-            stake_authority: stake,
-            stake_accounts,
-            active_stake: stake_amount,
-            activating_stake: 0,
-            claim_amount: amount,
-        }
+        SettlementClaim::staker_payout(withdraw, stake, stake_amount, 0, amount, stake_accounts)
     }
 
     fn create_test_settlement(
@@ -271,7 +262,7 @@ mod tests {
         let claims_count = claims.len();
         Settlement {
             reason,
-            meta: SettlementMeta { funder },
+            funder,
             vote_account,
             claims_count,
             claims_amount,
@@ -302,25 +293,22 @@ mod tests {
         let shared_stake_account = Pubkey::new_unique();
         let unique_stake_account = Pubkey::new_unique();
 
-        let claim1 = SettlementClaim {
-            withdraw_authority: withdraw,
-            stake_authority: stake,
-            stake_accounts: HashMap::from([
-                (shared_stake_account, 1000),
-                (unique_stake_account, 500),
-            ]),
-            active_stake: 1500,
-            activating_stake: 0,
-            claim_amount: 100,
-        };
-        let claim2 = SettlementClaim {
-            withdraw_authority: withdraw,
-            stake_authority: stake,
-            stake_accounts: HashMap::from([(shared_stake_account, 1000)]),
-            active_stake: 1000,
-            activating_stake: 0,
-            claim_amount: 50,
-        };
+        let claim1 = SettlementClaim::staker_payout(
+            withdraw,
+            stake,
+            1500,
+            0,
+            100,
+            HashMap::from([(shared_stake_account, 1000), (unique_stake_account, 500)]),
+        );
+        let claim2 = SettlementClaim::staker_payout(
+            withdraw,
+            stake,
+            1000,
+            0,
+            50,
+            HashMap::from([(shared_stake_account, 1000)]),
+        );
 
         let merged = merge_claims(vec![claim1, claim2]);
         assert_eq!(merged.len(), 1);

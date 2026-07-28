@@ -85,8 +85,12 @@ steps:
           exit 10
         fi
       - |
-        INSTITUTIONAL_PAYOUT_SUM=$$(jq '[.validatorPayoutInfo[] | (.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)] | add' ./institutional-payouts.json)
-        SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
+        # Sum in bc (arbitrary precision) — jq arithmetic runs in IEEE doubles and
+        # would silently round once the totals grow past 2^53-1 lamports.
+        INSTITUTIONAL_PAYOUT_SUM=$$(jq -r '.validatorPayoutInfo[] | .distributorFeeLamports, .distributeToStakersLamports' ./institutional-payouts.json | paste -sd+ - | bc)
+        INSTITUTIONAL_PAYOUT_SUM=$${INSTITUTIONAL_PAYOUT_SUM:-0}
+        SETTLEMENTS_SUM=$$(jq -r '.settlements[].claims[].claim_amount' ./settlements.json | paste -sd+ - | bc)
+        SETTLEMENTS_SUM=$${SETTLEMENTS_SUM:-0}
         # the difference may come from rounding and from loading stake account data at different times, so we allow a small delta
         DIFF=$$((INSTITUTIONAL_PAYOUT_SUM - SETTLEMENTS_SUM))
         DIFF_ABS=$$(($${DIFF#-}))

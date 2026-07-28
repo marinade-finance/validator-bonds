@@ -1,5 +1,6 @@
+use axum::http::header;
+use axum::response::IntoResponse;
 use log::info;
-use warp::{http::Response, Reply};
 
 const HTML: &str = "<!doctype html>
 <html>
@@ -21,9 +22,7 @@ const HTML: &str = "<!doctype html>
         (status = 200)
     )
 )]
-pub async fn handler() -> Result<impl Reply, warp::Rejection> {
+pub async fn handler() -> impl IntoResponse {
     info!("Serving the docs");
-    Ok(Response::builder()
-        .header("content-type", "text/html")
-        .body(HTML))
+    ([(header::CONTENT_TYPE, "text/html")], HTML)
 }

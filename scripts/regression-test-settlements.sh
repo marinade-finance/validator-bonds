@@ -73,6 +73,15 @@ INST_DAO_FEE_WITHDRAW_AUTHORITY="mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Local ds-sam auction outputs (`<epoch>.<slot>/outputs/results.json`). Production
+# feeds these to the bid CLI via --sam-results-collection; when present for an epoch
+# we verify that path produces the same settlements as the scoring-API --sam-meta path.
+DS_SAM_AUCTIONS_DIR="${DS_SAM_AUCTIONS_DIR:-$REPO_ROOT/../ds-sam-pipeline/auctions}"
+
+# Absent auction outputs mean the only check of production's input path did not run,
+# so that counts as failure unless the caller knowingly opts out.
+REQUIRE_SAM_RESULTS="${REQUIRE_SAM_RESULTS:-true}"
+
 # ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
@@ -197,6 +206,11 @@ sum_claims() {
   jq -n "[inputs.settlements[].claims_amount] | add" "$@" 2>/dev/null || echo "null"
 }
 
+# Newline list normalized for comm: blanks dropped, collation pinned to sort's own
+norm_votes() {
+  printf '%s\n' "$1" | sed '/^$/d' | LC_ALL=C sort
+}
+
 # Per-vote-account claim totals as sorted JSON: [{vote_account, total}]
 # Usage: per_vote_claims <file> [<file2> ...]
 per_vote_claims() {
@@ -213,7 +227,7 @@ per_vote_claims() {
 # Usage: per_vote_funder_claims <file> [<file2> ...]
 per_vote_funder_claims() {
   jq -n '
-    [inputs.settlements[] | {vote_account, funder: .meta.funder, claims_amount}]
+    [inputs.settlements[] | {vote_account, funder: (.funder // .meta.funder), claims_amount}]
     | group_by([.vote_account, .funder])
     | map({vote_account: .[0].vote_account, funder: .[0].funder, total: (map(.claims_amount) | add)})
     | sort_by([.vote_account, .funder])
@@ -428,25 +442,40 @@ process_epoch() {
           # branch output, which is not a regression.
           #
           # We split comparison into two parts:
-          #   1) Regression check — restrict to vote accounts UNAFFECTED by the new
-          #      feature (no `PriorityFee` settlement in actual output). For those,
-          #      branch output must match production byte-for-byte on the extracted
-          #      metrics.
+          #   1) Regression check — exclude only vote accounts where the actual
+          #      output contains a `PriorityFee` settlement but the production
+          #      output does NOT (production for that epoch predates the feature,
+          #      so the difference is legitimate). Vote accounts with PriorityFee
+          #      on BOTH sides are post-#388 on both sides and are compared
+          #      byte-for-byte like everything else.
           #   2) New-feature check — summarize the PriorityFee settlements as
           #      informational; confirm funding integrity still holds on the full
           #      actual merkle tree.
           #
-          # When production eventually runs the post-#388 code, its outputs will
-          # contain PriorityFee settlements too and both sides can be compared
-          # directly — at which point the affected-set filter naturally becomes
-          # empty and this branch reduces to the old behavior.
+          # A vote account with PriorityFee in production but NOT in the actual
+          # output is deliberately kept in the comparison: the branch dropped a
+          # settlement production had, and the checks below must fail on it.
 
-          # Extract vote accounts whose actual output contains a PriorityFee
-          # settlement (these are affected by the new feature).
-          local priority_fee_votes priority_fee_count priority_fee_filter
-          priority_fee_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
+          local actual_pf_votes expected_pf_votes priority_fee_votes
+          local priority_fee_count priority_fee_filter
+          actual_pf_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
             "$actual_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
+          expected_pf_votes=$(jq -r '.settlements[] | select(.reason == "PriorityFee") | .vote_account' \
+            "$expected_dir/bid-distribution-settlements.json" 2>/dev/null | sort -u)
+          # Exclusion set: PriorityFee present in actual only (actual minus expected).
+          priority_fee_votes=$(comm -23 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes"))
           priority_fee_count=$(echo -n "$priority_fee_votes" | grep -c '^' || true)
+
+          local pf_both_count pf_expected_only
+          pf_both_count=$(comm -12 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes") | grep -c '^' || true)
+          pf_expected_only=$(comm -13 <(norm_votes "$actual_pf_votes") <(norm_votes "$expected_pf_votes") | grep -c '^' || true)
+          if [[ "$pf_both_count" -gt 0 ]]; then
+            echo "  INFO PriorityFee on both sides for $pf_both_count vote account(s) — compared directly"
+          fi
+          if [[ "$pf_expected_only" -gt 0 ]]; then
+            echo "  INFO PriorityFee in PRODUCTION only for $pf_expected_only vote account(s) — kept in comparison (expected to FAIL if the branch dropped them)"
+          fi
+
           if [[ "$priority_fee_count" -gt 0 ]]; then
             # JSON array of affected vote accounts, consumable by jq --argjson
             priority_fee_filter=$(printf '%s\n' "$priority_fee_votes" | jq -R . | jq -s .)
@@ -455,12 +484,12 @@ process_epoch() {
               "$actual_dir/bid-distribution-settlements.json")
             priority_fee_lamports=$(jq '[.settlements[] | select(.reason == "PriorityFee") | .claims_amount] | add // 0' \
               "$actual_dir/bid-distribution-settlements.json")
-            echo "  INFO PR #388 feature: $priority_fee_count vote account(s) with PriorityFee settlements"
-            echo "       ($priority_fee_settlements new settlements, $priority_fee_lamports lamports of activating charge)"
+            echo "  INFO PR #388 feature: $priority_fee_count vote account(s) with PriorityFee in actual output only"
+            echo "       (actual output has $priority_fee_settlements PriorityFee settlements, $priority_fee_lamports lamports of activating charge)"
             echo "       these vote accounts are EXCLUDED from regression comparison below"
           else
             priority_fee_filter="[]"
-            echo "  INFO no PriorityFee settlements in actual output (epoch not affected by PR #388)"
+            echo "  INFO no actual-only PriorityFee settlements (feature parity with production output)"
           fi
 
           # Produce filtered copies of the files, restricted to UNAFFECTED vote accounts.
@@ -743,6 +772,53 @@ process_epoch() {
   fi
 
   # =====================================================================
+  # SAM INPUT-PATH EQUIVALENCE (production uses --sam-results-collection)
+  # =====================================================================
+  # When a local ds-sam results.json exists for this epoch, verify the production
+  # input path (--sam-results-collection, mapped by into_validator_sam_metas) yields
+  # the SAME settlements as the scoring-API --sam-meta-collection path compared above.
+  # Closes the gap where regression never exercised the mapping production runs.
+  local sam_results_status="SKIP"
+  local results_json=""
+  if compgen -G "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" > /dev/null 2>&1; then
+    results_json=$(ls -d "$DS_SAM_AUCTIONS_DIR/$epoch."*"/outputs/results.json" 2>/dev/null | sort -V | tail -1)
+  fi
+  if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -z "$results_json" ]]; then
+    echo "  MISSING sam-results path: no results.json for epoch $epoch under $DS_SAM_AUCTIONS_DIR"
+    echo "    set DS_SAM_AUCTIONS_DIR to a ds-sam-pipeline auctions clone, or REQUIRE_SAM_RESULTS=false to waive"
+    sam_results_status="MISSING"
+  fi
+  if [[ "$bid_claims_status" != "SKIP" && "$bid_claims_status" != "ERROR" && -n "$results_json" ]]; then
+    echo "Running bid-distribution-cli (--sam-results-collection)..."
+    rm -f "$actual_dir/bid-settlements-from-results.json" "$actual_dir/.pe-results.json"
+    if ! "$BID_CLI" \
+        --settlement-config "$SETTLEMENT_CONFIG" \
+        --stake-meta-collection "$inputs_dir/stakes.json" \
+        --sam-results-collection "$results_json" \
+        --rewards-dir "$rewards_dir" \
+        --validator-meta-collection "$inputs_dir/validators.json" \
+        --revenue-expectation-collection "$inputs_dir/evaluation.json" \
+        --output-settlement-collection "$actual_dir/bid-settlements-from-results.json" \
+        --output-protected-event-collection "$actual_dir/.pe-results.json" \
+        2>&1 | tail -3; then
+      echo "  FAIL sam-results path: bid-distribution-cli error"
+      sam_results_status="ERROR"
+    else
+      # Order-independent full-object comparison (incl. details), normalized by vote+reason.
+      local norm='[.settlements[]] | sort_by(.vote_account, (.reason|tostring))'
+      if diff <(jq -S "$norm" "$actual_dir/bid-distribution-settlements.json") \
+              <(jq -S "$norm" "$actual_dir/bid-settlements-from-results.json") > /dev/null 2>&1; then
+        echo "  OK sam-results path: settlements identical to sam-meta path"
+        sam_results_status="MATCH"
+      else
+        echo "  FAIL sam-results path: settlements differ from sam-meta path"
+        sam_results_status="DIFFER"
+      fi
+    fi
+    rm -f "$actual_dir/bid-settlements-from-results.json" "$actual_dir/.pe-results.json"
+  fi
+
+  # =====================================================================
   # INSTITUTIONAL DISTRIBUTION
   # =====================================================================
 
@@ -751,9 +827,6 @@ process_epoch() {
 
   gcs_cached_download "$GS_BUCKET_INSTITUTIONAL/$epoch/institutional-payouts.json" \
     "$inst_inputs_dir/institutional-payouts.json" \
-    || missing_inst_input=true
-  gcs_cached_download "$GS_BUCKET_SNAPSHOT/$epoch/stakes.json" \
-    "$inst_inputs_dir/stakes.json" \
     || missing_inst_input=true
 
   echo "Downloading institutional expected outputs..."
@@ -783,7 +856,6 @@ process_epoch() {
 
     if ! "$INST_CLI" \
         --institutional-payouts "$inst_inputs_dir/institutional-payouts.json" \
-        --stake-meta-collection "$inst_inputs_dir/stakes.json" \
         --marinade-fee-stake-authority "$INST_MARINADE_FEE_STAKE_AUTHORITY" \
         --marinade-fee-withdraw-authority "$INST_MARINADE_FEE_WITHDRAW_AUTHORITY" \
         --dao-fee-split-share-bps "$INST_DAO_FEE_SPLIT_SHARE_BPS" \
@@ -894,13 +966,14 @@ process_epoch() {
   # ------- Determine overall status ---------------------------------------
 
   local overall="PASS"
-  for s in "$bid_claims_status" "$bid_merkle_status" "$inst_claims_status" "$inst_merkle_status"; do
+  for s in "$bid_claims_status" "$bid_merkle_status" "$sam_results_status" "$inst_claims_status" "$inst_merkle_status"; do
     case "$s" in
       DIFFER|ERROR) overall="FAIL" ;;
+      MISSING) if [[ "$REQUIRE_SAM_RESULTS" == "true" ]]; then overall="FAIL"; fi ;;
     esac
   done
 
-  results+=("$epoch $bid_claims_status $bid_merkle_status $inst_claims_status $inst_merkle_status $overall")
+  results+=("$epoch $bid_claims_status $bid_merkle_status $sam_results_status $inst_claims_status $inst_merkle_status $overall")
 }
 
 # ---------------------------------------------------------------------------
@@ -922,15 +995,15 @@ echo ""
 echo "================================================================"
 echo "  Summary"
 echo "================================================================"
-printf "%-7s | %-11s | %-11s | %-11s | %-11s | %s\n" \
-  "Epoch" "Bid Claims" "Bid Merkle" "Inst Claims" "Inst Merkle" "Status"
-printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
-  "-------" "-----------" "-----------" "-----------" "-----------" "------"
+printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" \
+  "Epoch" "Bid Claims" "Bid Merkle" "SAM results" "Inst Claims" "Inst Merkle" "Status"
+printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
+  "-------" "-----------" "-----------" "-----------" "-----------" "-----------" "------"
 
 any_fail=false
 for entry in "${results[@]}"; do
-  read -r ep bc bm ic im status <<< "$entry"
-  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$ic" "$im" "$status"
+  read -r ep bc bm sr ic im status <<< "$entry"
+  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$sr" "$ic" "$im" "$status"
   if [[ "$status" == "FAIL" ]]; then
     any_fail=true
   fi

@@ -1,7 +1,6 @@
 import {
   CliCommandError,
   validateAndReturn,
-  readLargeJsonFile,
 } from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
@@ -18,6 +17,7 @@ import YAML from 'yaml'
 
 import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
+import { readLargeJsonFileLossless } from '../losslessJson'
 
 import type {
   AnomalyDetectionResult,
@@ -133,7 +133,7 @@ async function loadAndValidateUnifiedMerkleTree(
   filePath: string,
 ): Promise<UnifiedMerkleTreesDto> {
   try {
-    const data = await readLargeJsonFile(filePath)
+    const data = await readLargeJsonFileLossless(filePath)
     return await validateAndReturn(data, UnifiedMerkleTreesDto)
   } catch (error) {
     throw CliCommandError.instance(
@@ -438,6 +438,9 @@ export function reportMerkleTreeAnomalies({
   const stats: StatsCalculation[] = []
 
   for (const field of fieldsToCheck) {
+    // Deliberate bigint/Decimal -> double narrowing: the anomaly statistics
+    // work on ratios and deviations where ~1e-16 relative error is irrelevant.
+    // Exact-value comparisons elsewhere stay in bigint/Decimal.
     const currentValue = Number(String(currentMetrics[field]))
     const historicalValues = historicalMetrics.map(m =>
       Number(String(m[field])),

@@ -3,7 +3,11 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
 use {
-    merkle_tree::{psr_claim::TreeNode, serde_serialize::pubkey_string_conversion, MerkleTree},
+    merkle_tree::{
+        psr_claim::TreeNode,
+        serde_serialize::{pubkey_string_conversion, u64_number_or_string},
+        MerkleTree,
+    },
     serde::{Deserialize, Serialize},
     solana_sdk::hash::Hash,
 };
@@ -11,6 +15,7 @@ use {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct MerkleTreeMeta {
     pub merkle_root: Option<Hash>,
+    #[serde(with = "u64_number_or_string")]
     pub max_total_claim_sum: u64,
     pub max_total_claims: usize,
     #[serde(with = "pubkey_string_conversion")]

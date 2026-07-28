@@ -1,3 +1,77 @@
+/// Serializes a `u64` as a plain JSON number (unchanged wire format) but
+/// tolerates both a number and a decimal string on deserialize. JavaScript
+/// producers/consumers cannot represent integers above 2^53-1 in a JSON
+/// number, so string-encoded u64 is their only exact form — accepting it here
+/// lets the JSON format migrate field-by-field without a flag-day.
+pub mod u64_number_or_string {
+    use serde::{self, Deserializer, Serializer};
+    use std::fmt;
+
+    pub fn serialize<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(*value)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<u64, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct U64NumberOrStringVisitor;
+
+        impl serde::de::Visitor<'_> for U64NumberOrStringVisitor {
+            type Value = u64;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a u64 as a JSON number or a decimal string")
+            }
+
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<u64, E> {
+                Ok(v)
+            }
+
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<u64, E> {
+                u64::try_from(v).map_err(E::custom)
+            }
+
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<u64, E> {
+                v.parse::<u64>().map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_any(U64NumberOrStringVisitor)
+    }
+}
+
+/// `map_pubkey_string_conversion` with `u64_number_or_string`-tolerant values,
+/// for lamport maps (e.g. stake_accounts). Serializes values as plain numbers.
+pub mod map_pubkey_u64_number_or_string {
+    use super::{map_pubkey_string_conversion, u64_number_or_string};
+    use serde::{Deserialize, Deserializer, Serializer};
+    use solana_program::pubkey::Pubkey;
+    use std::collections::HashMap;
+
+    pub fn serialize<S>(map: &HashMap<Pubkey, u64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        map_pubkey_string_conversion::serialize(map, serializer)
+    }
+
+    #[derive(Deserialize)]
+    struct Tolerant(#[serde(with = "u64_number_or_string")] u64);
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Pubkey, u64>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let map: HashMap<Pubkey, Tolerant> =
+            map_pubkey_string_conversion::deserialize(deserializer)?;
+        Ok(map.into_iter().map(|(k, Tolerant(v))| (k, v)).collect())
+    }
+}
+
 pub mod pubkey_string_conversion {
     use {
         serde::{self, Deserialize, Deserializer, Serializer},

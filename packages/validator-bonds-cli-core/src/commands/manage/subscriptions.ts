@@ -14,6 +14,7 @@ import {
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
 
+import { withConfigOption } from './config-option'
 import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
@@ -46,6 +47,36 @@ export function configureSubscriptions(program: Command): Command {
       'Format of output',
       'text',
     )
+}
+
+export function installSubscriptions(
+  program: Command,
+  defaultConfigAddress: PublicKey,
+) {
+  withConfigOption(
+    configureSubscriptions(program),
+    defaultConfigAddress,
+  ).action(
+    async (
+      address: Promise<PublicKey>,
+      {
+        config,
+        authority,
+        format,
+      }: {
+        config?: Promise<PublicKey>
+        authority?: Promise<WalletInterface | PublicKey>
+        format: FormatType
+      },
+    ) => {
+      await showSubscriptions({
+        address: await address,
+        config: (await config) ?? defaultConfigAddress,
+        authority: await authority,
+        format,
+      })
+    },
+  )
 }
 
 export async function showSubscriptions({

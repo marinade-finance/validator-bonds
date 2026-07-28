@@ -124,6 +124,20 @@ pub fn get_delegated_amount(
     }
 }
 
+/// The stale nominal `delegation.stake` the on-chain fund_settlement split path would underflow on: `Some` only when the account is underwater (`amount_available` below it) AND the funding would actually split, since the no-split path never subtracts that field and is safe to fund.
+pub fn fund_settlement_split_underflow(
+    stake_account_state: &StakeStateV2,
+    amount_available: u64,
+    amount_needed: u64,
+    min_stake_lamports: u64,
+    split_rent_exempt: u64,
+) -> Option<u64> {
+    let delegation_stake = stake_account_state.delegation().map(|d| d.stake)?;
+    let underwater = amount_available < delegation_stake;
+    let splits = amount_available >= amount_needed + min_stake_lamports + split_rent_exempt;
+    (underwater && splits).then_some(delegation_stake)
+}
+
 /// Ordering key for define priority of stake accounts for claiming
 #[derive(Debug, Clone, Copy)]
 struct ClaimingPriorityKey {
@@ -319,7 +333,8 @@ pub async fn prepare_merge_instructions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::stake::state::{Authorized, Lockup, Meta};
+    use solana_sdk::stake::stake_flags::StakeFlags;
+    use solana_sdk::stake::state::{Authorized, Delegation, Lockup, Meta, Stake};
 
     const SOL: u64 = 1_000_000_000;
     // minimum delegation (1 SOL) + rent exemption, matching `minimal_stake_lamports` used by the
@@ -397,5 +412,80 @@ mod tests {
             settlement_funded_claimable_lamports(&staker, &accounts, MIN),
             0
         );
+    }
+
+    fn delegated_stake(stake: u64) -> StakeStateV2 {
+        StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    #[test]
+    fn fund_settlement_split_underflow_flags_only_underwater_accounts_that_split() {
+        const MIN: u64 = 2 * SOL;
+        const SPLIT_RENT: u64 = SOL;
+        const NEEDED: u64 = 3 * SOL;
+        // the program takes the splitting path once available >= needed + min + split_rent
+        const SPLIT_AT: u64 = NEEDED + MIN + SPLIT_RENT;
+
+        let cases: [(&str, StakeStateV2, u64, Option<u64>); 7] = [
+            (
+                "underwater, splits at threshold",
+                delegated_stake(10 * SOL),
+                SPLIT_AT,
+                Some(10 * SOL),
+            ),
+            (
+                "underwater, splits above threshold",
+                delegated_stake(10 * SOL),
+                8 * SOL,
+                Some(10 * SOL),
+            ),
+            (
+                "underwater, no split -> fundable whole-account",
+                delegated_stake(10 * SOL),
+                SPLIT_AT - 1,
+                None,
+            ),
+            (
+                "not underwater, splits",
+                delegated_stake(4 * SOL),
+                8 * SOL,
+                None,
+            ),
+            (
+                "not underwater, no split",
+                delegated_stake(4 * SOL),
+                5 * SOL,
+                None,
+            ),
+            (
+                "lamports equal nominal stake at threshold",
+                delegated_stake(SPLIT_AT),
+                SPLIT_AT,
+                None,
+            ),
+            (
+                "non-delegated",
+                initialized_stake(Pubkey::new_unique(), Pubkey::new_unique()),
+                8 * SOL,
+                None,
+            ),
+        ];
+        for (label, state, available, expected) in cases {
+            assert_eq!(
+                fund_settlement_split_underflow(&state, available, NEEDED, MIN, SPLIT_RENT),
+                expected,
+                "{label}"
+            );
+        }
     }
 }

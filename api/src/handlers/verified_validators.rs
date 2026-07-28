@@ -1,8 +1,9 @@
 use crate::context::WrappedContext;
+use axum::extract::{Query, State};
+use axum::Json;
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)] // referenced only in the `value_type` schema attribute below
 use solana_sdk::pubkey::Pubkey;
-use warp::reply::{json, Reply};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct VerifiedValidatorsResponse {
@@ -24,11 +25,11 @@ pub struct QueryParams {}
     )
 )]
 pub async fn handler(
-    _query_params: QueryParams,
-    context: WrappedContext,
-) -> Result<impl Reply, warp::Rejection> {
+    State(context): State<WrappedContext>,
+    Query(_query_params): Query<QueryParams>,
+) -> Json<VerifiedValidatorsResponse> {
     let verified_validators = context.read().await.verified_validators.clone();
-    Ok(json(&VerifiedValidatorsResponse {
+    Json(VerifiedValidatorsResponse {
         verified_validators,
-    }))
+    })
 }

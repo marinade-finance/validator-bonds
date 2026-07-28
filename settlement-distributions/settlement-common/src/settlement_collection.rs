@@ -3,7 +3,9 @@ use solana_sdk::pubkey::Pubkey;
 use std::fmt::Display;
 
 use {
-    merkle_tree::serde_serialize::{map_pubkey_string_conversion, pubkey_string_conversion},
+    merkle_tree::serde_serialize::{
+        map_pubkey_u64_number_or_string, pubkey_string_conversion, u64_number_or_string,
+    },
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
 };
@@ -14,12 +16,94 @@ pub struct SettlementClaim {
     pub withdraw_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub stake_authority: Pubkey,
-    /// stake account pubkey -> stake lamports (active or activating depending on settlement type)
-    #[serde(with = "map_pubkey_string_conversion")]
-    pub stake_accounts: HashMap<Pubkey, u64>,
-    pub active_stake: u64,
-    pub activating_stake: u64,
+    #[serde(with = "u64_number_or_string")]
     pub claim_amount: u64,
+    #[serde(flatten)]
+    pub detail: ClaimDetail,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+#[serde(tag = "kind")]
+pub enum ClaimDetail {
+    // Invariant: a nonzero stake field is the basis claim_amount was calculated from
+    StakerPayout {
+        #[serde(with = "u64_number_or_string")]
+        active_stake: u64,
+        #[serde(with = "u64_number_or_string")]
+        activating_stake: u64,
+        #[serde(with = "map_pubkey_u64_number_or_string")]
+        stake_accounts: HashMap<Pubkey, u64>,
+    },
+    FeeDeposit,
+    // Zero-amount placeholder splitting Marinade- vs ValidatorBond-funded merkle roots; TODO enforce claim_amount == 0 on deserialize
+    Marker,
+}
+
+impl SettlementClaim {
+    pub fn staker_payout(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        active_stake: u64,
+        activating_stake: u64,
+        claim_amount: u64,
+        stake_accounts: HashMap<Pubkey, u64>,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            claim_amount,
+            detail: ClaimDetail::StakerPayout {
+                active_stake,
+                activating_stake,
+                stake_accounts,
+            },
+        }
+    }
+
+    pub fn fee_deposit(
+        withdraw_authority: Pubkey,
+        stake_authority: Pubkey,
+        claim_amount: u64,
+    ) -> Self {
+        Self {
+            withdraw_authority,
+            stake_authority,
+            claim_amount,
+            detail: ClaimDetail::FeeDeposit,
+        }
+    }
+
+    pub fn marker() -> Self {
+        Self {
+            withdraw_authority: Pubkey::default(),
+            stake_authority: Pubkey::default(),
+            claim_amount: 0,
+            detail: ClaimDetail::Marker,
+        }
+    }
+
+    pub fn stake_accounts(&self) -> Option<&HashMap<Pubkey, u64>> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { stake_accounts, .. } => Some(stake_accounts),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
+
+    pub fn active_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout { active_stake, .. } => Some(*active_stake),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
+
+    pub fn activating_stake(&self) -> Option<u64> {
+        match &self.detail {
+            ClaimDetail::StakerPayout {
+                activating_stake, ..
+            } => Some(*activating_stake),
+            ClaimDetail::FeeDeposit | ClaimDetail::Marker => None,
+        }
+    }
 }
 
 #[derive(Hash, Eq, PartialEq, Clone)]
@@ -69,14 +153,15 @@ pub struct SettlementMeta {
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Settlement {
     pub reason: SettlementReason,
-    pub meta: SettlementMeta,
+    pub funder: SettlementFunder,
     #[serde(with = "pubkey_string_conversion")]
     pub vote_account: Pubkey,
     pub claims_count: usize,
+    #[serde(with = "u64_number_or_string")]
     pub claims_amount: u64,
     pub claims: Vec<SettlementClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub details: Option<serde_json::Value>,
+    pub details: Option<crate::settlement_details::SettlementDetails>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
@@ -90,4 +175,65 @@ pub struct SettlementCollection {
     pub adj_min_fee_bps: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ssr_pmpe: Option<f64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // u64_number_or_string tolerance: lamport fields must deserialize from both a
+    // plain JSON number and a decimal string (the JS-exact form above 2^53-1),
+    // including through the #[serde(flatten)] + internally-tagged ClaimDetail path.
+    #[test]
+    fn claim_lamports_deserialize_from_number_and_string() {
+        let as_number = r#"{
+            "withdraw_authority": "9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs",
+            "stake_authority": "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk",
+            "claim_amount": 9007199254740993,
+            "kind": "StakerPayout",
+            "active_stake": 9007199254740995,
+            "activating_stake": 0,
+            "stake_accounts": {"9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs": 9007199254740997}
+        }"#;
+        let as_string = r#"{
+            "withdraw_authority": "9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs",
+            "stake_authority": "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk",
+            "claim_amount": "9007199254740993",
+            "kind": "StakerPayout",
+            "active_stake": "9007199254740995",
+            "activating_stake": "0",
+            "stake_accounts": {"9ZQfsc7NkNWQvUyjV2mVCLeMzWJcAdG5D9SjoxNsMhVs": "9007199254740997"}
+        }"#;
+
+        let from_number: SettlementClaim = serde_json::from_str(as_number).unwrap();
+        let from_string: SettlementClaim = serde_json::from_str(as_string).unwrap();
+
+        assert_eq!(from_number.claim_amount, 9007199254740993);
+        assert_eq!(from_string.claim_amount, from_number.claim_amount);
+        match (&from_number.detail, &from_string.detail) {
+            (
+                ClaimDetail::StakerPayout {
+                    active_stake: a1,
+                    stake_accounts: s1,
+                    ..
+                },
+                ClaimDetail::StakerPayout {
+                    active_stake: a2,
+                    stake_accounts: s2,
+                    ..
+                },
+            ) => {
+                assert_eq!(*a1, 9007199254740995);
+                assert_eq!(a1, a2);
+                assert_eq!(s1.values().sum::<u64>(), 9007199254740997);
+                assert_eq!(s1, s2);
+            }
+            other => panic!("expected StakerPayout on both sides, got {other:?}"),
+        }
+
+        // Wire format is unchanged: serializes back to a plain JSON number.
+        let json = serde_json::to_value(&from_string).unwrap();
+        assert!(json["claim_amount"].is_u64());
+        assert_eq!(json["claim_amount"].as_u64(), Some(9007199254740993));
+    }
 }

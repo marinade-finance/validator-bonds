@@ -7,15 +7,13 @@ use solana_client::{
 };
 use solana_program::stake::state::StakeStateV2;
 use solana_program::stake_history::StakeHistoryEntry;
-// solana_sdk::stake is deprecated in favor of solana-stake-interface; migration deferred
-#[allow(deprecated)]
 use solana_sdk::{
     clock::Clock,
     pubkey::Pubkey,
-    stake::{self},
     stake_history::StakeHistory,
     sysvar::{clock, stake_history},
 };
+use solana_stake_interface::program::ID as stake_program_id;
 use std::collections::HashMap;
 
 use std::sync::Arc;
@@ -62,7 +60,7 @@ pub async fn collect_stake_accounts(
 
     let accounts = rpc_client
         .get_program_accounts_with_config(
-            &stake::program::ID,
+            &stake_program_id,
             RpcProgramAccountsConfig {
                 filters: Some([filters, vec![RpcFilterType::DataSize(200)]].concat()),
                 account_config: RpcAccountInfoConfig {
@@ -260,7 +258,7 @@ pub async fn get_stake_account_slices(
         )));
         let result = rpc_client
             .get_program_accounts_with_config(
-                &stake::program::ID,
+                &stake_program_id,
                 RpcProgramAccountsConfig {
                     filters: Some(filters.clone()),
                     account_config: RpcAccountInfoConfig {

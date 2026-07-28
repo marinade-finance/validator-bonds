@@ -27,12 +27,26 @@ import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const LAMPORTS_PER_SOL = 1_000_000_000
 
-function solToLamports(sol: number | null | undefined): bigint {
+export function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
-  return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
+  // Convert via the decimal string rather than `sol * 1e9`: the float multiply
+  // introduces its own rounding on top of the double's, while toFixed(9) is
+  // exactly "the SOL amount as printed, at lamport precision". The source value
+  // is a JS double either way (ds-sam-sdk API), so ~9M SOL remains the ceiling
+  // for exactness — unreachable for bond balances.
+  const fixed = sol.toFixed(9)
+  if (fixed.includes('e')) {
+    // |sol| >= 1e21 — absurd for SOL amounts, but keep a defined behavior.
+    return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
+  }
+  const negative = fixed.startsWith('-')
+  const digits = negative ? fixed.slice(1) : fixed
+  const [whole, fraction] = digits.split('.') as [string, string]
+  const lamports = BigInt(whole) * BigInt(LAMPORTS_PER_SOL) + BigInt(fraction)
+  return negative ? -lamports : lamports
 }
 
-function lamportsToSol(lamports: bigint): number {
+export function lamportsToSol(lamports: bigint): number {
   return Number(lamports) / LAMPORTS_PER_SOL
 }
 
@@ -60,7 +74,7 @@ function roundEpochs(value: number | null | undefined): number | null {
 }
 
 // User-facing SOL formatter: cap to 4 decimals, trim trailing zeros.
-function fmtSol(value: number | null): string {
+export function fmtSol(value: number | null): string {
   if (value === null || !isFinite(value)) return 'unknown'
   return Number(value.toFixed(4)).toString()
 }
@@ -287,7 +301,7 @@ function computeDeficitMetrics(v: AuctionValidator): {
   }
 }
 
-function makeBaseEvent(
+export function makeBaseEvent(
   innerType: BondsEventV1['inner_type'],
   voteAccount: string,
   bondPubkey: string,
@@ -325,6 +339,109 @@ function makeEvent(
     bondType,
     message,
     details,
+  )
+}
+
+// Balance changes (lamport-level precision); shared by bidding and institutional evaluators
+export function buildBondBalanceChangeEvent(
+  voteAccount: string,
+  bondPubkey: string,
+  epoch: number,
+  bondType: BondType,
+  prev: ValidatorState,
+  currentFundedLamports: bigint,
+  currentEffectiveLamports: bigint,
+): BondsEventV1 | null {
+  if (currentFundedLamports === prev.funded_amount_lamports) return null
+  const deltaLamports = currentFundedLamports - prev.funded_amount_lamports
+  return makeBaseEvent(
+    'bond_balance_change',
+    voteAccount,
+    bondPubkey,
+    epoch,
+    bondType,
+    `Validator ${voteAccount} bond balance changed by ` +
+      `${deltaLamports > 0n ? '+' : ''}${lamportsToSol(deltaLamports)} SOL ` +
+      `(${lamportsToSol(prev.funded_amount_lamports)} → ${lamportsToSol(currentFundedLamports)} SOL).`,
+    {
+      previous_funded_lamports: prev.funded_amount_lamports.toString(),
+      current_funded_lamports: currentFundedLamports.toString(),
+      delta_lamports: deltaLamports.toString(),
+      previous_effective_lamports: prev.effective_amount_lamports.toString(),
+      current_effective_lamports: currentEffectiveLamports.toString(),
+    } satisfies BondBalanceChangeDetails,
+  )
+}
+
+// Settlement detection: emit only when active, changed, and above 0.01 SOL dust
+export function buildSettlementAppliedEvent(
+  voteAccount: string,
+  bondPubkey: string,
+  epoch: number,
+  bondType: BondType,
+  currentSettlementLamports: bigint,
+  prevSettlementLamports: bigint,
+  extras: {
+    bond_balance_sol: number | null
+    claimable_balance_sol: number | null
+    bond_good_for_n_epochs: number | null
+  },
+): BondsEventV1 | null {
+  const MIN_SETTLEMENT_LAMPORTS = 10_000_000n
+  if (
+    currentSettlementLamports <= 0n ||
+    currentSettlementLamports === prevSettlementLamports ||
+    currentSettlementLamports < MIN_SETTLEMENT_LAMPORTS
+  ) {
+    return null
+  }
+  const totalSol = lamportsToSol(currentSettlementLamports)
+  const prevSol =
+    prevSettlementLamports > 0n ? lamportsToSol(prevSettlementLamports) : null
+  return makeBaseEvent(
+    'settlement_applied',
+    voteAccount,
+    bondPubkey,
+    epoch,
+    bondType,
+    `Validator ${voteAccount} has a pending settlement of ` +
+      `${totalSol} SOL against their bond` +
+      (prevSol !== null ? ` (changed from ${prevSol} SOL).` : '.') +
+      ` Claimable balance: ${extras.claimable_balance_sol} SOL.`,
+    {
+      settlement_total_sol: totalSol,
+      previous_settlement_sol: prevSol,
+      bond_balance_sol: extras.bond_balance_sol,
+      claimable_balance_sol: extras.claimable_balance_sol,
+      bond_good_for_n_epochs: extras.bond_good_for_n_epochs,
+    } satisfies SettlementAppliedDetails,
+  )
+}
+
+// Details and the last-known tail come from prev state; only the product-specific reason is passed in
+export function buildValidatorDelistedEvent(
+  voteAccount: string,
+  bondPubkey: string,
+  epoch: number,
+  bondType: BondType,
+  prev: ValidatorState,
+  reason: string,
+): BondsEventV1 {
+  return makeBaseEvent(
+    'validator_delisted',
+    voteAccount,
+    bondPubkey,
+    epoch,
+    bondType,
+    `${reason} ` +
+      `Last known balance: ${fmtSol(lamportsToSol(prev.funded_amount_lamports))} SOL, ` +
+      `last seen epoch: ${prev.epoch}.`,
+    {
+      last_known_funded_lamports: prev.funded_amount_lamports.toString(),
+      last_known_epoch: prev.epoch,
+      last_known_in_auction: prev.in_auction,
+      last_known_sam_eligible: prev.sam_eligible,
+    } satisfies ValidatorDelistedDetails,
   )
 }
 
@@ -500,70 +617,37 @@ export function evaluateDeltas(
       )
     }
 
-    // Balance changes (lamport-level precision)
-    if (currentFundedLamports !== prev.funded_amount_lamports) {
-      const deltaLamports = currentFundedLamports - prev.funded_amount_lamports
-      events.push(
-        makeEvent(
-          'bond_balance_change',
-          v,
-          epoch,
-          bondType,
-          configAddress,
-          `Validator ${v.voteAccount} bond balance changed by ` +
-            `${deltaLamports > 0n ? '+' : ''}${lamportsToSol(deltaLamports)} SOL ` +
-            `(${lamportsToSol(prev.funded_amount_lamports)} → ${lamportsToSol(currentFundedLamports)} SOL).`,
-          {
-            previous_funded_lamports: prev.funded_amount_lamports.toString(),
-            current_funded_lamports: currentFundedLamports.toString(),
-            delta_lamports: deltaLamports.toString(),
-            previous_effective_lamports:
-              prev.effective_amount_lamports.toString(),
-            current_effective_lamports: currentEffectiveLamports.toString(),
-          } satisfies BondBalanceChangeDetails,
-        ),
-      )
-    }
+    const bondPubkey = bondAddress(
+      configAddress,
+      new PublicKey(v.voteAccount),
+    )[0].toBase58()
 
-    // Settlement detection: pending settlement = funded - effective
-    const currentSettlementLamports =
-      currentFundedLamports - currentEffectiveLamports
-    const prevSettlementLamports =
-      prev.funded_amount_lamports - prev.effective_amount_lamports
-    // Only emit when settlement > 0 (active), changed, and above dust (0.01 SOL)
-    const MIN_SETTLEMENT_LAMPORTS = 10_000_000n
-    if (
-      currentSettlementLamports > 0n &&
-      currentSettlementLamports !== prevSettlementLamports &&
-      currentSettlementLamports >= MIN_SETTLEMENT_LAMPORTS
-    ) {
-      const totalSol = lamportsToSol(currentSettlementLamports)
-      const prevSol =
-        prevSettlementLamports > 0n
-          ? lamportsToSol(prevSettlementLamports)
-          : null
-      events.push(
-        makeEvent(
-          'settlement_applied',
-          v,
-          epoch,
-          bondType,
-          configAddress,
-          `Validator ${v.voteAccount} has a pending settlement of ` +
-            `${totalSol} SOL against their bond` +
-            (prevSol !== null ? ` (changed from ${prevSol} SOL).` : '.') +
-            ` Claimable balance: ${v.claimableBondBalanceSol ?? v.bondBalanceSol} SOL.`,
-          {
-            settlement_total_sol: totalSol,
-            previous_settlement_sol: prevSol,
-            bond_balance_sol: v.bondBalanceSol,
-            claimable_balance_sol:
-              v.claimableBondBalanceSol ?? v.bondBalanceSol,
-            bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
-          } satisfies SettlementAppliedDetails,
-        ),
-      )
-    }
+    const balanceEvent = buildBondBalanceChangeEvent(
+      v.voteAccount,
+      bondPubkey,
+      epoch,
+      bondType,
+      prev,
+      currentFundedLamports,
+      currentEffectiveLamports,
+    )
+    if (balanceEvent) events.push(balanceEvent)
+
+    // ds-sam exposes no settlement/withdraw split, so pending settlement stays funded - effective here
+    const settlementEvent = buildSettlementAppliedEvent(
+      v.voteAccount,
+      bondPubkey,
+      epoch,
+      bondType,
+      currentFundedLamports - currentEffectiveLamports,
+      prev.funded_amount_lamports - prev.effective_amount_lamports,
+      {
+        bond_balance_sol: v.bondBalanceSol,
+        claimable_balance_sol: v.claimableBondBalanceSol ?? v.bondBalanceSol,
+        bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
+      },
+    )
+    if (settlementEvent) events.push(settlementEvent)
 
     // Penalty prediction from auction simulation
     // Only emit on epoch change to avoid flooding the queue every run.
@@ -650,8 +734,7 @@ export function evaluateDeltas(
       (prev.funded_amount_lamports > 0n || prev.in_auction)
     ) {
       events.push(
-        makeBaseEvent(
-          'validator_delisted',
+        buildValidatorDelistedEvent(
           voteAccount,
           prev.bond_pubkey ??
             bondAddress(
@@ -660,15 +743,8 @@ export function evaluateDeltas(
             )[0].toBase58(),
           epoch,
           bondType,
-          `Validator ${voteAccount} is no longer present in SAM auction data. ` +
-            `Last known balance: ${lamportsToSol(prev.funded_amount_lamports)} SOL, ` +
-            `last seen epoch: ${prev.epoch}.`,
-          {
-            last_known_funded_lamports: prev.funded_amount_lamports.toString(),
-            last_known_epoch: prev.epoch,
-            last_known_in_auction: prev.in_auction,
-            last_known_sam_eligible: prev.sam_eligible,
-          } satisfies ValidatorDelistedDetails,
+          prev,
+          `Validator ${voteAccount} is no longer present in SAM auction data.`,
         ),
       )
     }
@@ -705,6 +781,7 @@ export function validatorToState(
     ),
     auction_stake_lamports: solToLamports(v.auctionStake?.marinadeSamTargetSol),
     deficit_lamports: solToLamports(computeDeficitMetrics(v).deficit_sol),
+    settlement_claims_lamports: null,
     sam_eligible: v.samEligible,
     updated_at: new Date().toISOString(),
     auction_validator: toCalcValidator(v),

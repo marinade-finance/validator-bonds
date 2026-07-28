@@ -167,3 +167,4 @@ Surfpool-based deployment scripts for on-chain program upgrades. See `runbooks/R
 - The `facts/` directory contains distilled knowledge about SAM auction mechanics, contract behavior, and historical decisions — read relevant files before touching settlement logic.
 - `DEV_GUIDE.md` covers ops procedures: CLI broadcast banners (via marinade-notifications API) and CLI telemetry (Mixpanel via mix-proxy).
 - Epochs ≥928 use unified pipeline output (`bid-distribution-settlements.json` + `unified-merkle-trees.json`); epochs ≤927 have separate SAM/PSR files. The regression script detects the format automatically.
+- Settlement JSON written before the `funder`/`kind` schema change is intentionally not readable by current binaries — regenerating merkle trees for those epochs needs a pre-change build.
