@@ -1,3 +1,11 @@
+import {
+  installShowNotifications,
+  installSubscribe,
+  installSubscriptions,
+  installUnsubscribe,
+} from '@marinade.finance/validator-bonds-cli-core'
+import { MARINADE_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
+
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
 import { installCloseSettlement } from './closeSettlement'
@@ -15,10 +23,6 @@ import { installInitWithdrawRequest } from './initWithdrawRequest'
 import { installStakeMerge } from './mergeStake'
 import { installMintBond } from './mintBond'
 import { installResetStake } from './resetStake'
-import { installShowNotifications } from './show-notifications'
-import { installSubscribe } from './subscribe'
-import { installSubscriptions } from './subscriptions'
-import { installUnsubscribe } from './unsubscribe'
 
 import type { Command } from 'commander'
 
@@ -38,8 +42,8 @@ export function installManage(program: Command) {
   installEmergencyResume(program)
   installCloseSettlement(program)
   installResetStake(program)
-  installSubscribe(program)
-  installUnsubscribe(program)
-  installSubscriptions(program)
-  installShowNotifications(program)
+  installSubscribe(program, MARINADE_CONFIG_ADDRESS)
+  installUnsubscribe(program, MARINADE_CONFIG_ADDRESS)
+  installSubscriptions(program, MARINADE_CONFIG_ADDRESS)
+  installShowNotifications(program, MARINADE_CONFIG_ADDRESS)
 }

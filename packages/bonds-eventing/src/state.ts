@@ -30,6 +30,7 @@ export async function loadPreviousState(
       effective_amount_lamports,
       auction_stake_lamports,
       deficit_lamports,
+      settlement_claims_lamports,
       sam_eligible,
       updated_at
     FROM bond_event_state
@@ -49,6 +50,7 @@ export async function loadPreviousState(
     effective_amount_lamports: string
     auction_stake_lamports: string
     deficit_lamports: string
+    settlement_claims_lamports: string | null
     sam_eligible: boolean
     updated_at: string
   }
@@ -68,6 +70,10 @@ export async function loadPreviousState(
       effective_amount_lamports: BigInt(row.effective_amount_lamports ?? '0'),
       auction_stake_lamports: BigInt(row.auction_stake_lamports ?? '0'),
       deficit_lamports: BigInt(row.deficit_lamports ?? '0'),
+      settlement_claims_lamports:
+        row.settlement_claims_lamports === null
+          ? null
+          : BigInt(row.settlement_claims_lamports),
       sam_eligible: row.sam_eligible,
       updated_at: String(row.updated_at),
     }
@@ -104,6 +110,7 @@ export async function saveCurrentState(
       ${state.effective_amount_lamports.toString()},
       ${state.auction_stake_lamports.toString()},
       ${state.deficit_lamports.toString()},
+      ${state.settlement_claims_lamports?.toString() ?? null},
       ${state.sam_eligible},
       ${sql.jsonb((state.auction_validator ?? null) as SerializableValue)},
       NOW()
@@ -116,8 +123,8 @@ export async function saveCurrentState(
       in_auction, bond_good_for_n_epochs, cap_constraint,
       cap_marinade_stake_sol,
       funded_amount_lamports, effective_amount_lamports,
-      auction_stake_lamports, deficit_lamports, sam_eligible,
-      auction_validator, updated_at
+      auction_stake_lamports, deficit_lamports, settlement_claims_lamports,
+      sam_eligible, auction_validator, updated_at
     ) VALUES
       ${sql.join(valueTuples, sql.fragment`, `)}
     ON CONFLICT (vote_account, bond_type) DO UPDATE SET
@@ -131,6 +138,7 @@ export async function saveCurrentState(
       effective_amount_lamports = EXCLUDED.effective_amount_lamports,
       auction_stake_lamports = EXCLUDED.auction_stake_lamports,
       deficit_lamports = EXCLUDED.deficit_lamports,
+      settlement_claims_lamports = EXCLUDED.settlement_claims_lamports,
       sam_eligible = EXCLUDED.sam_eligible,
       auction_validator = EXCLUDED.auction_validator,
       updated_at = NOW()

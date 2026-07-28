@@ -1,3 +1,11 @@
+import {
+  installShowNotifications,
+  installSubscribe,
+  installSubscriptions,
+  installUnsubscribe,
+} from '@marinade.finance/validator-bonds-cli-core'
+import { MARINADE_INSTITUTIONAL_CONFIG_ADDRESS } from '@marinade.finance/validator-bonds-sdk'
+
 import { installCancelWithdrawRequest } from './cancelWithdrawRequest'
 import { installClaimWithdrawRequest } from './claimWithdrawRequest'
 import { installConfigureBond } from './configureBond'
@@ -18,4 +26,8 @@ export function installManage(program: Command) {
   installInitWithdrawRequest(program)
   installClaimWithdrawRequest(program)
   installCancelWithdrawRequest(program)
+  installSubscribe(program, MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
+  installUnsubscribe(program, MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
+  installSubscriptions(program, MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
+  installShowNotifications(program, MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)
 }

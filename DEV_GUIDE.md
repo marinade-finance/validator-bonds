@@ -82,8 +82,11 @@ WHERE inner_type = 'announcement' AND id = <id>;
   each result as a boxed banner. Public CLI subscribes to
   `notification_type: sam_auction`; institutional CLI to
   `institutional_select`.
-- `/bonds-event-v1` routes announcements to `sam_auction` only — **the
-  institutional CLI will not see them** until a producer is wired.
+- `/bonds-event-v1` routes announcements by payload `bond_type`
+  (`bidding` → `sam_auction`, `institutional` → `institutional_select`).
+  The admin announcements API still produces `bond_type: bidding` only, so
+  **institutional banners need a manual POST with `bond_type: institutional`**
+  until that API is extended.
 - `payload.vote_account` is required by schema but ignored under
   `force_broadcast: true`; any valid base58 works.
 - `payload.data.details` is free-form and currently unread by the banner.
