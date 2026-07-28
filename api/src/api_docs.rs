@@ -1,11 +1,11 @@
-use crate::dto::ValidatorBondRecordSchema;
+use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
 use crate::{
     dto::ProtectedEventRecord,
     handlers::{bonds, docs, protected_events},
 };
 use settlement_common::{
     protected_events::ProtectedEvent,
-    settlement_collection::{SettlementFunder, SettlementMeta, SettlementReason},
+    settlement_collection::{SettlementFunder, SettlementReason},
 };
 use solana_sdk::pubkey::Pubkey;
 use utoipa::{
@@ -26,7 +26,7 @@ use utoipa::{
     components(
         schemas(ValidatorBondRecordSchema),
         schemas(ProtectedEventRecord),
-        schemas(SettlementMeta),
+        schemas(SettlementMetaSchema),
         schemas(SettlementReason),
         schemas(SettlementFunder),
         schemas(ProtectedEvent),
