@@ -10,7 +10,6 @@ import {
   lamportsToSol,
   makeBaseEvent,
 } from './evaluate-deltas'
-import { computeFlatDeficit } from './run-institutional'
 
 import type {
   BondType,
@@ -23,6 +22,21 @@ import type {
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const BOND_TYPE: BondType = 'institutional'
+
+// Mirrors ALLOWED_STAKE_PER_BOND_RATIO in institutional-staking check-bonds.ts
+export const ALLOWED_STAKE_PER_BOND_RATIO = 2000n
+
+export function computeFlatDeficit(
+  stakeLamports: bigint,
+  effectiveLamports: bigint,
+): { requiredLamports: bigint; deficitLamports: bigint } {
+  const requiredLamports = stakeLamports / ALLOWED_STAKE_PER_BOND_RATIO
+  const deficitLamports =
+    requiredLamports > effectiveLamports
+      ? requiredLamports - effectiveLamports
+      : 0n
+  return { requiredLamports, deficitLamports }
+}
 
 export function evaluateInstitutionalDeltas(
   currentValidators: InstitutionalValidatorData[],
@@ -145,9 +159,7 @@ export function evaluateInstitutionalDeltas(
           epoch,
           BOND_TYPE,
           prev,
-          `Validator ${voteAccount} Select bond is no longer reported by the bonds API. ` +
-            `Last known balance: ${lamportsToSol(prev.funded_amount_lamports)} SOL, ` +
-            `last seen epoch: ${prev.epoch}.`,
+          `Validator ${voteAccount} Select bond is no longer reported by the bonds API.`,
         ),
       )
     }

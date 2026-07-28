@@ -83,6 +83,30 @@ describe('runInstitutional', () => {
     expect(validators[1]!.institutionalStakeLamports).toBe(0n)
   })
 
+  it('truncates fractional lamport amounts from the f64 bonds API', async () => {
+    global.fetch = mockFetchResponses(
+      {
+        bonds: [
+          {
+            pubkey: 'bond1',
+            vote_account: 'vote1',
+            epoch: 990,
+            funded_amount: 10_000_000_000.7,
+            effective_amount: 8_000_000_000.2,
+            remainining_settlement_claim_amount: 0.9,
+          },
+        ],
+      },
+      stakeRows,
+    ) as unknown as typeof fetch
+
+    const { validators } = await runInstitutional(config, logger)
+
+    expect(validators[0]!.fundedAmountLamports).toBe(10_000_000_000n)
+    expect(validators[0]!.effectiveAmountLamports).toBe(8_000_000_000n)
+    expect(validators[0]!.settlementClaimsLamports).toBe(0n)
+  })
+
   it('throws when the bonds list is empty', async () => {
     global.fetch = mockFetchResponses(
       { bonds: [] },

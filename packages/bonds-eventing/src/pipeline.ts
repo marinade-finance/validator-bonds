@@ -38,12 +38,10 @@ export async function runEventingPipeline<V>(opts: {
 
   let previousState = new Map<string, ValidatorState>()
 
-  const hasDb = !!config.postgresUrl
   let pool: Awaited<ReturnType<typeof createPool>> | null = null
 
   try {
-    if (hasDb) {
-      const postgresUrl = config.postgresUrl as string
+    if (config.postgresUrl) {
       const poolConfig: Parameters<typeof createPool>[1] = {
         typeParsers: [
           ...createTypeParserPreset(),
@@ -67,7 +65,7 @@ export async function runEventingPipeline<V>(opts: {
         }
       }
 
-      pool = await createPool(postgresUrl, poolConfig)
+      pool = await createPool(config.postgresUrl, poolConfig)
       previousState = await loadPreviousState(pool, bondType, logger)
     } else {
       logger.warn(

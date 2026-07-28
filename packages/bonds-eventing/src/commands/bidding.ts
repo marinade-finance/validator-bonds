@@ -2,7 +2,7 @@ import { getContext } from '@marinade.finance/ts-common'
 import { Option } from 'commander'
 
 import { addSharedEventingOptions } from './options'
-import { parseConfig } from '../config'
+import { logResolvedConfig, parseConfig } from '../config'
 import { evaluateDeltas, validatorToState } from '../evaluate-deltas'
 import { runEventingPipeline } from '../pipeline'
 import { runAuction } from '../run-auction'
@@ -45,14 +45,7 @@ async function manageBidding(opts: Record<string, unknown>) {
   const config = parseConfig(opts)
   const bondType = 'bidding'
 
-  logger.info(
-    {
-      ...config,
-      notificationsJwt: config.notificationsJwt ? '***' : undefined,
-      postgresUrl: config.postgresUrl ? '***' : undefined,
-    },
-    'Resolved configuration',
-  )
+  logResolvedConfig(logger, config)
 
   const { validators, epoch, meta } = await runAuction(config, logger)
 

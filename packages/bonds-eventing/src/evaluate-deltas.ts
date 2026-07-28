@@ -404,14 +404,14 @@ export function buildSettlementAppliedEvent(
   )
 }
 
-// Details come entirely from prev state; the product-specific wording is passed in
+// Details and the last-known tail come from prev state; only the product-specific reason is passed in
 export function buildValidatorDelistedEvent(
   voteAccount: string,
   bondPubkey: string,
   epoch: number,
   bondType: BondType,
   prev: ValidatorState,
-  message: string,
+  reason: string,
 ): BondsEventV1 {
   return makeBaseEvent(
     'validator_delisted',
@@ -419,7 +419,9 @@ export function buildValidatorDelistedEvent(
     bondPubkey,
     epoch,
     bondType,
-    message,
+    `${reason} ` +
+      `Last known balance: ${fmtSol(lamportsToSol(prev.funded_amount_lamports))} SOL, ` +
+      `last seen epoch: ${prev.epoch}.`,
     {
       last_known_funded_lamports: prev.funded_amount_lamports.toString(),
       last_known_epoch: prev.epoch,
@@ -728,9 +730,7 @@ export function evaluateDeltas(
           epoch,
           bondType,
           prev,
-          `Validator ${voteAccount} is no longer present in SAM auction data. ` +
-            `Last known balance: ${lamportsToSol(prev.funded_amount_lamports)} SOL, ` +
-            `last seen epoch: ${prev.epoch}.`,
+          `Validator ${voteAccount} is no longer present in SAM auction data.`,
         ),
       )
     }

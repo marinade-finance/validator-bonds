@@ -2,7 +2,7 @@ import { getContext } from '@marinade.finance/ts-common'
 import { Option } from 'commander'
 
 import { addSharedEventingOptions } from './options'
-import { parseConfig } from '../config'
+import { logResolvedConfig, parseConfig } from '../config'
 import {
   evaluateInstitutionalDeltas,
   institutionalValidatorToState,
@@ -34,14 +34,7 @@ async function manageInstitutional(opts: Record<string, unknown>) {
   const config = parseConfig(opts)
   const bondType = 'institutional'
 
-  logger.info(
-    {
-      ...config,
-      notificationsJwt: config.notificationsJwt ? '***' : undefined,
-      postgresUrl: config.postgresUrl ? '***' : undefined,
-    },
-    'Resolved configuration',
-  )
+  logResolvedConfig(logger, config)
 
   const { validators, epoch } = await runInstitutional(config, logger)
 

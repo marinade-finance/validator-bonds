@@ -1,10 +1,10 @@
 import pino from 'pino'
 
 import {
+  computeFlatDeficit,
   evaluateInstitutionalDeltas,
   institutionalValidatorToState,
 } from '../src/evaluate-institutional-deltas'
-import { computeFlatDeficit } from '../src/run-institutional'
 
 import type {
   BondUnderfundedChangeDetails,
@@ -257,7 +257,7 @@ describe('evaluateInstitutionalDeltas', () => {
   })
 
   it('emits validator_delisted for removed funded bond only', () => {
-    const funded = makePrevState()
+    const funded = makePrevState({ funded_amount_lamports: 10_000_000_001n })
     const unfunded = makePrevState({
       vote_account: '11111111111111111111111111111113',
       funded_amount_lamports: 0n,
@@ -278,6 +278,7 @@ describe('evaluateInstitutionalDeltas', () => {
     expect(details.last_known_in_auction).toBe(false)
     expect(details.last_known_sam_eligible).toBe(false)
     expect(event.data.message).toContain('no longer reported by the bonds API')
+    expect(event.data.message).toContain('Last known balance: 10 SOL')
   })
 
   it('never emits auction-only event types', () => {
