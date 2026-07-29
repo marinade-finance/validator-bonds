@@ -29,7 +29,11 @@ import {
   INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
+import {
+  executeTxHandleErrors,
+  getBondFromAddress,
+  txOutcomeMessage,
+} from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type {
@@ -285,7 +289,12 @@ export async function manageConfigureBond({
     confirmWaitTime,
     sendOpts: { skipPreflight },
   })
-  logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+  logger.info(
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Bond account ${bondAccount.toBase58()} successfully configured`,
+    ),
+  )
 
   await printBondTipBannerFromContext({
     voteAccount: bondAccountData.account.data.voteAccount,

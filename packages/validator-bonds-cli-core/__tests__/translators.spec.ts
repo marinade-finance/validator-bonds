@@ -158,6 +158,35 @@ function buildTxArgs(feePayer?: PublicKey): ExecuteTxParams {
   }
 }
 
+describe('translateKnownError → CliCommandError classification', () => {
+  it('keeps an HTTP rejection from a service as the headline', () => {
+    const err = new CliCommandError({
+      valueName: 'subscriptions',
+      value: 'network error',
+      msg:
+        'Failed to fetch subscriptions. subscription not authorized for this pubkey' +
+        ' (HTTP 403 from https://marinade-notifications.marinade.finance)',
+    })
+    const translated = translateKnownError(err, { rpcEndpoint: endpoint })
+    expect(translated).toBe(err)
+    expect(translated.message).not.toContain('Cannot reach RPC')
+    expect(translated.message).not.toContain('Pass a valid RPC URL')
+  })
+
+  it('still translates when the wrapped cause is an RPC connectivity failure', () => {
+    const err = new CliCommandError({
+      valueName: 'bond-address',
+      value: 'unknown',
+      msg: 'Failed to fetch bond account',
+      cause: new Error('fetch failed'),
+    })
+    const translated = translateKnownError(err, { rpcEndpoint: endpoint })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    expect(translated.message).toContain('Cannot reach RPC')
+    expect(translated.message).toContain(endpoint)
+  })
+})
+
 describe('translateKnownError → translateFeePayerMissingError', () => {
   it('translates ExecutionError whose cause carries the debit-credit message', () => {
     const feePayer = Keypair.generate().publicKey

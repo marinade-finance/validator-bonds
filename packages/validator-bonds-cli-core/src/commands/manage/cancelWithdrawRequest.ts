@@ -20,6 +20,7 @@ import {
   executeTxHandleErrors,
   getBondFromAddress,
   getWithdrawRequestFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -167,7 +168,10 @@ export async function manageCancelWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully cancelled`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+        `for bond account ${bondAccount?.toBase58()} successfully cancelled`,
+    ),
   )
 }

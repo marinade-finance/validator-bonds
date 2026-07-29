@@ -4,6 +4,7 @@ import {
   executeTxHandleErrors,
   getCliContext,
   setProgramTelemetryFields,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
   closeSettlementV2Instruction,
@@ -117,5 +118,10 @@ export async function manageCloseSettlement({
     confirmWaitTime,
     sendOpts: { skipPreflight },
   })
-  logger.info(`Settlement account ${address.toBase58()} successfully closed`)
+  logger.info(
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Settlement account ${address.toBase58()} successfully closed`,
+    ),
+  )
 }

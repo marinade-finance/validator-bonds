@@ -20,7 +20,7 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { executeTxHandleErrors } from '../../utils'
+import { executeTxHandleErrors, txOutcomeMessage } from '../../utils'
 
 import type { LoggerPlaceholder } from '@marinade.finance/ts-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -157,8 +157,11 @@ export async function manageInitBond({
     })
   tx.add(commissionInstruction)
 
+  const dryRun = simulate || printOnly
   logger.info(
-    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
+    dryRun
+      ? `Dry run of bond account ${bondAccount.toBase58()} initialization, nothing is sent on-chain`
+      : `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
   )
   logger.debug(`Commission bond account: ${bondProduct.toBase58()}`)
 
@@ -180,7 +183,10 @@ export async function manageInitBond({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`,
+      txOutcomeMessage(
+        dryRun,
+        `Bond account ${bondAccount.toBase58()} of config ${config.toBase58()} successfully created`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedError({

@@ -33,6 +33,7 @@ import {
   formatToSol,
   formatToSolWithAll,
   getBondFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -223,8 +224,11 @@ export async function manageInitWithdrawRequest({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-        `for bond account ${bondAccount.toBase58()} successfully initialized`,
+      txOutcomeMessage(
+        simulate || printOnly,
+        `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+          `for bond account ${bondAccount.toBase58()} successfully initialized`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedError({

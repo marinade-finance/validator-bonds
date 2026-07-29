@@ -202,8 +202,12 @@ const KNOWN_ERROR_TRANSLATORS: Translator[] = [
 ]
 
 export function translateKnownError(err: unknown, ctx: TranslateCtx): Error {
+  // A CliCommandError message is composed by the command, so wording like
+  // 'Failed to fetch subscriptions' must not be read as an RPC connectivity failure;
+  // only the wrapped cause carries evidence about what actually failed.
+  const classified = err instanceof CliCommandError ? err.cause : err
   for (const translator of KNOWN_ERROR_TRANSLATORS) {
-    const translated = translator(err, ctx)
+    const translated = translator(classified, ctx)
     if (translated) return translated
   }
   return err as Error

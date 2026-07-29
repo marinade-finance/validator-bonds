@@ -25,6 +25,7 @@ import {
   getBondFromAddress,
   getWithdrawRequestFromAddress,
   splitAndExecuteTxHandleErrors,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -262,7 +263,10 @@ export async function manageClaimWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully claimed`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
+        `for bond account ${bondAccount?.toBase58()} successfully claimed`,
+    ),
   )
 }
