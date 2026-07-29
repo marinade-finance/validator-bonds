@@ -23,10 +23,44 @@ pub struct Funds {
     pub remainining_settlement_claim_amount: u64,
 }
 
-// The CLI encodes "withdraw everything" as u64::MAX, so a raw request is not necessarily an
-// amount; capping by what the bond still holds keeps the reported figure a real lamport value.
+// Only u64::MAX is reinterpreted: it is the CLI's "withdraw everything" encoding, not an amount.
+// Every other request is reported verbatim, as it was before the bonds/settlements refactor.
 fn outstanding_withdraw_amount(requested: u64, withdrawn: u64, available: u64) -> u64 {
-    requested.saturating_sub(withdrawn).min(available)
+    if requested == u64::MAX {
+        return available;
+    }
+    requested.saturating_sub(withdrawn)
+}
+
+fn aggregate_funds(
+    delegated_stake: &[(Pubkey, u64)],
+    withdraw_requests: &[(Pubkey, u64, u64)],
+    settlement_claims: &[(Pubkey, u64)],
+) -> HashMap<Pubkey, Funds> {
+    let mut validator_funds: HashMap<Pubkey, Funds> = HashMap::new();
+
+    for (vote_account, lamports) in delegated_stake {
+        let funds = validator_funds.entry(*vote_account).or_default();
+        funds.funded_amount += *lamports;
+        funds.effective_amount += *lamports;
+    }
+
+    // Before the withdraw cap: settlement-funded stake cannot be withdrawn, so it is not available.
+    for (vote_account, claim) in settlement_claims {
+        let funds = validator_funds.entry(*vote_account).or_default();
+        funds.remainining_settlement_claim_amount += *claim;
+        funds.effective_amount = funds.effective_amount.saturating_sub(*claim);
+    }
+
+    for (vote_account, requested, withdrawn) in withdraw_requests {
+        let funds = validator_funds.entry(*vote_account).or_default();
+        let outstanding =
+            outstanding_withdraw_amount(*requested, *withdrawn, funds.effective_amount);
+        funds.remaining_witdraw_request_amount += outstanding;
+        funds.effective_amount = funds.effective_amount.saturating_sub(outstanding);
+    }
+
+    validator_funds
 }
 
 pub async fn collect_validator_bonds_with_funds(
@@ -35,8 +69,6 @@ pub async fn collect_validator_bonds_with_funds(
 ) -> Result<Vec<(Pubkey, Bond, Funds, CommissionProductConfig)>, CliError> {
     let (withdraw_authority, _) = find_bonds_withdrawer_authority(&config_address);
     log::info!("Config withdraw authority: {withdraw_authority:?}");
-
-    let mut validator_funds: HashMap<Pubkey, Funds> = HashMap::new();
 
     let bonds: HashMap<_, _> = get_bonds_for_config(rpc_client.clone(), &config_address)
         .await
@@ -83,6 +115,7 @@ pub async fn collect_validator_bonds_with_funds(
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
+    let mut delegated_stake: Vec<(Pubkey, u64)> = vec![];
     for (pubkey, lamports_available, stake_account) in stake_accounts {
         if let Some(lockup) = stake_account.lockup() {
             if lockup.is_in_force(&clock, None) {
@@ -90,27 +123,16 @@ pub async fn collect_validator_bonds_with_funds(
             }
         }
         if let Some(delegation) = stake_account.delegation() {
-            let funded_bond = validator_funds.entry(delegation.voter_pubkey).or_default();
-            funded_bond.funded_amount += lamports_available;
-            funded_bond.effective_amount += lamports_available;
+            delegated_stake.push((delegation.voter_pubkey, lamports_available));
         }
     }
 
-    for (_, withdraw_request) in withdraw_requests {
-        let funded_bond = validator_funds
-            .entry(withdraw_request.vote_account)
-            .or_default();
-        let remainining_withdraw_request_amount = outstanding_withdraw_amount(
-            withdraw_request.requested_amount,
-            withdraw_request.withdrawn_amount,
-            funded_bond.effective_amount,
-        );
-        funded_bond.remaining_witdraw_request_amount += remainining_withdraw_request_amount;
-        funded_bond.effective_amount = funded_bond
-            .effective_amount
-            .saturating_sub(remainining_withdraw_request_amount);
-    }
+    let withdraw_request_amounts: Vec<(Pubkey, u64, u64)> = withdraw_requests
+        .into_iter()
+        .map(|(_, wr)| (wr.vote_account, wr.requested_amount, wr.withdrawn_amount))
+        .collect();
 
+    let mut settlement_claims: Vec<(Pubkey, u64)> = vec![];
     for (settlement_pubkey, settlement) in settlements {
         let bond = match bonds.get(&settlement.bond) {
             Some(bond) => bond,
@@ -119,16 +141,19 @@ pub async fn collect_validator_bonds_with_funds(
                 continue;
             }
         };
-
-        let funded_bond = validator_funds.entry(bond.vote_account).or_default();
-        let remainining_settlement_claim_amount = settlement
-            .lamports_funded
-            .saturating_sub(settlement.lamports_claimed);
-        funded_bond.remainining_settlement_claim_amount += remainining_settlement_claim_amount;
-        funded_bond.effective_amount = funded_bond
-            .effective_amount
-            .saturating_sub(remainining_settlement_claim_amount);
+        settlement_claims.push((
+            bond.vote_account,
+            settlement
+                .lamports_funded
+                .saturating_sub(settlement.lamports_claimed),
+        ));
     }
+
+    let validator_funds = aggregate_funds(
+        &delegated_stake,
+        &withdraw_request_amounts,
+        &settlement_claims,
+    );
 
     Ok(bonds
         .into_iter()
@@ -151,16 +176,63 @@ pub async fn collect_validator_bonds_with_funds(
 
 #[cfg(test)]
 mod tests {
-    use super::outstanding_withdraw_amount;
+    use super::{aggregate_funds, outstanding_withdraw_amount};
+    use solana_sdk::pubkey::Pubkey;
 
+    // Stake funded to a settlement keeps the bonds withdrawer authority, so it is counted into
+    // `funded_amount`, but `claim_withdraw_request` refuses to withdraw it
+    // (ErrorCode::StakeAccountIsFundedToSettlement). It must not be reported as withdrawable.
     #[test]
-    fn request_within_available_is_reported_verbatim() {
-        assert_eq!(outstanding_withdraw_amount(50, 10, 100), 40);
+    fn settlement_reserved_stake_is_not_reported_as_withdrawable() {
+        let vote_account = Pubkey::new_unique();
+        let funds = aggregate_funds(
+            &[(vote_account, 100)],
+            &[(vote_account, u64::MAX, 0)],
+            &[(vote_account, 60)],
+        );
+        let funds = funds.get(&vote_account).unwrap();
+
+        assert_eq!(funds.funded_amount, 100);
+        assert_eq!(funds.remainining_settlement_claim_amount, 60);
+        assert_eq!(
+            funds.remaining_witdraw_request_amount, 40,
+            "only the stake not reserved for settlements can be withdrawn",
+        );
+        assert_eq!(funds.effective_amount, 0);
+    }
+
+    // Only for the sentinel: a verbatim over-request is an intent, not a balance, so it does not
+    // reconcile — see `request_above_available_is_still_reported_verbatim`.
+    #[test]
+    fn sentinel_request_reconciles_against_the_funded_amount() {
+        let vote_account = Pubkey::new_unique();
+        let funds = aggregate_funds(
+            &[(vote_account, 100)],
+            &[(vote_account, u64::MAX, 0)],
+            &[(vote_account, 60)],
+        );
+        let funds = funds.get(&vote_account).unwrap();
+
+        assert_eq!(
+            funds.remaining_witdraw_request_amount
+                + funds.remainining_settlement_claim_amount
+                + funds.effective_amount,
+            funds.funded_amount,
+            "withdrawable + settlement-reserved + effective must account for the funded stake",
+        );
     }
 
     #[test]
-    fn request_above_available_is_capped() {
-        assert_eq!(outstanding_withdraw_amount(150, 0, 100), 100);
+    fn request_is_reported_verbatim() {
+        assert_eq!(outstanding_withdraw_amount(50, 10, 100), 40);
+    }
+
+    // Deliberately NOT capped: `init_withdraw_request` never validates the amount against the
+    // funded balance, so a request larger than the bond holds is a real state whose figure carried
+    // information before the refactor. Reporting it verbatim keeps that behaviour.
+    #[test]
+    fn request_above_available_is_still_reported_verbatim() {
+        assert_eq!(outstanding_withdraw_amount(150, 0, 100), 150);
     }
 
     #[test]
@@ -175,22 +247,20 @@ mod tests {
         assert_eq!(outstanding_withdraw_amount(50, 80, 100), 0);
     }
 
-    // Capping must not move `effective_amount`, which many consumers rely on.
+    // The pre-refactor value for every non-sentinel request, so only u64::MAX ones change.
     #[test]
-    fn capping_leaves_the_effective_amount_unchanged() {
+    fn only_the_sentinel_differs_from_the_pre_refactor_value() {
         for (requested, withdrawn, available) in [
             (50, 10, 100),
             (150, 0, 100),
-            (u64::MAX, 40, 100),
-            (u64::MAX, 0, 0),
             (50, 50, 100),
             (50, 80, 100),
+            (0, 0, 100),
         ] {
-            let capped = outstanding_withdraw_amount(requested, withdrawn, available);
             assert_eq!(
-                available.saturating_sub(capped),
-                available.saturating_sub(requested.saturating_sub(withdrawn)),
-                "effective_amount changed for ({requested}, {withdrawn}, {available})",
+                outstanding_withdraw_amount(requested, withdrawn, available),
+                requested.saturating_sub(withdrawn),
+                "({requested}, {withdrawn}, {available}) must match the pre-refactor value",
             );
         }
     }

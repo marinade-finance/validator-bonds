@@ -13,7 +13,7 @@ log = { workspace = true }
 serde = { workspace = true }
 solana-sdk = { workspace = true }
 solana-stake-interface = { workspace = true }
-rust_decimal = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-float"] }
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-program = { workspace = true }
