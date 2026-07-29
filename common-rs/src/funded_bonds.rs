@@ -23,6 +23,12 @@ pub struct Funds {
     pub remainining_settlement_claim_amount: u64,
 }
 
+// The CLI encodes "withdraw everything" as u64::MAX, so a raw request is not necessarily an
+// amount; capping by what the bond still holds keeps the reported figure a real lamport value.
+fn outstanding_withdraw_amount(requested: u64, withdrawn: u64, available: u64) -> u64 {
+    requested.saturating_sub(withdrawn).min(available)
+}
+
 pub async fn collect_validator_bonds_with_funds(
     rpc_client: Arc<RpcClient>,
     config_address: Pubkey,
@@ -94,9 +100,11 @@ pub async fn collect_validator_bonds_with_funds(
         let funded_bond = validator_funds
             .entry(withdraw_request.vote_account)
             .or_default();
-        let remainining_withdraw_request_amount = withdraw_request
-            .requested_amount
-            .saturating_sub(withdraw_request.withdrawn_amount);
+        let remainining_withdraw_request_amount = outstanding_withdraw_amount(
+            withdraw_request.requested_amount,
+            withdraw_request.withdrawn_amount,
+            funded_bond.effective_amount,
+        );
         funded_bond.remaining_witdraw_request_amount += remainining_withdraw_request_amount;
         funded_bond.effective_amount = funded_bond
             .effective_amount
@@ -139,4 +147,51 @@ pub async fn collect_validator_bonds_with_funds(
             (pubkey, bond, funds, commission_config)
         })
         .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::outstanding_withdraw_amount;
+
+    #[test]
+    fn request_within_available_is_reported_verbatim() {
+        assert_eq!(outstanding_withdraw_amount(50, 10, 100), 40);
+    }
+
+    #[test]
+    fn request_above_available_is_capped() {
+        assert_eq!(outstanding_withdraw_amount(150, 0, 100), 100);
+    }
+
+    #[test]
+    fn withdraw_everything_reports_what_the_bond_still_holds() {
+        assert_eq!(outstanding_withdraw_amount(u64::MAX, 40, 100), 100);
+        assert_eq!(outstanding_withdraw_amount(u64::MAX, 0, 0), 0);
+    }
+
+    #[test]
+    fn fulfilled_or_overdrawn_request_reports_zero() {
+        assert_eq!(outstanding_withdraw_amount(50, 50, 100), 0);
+        assert_eq!(outstanding_withdraw_amount(50, 80, 100), 0);
+    }
+
+    // Capping must not move `effective_amount`, which many consumers rely on.
+    #[test]
+    fn capping_leaves_the_effective_amount_unchanged() {
+        for (requested, withdrawn, available) in [
+            (50, 10, 100),
+            (150, 0, 100),
+            (u64::MAX, 40, 100),
+            (u64::MAX, 0, 0),
+            (50, 50, 100),
+            (50, 80, 100),
+        ] {
+            let capped = outstanding_withdraw_amount(requested, withdrawn, available);
+            assert_eq!(
+                available.saturating_sub(capped),
+                available.saturating_sub(requested.saturating_sub(withdrawn)),
+                "effective_amount changed for ({requested}, {withdrawn}, {available})",
+            );
+        }
+    }
 }

@@ -16,6 +16,7 @@ use {
     std::collections::HashMap,
 };
 
+// serde-float makes these Decimals serialize as JSON numbers, not utoipa's default string.
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum ProtectedEvent {
     DowntimeRevenueImpact {
@@ -24,7 +25,9 @@ pub enum ProtectedEvent {
         actual_credits: u64,
         expected_credits: u64,
         /// how many lamports per 1 staked lamport was expected to be paid by validator
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
@@ -32,14 +35,23 @@ pub enum ProtectedEvent {
     CommissionSamIncrease {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
+        #[schema(value_type = f64)]
         expected_inflation_commission: Decimal,
+        #[schema(value_type = f64)]
         actual_inflation_commission: Decimal,
+        #[schema(value_type = f64)]
         past_inflation_commission: Decimal,
+        #[schema(value_type = Option<f64>)]
         expected_mev_commission: Option<Decimal>,
+        #[schema(value_type = Option<f64>)]
         actual_mev_commission: Option<Decimal>,
+        #[schema(value_type = Option<f64>)]
         past_mev_commission: Option<Decimal>,
+        #[schema(value_type = f64)]
         before_sam_commission_increase_pmpe: Decimal,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
@@ -51,9 +63,12 @@ pub enum ProtectedEvent {
         vote_account: Pubkey,
         previous_commission: u8,
         current_commission: u8,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
+        #[schema(value_type = f64)]
         stake: Decimal,
     },
     LowCredits {
@@ -62,9 +77,12 @@ pub enum ProtectedEvent {
         expected_credits: u64,
         actual_credits: u64,
         commission: u8,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
+        #[schema(value_type = f64)]
         stake: Decimal,
     },
 }
