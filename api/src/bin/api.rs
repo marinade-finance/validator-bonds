@@ -1,11 +1,13 @@
+use anyhow::Context as _;
 use api::context::{Context, WrappedContext};
 use api::repositories::protected_events::spawn_protected_events_cache;
+use api::repositories::verified_validators as verified_validators_repo;
 use api::routes::{build_app, internal_router};
 use axum::extract::Request;
 use axum::ServiceExt;
 use clap::Parser;
 use env_logger::Env;
-use log::{error, info};
+use log::{error, info, warn};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use std::net::SocketAddr;
@@ -34,6 +36,9 @@ pub struct Params {
 
     #[arg(long = "port", default_value = "8000")]
     pub port: u16,
+
+    #[arg(long = "verified-validators-config")]
+    pub verified_validators_config: Option<String>,
 }
 
 #[tokio::main]
@@ -55,10 +60,20 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
+    let verified_validators = match &params.verified_validators_config {
+        Some(path) => verified_validators_repo::load_verified_validators(path)
+            .with_context(|| format!("Failed to load verified validators config from {path}"))?,
+        None => {
+            warn!("Verified validators config not provided, will serve an empty list.");
+            vec![]
+        }
+    };
+
     let protected_event_records = Arc::new(RwLock::new(vec![]));
     let context: WrappedContext = Arc::new(RwLock::new(Context::new(
         psql_client,
         protected_event_records.clone(),
+        verified_validators,
     )?));
 
     match (params.gcp_project_id, params.gcp_sa_key) {
