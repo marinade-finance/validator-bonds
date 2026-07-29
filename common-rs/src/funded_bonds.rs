@@ -45,7 +45,8 @@ fn aggregate_funds(
         funds.effective_amount += *lamports;
     }
 
-    // Before the withdraw cap: settlement-funded stake cannot be withdrawn, so it is not available.
+    // Before the withdraw loop: settlement-funded stake is not withdrawable, so a "withdraw
+    // everything" request must not report it as available.
     for (vote_account, claim) in settlement_claims {
         let funds = validator_funds.entry(*vote_account).or_default();
         funds.remainining_settlement_claim_amount += *claim;
