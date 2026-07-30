@@ -92,12 +92,11 @@ pub struct ProtectedEventRecord {
     pub reason: SettlementReason,
 }
 
-/// DEPRECATED: the `{ "funder": ... }` wrapper is retained only for backward
-/// compatibility. The generated settlement JSON now exposes `funder` directly;
-/// this nested `meta` field will be flattened to a top-level `funder` in a future
-/// API version. Read `meta.funder` for now.
-// Documented on the component, not on ProtectedEventRecord::meta: utoipa renders a bare
-// `$ref` for that field and drops sibling `description`/`deprecated` keywords.
+/// DEPRECATED: this `{ "funder": ... }` wrapper is retained only for backward compatibility.
+/// The generated settlement JSON now exposes `funder` directly, and any field carrying this
+/// wrapper will be replaced by a top-level `funder` in a future API version.
+/// Read this wrapper's `funder` property for now.
+// On the component, not the field: utoipa emits a bare `$ref` there and drops sibling keywords.
 #[derive(ToSchema)]
 #[schema(as = SettlementMeta, deprecated)]
 #[allow(dead_code)]
@@ -112,7 +111,7 @@ pub struct ValidatorBondRecordSchema {
     pubkey: String,
     vote_account: String,
     authority: String,
-    // value_type = f64: settlement-common enables rust_decimal/serde-float, so these Decimals reach the wire as JSON numbers rather than utoipa's default string.
+    // serde-float makes these Decimals serialize as JSON numbers, not utoipa's default string.
     #[schema(value_type = f64)]
     cpmpe: Decimal,
     #[schema(value_type = f64)]
@@ -122,11 +121,13 @@ pub struct ValidatorBondRecordSchema {
     funded_amount: Decimal,
     #[schema(value_type = f64)]
     effective_amount: Decimal,
+    /// Outstanding withdraw request in lamports, `requested - withdrawn`, reported verbatim — it
+    /// may exceed the funded amount, because the request is never validated against the balance.
+    /// A "withdraw everything" request instead reports the stake not reserved for settlements.
     #[schema(value_type = f64)]
     remaining_witdraw_request_amount: Decimal,
     #[schema(value_type = f64)]
     remainining_settlement_claim_amount: Decimal,
-    #[schema(format = "datetime")]
     updated_at: DateTime<Utc>,
     bond_type: String, // Using String to represent BondType
     inflation_commission_bps: Option<i64>,
@@ -138,8 +139,11 @@ pub struct ValidatorBondRecordSchema {
 mod tests {
     use super::{SettlementFunder, SettlementMeta};
     use crate::api_docs::ApiDoc;
-    use chrono::Utc;
+    use chrono::{DateTime, Utc};
     use rust_decimal::Decimal;
+    use settlement_common::protected_events::ProtectedEvent;
+    use solana_sdk::pubkey::Pubkey;
+    use std::collections::BTreeSet;
     use utoipa::OpenApi;
     use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
@@ -152,7 +156,32 @@ mod tests {
         "remainining_settlement_claim_amount",
     ];
 
-    fn sample_record() -> ValidatorBondRecord {
+    const PROTECTED_EVENT_DECIMAL_FIELDS: [(&str, &[&str]); 4] = [
+        ("DowntimeRevenueImpact", &["expected_epr", "actual_epr"]),
+        (
+            "CommissionSamIncrease",
+            &[
+                "expected_inflation_commission",
+                "actual_inflation_commission",
+                "past_inflation_commission",
+                "expected_mev_commission",
+                "actual_mev_commission",
+                "past_mev_commission",
+                "before_sam_commission_increase_pmpe",
+                "expected_epr",
+                "actual_epr",
+            ],
+        ),
+        (
+            "CommissionIncrease",
+            &["expected_epr", "actual_epr", "stake"],
+        ),
+        ("LowCredits", &["expected_epr", "actual_epr", "stake"]),
+    ];
+
+    // Bonds without a BondProduct serialize the commission fields as `null` — 96% of production
+    // rows — so both shapes have to be exercised against the `nullable` documentation.
+    fn sample_record(commissions: Option<i64>) -> ValidatorBondRecord {
         ValidatorBondRecord {
             pubkey: "8BopghjQ763ya26YPXSka3eLneU4ENdYMtjtzDLGsMrn".to_owned(),
             vote_account: "We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb".to_owned(),
@@ -166,13 +195,86 @@ mod tests {
             remainining_settlement_claim_amount: Decimal::new(13, 0),
             updated_at: Utc::now(),
             bond_type: BondType::Bidding,
-            inflation_commission_bps: None,
-            mev_commission_bps: None,
-            block_commission_bps: None,
+            inflation_commission_bps: commissions,
+            mev_commission_bps: commissions,
+            block_commission_bps: commissions,
         }
     }
 
-    // The notice lives on the component because utoipa emits a bare `$ref` for the field and drops sibling keywords; the key check guards the doc-only mirror against drifting from the real type.
+    fn json_type(value: &serde_json::Value) -> &'static str {
+        match value {
+            serde_json::Value::Null => "null",
+            serde_json::Value::Bool(_) => "boolean",
+            serde_json::Value::Number(number) if number.is_f64() => "number",
+            serde_json::Value::Number(_) => "integer",
+            serde_json::Value::String(_) => "string",
+            serde_json::Value::Array(_) => "array",
+            serde_json::Value::Object(_) => "object",
+        }
+    }
+
+    // A `$ref` is resolved to its component so a referenced enum compares as the string it serializes to.
+    fn resolve_ref<'a>(
+        docs: &'a serde_json::Value,
+        property: &'a serde_json::Value,
+    ) -> &'a serde_json::Value {
+        match property["$ref"].as_str() {
+            Some(reference) => {
+                &docs["components"]["schemas"][reference
+                    .strip_prefix("#/components/schemas/")
+                    .unwrap_or(reference)]
+            }
+            None => property,
+        }
+    }
+
+    fn documented_accepts(
+        docs: &serde_json::Value,
+        property: &serde_json::Value,
+        actual: &str,
+    ) -> bool {
+        let resolved = resolve_ref(docs, property);
+        if actual == "null" {
+            return resolved["nullable"] == true;
+        }
+        resolved["type"].as_str() == Some(actual)
+    }
+
+    // Guards a hand-written doc-only mirror against the type it claims to describe: same property
+    // set, and every serialized value admitted by the documented type (including `nullable`).
+    fn assert_shape_matches(
+        docs: &serde_json::Value,
+        schema: &serde_json::Value,
+        serialized: &serde_json::Value,
+        label: &str,
+    ) {
+        let documented: BTreeSet<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let actual: BTreeSet<&str> = serialized
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            documented, actual,
+            "{label}: documented property set drifted from the serialized keys",
+        );
+
+        for (name, value) in serialized.as_object().unwrap() {
+            let actual_type = json_type(value);
+            assert!(
+                documented_accepts(docs, &schema["properties"][name], actual_type),
+                "{label}.{name}: serialized as {actual_type}, documented as {}",
+                schema["properties"][name],
+            );
+        }
+    }
+
     #[test]
     fn settlement_meta_component_publishes_the_deprecation() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
@@ -187,7 +289,7 @@ mod tests {
             schema["description"]
                 .as_str()
                 .unwrap_or_default()
-                .contains("Read `meta.funder` for now"),
+                .contains("DEPRECATED"),
             "the deprecation notice must reach consumers; got {:?}",
             schema["description"],
         );
@@ -202,32 +304,24 @@ mod tests {
             funder: SettlementFunder::Marinade,
         })
         .unwrap();
-        let mut documented: Vec<&str> = schema["properties"]
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        let mut actual: Vec<&str> = serialized
-            .as_object()
-            .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        documented.sort_unstable();
-        actual.sort_unstable();
-        assert_eq!(
-            documented, actual,
-            "SettlementMetaSchema drifted from the serialized SettlementMeta",
-        );
+        assert_shape_matches(&docs, schema, &serialized, "SettlementMetaSchema");
     }
 
-    // settlement-common enables rust_decimal/serde-float, so the DTO's Decimal fields go out as JSON numbers while utoipa's `decimal` feature would document them as strings.
     #[test]
     fn bond_record_schema_matches_serialized_json() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        let properties = &docs["components"]["schemas"]["ValidatorBondRecord"]["properties"];
-        let serialized = serde_json::to_value(sample_record()).unwrap();
+        let schema = &docs["components"]["schemas"]["ValidatorBondRecord"];
+        let properties = &schema["properties"];
+        let serialized = serde_json::to_value(sample_record(Some(800))).unwrap();
+
+        for commissions in [None, Some(800)] {
+            assert_shape_matches(
+                &docs,
+                schema,
+                &serde_json::to_value(sample_record(commissions)).unwrap(),
+                "ValidatorBondRecordSchema",
+            );
+        }
 
         for field in NUMERIC_FIELDS {
             assert_eq!(
@@ -238,11 +332,123 @@ mod tests {
                 (Some("number"), Some("double")),
                 "{field}: documented schema type must match the JSON number the API emits",
             );
-            assert!(
-                serialized[field].is_number(),
-                "{field}: serialized as {:?}, expected a JSON number",
-                serialized[field],
-            );
+        }
+
+        assert_eq!(
+            (
+                properties["updated_at"]["type"].as_str(),
+                properties["updated_at"]["format"].as_str(),
+            ),
+            (Some("string"), Some("date-time")),
+            "updated_at must publish the registered `date-time` format; a custom spelling makes generators fall back to a plain string",
+        );
+        assert!(
+            DateTime::parse_from_rfc3339(serialized["updated_at"].as_str().unwrap_or_default())
+                .is_ok(),
+            "updated_at serialized as {:?}, expected RFC 3339",
+            serialized["updated_at"],
+        );
+
+        assert!(
+            properties["remaining_witdraw_request_amount"]["description"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("withdraw"),
+            "the withdraw-request caveat must reach consumers; got {:?}",
+            properties["remaining_witdraw_request_amount"]["description"],
+        );
+    }
+
+    // `mev_commission` is Option<Decimal>, so both shapes are built to exercise `nullable`.
+    fn sample_protected_events(mev: Option<Decimal>) -> Vec<ProtectedEvent> {
+        let vote_account = Pubkey::new_unique();
+        vec![
+            ProtectedEvent::DowntimeRevenueImpact {
+                vote_account,
+                actual_credits: 1,
+                expected_credits: 2,
+                expected_epr: Decimal::new(3, 4),
+                actual_epr: Decimal::new(5, 4),
+                epr_loss_bps: 6,
+                stake: 7,
+            },
+            ProtectedEvent::CommissionSamIncrease {
+                vote_account,
+                expected_inflation_commission: Decimal::new(8, 2),
+                actual_inflation_commission: Decimal::new(9, 2),
+                past_inflation_commission: Decimal::new(10, 2),
+                expected_mev_commission: mev,
+                actual_mev_commission: mev,
+                past_mev_commission: mev,
+                before_sam_commission_increase_pmpe: Decimal::new(11, 3),
+                expected_epr: Decimal::new(12, 4),
+                actual_epr: Decimal::new(13, 4),
+                epr_loss_bps: 14,
+                stake: 15,
+            },
+            ProtectedEvent::CommissionIncrease {
+                vote_account,
+                previous_commission: 1,
+                current_commission: 2,
+                expected_epr: Decimal::new(16, 4),
+                actual_epr: Decimal::new(17, 4),
+                epr_loss_bps: 18,
+                stake: Decimal::new(19, 0),
+            },
+            ProtectedEvent::LowCredits {
+                vote_account,
+                expected_credits: 20,
+                actual_credits: 21,
+                commission: 3,
+                expected_epr: Decimal::new(22, 4),
+                actual_epr: Decimal::new(23, 4),
+                epr_loss_bps: 24,
+                stake: Decimal::new(25, 0),
+            },
+        ]
+    }
+
+    #[test]
+    fn protected_event_decimals_are_documented_as_numbers() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let variants = docs["components"]["schemas"]["ProtectedEvent"]["oneOf"]
+            .as_array()
+            .unwrap();
+
+        // Comparing against serialized samples rather than a hand-listed field set is what makes a
+        // newly added, un-annotated `Decimal` fail here instead of passing unnoticed.
+        for mev in [None, Some(Decimal::new(26, 2))] {
+            for event in sample_protected_events(mev) {
+                let serialized = serde_json::to_value(&event).unwrap();
+                let (variant, payload) = serialized
+                    .as_object()
+                    .unwrap()
+                    .iter()
+                    .next()
+                    .expect("externally tagged enum serializes to one key");
+                let variant_schema = variants
+                    .iter()
+                    .find_map(|v| v["properties"].get(variant))
+                    .unwrap_or_else(|| panic!("{variant}: missing from the ProtectedEvent oneOf"));
+                assert_shape_matches(&docs, variant_schema, payload, variant);
+            }
+        }
+
+        for (variant, decimal_fields) in PROTECTED_EVENT_DECIMAL_FIELDS {
+            let variant_schema = variants
+                .iter()
+                .find_map(|v| v["properties"].get(variant))
+                .unwrap_or_else(|| panic!("{variant}: missing from the ProtectedEvent oneOf"));
+            for field in decimal_fields {
+                assert_eq!(
+                    (
+                        variant_schema["properties"][*field]["type"].as_str(),
+                        variant_schema["properties"][*field]["format"].as_str(),
+                    ),
+                    (Some("number"), Some("double")),
+                    "{variant}.{field}: Decimal must publish as a JSON double",
+                );
+            }
         }
     }
 }
