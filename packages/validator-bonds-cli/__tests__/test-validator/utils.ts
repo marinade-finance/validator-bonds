@@ -4,6 +4,11 @@ import { LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js'
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { Connection, Keypair, PublicKey } from '@solana/web3.js'
 
+export function dryRunOutput(outcome: RegExp | string): RegExp {
+  const source = typeof outcome === 'string' ? outcome : outcome.source
+  return new RegExp(`DRY RUN \\(nothing sent on-chain\\): .*${source}`)
+}
+
 export async function getRentPayer(provider: AnchorExtendedProvider): Promise<{
   path: string
   cleanup: () => Promise<void>

@@ -515,8 +515,7 @@ export async function loadTestingVoteAccount(
   }
 }
 
-// `--simulate`/`--print-only` runs reach the same success logging as a sent transaction,
-// so the outcome line must say upfront that the on-chain state was not touched.
+// `--simulate`/`--print-only` runs reach the same success logging as a sent transaction
 export function txOutcomeMessage(dryRun: boolean, message: string): string {
   return dryRun ? `DRY RUN (nothing sent on-chain): ${message}` : message
 }

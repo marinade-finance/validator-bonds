@@ -173,7 +173,22 @@ describe('translateKnownError → CliCommandError classification', () => {
     expect(translated.message).not.toContain('Pass a valid RPC URL')
   })
 
-  it('still translates when the wrapped cause is an RPC connectivity failure', () => {
+  it('classifies on the wrapped cause code, not on the composed message', () => {
+    const err = new CliCommandError({
+      valueName: 'bond-address',
+      value: 'unknown',
+      msg: 'Cannot load bond',
+      cause: new SolanaJSONRPCError({
+        code: -32005,
+        message: 'node is behind',
+      }),
+    })
+    const translated = translateKnownError(err, { rpcEndpoint: endpoint })
+    expect(translated).toBeInstanceOf(CliCommandError)
+    expect(translated.message).toContain('rate-limited or unhealthy')
+  })
+
+  it('keeps naming the failing operation when the cause is translated', () => {
     const err = new CliCommandError({
       valueName: 'bond-address',
       value: 'unknown',
@@ -184,6 +199,19 @@ describe('translateKnownError → CliCommandError classification', () => {
     expect(translated).toBeInstanceOf(CliCommandError)
     expect(translated.message).toContain('Cannot reach RPC')
     expect(translated.message).toContain(endpoint)
+    expect(translated.message).toContain('Failed to fetch bond account')
+  })
+
+  it('does not read a command-composed ExecutionError message as RPC evidence', () => {
+    const err = new ExecutionError({
+      msg: 'Failed to fund bond account BondPubkey with 429 from FromPubkey',
+      logs: ['Transfer: insufficient lamports 100, need 200'],
+    })
+    const translated = translateKnownError(err, {
+      txArgs: buildTxArgs(Keypair.generate().publicKey),
+    })
+    expect(translated.message).not.toContain('rate-limited')
+    expect(translated.message).toContain('does not have enough SOL')
   })
 })
 

@@ -3,6 +3,7 @@ import {
   executeTxHandleErrors,
   getCliContext,
   setProgramTelemetryFields,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { EMERGENCY_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -154,7 +155,7 @@ async function manageEmergencyPauseAndResume({
   await executeTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `'Failed to ${action} validator bonds contract config account ${address.toBase58()}`,
+    errMessage: `Failed to ${action} validator bonds contract config account ${address.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,
@@ -166,6 +167,9 @@ async function manageEmergencyPauseAndResume({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Succeeded to ${action} validator bonds config account ${address.toBase58()}`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Succeeded to ${action} validator bonds config account ${address.toBase58()}`,
+    ),
   )
 }

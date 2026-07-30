@@ -11,6 +11,8 @@ import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-
 import { waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
@@ -112,7 +114,7 @@ describe('Merge stake accounts using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully merged/,
+      stdout: dryRunOutput(/successfully merged/),
     })
     expect(
       await provider.connection.getAccountInfo(stakeAccount1),

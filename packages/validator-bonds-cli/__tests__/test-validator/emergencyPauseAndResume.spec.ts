@@ -7,6 +7,8 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair, PublicKey } from '@solana/web3.js'
@@ -117,7 +119,7 @@ describe('Pause and resume using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /Succeeded to pause/,
+      stdout: dryRunOutput(/Succeeded to pause/),
     })
     expect((await getConfig(program, config)).paused).toEqual(false)
 
@@ -136,7 +138,7 @@ describe('Pause and resume using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /Succeeded to resume/,
+      stdout: dryRunOutput(/Succeeded to resume/),
     })
     expect((await getConfig(program, config)).paused).toEqual(false)
   })

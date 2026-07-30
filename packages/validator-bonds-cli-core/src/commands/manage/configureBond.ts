@@ -256,11 +256,11 @@ export async function manageConfigureBond({
           uniformBps,
         })
       logger.info(
-        'To configure commission parameters, a commission bond configuration account will be initialized. ' +
-          `To pay rent to create the commission bond configuration account the rent payer ${pubkey(rentPayer).toBase58()} is used.`,
+        'Updating commission parameters on the existing commission bond configuration account ' +
+          `${bondProduct.toBase58()}.`,
       )
       logger.debug(
-        `Initializing commission bond product: ${bondProduct.toBase58()}`,
+        `Configuring commission bond product: ${bondProduct.toBase58()}`,
       )
       tx.add(commissionConfigureInstruction)
       computeUnitLimit += CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS

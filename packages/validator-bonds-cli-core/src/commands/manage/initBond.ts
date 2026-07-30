@@ -159,9 +159,7 @@ export async function manageInitBond({
 
   const dryRun = simulate || printOnly
   logger.info(
-    dryRun
-      ? `Dry run of bond account ${bondAccount.toBase58()} initialization, nothing is sent on-chain`
-      : `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
+    `Initializing bond account ${bondAccount.toBase58()} (finalization may take seconds)`,
   )
   logger.debug(`Commission bond account: ${bondProduct.toBase58()}`)
 

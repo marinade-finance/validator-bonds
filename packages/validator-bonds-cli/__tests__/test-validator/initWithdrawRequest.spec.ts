@@ -19,6 +19,8 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair, PublicKey } from '@solana/web3.js'
@@ -203,7 +205,7 @@ describe('Init withdraw request using CLI', () => {
       bondAccount,
       program.programId,
     )
-    const toMatch = new RegExp(
+    const toMatch = dryRunOutput(
       `${withdrawRequestAddr.toBase58()}.*successfully initialized`,
     )
     await expect([
