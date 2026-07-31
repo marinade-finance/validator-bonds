@@ -119,7 +119,7 @@ async fn docs_json_returns_openapi() {
 }
 
 #[tokio::test]
-async fn docs_html_returns_redoc_page() {
+async fn docs_html_returns_swagger_ui_page() {
     let base = spawn_test_server().await;
     let resp = client().get(format!("{base}/docs")).send().await.unwrap();
     assert_eq!(resp.status(), 200);
@@ -131,7 +131,43 @@ async fn docs_html_returns_redoc_page() {
         .unwrap()
         .to_string();
     assert!(ct.contains("text/html"), "content-type was {ct}");
-    assert!(resp.text().await.unwrap().contains("redoc"));
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("SwaggerUIBundle"),
+        "docs page is not Swagger UI"
+    );
+    assert!(!body.contains("redoc"), "docs page still references Redoc");
+    assert!(body.contains("/docs.json"), "spec URL is not wired up");
+}
+
+/// The `/docs` page pulls Swagger UI off a public CDN and is served to anyone.
+/// Each assertion below stands for a review finding on the Redoc -> Swagger UI
+/// switch, so a later edit cannot quietly undo one of them.
+#[tokio::test]
+async fn docs_html_keeps_the_swagger_ui_hardening() {
+    let base = spawn_test_server().await;
+    let resp = client().get(format!("{base}/docs")).send().await.unwrap();
+    let body = resp.text().await.unwrap();
+
+    // Subresource integrity on every CDN asset: without it a compromised or
+    // mirroring CDN can swap the bundle. A version bump that forgets to
+    // regenerate the hashes trips this too, as the counts must stay in step.
+    let assets = body.matches("cdn.jsdelivr.net").count();
+    let hashes = body.matches("integrity=\"sha384-").count();
+    let cors = body.matches("crossorigin=\"anonymous\"").count();
+    assert!(assets > 0, "no CDN assets found; update this test");
+    assert_eq!(assets, hashes, "a CDN asset is missing its SRI hash");
+    assert_eq!(assets, cors, "SRI needs crossorigin on every CDN asset");
+
+    // Read-only docs, matching the Redoc page this replaced: a live console
+    // would call production and push multi-megabyte responses through Swagger
+    // UI's syntax highlighter, which has no size guard.
+    let read_only = body.contains("supportedSubmitMethods: []");
+    assert!(read_only, "docs must not offer a live Execute console");
+
+    // Keep the spec from being shipped to public validator.swagger.io.
+    let no_validator = body.contains("validatorUrl: null");
+    assert!(no_validator, "external Swagger validator must stay off");
 }
 
 #[tokio::test]
