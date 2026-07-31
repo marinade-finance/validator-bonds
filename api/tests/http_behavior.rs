@@ -149,15 +149,20 @@ async fn docs_html_keeps_the_swagger_ui_hardening() {
     let resp = client().get(format!("{base}/docs")).send().await.unwrap();
     let body = resp.text().await.unwrap();
 
-    // Subresource integrity on every CDN asset: without it a compromised or
-    // mirroring CDN can swap the bundle. A version bump that forgets to
-    // regenerate the hashes trips this too, as the counts must stay in step.
-    let assets = body.matches("cdn.jsdelivr.net").count();
-    let hashes = body.matches("integrity=\"sha384-").count();
-    let cors = body.matches("crossorigin=\"anonymous\"").count();
-    assert!(assets > 0, "no CDN assets found; update this test");
-    assert_eq!(assets, hashes, "a CDN asset is missing its SRI hash");
-    assert_eq!(assets, cors, "SRI needs crossorigin on every CDN asset");
+    // Subresource integrity, pinned per asset: a hash is only worth anything
+    // if it is *this* asset's hash, so bumping the version without
+    // regenerating the hash has to fail here rather than in the browser.
+    let css = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui.css";
+    let css_sri = "sha384-9Q2fpS+xeS4ffJy6CagnwoUl+4ldAYhOs9pgZuEKxypVModhmZFzeMlvVsAjf7uT";
+    let js = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui-bundle.js";
+    let js_sri = "sha384-vfl/klfTFrIz5urj0HnhcXLAbzPdRHezizfy+XgFB6GqcKkhlk0lS3bIbyB39NLA";
+    assert_pinned_asset(&body, css, css_sri);
+    assert_pinned_asset(&body, js, js_sri);
+
+    // ...and nothing else: an unpinned third asset would slip past the two
+    // checks above, which only look at the assets they already know about.
+    let found = body.matches("cdn.jsdelivr.net").count();
+    assert_eq!(found, 2, "an unpinned CDN asset crept in");
 
     // Read-only docs, matching the Redoc page this replaced: a live console
     // would call production and push multi-megabyte responses through Swagger
@@ -168,6 +173,27 @@ async fn docs_html_keeps_the_swagger_ui_hardening() {
     // Keep the spec from being shipped to public validator.swagger.io.
     let no_validator = body.contains("validatorUrl: null");
     assert!(no_validator, "external Swagger validator must stay off");
+
+    // `?url=` / `?configUrl=` overrides stay off. This is already the Swagger
+    // UI default; pinning it means an asset upgrade cannot flip the policy.
+    let no_query_cfg = body.contains("queryConfigEnabled: false");
+    assert!(no_query_cfg, "URL config overrides must stay disabled");
+}
+
+/// Assert `html` loads `url` carrying exactly `sri`, on that same tag.
+///
+/// Counting `integrity=` attributes across the page would pass a stale hash,
+/// or one that belongs to a different asset — so match the tag, not the page.
+fn assert_pinned_asset(html: &str, url: &str, sri: &str) {
+    assert!(html.contains(url), "docs page dropped {url}");
+    let at = html.find(url).expect("presence checked above");
+    let start = html[..at].rfind('<').expect("tag has no start");
+    let end = at + html[at..].find('>').expect("tag has no end");
+    let tag = &html[start..=end];
+    let has_sri = tag.contains(&format!("integrity=\"{sri}\""));
+    let has_cors = tag.contains("crossorigin=\"anonymous\"");
+    assert!(has_sri, "wrong or missing SRI hash on {url}: {tag}");
+    assert!(has_cors, "missing crossorigin on {url}: {tag}");
 }
 
 #[tokio::test]

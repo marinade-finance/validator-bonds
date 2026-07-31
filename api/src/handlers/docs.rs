@@ -15,7 +15,8 @@ use log::info;
 // would otherwise call production and render multi-megabyte responses (e.g.
 // `/protected-events`) through the syntax highlighter in the visitor's browser.
 // `validatorUrl: null` keeps the spec from being shipped to the public
-// validator.swagger.io service.
+// validator.swagger.io service, and `queryConfigEnabled: false` pins the
+// current default so `?url=` cannot point the page at a foreign spec.
 const HTML: &str = r##"<!doctype html>
 <html lang="en">
 <head>
@@ -41,7 +42,8 @@ const HTML: &str = r##"<!doctype html>
         presets: [SwaggerUIBundle.presets.apis],
         layout: "BaseLayout",
         supportedSubmitMethods: [],
-        validatorUrl: null
+        validatorUrl: null,
+        queryConfigEnabled: false
       });
     };
   </script>
