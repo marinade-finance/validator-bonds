@@ -227,6 +227,8 @@ async fn prepare_funding(
         get_on_chain_bond_stake_accounts(&all_stake_accounts, &withdrawer_authority, &clock)
             .await?;
 
+    let epochs_pending_init = epochs_pending_on_chain_init(settlement_records);
+
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in settlement_records
         .iter_mut()
@@ -235,14 +237,31 @@ async fn prepare_funding(
         let epoch = settlement_record.epoch;
 
         if settlement_record.settlement_account.is_none() {
-            reporting.error().with_msg(format!(
-                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) does not exist on-chain, cannot be funded",
+            let epoch_pending_init = epochs_pending_init.contains(&epoch);
+            let message = format!(
+                "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) does not exist on-chain, cannot be funded{}",
                 settlement_record.settlement_address,
                 settlement_record.vote_account_address,
                 settlement_record.bond_address,
                 epoch,
                 reason_display(&settlement_record.reason),
-            )).with_vote(settlement_record.vote_account_address).add();
+                if epoch_pending_init {
+                    ", no Settlement of the epoch exists on-chain yet (init-settlement pending for the epoch)"
+                } else {
+                    ""
+                },
+            );
+            if epoch_pending_init {
+                reporting.warning()
+            } else {
+                reporting.error()
+            }
+            .with_msg(message)
+            .with_vote(settlement_record.vote_account_address)
+            .add();
+            if epoch_pending_init {
+                reporting.reportable.mut_ref(epoch).pending_init_count += 1;
+            }
             continue;
         }
         if epoch + config.epochs_to_claim_settlement < clock.epoch {
@@ -597,6 +616,21 @@ async fn prepare_funding(
     Ok(())
 }
 
+/// No Settlement of the epoch on-chain means init-settlement has not run yet; a single one missing from an initialized epoch is an anomaly.
+fn epochs_pending_on_chain_init(
+    settlement_records: &HashMap<u64, Vec<SettlementRecord>>,
+) -> HashSet<u64> {
+    settlement_records
+        .iter()
+        .filter(|(_, records)| {
+            records
+                .iter()
+                .all(|record| record.settlement_account.is_none())
+        })
+        .map(|(epoch, _)| *epoch)
+        .collect()
+}
+
 fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
     match &settlement_record.funder {
         SettlementFunderType::Marinade(data) => {
@@ -894,6 +928,7 @@ struct FundSettlementReport {
     funded_settlements: HashMap<Pubkey, (SettlementRecord, u64)>,
     already_funded_settlements: HashMap<Pubkey, (SettlementRecord, u64)>,
     not_funded_by_validator_bond_count: u64,
+    pending_init_count: u64,
 }
 
 impl FundSettlementReport {
@@ -1012,6 +1047,7 @@ struct EpochFundingSummary {
     total_settlements: u64,
     funded_amount_sol: f64,
     total_amount_sol: f64,
+    settlements_pending_init: u64,
     reasons: Vec<ReasonFundingSummary>,
 }
 
@@ -1064,6 +1100,12 @@ impl PrintReportable for FundSettlementsReport {
                     report.push(format!(
                         "    Number of Settlements not funded because of non-existing Bond: {}",
                         funded_data.not_funded_by_validator_bond_count
+                    ));
+                }
+                if funded_data.pending_init_count > 0 {
+                    report.push(format!(
+                        "    Number of Settlements not funded because not yet created on-chain (init-settlement pending): {}",
+                        funded_data.pending_init_count
                     ));
                 }
             }
@@ -1177,6 +1219,7 @@ impl ReportSerializable for FundSettlementsReport {
                         total_settlements: json_loaded.settlements_count,
                         funded_amount_sol: lamports_to_sol(funded_amount),
                         total_amount_sol: lamports_to_sol(json_loaded.settlements_max_claim_sum),
+                        settlements_pending_init: funded_data.pending_init_count,
                         reasons,
                     }
                 })
@@ -1195,9 +1238,73 @@ mod tests {
     use super::*;
     use solana_sdk::stake::stake_flags::StakeFlags;
     use solana_sdk::stake::state::{Delegation, Meta, Stake};
+    use validator_bonds::state::settlement::Settlement;
 
     const SOL: u64 = 1_000_000_000;
     const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+
+    fn on_chain_settlement() -> Settlement {
+        Settlement {
+            bond: Pubkey::default(),
+            staker_authority: Pubkey::default(),
+            merkle_root: [0u8; 32],
+            max_total_claim: SOL,
+            max_merkle_nodes: 1,
+            lamports_funded: 0,
+            lamports_claimed: 0,
+            merkle_nodes_claimed: 0,
+            epoch_created_for: 0,
+            slot_created_at: 0,
+            rent_collector: Pubkey::default(),
+            split_rent_collector: None,
+            split_rent_amount: 0,
+            bumps: Default::default(),
+            reserved: [0u8; 90],
+        }
+    }
+
+    fn settlement_record(epoch: u64, exists_on_chain: bool) -> SettlementRecord {
+        SettlementRecord {
+            epoch,
+            vote_account_address: Pubkey::new_unique(),
+            bond_address: Pubkey::new_unique(),
+            bond_account: None,
+            settlement_address: Pubkey::new_unique(),
+            settlement_account: exists_on_chain.then(on_chain_settlement),
+            settlement_staker_authority: Pubkey::new_unique(),
+            merkle_root: [0u8; 32],
+            tree_nodes: vec![],
+            max_total_claim_sum: SOL,
+            max_total_claim: 1,
+            funder: SettlementFunderType::ValidatorBond(vec![]),
+            reason: None,
+            funding_sources: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn epoch_with_no_settlement_on_chain_is_pending_init() {
+        let records = HashMap::from([
+            (1009, vec![settlement_record(1009, false); 2]),
+            (1008, vec![settlement_record(1008, true)]),
+        ]);
+        assert_eq!(
+            epochs_pending_on_chain_init(&records),
+            HashSet::from([1009])
+        );
+    }
+
+    #[test]
+    fn partially_initialized_epoch_is_not_pending_init() {
+        let records = HashMap::from([(
+            1009,
+            vec![
+                settlement_record(1009, true),
+                settlement_record(1009, false),
+            ],
+        )]);
+        assert!(epochs_pending_on_chain_init(&records).is_empty());
+    }
 
     fn stake_account(lamports: u64, delegation_stake: u64) -> FundBondStakeAccount {
         FundBondStakeAccount {
