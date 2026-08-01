@@ -119,7 +119,7 @@ async fn docs_json_returns_openapi() {
 }
 
 #[tokio::test]
-async fn docs_html_returns_redoc_page() {
+async fn docs_html_returns_swagger_ui_page() {
     let base = spawn_test_server().await;
     let resp = client().get(format!("{base}/docs")).send().await.unwrap();
     assert_eq!(resp.status(), 200);
@@ -131,7 +131,69 @@ async fn docs_html_returns_redoc_page() {
         .unwrap()
         .to_string();
     assert!(ct.contains("text/html"), "content-type was {ct}");
-    assert!(resp.text().await.unwrap().contains("redoc"));
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("SwaggerUIBundle"),
+        "docs page is not Swagger UI"
+    );
+    assert!(!body.contains("redoc"), "docs page still references Redoc");
+    assert!(body.contains("/docs.json"), "spec URL is not wired up");
+}
+
+/// The `/docs` page pulls Swagger UI off a public CDN and is served to anyone.
+/// Each assertion below stands for a review finding on the Redoc -> Swagger UI
+/// switch, so a later edit cannot quietly undo one of them.
+#[tokio::test]
+async fn docs_html_keeps_the_swagger_ui_hardening() {
+    let base = spawn_test_server().await;
+    let resp = client().get(format!("{base}/docs")).send().await.unwrap();
+    let body = resp.text().await.unwrap();
+
+    // Subresource integrity, pinned per asset: a hash is only worth anything
+    // if it is *this* asset's hash, so bumping the version without
+    // regenerating the hash has to fail here rather than in the browser.
+    let css = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui.css";
+    let css_sri = "sha384-9Q2fpS+xeS4ffJy6CagnwoUl+4ldAYhOs9pgZuEKxypVModhmZFzeMlvVsAjf7uT";
+    let js = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui-bundle.js";
+    let js_sri = "sha384-vfl/klfTFrIz5urj0HnhcXLAbzPdRHezizfy+XgFB6GqcKkhlk0lS3bIbyB39NLA";
+    assert_pinned_asset(&body, css, css_sri);
+    assert_pinned_asset(&body, js, js_sri);
+
+    // ...and nothing else: an unpinned third asset would slip past the two
+    // checks above, which only look at the assets they already know about.
+    let found = body.matches("cdn.jsdelivr.net").count();
+    assert_eq!(found, 2, "an unpinned CDN asset crept in");
+
+    // Read-only docs, matching the Redoc page this replaced: a live console
+    // would call production and push multi-megabyte responses through Swagger
+    // UI's syntax highlighter, which has no size guard.
+    let read_only = body.contains("supportedSubmitMethods: []");
+    assert!(read_only, "docs must not offer a live Execute console");
+
+    // Keep the spec from being shipped to public validator.swagger.io.
+    let no_validator = body.contains("validatorUrl: null");
+    assert!(no_validator, "external Swagger validator must stay off");
+
+    // `?url=` / `?configUrl=` overrides stay off. This is already the Swagger
+    // UI default; pinning it means an asset upgrade cannot flip the policy.
+    let no_query_cfg = body.contains("queryConfigEnabled: false");
+    assert!(no_query_cfg, "URL config overrides must stay disabled");
+}
+
+/// Assert `html` loads `url` carrying exactly `sri`, on that same tag.
+///
+/// Counting `integrity=` attributes across the page would pass a stale hash,
+/// or one that belongs to a different asset — so match the tag, not the page.
+fn assert_pinned_asset(html: &str, url: &str, sri: &str) {
+    assert!(html.contains(url), "docs page dropped {url}");
+    let at = html.find(url).expect("presence checked above");
+    let start = html[..at].rfind('<').expect("tag has no start");
+    let end = at + html[at..].find('>').expect("tag has no end");
+    let tag = &html[start..=end];
+    let has_sri = tag.contains(&format!("integrity=\"{sri}\""));
+    let has_cors = tag.contains("crossorigin=\"anonymous\"");
+    assert!(has_sri, "wrong or missing SRI hash on {url}: {tag}");
+    assert!(has_cors, "missing crossorigin on {url}: {tag}");
 }
 
 #[tokio::test]
