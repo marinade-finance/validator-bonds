@@ -1,7 +1,7 @@
 use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
 use crate::{
     dto::ProtectedEventRecord,
-    handlers::{bonds, docs, protected_events, verified_validators},
+    handlers::{bonds, docs, protected_events, psr_protected_validators, verified_validators},
 };
 use settlement_common::{
     protected_events::ProtectedEvent,
@@ -34,8 +34,9 @@ use utoipa::{
         schemas(bonds::AuctionContextResponse),
         schemas(protected_events::ProtectedEventsResponse),
         schemas(verified_validators::VerifiedValidatorsResponse),
+        schemas(psr_protected_validators::PsrProtectedValidatorsResponse),
     ),
-    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, verified_validators::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, verified_validators::handler, psr_protected_validators::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;
