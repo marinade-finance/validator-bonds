@@ -4258,6 +4258,7 @@ fn make_bid_settlement_for(
             marinade_fee_claim: fee,
             dao_fee_claim: 0,
         }))),
+        product: None,
     }
 }
 
@@ -4280,6 +4281,7 @@ fn make_priority_fee_settlement(vote_account: Pubkey, fee: u64) -> Settlement {
                 dao_fee_claim: 0,
             },
         )),
+        product: None,
     }
 }
 
@@ -4319,6 +4321,7 @@ fn test_calculate_bid_settlement_totals_skips_non_bidding() {
                 marinade_bid_too_low_penalty_claim: 50,
             },
         )),
+        product: None,
     };
     let totals = calculate_bid_settlement_totals(&[other]);
     assert!(totals.stake.is_zero());
@@ -4507,6 +4510,7 @@ fn test_calculate_total_penalties_uses_claims_amount() {
                 stakers_blacklist_penalty_claim: 500,
             },
         )),
+        product: None,
     };
     let bid_too_low = Settlement {
         reason: SettlementReason::BidTooLowPenalty,
@@ -4527,6 +4531,7 @@ fn test_calculate_total_penalties_uses_claims_amount() {
                 marinade_bid_too_low_penalty_claim: 300,
             },
         )),
+        product: None,
     };
     let total = calculate_total_penalties(&[blacklist, bid_too_low]);
     assert_eq!(total, Decimal::from(9_999 + 9_999));
