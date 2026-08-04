@@ -3,7 +3,7 @@ use crate::settlement_data::{
 };
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::{anyhow, format_err};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
 use settlement_common::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
@@ -293,8 +293,9 @@ pub async fn load_json_with_on_chain(
 
 /// Load merkle tree collection files (no pairing needed).
 /// Each file is a standalone MerkleTreeCollection JSON.
-/// When `config_override` is provided it is always used as the collection's config.
-/// A warning is printed if the file contained a different non-default config.
+/// A `config_override` that contradicts the file is rejected: `init-settlement` passes `--epoch`,
+/// which skips the derived-vs-precomputed check, so accepting the override would silently create
+/// and fund settlements under the wrong bond.
 pub fn load_merkle_tree_collections(
     files: &[PathBuf],
     config_override: Option<Pubkey>,
@@ -312,11 +313,11 @@ pub fn load_merkle_tree_collections(
             if collection.validator_bonds_config != Pubkey::default()
                 && collection.validator_bonds_config != config
             {
-                warn!(
-                    "Merkle tree collection epoch {} has config {} that differs from CLI override {config}, using override",
+                return Err(anyhow!(
+                    "Merkle tree collection {path:?} (epoch {}) was generated for config {} but {config} was requested; refusing to derive bonds from the wrong config",
                     collection.epoch,
                     collection.validator_bonds_config,
-                );
+                ));
             }
             collection.validator_bonds_config = config;
         }
@@ -411,5 +412,68 @@ fn check_is_file(path: &PathBuf) -> bool {
     } else {
         debug!("Skipping path: {path:?} as not a file");
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    const BIDDING_CONFIG: &str = "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU";
+    const INSTITUTIONAL_CONFIG: &str = "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE";
+
+    fn write_collection(name: &str, config: Option<&str>) -> PathBuf {
+        let config_entry = config
+            .map(|c| format!(r#""validator_bonds_config": "{c}","#))
+            .unwrap_or_default();
+        let path = std::env::temp_dir().join(format!("{name}-{}.json", std::process::id()));
+        std::fs::write(
+            &path,
+            format!(r#"{{"epoch": 980, "slot": 423791999, {config_entry} "merkle_trees": []}}"#),
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn config_override_contradicting_the_file_is_rejected() {
+        let path = write_collection("contradicting", Some(INSTITUTIONAL_CONFIG));
+        let result = load_merkle_tree_collections(
+            &[path.clone()],
+            Some(Pubkey::from_str(BIDDING_CONFIG).unwrap()),
+        );
+        std::fs::remove_file(&path).ok();
+
+        let error = match result {
+            Ok(_) => panic!("a mismatching --config must not be silently applied"),
+            Err(error) => error.to_string(),
+        };
+        assert!(
+            error.contains("refusing to derive bonds from the wrong config"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn config_override_fills_in_a_missing_config() {
+        let path = write_collection("missing-config", None);
+        let bidding = Pubkey::from_str(BIDDING_CONFIG).unwrap();
+        let result = load_merkle_tree_collections(&[path.clone()], Some(bidding));
+        std::fs::remove_file(&path).ok();
+
+        let collections = result.expect("a defaulted config is filled in by the override");
+        assert_eq!(collections[0].validator_bonds_config, bidding);
+    }
+
+    #[test]
+    fn config_override_matching_the_file_is_accepted() {
+        let path = write_collection("matching", Some(INSTITUTIONAL_CONFIG));
+        let institutional = Pubkey::from_str(INSTITUTIONAL_CONFIG).unwrap();
+        let result = load_merkle_tree_collections(&[path.clone()], Some(institutional));
+        std::fs::remove_file(&path).ok();
+
+        let collections = result.expect("the existing institutional runs must keep working");
+        assert_eq!(collections[0].validator_bonds_config, institutional);
     }
 }

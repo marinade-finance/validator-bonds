@@ -268,6 +268,7 @@ mod tests {
             claims_amount,
             claims,
             details: None,
+            product: None,
         }
     }
 
