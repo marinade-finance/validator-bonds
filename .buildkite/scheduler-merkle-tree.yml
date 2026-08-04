@@ -3,7 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  SETTLEMENTS_FILES: "bid-distribution-settlements.json" # comma separated
+  SETTLEMENTS_FILES: "bid-distribution-settlements.json,unified-direct-staking-settlements.json" # comma separated
   VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 
 steps:

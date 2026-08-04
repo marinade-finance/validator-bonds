@@ -43,6 +43,10 @@ steps:
         gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-settlements.json" "./bid-distribution-settlements.json" || true
       fi
       # Future: add institutional settlement sources when available
+    - |
+      # deliberately outside the claim_type gate above: the direct-staking split contributes leaves
+      # to the unified tree on every run, so it must be cross-validated regardless of claim type
+      gcloud storage cp "$gs_bucket/$$epoch/unified-direct-staking-settlements.json" "./unified-direct-staking-settlements.json" || true
     artifact_paths:
       - "./unified-merkle-trees.json"
       - "./*-settlements.json"
