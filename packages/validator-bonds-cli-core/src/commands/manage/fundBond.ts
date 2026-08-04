@@ -26,6 +26,7 @@ import {
   executeTxHandleErrors,
   getBondFromAddress,
   isExpectedAnchorTransactionError,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -142,8 +143,11 @@ export async function manageFundBond({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with stake account ${stakeAccount.toBase58()}`,
+      txOutcomeMessage(
+        simulate || printOnly,
+        `Bond account ${bondAccount.toBase58()} successfully funded ` +
+          `with stake account ${stakeAccount.toBase58()}`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedFundingError({

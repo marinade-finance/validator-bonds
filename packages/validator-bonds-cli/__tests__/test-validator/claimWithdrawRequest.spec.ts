@@ -30,6 +30,8 @@ import {
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair, PublicKey } from '@solana/web3.js'
@@ -336,7 +338,7 @@ describe('Claim withdraw request using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully claimed/,
+      stdout: dryRunOutput(/successfully claimed/),
     })
   })
 })

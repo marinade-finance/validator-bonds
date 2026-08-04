@@ -25,6 +25,7 @@ import {
   getBondFromAddress,
   getWithdrawRequestFromAddress,
   splitAndExecuteTxHandleErrors,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -173,6 +174,7 @@ export async function manageClaimWithdrawRequest({
       withdrawRequestAccount,
       splitStakeAccount,
       voteAccount: voteAcc,
+      bondAccount: bondAcc,
     } = await claimWithdrawRequestInstruction({
       program,
       withdrawRequestAccount: withdrawRequestAddress,
@@ -190,6 +192,7 @@ export async function manageClaimWithdrawRequest({
     instructionsToProcess = [instruction]
     stakeAccountsToWithdraw = [stakeAccount]
     voteAccount = voteAccount ?? voteAcc
+    bondAccount = bondAcc
   } else {
     // default behaviour to search stake account from bond account and merge beforehand
     const {
@@ -199,6 +202,7 @@ export async function manageClaimWithdrawRequest({
       withdrawRequestAccount,
       amountToWithdraw,
       voteAccount: voteAcc,
+      bondAccount: bondAcc,
     } = await orchestrateWithdrawDeposit({
       program,
       withdrawRequestAccount: withdrawRequestAddress,
@@ -215,9 +219,10 @@ export async function manageClaimWithdrawRequest({
     instructionsToProcess = instructions
     stakeAccountsToWithdraw = withdrawStakeAccounts
     voteAccount = voteAccount ?? voteAcc
+    bondAccount = bondAcc
     if (amountToWithdraw <= new BN(0)) {
       logger.info(
-        `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount?.toBase58()}` +
+        `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount.toBase58()}` +
           'has been fully withdrawn, with nothing left to claim.\n' +
           'If you want to withdraw more funds, please cancel the current request and create a new one.',
       )
@@ -244,7 +249,7 @@ export async function manageClaimWithdrawRequest({
 
   logger.info(
     `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} with stake accounts: [` +
+      `for bond account ${bondAccount.toBase58()} with stake accounts: [` +
       `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`,
   )
   await splitAndExecuteTxHandleErrors({
@@ -262,7 +267,10 @@ export async function manageClaimWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully claimed`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
+        `for bond account ${bondAccount.toBase58()} successfully claimed`,
+    ),
   )
 }

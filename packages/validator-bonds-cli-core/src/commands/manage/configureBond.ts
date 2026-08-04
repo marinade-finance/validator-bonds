@@ -29,7 +29,11 @@ import {
   INIT_BOND_CONFIG_COMMISSION_LIMIT_UNITS,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
+import {
+  executeTxHandleErrors,
+  getBondFromAddress,
+  txOutcomeMessage,
+} from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type {
@@ -252,11 +256,11 @@ export async function manageConfigureBond({
           uniformBps,
         })
       logger.info(
-        'To configure commission parameters, a commission bond configuration account will be initialized. ' +
-          `To pay rent to create the commission bond configuration account the rent payer ${pubkey(rentPayer).toBase58()} is used.`,
+        'Updating commission parameters on the existing commission bond configuration account ' +
+          `${bondProduct.toBase58()}.`,
       )
       logger.debug(
-        `Initializing commission bond product: ${bondProduct.toBase58()}`,
+        `Configuring commission bond product: ${bondProduct.toBase58()}`,
       )
       tx.add(commissionConfigureInstruction)
       computeUnitLimit += CONFIGURE_BOND_CONFIG_COMMISSION_LIMIT_UNITS
@@ -285,7 +289,12 @@ export async function manageConfigureBond({
     confirmWaitTime,
     sendOpts: { skipPreflight },
   })
-  logger.info(`Bond account ${bondAccount.toBase58()} successfully configured`)
+  logger.info(
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Bond account ${bondAccount.toBase58()} successfully configured`,
+    ),
+  )
 
   await printBondTipBannerFromContext({
     voteAccount: bondAccountData.account.data.voteAccount,

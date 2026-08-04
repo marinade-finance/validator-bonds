@@ -11,7 +11,7 @@ import {
   Transaction,
 } from '@solana/web3.js'
 
-import { airdrop } from './utils'
+import { airdrop, dryRunOutput } from './utils'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -170,7 +170,7 @@ describe('Init config account using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully created/,
+      stdout: dryRunOutput(/successfully created/),
     })
     expect(
       await provider.connection.getAccountInfo(configKeypair.publicKey),

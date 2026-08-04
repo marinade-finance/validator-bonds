@@ -30,7 +30,7 @@ import {
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
 
-import { airdrop } from './utils'
+import { airdrop, dryRunOutput } from './utils'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -477,7 +477,7 @@ describe('Configure bond account using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully configured/,
+      stdout: dryRunOutput(/successfully configured/),
     })
 
     expect((await getBond(program, bondAccount)).authority).toEqual(

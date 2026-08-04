@@ -33,6 +33,7 @@ import {
   executeTxHandleErrors,
   formatToSol,
   getBondFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -195,8 +196,11 @@ export async function manageFundBondWithSol({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with amount ${amount} from ${from.toBase58()}`,
+      txOutcomeMessage(
+        simulate || printOnly,
+        `Bond account ${bondAccount.toBase58()} successfully funded ` +
+          `with amount ${amount} from ${from.toBase58()}`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedFundingError({

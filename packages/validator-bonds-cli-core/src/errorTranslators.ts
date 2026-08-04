@@ -48,8 +48,10 @@ function resolveFeePayer(args: ExecuteTxParams): PublicKey | undefined {
 }
 
 function getRpcErrorCode(err: unknown): number | undefined {
-  if (err instanceof SolanaJSONRPCError && typeof err.code === 'number') {
-    return err.code
+  for (const e of getCauseChain(err)) {
+    if (e instanceof SolanaJSONRPCError && typeof e.code === 'number') {
+      return e.code
+    }
   }
   return undefined
 }
@@ -66,13 +68,22 @@ function getCauseChain(err: unknown): unknown[] {
   return chain
 }
 
+// command-composed messages are not evidence about what failed; the wrapped cause is
+function evidenceMessage(err: unknown): string {
+  const evidence =
+    err instanceof CliCommandError || err instanceof ExecutionError
+      ? err.cause
+      : err
+  return evidence instanceof Error ? evidence.message : ''
+}
+
 // Exported solely for unit tests (`__tests__/translators.spec.ts`). Not part of
 // the cli-core public API; treat as internal.
 export const translateRpcConnectivityError: Translator = (err, ctx) => {
   const endpoint = ctx.rpcEndpoint ?? 'the configured RPC endpoint'
 
   const code = getRpcErrorCode(err)
-  const message = err instanceof Error ? err.message : ''
+  const message = evidenceMessage(err)
   if (code === -32601 || /method not found/i.test(message)) {
     return new CliCommandError({
       valueName: '--url',
@@ -135,7 +146,7 @@ export const translateRpcConnectivityError: Translator = (err, ctx) => {
 export const translateRpcRateLimitError: Translator = (err, ctx) => {
   const endpoint = ctx.rpcEndpoint ?? 'the configured RPC endpoint'
   const code = getRpcErrorCode(err)
-  const message = err instanceof Error ? err.message : ''
+  const message = evidenceMessage(err)
   if (code === -32005 || code === -32429 || /\b429\b/.test(message)) {
     return new CliCommandError({
       valueName: '--url',

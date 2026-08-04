@@ -18,6 +18,8 @@ import {
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair, PublicKey } from '@solana/web3.js'
@@ -214,7 +216,7 @@ describe('Fund bond account using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully funded/,
+      stdout: dryRunOutput(/successfully funded/),
     })
 
     const stakeAccountData = await getStakeAccount(provider, stakeAccount)
