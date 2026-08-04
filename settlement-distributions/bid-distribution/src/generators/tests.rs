@@ -3110,6 +3110,357 @@ fn test_settlement_config_yaml_deserialization() {
     );
 }
 
+// ===== Direct-staking PSR profile (settlement-config-direct-staking.yaml) =====
+
+const PSR_STAKE_AUTHORITY: &str = "psrStL2hNx4c7hLUUks8SmDngeYriB8pF7uyHFhM8ir";
+const PSR_EXIT_AUTHORITY: &str = "ExPsrC88dVCUozsuHFXYYpVGytsvwB9vWhwicuaFiypb";
+
+fn psr_stake_authority() -> Pubkey {
+    Pubkey::from_str(PSR_STAKE_AUTHORITY).unwrap()
+}
+
+fn psr_exit_authority() -> Pubkey {
+    Pubkey::from_str(PSR_EXIT_AUTHORITY).unwrap()
+}
+
+fn read_bid_distribution_config(path: &str) -> crate::settlement_config::BidDistributionConfig {
+    let yaml_content =
+        std::fs::read_to_string(path).unwrap_or_else(|e| panic!("{path} should exist: {e}"));
+    serde_yaml::from_str(&yaml_content)
+        .unwrap_or_else(|e| panic!("{path} should deserialize to BidDistributionConfig: {e}"))
+}
+
+fn direct_staking_config() -> crate::settlement_config::BidDistributionConfig {
+    read_bid_distribution_config("../../settlement-config-direct-staking.yaml")
+}
+
+fn downtime_event(vote_account: Pubkey, stake: u64) -> ProtectedEvent {
+    ProtectedEvent::DowntimeRevenueImpact {
+        vote_account,
+        actual_credits: 0,
+        expected_credits: 10000,
+        expected_epr: Decimal::from_str("0.001").unwrap(),
+        actual_epr: Decimal::ZERO,
+        epr_loss_bps: 10000,
+        stake,
+    }
+}
+
+#[test]
+fn test_direct_staking_config_yaml_deserialization() {
+    let config = direct_staking_config();
+    config
+        .fee_config
+        .validate()
+        .expect("fee config should be valid");
+
+    // PSR-only: with no SAM config the CLI skips the SAM branch and rejects SAM inputs
+    assert!(config.bidding_config().is_none(), "must have no Bidding");
+    assert!(
+        config.bid_too_low_penalty_config().is_none(),
+        "must have no BidTooLowPenalty"
+    );
+    assert!(
+        config.blacklist_penalty_config().is_none(),
+        "must have no BlacklistPenalty"
+    );
+    assert!(
+        config.bond_risk_fee_config().is_none(),
+        "must have no BondRiskFee"
+    );
+    assert!(
+        config.settlements.iter().all(|c| c.is_psr_settlement()),
+        "every settlement entry must be a PSR one"
+    );
+
+    // both absent => no apy-api call and no SOL-revenue bisection on this profile
+    assert!(config.fee_config.min_yield_premium_over_ssr_pmpe.is_none());
+    assert!(config.fee_config.min_sol_revenue.is_none());
+
+    let whitelist = config
+        .whitelist_stake_authorities
+        .clone()
+        .expect("whitelist must be present: None means allow-all");
+    assert_eq!(
+        whitelist,
+        vec![psr_stake_authority(), psr_exit_authority()],
+        "only the direct-staking authorities are covered"
+    );
+    assert!(
+        config.exiting_stake_authorities.is_none(),
+        "exiting_stake_authorities is a bidding-only concept"
+    );
+
+    let psr_configs = config.psr_settlements();
+    assert_eq!(
+        psr_configs.len(),
+        1,
+        "downtime-only coverage is a single entry"
+    );
+    assert_eq!(
+        psr_configs[0].meta.funder,
+        SettlementFunder::ValidatorBond,
+        "the validator funds all of it, there is no Marinade band"
+    );
+    match psr_configs[0].kind {
+        PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports,
+            grace_downtime_bps,
+            covered_range_bps,
+        } => {
+            assert_eq!(min_settlement_lamports, 10_000_000);
+            assert_eq!(grace_downtime_bps, Some(100));
+            assert_eq!(covered_range_bps, [0, 10_000]);
+        }
+        ref other => panic!("expected a downtime-only settlement config, got {other:?}"),
+    }
+}
+
+#[test]
+fn test_direct_staking_psr_downtime_full_band_paid_to_withdrawer() {
+    let epoch = 100;
+    let slot = 1000;
+    let vote_account = test_vote_account(1);
+    let user_withdrawer = test_withdraw_authority(1);
+    let stake_lamports = 100 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                user_withdrawer,
+                psr_stake_authority(),
+                stake_lamports,
+            ),
+            create_stake_meta(
+                test_stake_account(2),
+                vote_account,
+                test_withdraw_authority(2),
+                test_stake_authority(2),
+                stake_lamports,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let protected_event_collection = ProtectedEventCollection {
+        epoch,
+        slot,
+        events: vec![downtime_event(vote_account, 2 * stake_lamports)],
+    };
+
+    let config = direct_staking_config();
+    let filter = config.whitelist_stake_authorities_filter();
+    let settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &*filter,
+        &config.psr_settlements(),
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
+    let settlement = &settlements[0];
+    assert_eq!(settlement.vote_account, vote_account);
+    assert_eq!(settlement.funder, SettlementFunder::ValidatorBond);
+    assert!(
+        matches!(settlement.reason, SettlementReason::ProtectedEvent(_)),
+        "Settlement reason should be ProtectedEvent"
+    );
+    assert_eq!(
+        settlement.claims.len(),
+        1,
+        "only the direct-staking authority is covered, the other staker is not"
+    );
+    let claim = &settlement.claims[0];
+    assert_eq!(claim.stake_authority, psr_stake_authority());
+    assert_eq!(
+        claim.withdraw_authority, user_withdrawer,
+        "the user is the beneficiary"
+    );
+    // full [0, 10000] band over a 100 % loss: 100_000_000_000 * 0.001
+    assert_eq!(claim.claim_amount, 100_000_000);
+    assert_eq!(settlement.claims_amount, 100_000_000);
+    assert!(
+        !settlement
+            .claims
+            .iter()
+            .any(|c| matches!(c.detail, ClaimDetail::Marker)),
+        "no Marinade funder means no marker claim"
+    );
+
+    let half_band = PsrSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            min_settlement_lamports: 10_000_000,
+            grace_downtime_bps: Some(100),
+            covered_range_bps: [0, 5000],
+        },
+    };
+    let half_band_settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &*filter,
+        &[half_band],
+    )
+    .unwrap();
+    assert_eq!(
+        half_band_settlements[0].claims_amount, 50_000_000,
+        "production's [0, 5000] validator band pays half of the same loss"
+    );
+}
+
+#[test]
+fn test_direct_staking_config_ignores_commission_increase() {
+    let epoch = 100;
+    let slot = 1000;
+    let vote_account = test_vote_account(1);
+    // large enough that the production commission floor cannot be what drops the settlement
+    let stake_lamports = 1000 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            test_withdraw_authority(1),
+            psr_stake_authority(),
+            stake_lamports,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let protected_event_collection = ProtectedEventCollection {
+        epoch,
+        slot,
+        events: vec![ProtectedEvent::CommissionSamIncrease {
+            vote_account,
+            expected_inflation_commission: Decimal::from_str("0.05").unwrap(),
+            actual_inflation_commission: Decimal::from_str("0.05").unwrap(),
+            past_inflation_commission: Decimal::from_str("0.03").unwrap(),
+            expected_mev_commission: Some(Decimal::from_str("0.05").unwrap()),
+            actual_mev_commission: Some(Decimal::from_str("0.05").unwrap()),
+            past_mev_commission: Some(Decimal::from_str("0.03").unwrap()),
+            before_sam_commission_increase_pmpe: Decimal::ZERO,
+            expected_epr: Decimal::from_str("0.001").unwrap(),
+            actual_epr: Decimal::from_str("0.0008").unwrap(),
+            epr_loss_bps: 2000,
+            stake: stake_lamports,
+        }],
+    };
+
+    let config = direct_staking_config();
+    let filter = config.whitelist_stake_authorities_filter();
+    let settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &*filter,
+        &config.psr_settlements(),
+    )
+    .unwrap();
+
+    assert!(
+        settlements.is_empty(),
+        "the staker passes the whitelist, so only the missing commission config can drop this event"
+    );
+
+    // accept_all isolates the difference to the config set, not the whitelist
+    let production_config = read_bid_distribution_config("../../settlement-config.yaml");
+    let production_settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &accept_all,
+        &production_config.psr_settlements(),
+    )
+    .unwrap();
+    assert_eq!(
+        production_settlements.len(),
+        1,
+        "the same event is still covered by the production config"
+    );
+}
+
+#[test]
+fn test_direct_staking_exit_authority_is_covered() {
+    let epoch = 100;
+    let slot = 1000;
+    let vote_account = test_vote_account(1);
+    let staked_lamports = 100 * LAMPORTS_PER_SOL;
+    let exiting_lamports = 50 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot,
+        stake_metas: vec![
+            create_stake_meta(
+                test_stake_account(1),
+                vote_account,
+                test_withdraw_authority(1),
+                psr_stake_authority(),
+                staked_lamports,
+            ),
+            create_stake_meta(
+                test_stake_account(2),
+                vote_account,
+                test_withdraw_authority(2),
+                psr_exit_authority(),
+                exiting_lamports,
+            ),
+        ],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let protected_event_collection = ProtectedEventCollection {
+        epoch,
+        slot,
+        events: vec![downtime_event(
+            vote_account,
+            staked_lamports + exiting_lamports,
+        )],
+    };
+
+    let config = direct_staking_config();
+    let filter = config.whitelist_stake_authorities_filter();
+    let settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &*filter,
+        &config.psr_settlements(),
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
+    let settlement = &settlements[0];
+    assert_eq!(
+        settlement.claims.len(),
+        2,
+        "staking and exiting authorities are both covered"
+    );
+    assert_eq!(
+        sum_claims_for_authority(
+            &settlements,
+            &psr_stake_authority(),
+            &test_withdraw_authority(1)
+        ),
+        100_000_000
+    );
+    assert_eq!(
+        sum_claims_for_authority(
+            &settlements,
+            &psr_exit_authority(),
+            &test_withdraw_authority(2)
+        ),
+        50_000_000
+    );
+    assert_eq!(settlement.claims_amount, 150_000_000);
+}
+
 // ===== SSI/SSR fee cap tests =====
 // Setup: 1000 SOL Marinade-only active stake, total_pmpe=20 (fallback path, no AuctionValidatorValues)
 // → staker_yield_pmpe = 20, static_bid_claim = 20 SOL = settlement_claim.sum()
