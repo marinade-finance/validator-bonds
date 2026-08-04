@@ -1,6 +1,7 @@
 import {
   compareVersions,
   fetchLatestVersionInNpmRegistry,
+  requireLatestCliVersion,
 } from '../src/npmRegistry'
 
 import type { Logger } from 'pino'
@@ -339,6 +340,35 @@ describe('fetchLatestVersionInNpmRegistry', () => {
     expect(mockLogger.debug).toHaveBeenCalledTimes(1)
     expect(mockLogger.debug).toHaveBeenCalledWith(
       'NPM registry fetch timed out after 1000ms',
+    )
+  })
+})
+
+describe('requireLatestCliVersion', () => {
+  const originalFetch = global.fetch
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    jest.clearAllMocks()
+  })
+
+  it('recommends the exact version it compared against, not @latest', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({
+        name: '@marinade.finance/validator-bonds-cli',
+        versions: { '2.4.0': {}, '2.5.0': {} },
+      }),
+    }) as unknown as typeof fetch
+
+    await expect(
+      requireLatestCliVersion(
+        mockLogger,
+        'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+        '2.4.0',
+      ),
+    ).rejects.toThrow(
+      'npm install -g @marinade.finance/validator-bonds-cli@2.5.0',
     )
   })
 })

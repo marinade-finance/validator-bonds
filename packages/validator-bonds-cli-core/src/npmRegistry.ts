@@ -101,10 +101,11 @@ export async function requireLatestCliVersion(
 ): Promise<void> {
   const npmData = await fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
   if (compareVersions(currentVersion, npmData.version) < 0) {
+    // @latest resolves through the dist-tag, which can lag the version this gate compares against
     throw new Error(
       `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
         '  Please update before proceeding:\n' +
-        `  npm install -g ${npmData.name}@latest`,
+        `  npm install -g ${npmData.name}@${npmData.version}`,
     )
   }
 }
