@@ -36,6 +36,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementV2Args;
@@ -47,6 +48,9 @@ use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
+use validator_bonds_common::constants::{
+    DIRECT_STAKING_EXIT_STAKE_AUTHORITY, DIRECT_STAKING_STAKE_AUTHORITY,
+};
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
 use validator_bonds_common::settlements::{
     get_settlement_claims_for_settlement_pubkeys, get_settlements_for_pubkeys,
@@ -438,9 +442,11 @@ async fn claim_settlement<'a>(
             stake_account_to
         } else {
             // stake accounts for these authorities were not found in this or some prior run (error was already reported)
-            reporting
-                .reportable
-                .update_no_account_to(settlement_json_data, tree_node.claim);
+            reporting.reportable.update_no_account_to(
+                settlement_json_data,
+                tree_node.claim,
+                &tree_node.stake_authority,
+            );
             continue;
         };
 
@@ -573,6 +579,18 @@ impl AlreadyClaimed {
     }
 }
 
+fn is_direct_staking_authority(stake_authority: &Pubkey) -> bool {
+    [
+        DIRECT_STAKING_STAKE_AUTHORITY,
+        DIRECT_STAKING_EXIT_STAKE_AUTHORITY,
+    ]
+    .iter()
+    .any(|authority| {
+        Pubkey::from_str(authority).expect("hardcoded direct staking authority is a valid pubkey")
+            == *stake_authority
+    })
+}
+
 #[derive(Default)]
 struct ClaimSettlementReport {
     json_loaded_settlements: HashSet<SettlementRecord>,
@@ -581,6 +599,9 @@ struct ClaimSettlementReport {
     // reason why claiming was not possible with amounts
     settlements_claimable_no_account_to: HashMap<Pubkey, u64>,
     settlements_claimable_no_account_from: HashMap<Pubkey, u64>,
+    // direct-staking leaves lost to a missing destination; the user may have revoked the staker
+    // authority or withdrawn, which is accepted but must stay measurable
+    direct_staking_no_account_to: u64,
 }
 
 impl ClaimSettlementsReport {
@@ -677,13 +698,21 @@ impl ClaimSettlementsReport {
     }
 
     /// issue of no stake account to claim to, adding to report
-    fn update_no_account_to(&mut self, settlement_record: &SettlementRecord, tree_node_claim: u64) {
+    fn update_no_account_to(
+        &mut self,
+        settlement_record: &SettlementRecord,
+        tree_node_claim: u64,
+        stake_authority: &Pubkey,
+    ) {
         let report = self.mut_ref(settlement_record.epoch);
         Self::update_no_account(
             &mut report.settlements_claimable_no_account_to,
             &settlement_record.settlement_address,
             tree_node_claim,
         );
+        if is_direct_staking_authority(stake_authority) {
+            report.direct_staking_no_account_to += 1;
+        }
     }
 
     fn update_no_account(
@@ -907,6 +936,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     build_balance_message(no_account_to, false, false),
                     build_balance_message(no_account_from, false, false),
                     ));
+                if settlements_report.direct_staking_no_account_to > 0 {
+                    report.push(format!(
+                        "  Direct staking leaves with no destination stake account: {}",
+                        settlements_report.direct_staking_no_account_to
+                    ));
+                }
                 if total_claim_nodes != json_loaded_nodes {
                     report.push(format!(
                         "  [WARNING] JSON Merkle nodes {json_loaded_nodes} do not match the Merkle nodes available on-chain {total_claim_nodes}"

@@ -82,8 +82,12 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" .
+    # no `|| true`: a missing split means the direct-staking run has not finished, and generating
+    # merkle trees without it would leave those stakers unclaimable for the epoch
+    - gcloud storage cp "$gs_bucket/$$epoch/institutional-direct-staking-settlements.json" .
     artifact_paths:
       - "./institutional-payouts.json"
+      - "./institutional-direct-staking-settlements.json"
 
   - wait: ~
 
@@ -118,9 +122,10 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/merkle-generator-cli .
     - chmod +x target/release/merkle-generator-cli
     - buildkite-agent artifact download --include-retried-jobs ${CLAIM_TYPE}-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs institutional-direct-staking-settlements.json .
     - |
       ./target/release/merkle-generator-cli \
-        --input-settlement-files "./${CLAIM_TYPE}-settlements.json" \
+        --input-settlement-files "./${CLAIM_TYPE}-settlements.json,./institutional-direct-staking-settlements.json" \
         --output-merkle-trees "./${CLAIM_TYPE}-merkle-trees.json" \
         --validator-bonds-config ${VALIDATOR_BONDS_CONFIG}
     artifact_paths:
