@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+import { fetchWithRetry } from '@marinade.finance/ts-common'
+
 import type { Logger } from 'pino'
 
 export type NpmPackageData = {
@@ -7,9 +9,28 @@ export type NpmPackageData = {
 }
 
 const NPM_REGISTRY_FETCH_TIMEOUT_MS = 1000
+const NPM_REGISTRY_RETRY_DELAY_MS = 50
 const FALLBACK_PACKAGE: NpmPackageData = {
   name: '@marinade.finance/validator-bonds-cli',
   version: '0.0.0',
+}
+
+function latestVersionInPackument(fetchedJson: any): NpmPackageData {
+  const versionsData: unknown = fetchedJson?.versions
+  if (typeof versionsData !== 'object' || versionsData === null) {
+    throw new Error('registry response contains no versions')
+  }
+  const name: string =
+    typeof fetchedJson.name === 'string'
+      ? fetchedJson.name
+      : FALLBACK_PACKAGE.name
+  const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
+  const stableVersions = versions.filter(v => !v.includes('-'))
+  const sortedVersions = (
+    stableVersions.length > 0 ? stableVersions : versions
+  ).sort(compareVersions)
+  const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
+  return { name, version: latestVersion }
 }
 
 export async function fetchLatestVersionInNpmRegistry(
@@ -21,29 +42,45 @@ export async function fetchLatestVersionInNpmRegistry(
     () => controller.abort(),
     NPM_REGISTRY_FETCH_TIMEOUT_MS,
   )
+  let transportError: TypeError | undefined
   try {
-    const fetched = await fetch(npmRegistryUrl, {
-      method: 'GET',
-      signal: controller.signal,
-    })
-    const fetchedJson = await fetched.json()
-    const name: string = fetchedJson.name
-    const versionsData: any[] = fetchedJson.versions
-    const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
-    const stableVersions = versions.filter(v => !v.includes('-'))
-    const sortedVersions = (
-      stableVersions.length > 0 ? stableVersions : versions
-    ).sort(compareVersions)
-    const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
-    return { name, version: latestVersion }
+    const fetched = await fetchWithRetry(
+      npmRegistryUrl,
+      { method: 'GET', signal: controller.signal },
+      {
+        retries: 1,
+        baseDelayMs: NPM_REGISTRY_RETRY_DELAY_MS,
+        // retrying a 429 would only make registry throttling worse
+        shouldRetryResponse: () => false,
+        shouldRetryError: err => {
+          // fetch reports transport failures as TypeError; an elapsed shared deadline leaves the retry nothing to spend
+          if (!(err instanceof TypeError)) {
+            return false
+          }
+          transportError = err
+          return !controller.signal.aborted
+        },
+      },
+    )
+    if (!fetched.ok) {
+      throw new Error(`HTTP ${fetched.status} ${fetched.statusText}`)
+    }
+    return latestVersionInPackument(await fetched.json())
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    // once the deadline elapses the abort says nothing; the transport error that triggered the retry does
+    if (controller.signal.aborted && transportError === undefined) {
       logger.debug(
         `NPM registry fetch timed out after ${NPM_REGISTRY_FETCH_TIMEOUT_MS}ms`,
       )
     } else {
+      const failure = controller.signal.aborted ? transportError : err
+      // undici reports transport errors as a bare "fetch failed"; the cause names the real one
+      const cause =
+        failure instanceof Error && failure.cause instanceof Error
+          ? ` (cause: ${failure.cause.name}: ${failure.cause.message})`
+          : ''
       logger.debug(
-        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
+        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(failure)}${cause}`,
       )
     }
     return FALLBACK_PACKAGE
