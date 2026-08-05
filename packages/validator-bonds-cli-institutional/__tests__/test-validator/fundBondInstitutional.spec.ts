@@ -9,6 +9,7 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/
 import {
   createVoteAccount,
   delegatedStakeAccount,
+  retryOnEpochRewardsPeriod,
 } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
@@ -83,26 +84,28 @@ describe('Fund bond account using CLI (institutional)', () => {
       stakeAccount: stakeAccount1,
       connection: provider.connection,
     })
-    await expect([
-      'pnpm',
-      [
-        'cli:institutional',
-        '-u',
-        provider.connection.rpcEndpoint,
-        'fund-bond',
-        bondAccount.toBase58(),
-        '--stake-account',
-        stakeAccount1.toBase58(),
-        '--stake-authority',
-        stakeWithdrawerPath,
-        '--confirmation-finality',
-        'confirmed',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /successfully funded/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli:institutional',
+          '-u',
+          provider.connection.rpcEndpoint,
+          'fund-bond',
+          bondAccount.toBase58(),
+          '--stake-account',
+          stakeAccount1.toBase58(),
+          '--stake-authority',
+          stakeWithdrawerPath,
+          '--confirmation-finality',
+          'confirmed',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        // stderr: '',
+        stdout: /successfully funded/,
+      }),
+    )
 
     const stakeAccountData1 = await getStakeAccount(provider, stakeAccount1)
     expect(stakeAccountData1.staker).toEqual(bondWithdrawer)
