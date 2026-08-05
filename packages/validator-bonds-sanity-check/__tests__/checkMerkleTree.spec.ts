@@ -2,8 +2,8 @@ import { writeFileSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import { readLargeJsonFile } from '@marinade.finance/cli-common'
-import { NULL_LOG } from '@marinade.finance/ts-common'
+import { CLIContext, readLargeJsonFile } from '@marinade.finance/cli-common'
+import { NULL_LOG, setContext } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
 import {
@@ -11,10 +11,16 @@ import {
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
   checkEpochHopGuardrail,
+  checkTotalClaimsCeiling,
+  validateMaxTotalClaims,
 } from '../src/commands/checkMerkleTree'
 
 import type { MerkleTreeMetrics } from '../src/commands/checkMerkleTree'
 import type { UnifiedMerkleTreesDto } from '../src/dtoMerkleTree'
+
+beforeAll(() => {
+  setContext(new CLIContext({ logger: NULL_LOG, commandName: 'test' }))
+})
 
 // Minimal mock that satisfies extractMetrics' field access pattern
 function mockDto(
@@ -144,6 +150,177 @@ describe('reportMerkleTreeAnomalies', () => {
 
     expect(result.anomalyDetected).toBe(true)
     expect(result.report).toContain('ANOMALY DETECTED')
+  })
+
+  it('totalClaims blow-up alone is advisory and does not block', () => {
+    const historical = [
+      mockMetrics({ epoch: 100, totalClaims: 1300 }),
+      mockMetrics({ epoch: 101, totalClaims: 1400 }),
+      mockMetrics({ epoch: 102, totalClaims: 1350 }),
+    ]
+    // 50x fan-out with every value metric untouched
+    const current = mockMetrics({ epoch: 103, totalClaims: 65000 })
+
+    const result = reportMerkleTreeAnomalies({
+      currentMetrics: current,
+      historicalMetrics: historical,
+      logger: NULL_LOG,
+      ...defaultThresholds,
+    })
+
+    const claims = result.stats.find(s => s.field.startsWith('totalClaims'))
+    expect(claims?.isAnomaly).toBe(true)
+    expect(claims?.advisory).toBe(true)
+    expect(result.anomalyDetected).toBe(false)
+    expect(result.report).toContain('NORMAL')
+    expect(result.report).toContain('advisory, not blocking')
+  })
+
+  it('an advisory blow-up does not mask a scored-field anomaly', () => {
+    const historical = [
+      mockMetrics({ epoch: 100, totalClaims: 1300, totalValidators: 100 }),
+      mockMetrics({ epoch: 101, totalClaims: 1400, totalValidators: 102 }),
+      mockMetrics({ epoch: 102, totalClaims: 1350, totalValidators: 98 }),
+    ]
+    const current = mockMetrics({
+      epoch: 103,
+      totalClaims: 65000,
+      totalValidators: 10,
+    })
+
+    const result = reportMerkleTreeAnomalies({
+      currentMetrics: current,
+      historicalMetrics: historical,
+      logger: NULL_LOG,
+      ...defaultThresholds,
+    })
+
+    expect(result.anomalyDetected).toBe(true)
+    expect(result.report).toContain('ANOMALY DETECTED')
+  })
+
+  it('passes on the real epoch 1011 metrics that used to block the pipeline', () => {
+    const totalValidators = [75, 77, 77, 77, 76, 77, 79, 77, 78, 79]
+    const totalClaims = [
+      9329, 4291, 9404, 12816, 14889, 26088, 7598, 14729, 4276, 1306,
+    ]
+    const totalClaimAmount = [
+      204148374702n,
+      194017138827n,
+      197629908781n,
+      197086635708n,
+      201038441562n,
+      217446089148n,
+      192593752943n,
+      205522065380n,
+      194528984607n,
+      187582809648n,
+    ]
+    const avgClaimAmountPerValidator = [
+      2721978329, 2519703101, 2566622191, 2559566697, 2645242652, 2823975183,
+      2437895606, 2669117732, 2493961341, 2374465944,
+    ]
+
+    const historical = totalClaims.map((claims, i) =>
+      mockMetrics({
+        epoch: 1001 + i,
+        totalValidators: totalValidators[i],
+        totalClaims: claims,
+        totalClaimAmount: totalClaimAmount[i],
+        avgClaimAmountPerValidator: new Decimal(avgClaimAmountPerValidator[i]!),
+      }),
+    )
+    const current = mockMetrics({
+      epoch: 1011,
+      totalValidators: 79,
+      totalClaims: 65194,
+      totalClaimAmount: 215656202537n,
+      avgClaimAmountPerValidator: new Decimal(2729825348),
+    })
+
+    const result = reportMerkleTreeAnomalies({
+      currentMetrics: current,
+      historicalMetrics: historical,
+      logger: NULL_LOG,
+      ...defaultThresholds,
+    })
+
+    const claims = result.stats.find(s => s.field.startsWith('totalClaims'))
+    expect(claims?.isAnomaly).toBe(true)
+    expect(claims?.advisory).toBe(true)
+    expect(result.anomalyDetected).toBe(false)
+  })
+})
+
+describe('checkTotalClaimsCeiling', () => {
+  it('passes when total claims are below the ceiling', () => {
+    const { exceeded, report } = checkTotalClaimsCeiling({
+      epoch: 1011,
+      totalClaims: 65194,
+      maxTotalClaims: new Decimal(150_000),
+    })
+
+    expect(exceeded).toBe(false)
+    expect(report).toContain('WITHIN CEILING')
+  })
+
+  it('fails when total claims exceed the ceiling', () => {
+    const { exceeded, report } = checkTotalClaimsCeiling({
+      epoch: 1011,
+      totalClaims: 150_001,
+      maxTotalClaims: new Decimal(150_000),
+    })
+
+    expect(exceeded).toBe(true)
+    expect(report).toContain('CEILING EXCEEDED')
+  })
+
+  it('treats a value equal to the ceiling as within it', () => {
+    const { exceeded } = checkTotalClaimsCeiling({
+      epoch: 1011,
+      totalClaims: 150_000,
+      maxTotalClaims: new Decimal(150_000),
+    })
+
+    expect(exceeded).toBe(false)
+  })
+
+  it('fails on the full-fan-out case of every validator paying stakers', () => {
+    // 79 validators x ~5.5k native stake accounts each
+    const { exceeded } = checkTotalClaimsCeiling({
+      epoch: 1012,
+      totalClaims: 434_500,
+      maxTotalClaims: new Decimal(150_000),
+    })
+
+    expect(exceeded).toBe(true)
+  })
+})
+
+describe('validateMaxTotalClaims', () => {
+  it.each(['NaN', 'Infinity', '-Infinity'])(
+    'rejects the non-finite ceiling %s that would disable the gate',
+    input => {
+      expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+        'maxTotalClaims must be a finite integer >= 1',
+      )
+    },
+  )
+
+  it.each(['1.5', '150000.5'])('rejects the fractional ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+      'maxTotalClaims must be a finite integer >= 1',
+    )
+  })
+
+  it.each(['0', '-1'])('rejects the below-range ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+      'maxTotalClaims must be a finite integer >= 1',
+    )
+  })
+
+  it.each(['1', '150000'])('accepts the valid ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).not.toThrow()
   })
 })
 

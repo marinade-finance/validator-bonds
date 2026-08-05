@@ -71,6 +71,15 @@ export function installCheckMerkleTree(program: Command) {
       d => new Decimal(d),
       new Decimal(1.5),
     )
+    .option(
+      '--max-total-claims <count>',
+      'Hard ceiling on the total number of claims across all merkle trees. ' +
+        'Claim fan-out is driven by the distributor fee floor rather than by settlement value, ' +
+        'so it is reported but not scored statistically; this ceiling is the blocking gate. ' +
+        'Size it from what the claim pipeline can drain inside the on-chain claiming window.',
+      d => new Decimal(d),
+      new Decimal(150_000),
+    )
     .action(manageCheckMerkleTree)
 }
 
@@ -86,9 +95,19 @@ export interface MerkleTreeMetrics {
 export type StatsCalculation = AnomalyDetectionResult & {
   description?: string
   stats?: DescriptiveStats
+  advisory?: boolean
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details: any
 }
+
+const SCORED_FIELDS: (keyof MerkleTreeMetrics)[] = [
+  'totalValidators',
+  'totalClaimAmount',
+  'avgClaimAmountPerValidator',
+]
+
+// Fan-out tracks the distributor fee floor, not settlement value, so its z-score is noise.
+const ADVISORY_FIELDS: (keyof MerkleTreeMetrics)[] = ['totalClaims']
 
 const FIELD_DESCRIPTIONS: Record<string, string> = {
   totalValidators:
@@ -151,6 +170,7 @@ async function manageCheckMerkleTree({
   scoreThreshold,
   minAbsoluteDeviation,
   epochHopThreshold,
+  maxTotalClaims,
 }: {
   merkleTrees: string
   settlementSources?: string[]
@@ -159,6 +179,7 @@ async function manageCheckMerkleTree({
   scoreThreshold: Decimal
   minAbsoluteDeviation: Decimal
   epochHopThreshold: Decimal
+  maxTotalClaims: Decimal
 }) {
   const { logger } = getContext()
 
@@ -183,6 +204,7 @@ async function manageCheckMerkleTree({
       `epochHopThreshold must be >= 1, got ${epochHopThreshold.toString()}`,
     )
   }
+  validateMaxTotalClaims(maxTotalClaims)
 
   logger.info(`Loading merkle tree file: ${merkleTrees}`)
 
@@ -246,6 +268,19 @@ async function manageCheckMerkleTree({
     throw CliCommandError.instance(
       `Merkle tree file contains zero merkle trees for epoch ${merkleTreesDto.epoch}. ` +
         'This is likely a data generation error.',
+    )
+  }
+
+  const claimsCeiling = checkTotalClaimsCeiling({
+    epoch: merkleTreesDto.epoch,
+    totalClaims: totalClaimsCount,
+    maxTotalClaims,
+  })
+  logger.info(claimsCeiling.report)
+  if (claimsCeiling.exceeded) {
+    throw CliCommandError.instance(
+      `Total claims ${totalClaimsCount} exceeds the ceiling of ${maxTotalClaims.toString()}. ` +
+        'The claim pipeline may not drain this within the claiming window.',
     )
   }
 
@@ -428,16 +463,9 @@ export function reportMerkleTreeAnomalies({
     )
   }
 
-  const fieldsToCheck: (keyof MerkleTreeMetrics)[] = [
-    'totalValidators',
-    'totalClaims',
-    'totalClaimAmount',
-    'avgClaimAmountPerValidator',
-  ]
-
   const stats: StatsCalculation[] = []
 
-  for (const field of fieldsToCheck) {
+  for (const field of [...SCORED_FIELDS, ...ADVISORY_FIELDS]) {
     // Deliberate bigint/Decimal -> double narrowing: the anomaly statistics
     // work on ratios and deviations where ~1e-16 relative error is irrelevant.
     // Exact-value comparisons elsewhere stay in bigint/Decimal.
@@ -456,14 +484,14 @@ export function reportMerkleTreeAnomalies({
       minAbsoluteDeviationRatio,
       logger,
     })
-    stats.push(anomaly)
+    stats.push({ ...anomaly, advisory: ADVISORY_FIELDS.includes(field) })
   }
 
   const thresholdInfo =
     `(correlationThreshold: ${correlationThreshold.toString()}, ` +
     `scoreThreshold: ${scoreThreshold.toString()}, ` +
     `minAbsoluteDeviation: ${minAbsoluteDeviationRatio.mul(100).toString()}%)`
-  const anomalyDetected = stats.some(r => r.isAnomaly)
+  const anomalyDetected = stats.some(r => r.isAnomaly && !r.advisory)
 
   let report = `\n=== Epoch ${currentMetrics.epoch} Merkle Tree Anomaly Report (historical records: ${historicalMetrics.length}) ===\n`
   report +=
@@ -472,8 +500,8 @@ export function reportMerkleTreeAnomalies({
     ` ${thresholdInfo}\n\n`
 
   for (const stat of stats) {
-    const anomalyString = stat.isAnomaly ? '⛔' : '✅'
-    report += `[${anomalyString}] Field: ${stat.field}\n`
+    const anomalyString = stat.isAnomaly ? (stat.advisory ? '⚠️' : '⛔') : '✅'
+    report += `[${anomalyString}] Field: ${stat.field}${stat.advisory ? ' (advisory, not blocking)' : ''}\n`
     if (stat.description) {
       report += `  Description: ${stat.description}\n`
     }
@@ -487,6 +515,40 @@ export function reportMerkleTreeAnomalies({
   }
 
   return { anomalyDetected, stats, report }
+}
+
+// NaN/Infinity survive a bare lessThan, then silently make the ceiling comparison false.
+export function validateMaxTotalClaims(maxTotalClaims: Decimal): void {
+  if (
+    !maxTotalClaims.isFinite() ||
+    !maxTotalClaims.isInteger() ||
+    maxTotalClaims.lessThan(DECIMAL_ONE)
+  ) {
+    throw CliCommandError.instance(
+      `maxTotalClaims must be a finite integer >= 1, got ${maxTotalClaims.toString()}`,
+    )
+  }
+}
+
+export function checkTotalClaimsCeiling({
+  epoch,
+  totalClaims,
+  maxTotalClaims,
+}: {
+  epoch: number
+  totalClaims: number
+  maxTotalClaims: Decimal
+}): { exceeded: boolean; report: string } {
+  const current = new Decimal(totalClaims)
+  const exceeded = current.greaterThan(maxTotalClaims)
+
+  const report = [
+    `\n=== Epoch ${epoch} Total Claims Ceiling (max: ${maxTotalClaims.toString()}) ===`,
+    `[${exceeded ? '⛔' : '✅'}] totalClaims: ${current.toString()}`,
+    'Status: ' + (exceeded ? '⛔ CEILING EXCEEDED' : '✅ WITHIN CEILING'),
+  ].join('\n')
+
+  return { exceeded, report }
 }
 
 export type HopGuardedField = 'totalClaimAmount' | 'avgClaimAmountPerValidator'

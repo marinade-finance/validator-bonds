@@ -3,6 +3,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
+  max_total_claims: 150000
   PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
 steps:
@@ -80,10 +81,12 @@ steps:
         if [[ -n "$$settlement_sources" ]]; then
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
+            --max-total-claims $max_total_claims \
             --settlement-sources $$settlement_sources
         else
           pnpm cli:check check-merkle-tree \
-            --merkle-trees ./unified-merkle-trees.json
+            --merkle-trees ./unified-merkle-trees.json \
+            --max-total-claims $max_total_claims
         fi
     soft_fail:
       - exit_status: "*"
@@ -116,7 +119,8 @@ steps:
           --correlation-threshold 0.15 \
           --score-threshold 2.0 \
           --min-absolute-deviation 0.05 \
-          --epoch-hop-threshold 1.5
+          --epoch-hop-threshold 1.5 \
+          --max-total-claims $max_total_claims
     soft_fail:
       - exit_status: "*"
 
