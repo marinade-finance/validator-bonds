@@ -204,11 +204,7 @@ async function manageCheckMerkleTree({
       `epochHopThreshold must be >= 1, got ${epochHopThreshold.toString()}`,
     )
   }
-  if (maxTotalClaims.lessThan(DECIMAL_ONE)) {
-    throw CliCommandError.instance(
-      `maxTotalClaims must be >= 1, got ${maxTotalClaims.toString()}`,
-    )
-  }
+  validateMaxTotalClaims(maxTotalClaims)
 
   logger.info(`Loading merkle tree file: ${merkleTrees}`)
 
@@ -519,6 +515,19 @@ export function reportMerkleTreeAnomalies({
   }
 
   return { anomalyDetected, stats, report }
+}
+
+// NaN/Infinity survive a bare lessThan, then silently make the ceiling comparison false.
+export function validateMaxTotalClaims(maxTotalClaims: Decimal): void {
+  if (
+    !maxTotalClaims.isFinite() ||
+    !maxTotalClaims.isInteger() ||
+    maxTotalClaims.lessThan(DECIMAL_ONE)
+  ) {
+    throw CliCommandError.instance(
+      `maxTotalClaims must be a finite integer >= 1, got ${maxTotalClaims.toString()}`,
+    )
+  }
 }
 
 export function checkTotalClaimsCeiling({

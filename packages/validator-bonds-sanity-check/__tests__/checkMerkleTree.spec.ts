@@ -2,8 +2,8 @@ import { writeFileSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
-import { readLargeJsonFile } from '@marinade.finance/cli-common'
-import { NULL_LOG } from '@marinade.finance/ts-common'
+import { CLIContext, readLargeJsonFile } from '@marinade.finance/cli-common'
+import { NULL_LOG, setContext } from '@marinade.finance/ts-common'
 import Decimal from 'decimal.js'
 
 import {
@@ -12,10 +12,15 @@ import {
   detectIndividualAnomaly,
   checkEpochHopGuardrail,
   checkTotalClaimsCeiling,
+  validateMaxTotalClaims,
 } from '../src/commands/checkMerkleTree'
 
 import type { MerkleTreeMetrics } from '../src/commands/checkMerkleTree'
 import type { UnifiedMerkleTreesDto } from '../src/dtoMerkleTree'
+
+beforeAll(() => {
+  setContext(new CLIContext({ logger: NULL_LOG, commandName: 'test' }))
+})
 
 // Minimal mock that satisfies extractMetrics' field access pattern
 function mockDto(
@@ -289,6 +294,33 @@ describe('checkTotalClaimsCeiling', () => {
     })
 
     expect(exceeded).toBe(true)
+  })
+})
+
+describe('validateMaxTotalClaims', () => {
+  it.each(['NaN', 'Infinity', '-Infinity'])(
+    'rejects the non-finite ceiling %s that would disable the gate',
+    input => {
+      expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+        'maxTotalClaims must be a finite integer >= 1',
+      )
+    },
+  )
+
+  it.each(['1.5', '150000.5'])('rejects the fractional ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+      'maxTotalClaims must be a finite integer >= 1',
+    )
+  })
+
+  it.each(['0', '-1'])('rejects the below-range ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).toThrow(
+      'maxTotalClaims must be a finite integer >= 1',
+    )
+  })
+
+  it.each(['1', '150000'])('accepts the valid ceiling %s', input => {
+    expect(() => validateMaxTotalClaims(new Decimal(input))).not.toThrow()
   })
 })
 
