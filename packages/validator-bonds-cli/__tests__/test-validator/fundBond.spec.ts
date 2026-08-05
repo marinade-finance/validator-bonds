@@ -10,6 +10,7 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/
 import {
   createVoteAccount,
   delegatedStakeAccount,
+  retryOnEpochRewardsPeriod,
 } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
@@ -103,86 +104,92 @@ describe('Fund bond account using CLI', () => {
       stakeAccount: stakeAccount1,
       connection: provider.connection,
     })
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'fund-bond',
-        bondAccount.toBase58(),
-        '--stake-account',
-        stakeAccount1.toBase58(),
-        '--stake-authority',
-        stakeWithdrawerPath,
-        '--confirmation-finality',
-        'confirmed',
-        '--verbose',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /successfully funded/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'fund-bond',
+          bondAccount.toBase58(),
+          '--stake-account',
+          stakeAccount1.toBase58(),
+          '--stake-authority',
+          stakeWithdrawerPath,
+          '--confirmation-finality',
+          'confirmed',
+          '--verbose',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        // stderr: '',
+        stdout: /successfully funded/,
+      }),
+    )
 
     const stakeAccountData1 = await getStakeAccount(provider, stakeAccount1)
     expect(stakeAccountData1.staker).toEqual(bondWithdrawer)
     expect(stakeAccountData1.withdrawer).toEqual(bondWithdrawer)
 
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'fund-bond',
-        bondAccount.toBase58(),
-        '--stake-account',
-        stakeAccount1.toBase58(),
-        '--stake-authority',
-        stakeWithdrawerPath,
-        '--confirmation-finality',
-        'confirmed',
-        '--verbose',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /is ALREADY funded to bond account/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'fund-bond',
+          bondAccount.toBase58(),
+          '--stake-account',
+          stakeAccount1.toBase58(),
+          '--stake-authority',
+          stakeWithdrawerPath,
+          '--confirmation-finality',
+          'confirmed',
+          '--verbose',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        // stderr: '',
+        stdout: /is ALREADY funded to bond account/,
+      }),
+    )
 
     await waitForStakeAccountActivation({
       stakeAccount: stakeAccount2,
       connection: provider.connection,
     })
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        'fund-bond',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        '--config',
-        configAccount.toBase58(),
-        voteAccount.toBase58(),
-        '--stake-account',
-        stakeAccount2.toBase58(),
-        '--stake-authority',
-        stakeWithdrawerPath,
-        '--confirmation-finality',
-        'confirmed',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /successfully funded/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          'fund-bond',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          voteAccount.toBase58(),
+          '--stake-account',
+          stakeAccount2.toBase58(),
+          '--stake-authority',
+          stakeWithdrawerPath,
+          '--confirmation-finality',
+          'confirmed',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        // stderr: '',
+        stdout: /successfully funded/,
+      }),
+    )
 
     const stakeAccountData2 = await getStakeAccount(provider, stakeAccount2)
     expect(stakeAccountData2.staker).toEqual(bondWithdrawer)
