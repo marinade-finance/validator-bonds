@@ -111,11 +111,11 @@ mod tests {
     }
 
     #[test]
-    fn a_validator_bonded_under_both_configs_is_listed_once() {
+    fn a_vote_account_appearing_twice_is_listed_once() {
         let listed = protected(vec![
-            bond("voteBoth", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
-            bond("voteBoth", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS * 20)),
+            bond("voteTwice", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
+            bond("voteTwice", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS * 20)),
         ]);
-        assert_eq!(listed, vec!["voteBoth".to_string()]);
+        assert_eq!(listed, vec!["voteTwice".to_string()]);
     }
 }
