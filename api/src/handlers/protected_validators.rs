@@ -20,14 +20,13 @@ pub struct ProtectedValidatorsResponse {
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {}
 
-const FULL_COMMISSION_BPS: i64 = 10_000;
+const MIN_PROTECTED_BOND_LAMPORTS: u64 = 1_000_000_000;
 
-/// A bond only backs a downtime claim while it can pay and the validator can produce the event at all.
+/// Effective, not funded: pending claims and withdraw requests are already committed elsewhere.
 fn protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String> {
     bonds
         .iter()
-        .filter(|bond| bond.effective_amount > Decimal::ZERO)
-        .filter(|bond| bond.inflation_commission_bps != Some(FULL_COMMISSION_BPS))
+        .filter(|bond| bond.effective_amount >= Decimal::from(MIN_PROTECTED_BOND_LAMPORTS))
         .map(|bond| bond.vote_account.clone())
         .collect()
 }
@@ -67,11 +66,7 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    fn bond(
-        vote_account: &str,
-        effective_amount: Decimal,
-        inflation_commission_bps: Option<i64>,
-    ) -> ValidatorBondRecord {
+    fn bond(vote_account: &str, effective_amount: Decimal) -> ValidatorBondRecord {
         ValidatorBondRecord {
             pubkey: format!("{vote_account}-bond"),
             vote_account: vote_account.to_string(),
@@ -79,13 +74,13 @@ mod tests {
             cpmpe: Decimal::ZERO,
             max_stake_wanted: Decimal::ZERO,
             epoch: 980,
-            funded_amount: Decimal::from(1_000),
+            funded_amount: Decimal::from(u64::MAX),
             effective_amount,
             remaining_witdraw_request_amount: Decimal::ZERO,
             remainining_settlement_claim_amount: Decimal::ZERO,
             updated_at: Utc::now(),
             bond_type: BondType::Bidding,
-            inflation_commission_bps,
+            inflation_commission_bps: None,
             mev_commission_bps: None,
             block_commission_bps: None,
         }
@@ -95,38 +90,32 @@ mod tests {
         protected_vote_accounts(&bonds).into_iter().collect()
     }
 
-    // funded_amount can be positive while the bond is fully committed, and then it pays nothing
     #[test]
-    fn only_a_positive_effective_amount_counts_as_protected() {
+    fn a_bond_below_the_floor_is_not_protected() {
         let listed = protected(vec![
-            bond("voteUsable", Decimal::from(1), None),
-            bond("voteZero", Decimal::ZERO, None),
+            bond("voteAtFloor", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
+            bond(
+                "voteBelowFloor",
+                Decimal::from(MIN_PROTECTED_BOND_LAMPORTS - 1),
+            ),
+            bond("voteZero", Decimal::ZERO),
         ]);
-        assert_eq!(listed, vec!["voteUsable".to_string()]);
+        assert_eq!(listed, vec!["voteAtFloor".to_string()]);
+    }
+
+    // funded_amount is deliberately huge on every fixture: only the effective amount may count
+    #[test]
+    fn a_fully_committed_bond_is_not_protected() {
+        let listed = protected(vec![bond("voteCommitted", Decimal::ZERO)]);
+        assert!(listed.is_empty());
     }
 
     #[test]
     fn a_validator_bonded_under_both_configs_is_listed_once() {
         let listed = protected(vec![
-            bond("voteBoth", Decimal::from(10), None),
-            bond("voteBoth", Decimal::from(20), None),
+            bond("voteBoth", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
+            bond("voteBoth", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS * 20)),
         ]);
         assert_eq!(listed, vec!["voteBoth".to_string()]);
-    }
-
-    // a 100 % commission validator never produces a downtime event, so a bond cannot back one
-    #[test]
-    fn a_full_commission_validator_is_not_protected() {
-        let listed = protected(vec![
-            bond("voteFullCommission", Decimal::from(10), Some(10_000)),
-            bond("votePartialCommission", Decimal::from(10), Some(9_999)),
-        ]);
-        assert_eq!(listed, vec!["votePartialCommission".to_string()]);
-    }
-
-    #[test]
-    fn an_unknown_commission_is_still_protected() {
-        let listed = protected(vec![bond("voteUnknown", Decimal::from(10), None)]);
-        assert_eq!(listed, vec!["voteUnknown".to_string()]);
     }
 }
