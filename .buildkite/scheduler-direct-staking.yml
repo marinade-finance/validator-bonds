@@ -42,18 +42,20 @@ steps:
     - |
       echo "direct-staking:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
       if (( $$max_available_epoch > 0 )) && (( $$max_processed_epoch < $$max_available_epoch )); then
-        cat <<EOF | buildkite-agent pipeline upload
-        steps:
-          - trigger: "prepare-direct-staking-distribution"
-            label: ":rocket: Trigger: Prepare Direct Staking Distribution ($$max_available_epoch)"
-            async: false
-            build:
-              branch: $$BUILDKITE_BRANCH
-              env:
-                EPOCH: $$max_available_epoch
-                NOTIFY_FEED: $NOTIFY_FEED
-      EOF
-        echo "Scheduled direct staking distribution for epoch $$max_available_epoch"
+        # SMOKE BRANCH: the trigger is disabled so this scheduler cannot start a real run.
+        # Run prepare-direct-staking-distribution manually with EPOCH set instead.
+        # cat <<EOF | buildkite-agent pipeline upload
+        # steps:
+        #   - trigger: "prepare-direct-staking-distribution"
+        #     label: ":rocket: Trigger: Prepare Direct Staking Distribution ($$max_available_epoch)"
+        #     async: false
+        #     build:
+        #       branch: $$BUILDKITE_BRANCH
+        #       env:
+        #         EPOCH: $$max_available_epoch
+        #         NOTIFY_FEED: $NOTIFY_FEED
+        # EOF
+        echo "SMOKE RUN: would have scheduled direct staking distribution for epoch $$max_available_epoch"
       else
         echo "No new epochs to process (max_processed: $$max_processed_epoch, max_available: $$max_available_epoch)"
       fi

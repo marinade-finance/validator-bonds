@@ -4,8 +4,7 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   BONDS_API_URL: https://validator-bonds-api.marinade.finance
-  SLACK_API: https://slack.com/api/chat.postMessage
-  SLACK_FEED: "feed-pipeline-sam-psr"
+  # SMOKE BRANCH: SLACK_API / SLACK_FEED dropped with the notification step
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build CLI"
@@ -28,7 +27,7 @@ steps:
 
   - label: ":closed_lock_with_key: Concurrency gate lock"
     command: echo "--> Start of concurrency gate"
-    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
+    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution-smoke'
     concurrency: 1
 
   - wait: ~
@@ -47,6 +46,14 @@ steps:
     commands:
       - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
       - |
+        cat <<- EOF | buildkite-agent annotate --priority 10 --style warning --context "smoke-banner"
+        ### :test_tube: SMOKE RUN — nothing is written anywhere
+        This build runs on the \`direct-staking-smoke\` branch. Every \`gcloud storage cp\` into the
+        bucket is commented out and the Slack notification step is removed. Reads only:
+        \`$gs_bucket/$$epoch/{stakes,validators,bid-psr-distribution-evaluation}.json\` and the bonds API.
+        **Do not merge this branch.**
+        EOF
+      - |
         cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
         ### Retry environment variables
         If you need to retry the build, use the following parameters:
@@ -55,8 +62,6 @@ steps:
         EPOCH=$$epoch
         BONDS_API_URL=$BONDS_API_URL
         EXPOSURE_WARNING_BPS=${EXPOSURE_WARNING_BPS:-2500}
-        SLACK_FEED=$SLACK_FEED
-        NOTIFY_FEED=${NOTIFY_FEED:-false}
         \`\`\`
         EOF
 
@@ -148,7 +153,9 @@ steps:
 
   - wait: ~
 
-  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+  # SMOKE BRANCH: every `gcloud storage cp` that wrote into the bucket is commented out below.
+  # The artifact downloads stay so the step still proves the artifact names are right.
+  - label: ":no_entry: :cloud: Upload artifacts (DISABLED on the smoke branch)"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - buildkite-agent artifact download --include-retried-jobs unified-direct-staking-settlements.json .
@@ -159,44 +166,91 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
     - buildkite-agent artifact download --include-retried-jobs bonds-bidding.json .
     - buildkite-agent artifact download --include-retried-jobs bonds-institutional.json .
-    - gcloud storage cp "./direct-staking-psr-settlements.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./direct-staking-protected-events.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./direct-staking-allocation-report.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./direct-staking-report.txt" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./bonds-bidding.json" "$gs_bucket/$$epoch/direct-staking-bonds-bidding.json"
-    - gcloud storage cp "./bonds-institutional.json" "$gs_bucket/$$epoch/direct-staking-bonds-institutional.json"
-    - gcloud storage cp "settlement-config-direct-staking.yaml" "$gs_bucket/$$epoch/"
+    - |
+      echo "SMOKE RUN — nothing is uploaded. Production would have written into $gs_bucket/$$epoch/:"
+      for artifact in direct-staking-psr-settlements.json direct-staking-protected-events.json \
+                      direct-staking-allocation-report.json direct-staking-report.txt \
+                      direct-staking-bonds-bidding.json direct-staking-bonds-institutional.json \
+                      settlement-config-direct-staking.yaml \
+                      institutional-direct-staking-settlements.json \
+                      unified-direct-staking-settlements.json; do
+        echo "  would upload: $$artifact"
+      done
+    # - gcloud storage cp "./direct-staking-psr-settlements.json" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./direct-staking-protected-events.json" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./direct-staking-allocation-report.json" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./direct-staking-report.txt" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./bonds-bidding.json" "$gs_bucket/$$epoch/direct-staking-bonds-bidding.json"
+    # - gcloud storage cp "./bonds-institutional.json" "$gs_bucket/$$epoch/direct-staking-bonds-institutional.json"
+    # - gcloud storage cp "settlement-config-direct-staking.yaml" "$gs_bucket/$$epoch/"
     # the two allocator outputs are the schedulers' progress markers, so they go up last
-    - gcloud storage cp "./institutional-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
-    - gcloud storage cp "./unified-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./institutional-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
+    # - gcloud storage cp "./unified-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
 
   - wait: ~
 
-  - label: ":mega: Notification"
+  # SMOKE BRANCH: verifies the run against what the bucket already holds for the epoch. Read-only.
+  - label: ":mag: Verify smoke run"
     commands:
-      - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
-      - |
-        epoch=$(buildkite-agent meta-data get epoch)
-        # the report is multi-line; interpolating it into the JSON literal would emit raw newlines
-        # inside a string and Slack would reject the whole payload with invalid_json
-        jq -n --rawfile text ./direct-staking-report.txt \
-          --arg channel "$SLACK_FEED" --arg epoch "$$epoch" --arg url "$$BUILDKITE_BUILD_URL" '{
-            channel: $channel,
-            attachments: [{
-              color: "#8000ff",
-              title: "Direct staking PSR settlements generated (\($epoch)).",
-              title_link: $url,
-              text: $text,
-              footer: "<\($url)|View in Buildkite>"
-            }]
-          }' > ./slack-payload.json
-        curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
-          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d @./slack-payload.json
-    if: "build.env('NOTIFY_FEED') == 'true'"
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-psr-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs unified-direct-staking-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs institutional-direct-staking-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-allocation-report.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
+    - buildkite-agent artifact download --include-retried-jobs stakes.json .
+    - |
+      set -o pipefail
+      failures=0
+      fail() { echo "  FAIL: $$1"; failures=$$((failures + 1)); }
+
+      input_slot=$(jq -r '.slot' ./stakes.json)
+      echo "stakes.json slot: $$input_slot"
+
+      # no psrSt stake has ever existed, so every past epoch must generate nothing
+      generated=$(jq -r '.settlements | length' ./direct-staking-psr-settlements.json)
+      if [[ "$$generated" != "0" ]]; then
+        fail "expected 0 direct-staking settlements for a past epoch, got $$generated"
+      fi
+
+      # both outputs must exist even when empty: the schedulers use their presence as progress
+      for output in unified-direct-staking-settlements.json institutional-direct-staking-settlements.json; do
+        if [[ ! -f "./$$output" ]]; then
+          fail "$$output was not written"
+          continue
+        fi
+        out_slot=$(jq -r '.slot' "./$$output")
+        out_epoch=$(jq -r '.epoch' "./$$output")
+        out_count=$(jq -r '.settlements | length' "./$$output")
+        echo "$$output: slot $$out_slot, epoch $$out_epoch, $$out_count settlement(s)"
+        [[ "$$out_slot" == "$$input_slot" ]] || fail "$$output slot $$out_slot != stakes.json slot $$input_slot"
+        [[ "$$out_epoch" == "$$epoch" ]] || fail "$$output epoch $$out_epoch != requested epoch $$epoch"
+        [[ "$$out_count" == "0" ]] || fail "$$output should be empty for a past epoch, has $$out_count"
+      done
+
+      totals=$(jq -r '.totals | "\(.settlements_in) \(.claims_amount_in) \(.bidding_claims_amount) \(.institutional_claims_amount) \(.dropped_claims_amount)"' ./direct-staking-allocation-report.json)
+      echo "report totals (in, claims, bidding, institutional, dropped): $$totals"
+      [[ "$$totals" == "0 0 0 0 0" ]] || fail "expected all-zero report totals, got '$$totals'"
+
+      # fact 19 on live data: the bidding run of this epoch must describe the same snapshot slot
+      produced_slot=$(gcloud storage cat --range=0-100 "$gs_bucket/$$epoch/bid-distribution-settlements.json" | grep -o '"slot":[0-9]*' | head -n 1 | cut -d: -f2)
+      echo "bid-distribution-settlements.json slot: $$produced_slot"
+      [[ "$$produced_slot" == "$$input_slot" ]] || fail "bidding slot $$produced_slot != stakes.json slot $$input_slot"
+
+      echo "--- direct staking report ---"
+      cat ./direct-staking-report.txt
+
+      if (( failures > 0 )); then
+        echo "SMOKE VERIFICATION FAILED with $$failures problem(s)"
+        exit 1
+      fi
+      echo "SMOKE VERIFICATION PASSED"
 
   - wait: ~
+
+  # SMOKE BRANCH: notification removed entirely so a stray NOTIFY_FEED=true cannot post to Slack.
 
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
-    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
+    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution-smoke'
     concurrency: 1
