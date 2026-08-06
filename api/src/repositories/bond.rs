@@ -158,7 +158,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
     let connector = MakeTlsConnector::new(builder.build());
 
-    let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
+    let (mut psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
         .await
         .map_err(pg_transient)?;
 
@@ -175,6 +175,9 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
         .map(|record| (record.pubkey.clone(), record))
         .collect();
     let epoch = bonds[0].epoch as i32;
+
+    // Readers pin epoch = MAX(epoch), so a half-written epoch hides the previous complete one.
+    let tx = psql_client.transaction().await.map_err(pg_transient)?;
 
     for chunk in bonds_records
         .into_iter()
@@ -239,11 +242,10 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             .iter()
             .map(|param| param.as_ref() as &(dyn ToSql + Sync))
             .collect::<Vec<_>>();
-        psql_client
-            .query(&query, &params)
-            .await
-            .map_err(pg_transient)?;
+        tx.query(&query, &params).await.map_err(pg_transient)?;
     }
+
+    tx.commit().await.map_err(pg_transient)?;
 
     Ok(())
 }
