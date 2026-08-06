@@ -60,7 +60,6 @@ solana-sdk-ids = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
-rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
@@ -71,4 +70,7 @@ solana-client = { workspace = true }
 tokio = { workspace = true }
 validator-bonds = { workspace = true }
 validator-bonds-common = { workspace = true }
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
 

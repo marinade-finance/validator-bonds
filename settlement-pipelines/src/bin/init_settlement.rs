@@ -530,19 +530,15 @@ impl PrintReportable for InitSettlementReport {
                         // nothing
                     }
                     VoteAccount(vae) => {
-                        // when validator is not in institutional validators, we set severity to Info
-                        // the non-institutional validator is expected to not having a bond account created,
-                        // when re-staking from non-institutional validator to institutional validator,
-                        // we do not want to report its non-existence as an error
-                        // on the other hand when a validator is removed intentionally from institutional set,
-                        // the settlement should be created for it
-                        // that's the reason why we cannot just remove the non-institutional validators from settlement preparation
+                        // a validator re-staking out of the institutional set legitimately has no bond
+                        // yet, but the chain also carries direct-staking settlements whose validators
+                        // are never in that list, so downgrade to a warning rather than hiding it
                         if institutional_validators
                             .validators
                             .iter()
                             .all(|v| v.vote_pubkey != vae.vote_account)
                         {
-                            vae.base.severity = ErrorSeverity::Info;
+                            vae.base.severity = ErrorSeverity::Warning;
                         }
                     }
                 }
