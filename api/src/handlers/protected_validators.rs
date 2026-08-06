@@ -11,9 +11,9 @@ use std::collections::BTreeSet;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
-pub struct PsrProtectedValidatorsResponse {
+pub struct ProtectedValidatorsResponse {
     #[schema(value_type = Vec<Pubkey>)]
-    psr_protected_validators: Vec<String>,
+    protected_validators: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, utoipa::IntoParams)]
@@ -23,7 +23,7 @@ pub struct QueryParams {}
 const FULL_COMMISSION_BPS: i64 = 10_000;
 
 /// A bond only backs a downtime claim while it can pay and the validator can produce the event at all.
-fn psr_protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String> {
+fn protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String> {
     bonds
         .iter()
         .filter(|bond| bond.effective_amount > Decimal::ZERO)
@@ -36,15 +36,15 @@ fn psr_protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String
     get,
     tag = "Validators",
     operation_id = "List validators whose stakers are PSR protected",
-    path = "/validators/psr-protected",
+    path = "/validators/protected",
     responses(
-        (status = 200, body = PsrProtectedValidatorsResponse),
+        (status = 200, body = ProtectedValidatorsResponse),
     )
 )]
 pub async fn handler(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
-) -> Result<Json<PsrProtectedValidatorsResponse>, AppError> {
+) -> Result<Json<ProtectedValidatorsResponse>, AppError> {
     let psql_client = &context.read().await.psql_client;
 
     let mut protected = BTreeSet::new();
@@ -54,11 +54,11 @@ pub async fn handler(
             .map_err(|error| AppError {
                 message: format!("Failed to fetch bonds. Error: {error:?}"),
             })?;
-        protected.extend(psr_protected_vote_accounts(&bonds));
+        protected.extend(protected_vote_accounts(&bonds));
     }
 
-    Ok(Json(PsrProtectedValidatorsResponse {
-        psr_protected_validators: protected.into_iter().collect(),
+    Ok(Json(ProtectedValidatorsResponse {
+        protected_validators: protected.into_iter().collect(),
     }))
 }
 
@@ -92,7 +92,7 @@ mod tests {
     }
 
     fn protected(bonds: Vec<ValidatorBondRecord>) -> Vec<String> {
-        psr_protected_vote_accounts(&bonds).into_iter().collect()
+        protected_vote_accounts(&bonds).into_iter().collect()
     }
 
     // funded_amount can be positive while the bond is fully committed, and then it pays nothing
