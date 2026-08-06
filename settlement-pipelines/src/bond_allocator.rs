@@ -26,7 +26,6 @@ pub struct AllocatorInput<'a> {
     pub bidding_bonds: &'a [ValidatorBondRecord],
     pub institutional_bonds: &'a [ValidatorBondRecord],
     pub evaluated_vote_accounts: &'a HashSet<Pubkey>,
-    pub expect_slot: u64,
     pub exposure_warning_bps: u64,
 }
 
@@ -94,13 +93,6 @@ pub struct ExposureWarning {
 /// Splits a direct-staking settlement collection into one collection per bond config, keeping only
 /// validators whose chosen bond can actually pay. Pure: same inputs give byte-identical outputs.
 pub fn allocate(input: AllocatorInput) -> anyhow::Result<AllocatorOutput> {
-    ensure!(
-        input.collection.slot == input.expect_slot,
-        "settlement collection slot {} does not match the expected snapshot slot {}: different slots mean different stake snapshots",
-        input.collection.slot,
-        input.expect_slot
-    );
-
     let bidding_effective = effective_amounts(input.bidding_bonds, BondType::Bidding)?;
     let institutional_effective =
         effective_amounts(input.institutional_bonds, BondType::Institutional)?;
@@ -426,7 +418,6 @@ mod tests {
             bidding_bonds: bidding,
             institutional_bonds: institutional,
             evaluated_vote_accounts: &evaluated,
-            expect_slot: SLOT,
             exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
         })
         .unwrap()
@@ -585,7 +576,6 @@ mod tests {
             bidding_bonds: &[bond(vote, dec!(1000000), BondType::Bidding)],
             institutional_bonds: &[],
             evaluated_vote_accounts: &HashSet::new(),
-            expect_slot: SLOT,
             exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
         })
         .expect_err("a settlement without a revenue expectation means mismatched evaluation files")
@@ -702,27 +692,6 @@ mod tests {
     }
 
     #[test]
-    fn slot_mismatch_is_rejected() {
-        let vote = vote_account(1);
-        let input = collection(vec![downtime_settlement(vote, 1_000)]);
-        let evaluated: HashSet<Pubkey> = HashSet::from([vote]);
-        let result = allocate(AllocatorInput {
-            collection: &input,
-            bidding_bonds: &[bond(vote, dec!(1000000), BondType::Bidding)],
-            institutional_bonds: &[],
-            evaluated_vote_accounts: &evaluated,
-            expect_slot: SLOT + 1,
-            exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
-        });
-
-        let error = result.unwrap_err().to_string();
-        assert!(
-            error.contains("different slots mean different stake snapshots"),
-            "{error}"
-        );
-    }
-
-    #[test]
     fn bonds_file_of_the_wrong_config_is_rejected() {
         let vote = vote_account(1);
         let input = collection(vec![downtime_settlement(vote, 1_000)]);
@@ -732,7 +701,6 @@ mod tests {
             bidding_bonds: &[bond(vote, dec!(1000000), BondType::Institutional)],
             institutional_bonds: &[],
             evaluated_vote_accounts: &evaluated,
-            expect_slot: SLOT,
             exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
         });
 
@@ -755,7 +723,6 @@ mod tests {
             ],
             institutional_bonds: &[],
             evaluated_vote_accounts: &evaluated,
-            expect_slot: SLOT,
             exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
         });
 

@@ -4,6 +4,7 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
   max_total_claims: 150000
+  SETTLEMENTS_FILES: $SETTLEMENTS_FILES
   PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
 steps:
@@ -36,11 +37,14 @@ steps:
       # Download unified merkle trees
       gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./unified-merkle-trees.json"
     - |
-      # Cross-validation sums these sources and compares the total against the tree, so the list has
-      # to be exactly the SETTLEMENTS_FILES the unified merkle run consumed. A partial set fails by
-      # construction, so an incomplete download drops all of them and leaves the check disabled.
+      # cross-validation compares the summed sources against the tree, so a partial set fails by construction: an incomplete download drops all of them and leaves the check disabled
+      if [[ -z "$$SETTLEMENTS_FILES" ]]; then
+        echo "SETTLEMENTS_FILES is empty, so the source list the merkle trees were built from is unknown"
+        exit 1
+      fi
       all_sources_available=true
-      for entry in bid-distribution-settlements.json unified-direct-staking-settlements.json; do
+      IFS=',' read -ra settlement_files_entries <<< "$$SETTLEMENTS_FILES"
+      for entry in "$${settlement_files_entries[@]}"; do
         gcloud storage cp "$gs_bucket/$$epoch/$$entry" "./$$entry" || all_sources_available=false
       done
       if [[ "$$all_sources_available" != "true" ]]; then

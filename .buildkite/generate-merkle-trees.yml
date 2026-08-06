@@ -150,6 +150,7 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - settlements_files=$(buildkite-agent meta-data get settlements_files)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
@@ -164,6 +165,7 @@ steps:
               NOTIFY_DISCORD_FEED: true
               NOTIFY_FEED: $NOTIFY_FEED
               SLACK_FEED: $$slack_feed
+              SETTLEMENTS_FILES: $$settlements_files
               gs_bucket: $gs_bucket
       EOF
 

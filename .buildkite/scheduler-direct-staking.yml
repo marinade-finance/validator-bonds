@@ -3,7 +3,6 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -30,7 +29,6 @@ steps:
       input_listings=(
         "${gs_bucket}/**/stakes.json"
         "${gs_bucket}/**/bid-psr-distribution-evaluation.json"
-        "${gs_bucket_institutional}/**/institutional-payouts.json"
       )
       for listing in "$${input_listings[@]}"; do
         entry_max_available_epoch=$(gcloud storage ls "$$listing" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 23) || exit 23

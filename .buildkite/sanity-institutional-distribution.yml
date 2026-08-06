@@ -125,7 +125,8 @@ steps:
             --settlement-sources ./settlements.json ./institutional-direct-staking-settlements.json
         else
           pnpm cli:check check-merkle-tree \
-            --merkle-trees ./settlement-merkle-trees.json
+            --merkle-trees ./settlement-merkle-trees.json \
+            --settlement-sources ./settlements.json
         fi
     soft_fail:
       - exit_status: "*"

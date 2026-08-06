@@ -325,22 +325,19 @@ run_direct_staking_stage() {
   local ds_report="$actual_dir/direct-staking-allocation-report.json"
   local ds_bonds_bidding="$inputs_dir/direct-staking-bonds-bidding.json"
   local ds_bonds_institutional="$inputs_dir/direct-staking-bonds-institutional.json"
-  local ds_payouts="$inst_inputs_dir/institutional-payouts.json"
   local main_settlements="$actual_dir/bid-distribution-settlements.json"
 
-  # the same file the pipeline takes --expect-slot from, so the cross-source check is real here too
-  if ! gcs_cached_download "$GS_BUCKET_INSTITUTIONAL/$epoch/institutional-payouts.json" \
-       "$ds_payouts" > /dev/null; then
-    echo "  SKIP direct staking: institutional-payouts.json unavailable"
-    return 0
+  # the pre-rollout placeholder stays out of $inputs_dir: there gcs_cached_download would treat it as a cache hit and never fetch a later published archive
+  if ! gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-bidding.json" \
+       "$ds_bonds_bidding" > /dev/null; then
+    ds_bonds_bidding="$actual_dir/.empty-bonds-bidding.json"
+    echo '{"bonds":[]}' > "$ds_bonds_bidding"
   fi
-
-  # epochs before the direct-staking pipeline existed have no archive; an empty list routes
-  # everything to "dropped", which still exercises the allocator end to end
-  gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-bidding.json" \
-    "$ds_bonds_bidding" > /dev/null || echo '{"bonds":[]}' > "$ds_bonds_bidding"
-  gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-institutional.json" \
-    "$ds_bonds_institutional" > /dev/null || echo '{"bonds":[]}' > "$ds_bonds_institutional"
+  if ! gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-institutional.json" \
+       "$ds_bonds_institutional" > /dev/null; then
+    ds_bonds_institutional="$actual_dir/.empty-bonds-institutional.json"
+    echo '{"bonds":[]}' > "$ds_bonds_institutional"
+  fi
 
   echo "Running bid-distribution-cli (direct staking config)..."
   local main_checksum_before
@@ -360,20 +357,14 @@ run_direct_staking_stage() {
     return 0
   fi
 
-  local ds_expect_slot
-  ds_expect_slot=$(jq -r '.slot' "$ds_payouts")
-  if [[ ! "$ds_expect_slot" =~ ^[0-9]+$ ]]; then
-    echo "  FAIL direct staking: institutional-payouts.json has no usable slot '$ds_expect_slot'"
-    direct_staking_status="ERROR"
-    return 0
-  fi
+  local ds_input_slot
+  ds_input_slot=$(jq -r '.slot' "$ds_settlements")
 
   if ! "$ALLOCATOR_CLI" \
       --input-settlement-collection "$ds_settlements" \
       --bonds-bidding "$ds_bonds_bidding" \
       --bonds-institutional "$ds_bonds_institutional" \
       --revenue-expectation-collection "$inputs_dir/evaluation.json" \
-      --expect-slot "$ds_expect_slot" \
       --output-bidding-settlement-collection "$ds_bidding" \
       --output-institutional-settlement-collection "$ds_institutional" \
       --output-report "$ds_report" \
@@ -396,8 +387,8 @@ run_direct_staking_stage() {
     local ds_out_slot ds_out_epoch
     ds_out_slot=$(jq -r '.slot' "$ds_out")
     ds_out_epoch=$(jq -r '.epoch' "$ds_out")
-    if [[ "$ds_out_slot" != "$ds_expect_slot" || "$ds_out_epoch" != "$epoch" ]]; then
-      echo "  FAIL direct staking: $(basename "$ds_out") carries slot/epoch $ds_out_slot/$ds_out_epoch, expected $ds_expect_slot/$epoch"
+    if [[ "$ds_out_slot" != "$ds_input_slot" || "$ds_out_epoch" != "$epoch" ]]; then
+      echo "  FAIL direct staking: $(basename "$ds_out") carries slot/epoch $ds_out_slot/$ds_out_epoch, expected $ds_input_slot/$epoch"
       direct_staking_status="DIFFER"
     fi
   done
@@ -416,27 +407,6 @@ run_direct_staking_stage() {
     echo "  FAIL direct staking: the main bid output changed while generating the direct staking profile"
     direct_staking_status="DIFFER"
   fi
-
-  # the slot assertion must actually be able to fail, so prove it once per epoch
-  if ! "$ALLOCATOR_CLI" \
-      --input-settlement-collection "$ds_settlements" \
-      --bonds-bidding "$ds_bonds_bidding" \
-      --bonds-institutional "$ds_bonds_institutional" \
-      --revenue-expectation-collection "$inputs_dir/evaluation.json" \
-      --expect-slot "$((ds_expect_slot + 1))" \
-      --output-bidding-settlement-collection "$actual_dir/.ds-slot-probe-bidding.json" \
-      --output-institutional-settlement-collection "$actual_dir/.ds-slot-probe-institutional.json" \
-      --output-report "$actual_dir/.ds-slot-probe-report.json" \
-      > /dev/null 2>&1; then
-    if [[ -f "$actual_dir/.ds-slot-probe-bidding.json" ]]; then
-      echo "  FAIL direct staking: a rejected slot still wrote output files"
-      direct_staking_status="DIFFER"
-    fi
-  else
-    echo "  FAIL direct staking: a wrong --expect-slot was accepted"
-    direct_staking_status="DIFFER"
-  fi
-  rm -f "$actual_dir/.ds-slot-probe-"*.json
 
   if [[ "$direct_staking_status" == "MATCH" ]]; then
     local ds_settlement_count

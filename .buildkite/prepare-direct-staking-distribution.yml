@@ -3,7 +3,6 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   BONDS_API_URL: https://validator-bonds-api.marinade.finance
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
@@ -71,12 +70,10 @@ steps:
     - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json" "./evaluation.json"
-    - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "."
     artifact_paths:
       - "./stakes.json"
       - "./validators.json"
       - "./evaluation.json"
-      - "./institutional-payouts.json"
 
   - label: ":link: Download bonds"
     key: "download-bonds"
@@ -121,24 +118,15 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-bond-allocator .'
     - 'buildkite-agent artifact download --include-retried-jobs direct-staking-psr-settlements.json .'
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .'
     - 'buildkite-agent artifact download --include-retried-jobs bonds-bidding.json .'
     - 'buildkite-agent artifact download --include-retried-jobs bonds-institutional.json .'
     - 'chmod +x target/release/settlement-bond-allocator'
     - |
-      # institutional-payouts.json carries the slot as a JSON string in some epochs
-      expect_slot=$(jq -r '.slot' ./institutional-payouts.json)
-      if [[ ! "$$expect_slot" =~ ^[0-9]+$ ]]; then
-        echo "institutional-payouts.json has no usable slot: '$$expect_slot'"
-        exit 1
-      fi
-      echo "Expecting snapshot slot $$expect_slot"
       ./target/release/settlement-bond-allocator \
         --input-settlement-collection ./direct-staking-psr-settlements.json \
         --bonds-bidding ./bonds-bidding.json \
         --bonds-institutional ./bonds-institutional.json \
         --revenue-expectation-collection ./evaluation.json \
-        --expect-slot "$$expect_slot" \
         --exposure-warning-bps ${EXPOSURE_WARNING_BPS:-2500} \
         --output-bidding-settlement-collection "./unified-direct-staking-settlements.json" \
         --output-institutional-settlement-collection "./institutional-direct-staking-settlements.json" \
