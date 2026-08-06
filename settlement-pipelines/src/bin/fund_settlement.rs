@@ -1126,7 +1126,9 @@ impl PrintReportable for FundSettlementsReport {
                             .iter()
                             .all(|v| v.vote_pubkey != vae.vote_account)
                         {
-                            vae.base.severity = ErrorSeverity::Info;
+                            // the chain also carries direct-staking settlements, whose validators are
+                            // not in the institutional list at all, so this must stay visible
+                            vae.base.severity = ErrorSeverity::Warning;
                             vae.base.message =
                                 format!("(non-institutional validator) {}", vae.base.message);
                         }

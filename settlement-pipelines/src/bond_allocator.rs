@@ -44,10 +44,10 @@ pub struct AllocationReport {
     pub totals: ReportTotals,
     pub routed: Vec<RoutedValidator>,
     pub dropped_no_usable_bond: Vec<DroppedValidator>,
-    /// Validators carrying claims while absent from the revenue-expectation set. Downtime events
-    /// cannot be generated for them, so a non-empty list means ds-sam's inclusion rule moved.
-    pub missing_from_evaluation: Vec<String>,
     pub exposure_warnings: Vec<ExposureWarning>,
+    /// Bond snapshots are resolved per bond type, so the two files can legitimately differ by an epoch.
+    pub bidding_bonds_epoch: Option<u64>,
+    pub institutional_bonds_epoch: Option<u64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,8 +118,15 @@ pub fn allocate(input: AllocatorInput) -> anyhow::Result<AllocatorOutput> {
     let mut institutional_settlements: Vec<Settlement> = vec![];
     let mut routed: Vec<RoutedValidator> = vec![];
     let mut dropped: Vec<DroppedValidator> = vec![];
-    let mut missing_from_evaluation: Vec<String> = vec![];
     let mut exposure_warnings: Vec<ExposureWarning> = vec![];
+
+    let bidding_bonds_epoch = bonds_epoch(input.bidding_bonds);
+    let institutional_bonds_epoch = bonds_epoch(input.institutional_bonds);
+    if let (Some(bidding), Some(institutional)) = (bidding_bonds_epoch, institutional_bonds_epoch) {
+        if bidding != institutional {
+            warn!("Bond snapshots disagree: bidding is epoch {bidding}, institutional is epoch {institutional}; a stale snapshot routes validators to the other config");
+        }
+    }
 
     for (vote_account, settlements) in per_vote_account {
         let claims_amount: u64 = settlements.iter().map(|s| s.claims_amount).sum();
@@ -132,13 +139,23 @@ pub fn allocate(input: AllocatorInput) -> anyhow::Result<AllocatorOutput> {
             .copied()
             .unwrap_or_default();
 
-        if !input.evaluated_vote_accounts.contains(&vote_account) {
-            warn!("Vote account {vote_account} carries direct-staking claims but is absent from the revenue-expectation set");
-            missing_from_evaluation.push(vote_account.to_string());
-        }
+        // a downtime event cannot exist without a revenue expectation, so this can only mean the
+        // generator and the allocator were handed different evaluation.json files
+        ensure!(
+            input.evaluated_vote_accounts.contains(&vote_account),
+            "vote account {vote_account} carries direct-staking settlements but has no revenue expectation: bid-distribution-cli and the allocator must read the same evaluation.json"
+        );
 
-        // SAM config first, institutional is the fallback
-        let routing = if bidding_amount > Decimal::ZERO {
+        // SAM config first, but only while its bond covers the obligation: a token bidding bond must
+        // not capture claims a funded institutional bond would pay in full. When neither covers, the
+        // larger bond still takes them — dropping would pay the stakers nothing at all.
+        let obligation = Decimal::from(claims_amount);
+        let covers = |amount: Decimal| amount > Decimal::ZERO && amount >= obligation;
+        let routing = if covers(bidding_amount) {
+            Some((BondType::Bidding, bidding_amount))
+        } else if covers(institutional_amount) {
+            Some((BondType::Institutional, institutional_amount))
+        } else if bidding_amount > Decimal::ZERO && bidding_amount >= institutional_amount {
             Some((BondType::Bidding, bidding_amount))
         } else if institutional_amount > Decimal::ZERO {
             Some((BondType::Institutional, institutional_amount))
@@ -251,8 +268,9 @@ pub fn allocate(input: AllocatorInput) -> anyhow::Result<AllocatorOutput> {
             totals,
             routed,
             dropped_no_usable_bond: dropped,
-            missing_from_evaluation,
             exposure_warnings,
+            bidding_bonds_epoch,
+            institutional_bonds_epoch,
         },
     })
 }
@@ -302,12 +320,16 @@ fn effective_amounts(
     Ok(amounts)
 }
 
+fn bonds_epoch(records: &[ValidatorBondRecord]) -> Option<u64> {
+    records.iter().map(|record| record.epoch).max()
+}
+
 fn exceeds_exposure(claims_amount: u64, effective_amount: Decimal, threshold_bps: u64) -> bool {
     Decimal::from(claims_amount) * Decimal::from(BPS)
         > effective_amount * Decimal::from(threshold_bps)
 }
 
-/// Rounded up so the reported exposure never reads lower than the threshold that triggered a warning.
+/// Share of the bond this product alone claims; the epoch's SAM claims on the same bond are invisible here.
 fn exposure_bps(claims_amount: u64, effective_amount: Decimal) -> u64 {
     if effective_amount <= Decimal::ZERO {
         return u64::MAX;
@@ -450,7 +472,7 @@ mod tests {
         let input = collection(vec![downtime_settlement(vote, 1_000)]);
         let out = run(
             &input,
-            &[bond(vote, dec!(1), BondType::Bidding)],
+            &[bond(vote, dec!(5000), BondType::Bidding)],
             &[bond(vote, dec!(1000000), BondType::Institutional)],
         );
 
@@ -460,6 +482,73 @@ mod tests {
             "SAM config is primary even when institutional holds more"
         );
         assert!(out.institutional.settlements.is_empty());
+    }
+
+    #[test]
+    fn a_bond_exactly_covering_the_obligation_is_used() {
+        let vote = vote_account(1);
+        let input = collection(vec![downtime_settlement(vote, 1_000)]);
+        let out = run(
+            &input,
+            &[bond(vote, dec!(1000), BondType::Bidding)],
+            &[bond(vote, dec!(1000000), BondType::Institutional)],
+        );
+
+        assert_eq!(
+            out.bidding.settlements.len(),
+            1,
+            "covering the obligation exactly is enough to keep the SAM preference"
+        );
+    }
+
+    #[test]
+    fn token_bidding_bond_does_not_capture_claims_the_institutional_bond_covers() {
+        let vote = vote_account(1);
+        let input = collection(vec![downtime_settlement(vote, 1_000)]);
+        let out = run(
+            &input,
+            &[bond(vote, dec!(1), BondType::Bidding)],
+            &[bond(vote, dec!(1000000), BondType::Institutional)],
+        );
+
+        assert!(
+            out.bidding.settlements.is_empty(),
+            "a bond that cannot pay must not win the SAM preference"
+        );
+        assert_eq!(out.institutional.settlements.len(), 1);
+        assert!(out.report.dropped_no_usable_bond.is_empty());
+    }
+
+    #[test]
+    fn when_neither_bond_covers_the_larger_bidding_bond_is_used() {
+        let vote = vote_account(1);
+        let input = collection(vec![downtime_settlement(vote, 1_000)]);
+        let out = run(
+            &input,
+            &[bond(vote, dec!(400), BondType::Bidding)],
+            &[bond(vote, dec!(300), BondType::Institutional)],
+        );
+
+        assert_eq!(out.bidding.settlements.len(), 1);
+        assert!(
+            out.report.dropped_no_usable_bond.is_empty(),
+            "an underfunded bond still pays what it can, dropping would pay the stakers nothing"
+        );
+    }
+
+    #[test]
+    fn when_neither_bond_covers_the_larger_institutional_bond_is_used() {
+        let vote = vote_account(1);
+        let input = collection(vec![downtime_settlement(vote, 1_000)]);
+        let out = run(
+            &input,
+            &[bond(vote, dec!(300), BondType::Bidding)],
+            &[bond(vote, dec!(400), BondType::Institutional)],
+        );
+
+        assert!(out.bidding.settlements.is_empty());
+        assert_eq!(out.institutional.settlements.len(), 1);
+        assert!(out.report.dropped_no_usable_bond.is_empty());
     }
 
     #[test]
@@ -488,10 +577,10 @@ mod tests {
     }
 
     #[test]
-    fn absent_from_evaluation_is_reported_but_kept() {
+    fn settlements_for_an_unevaluated_validator_are_rejected() {
         let vote = vote_account(1);
         let input = collection(vec![downtime_settlement(vote, 1_000)]);
-        let out = allocate(AllocatorInput {
+        let error = allocate(AllocatorInput {
             collection: &input,
             bidding_bonds: &[bond(vote, dec!(1000000), BondType::Bidding)],
             institutional_bonds: &[],
@@ -499,15 +588,32 @@ mod tests {
             expect_slot: SLOT,
             exposure_warning_bps: DEFAULT_EXPOSURE_WARNING_BPS,
         })
-        .unwrap();
+        .expect_err("a settlement without a revenue expectation means mismatched evaluation files")
+        .to_string();
 
+        assert!(error.contains(&vote.to_string()), "{error}");
+        assert!(error.contains("same evaluation.json"), "{error}");
+    }
+
+    #[test]
+    fn bond_snapshots_of_different_epochs_are_reported() {
+        let vote = vote_account(1);
+        let input = collection(vec![downtime_settlement(vote, 1_000)]);
+        let mut stale = bond(vote, dec!(1000000), BondType::Bidding);
+        stale.epoch = EPOCH - 1;
+        let out = run(
+            &input,
+            &[stale],
+            &[bond(vote, dec!(1000000), BondType::Institutional)],
+        );
+
+        assert_eq!(out.report.bidding_bonds_epoch, Some(EPOCH - 1));
+        assert_eq!(out.report.institutional_bonds_epoch, Some(EPOCH));
         assert_eq!(
             out.bidding.settlements.len(),
             1,
-            "the evaluation set is a canary, not a gate"
+            "a skewed snapshot is reported, it does not change routing"
         );
-        assert_eq!(out.report.missing_from_evaluation, vec![vote.to_string()]);
-        assert!(out.report.dropped_no_usable_bond.is_empty());
     }
 
     #[test]

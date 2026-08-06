@@ -1,6 +1,7 @@
 agents:
   queue: "snapshots"
 env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   institutional_staking_api: "https://institutional-staking.marinade.finance/v1/validators"
   past_epochs_to_check: 10
@@ -107,15 +108,25 @@ steps:
   - label: ":broom: :three: Sanity Check - Merkle Tree & Settlement"
     key: "sanity-check-3"
     commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
       - buildkite-agent artifact download --include-retried-jobs settlements.json .
       - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+      - |
+        gcloud storage cp "$gs_bucket/$$epoch/institutional-direct-staking-settlements.json" "./institutional-direct-staking-settlements.json" || true
       - |
         pnpm install
         pnpm -r build
       - |
-        pnpm cli:check check-merkle-tree \
-          --merkle-trees ./settlement-merkle-trees.json \
-          --settlement-sources ./settlements.json
+        # the trees are generated from the payouts settlements plus the direct-staking split, so both
+        # have to be summed here; a partial source set fails the equality check by construction
+        if [[ -f ./institutional-direct-staking-settlements.json ]]; then
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./settlement-merkle-trees.json \
+            --settlement-sources ./settlements.json ./institutional-direct-staking-settlements.json
+        else
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./settlement-merkle-trees.json
+        fi
     soft_fail:
       - exit_status: "*"
 

@@ -187,22 +187,23 @@ steps:
   - label: ":mega: Notification"
     commands:
       - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
-      - direct_staking_report=$(cat ./direct-staking-report.txt)
       - |
         epoch=$(buildkite-agent meta-data get epoch)
+        # the report is multi-line; interpolating it into the JSON literal would emit raw newlines
+        # inside a string and Slack would reject the whole payload with invalid_json
+        jq -n --rawfile text ./direct-staking-report.txt \
+          --arg channel "$SLACK_FEED" --arg epoch "$$epoch" --arg url "$$BUILDKITE_BUILD_URL" '{
+            channel: $channel,
+            attachments: [{
+              color: "#8000ff",
+              title: "Direct staking PSR settlements generated (\($epoch)).",
+              title_link: $url,
+              text: $text,
+              footer: "<\($url)|View in Buildkite>"
+            }]
+          }' > ./slack-payload.json
         curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
-          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-            "channel": "'"$SLACK_FEED"'",
-            "attachments": [
-              {
-                "color": "#8000ff",
-                "title": "Direct staking PSR settlements generated ('"$$epoch"').",
-                "title_link": "'"$$BUILDKITE_BUILD_URL"'",
-                "text": "'"$$direct_staking_report"'",
-                "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
-              }
-            ]
-        }'
+          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d @./slack-payload.json
     if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~
