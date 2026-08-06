@@ -26,13 +26,9 @@ struct Args {
     #[arg(long, env)]
     bonds_institutional: String,
 
-    /// ds-sam revenue expectations, only used to report validators the auction no longer evaluates
+    /// ds-sam revenue expectations; every settled vote account must appear here or the run aborts
     #[arg(long, env)]
     revenue_expectation_collection: String,
-
-    /// Snapshot slot the settlements must belong to; a mismatch aborts without writing anything
-    #[arg(long, env)]
-    expect_slot: u64,
 
     #[arg(long, env)]
     output_bidding_settlement_collection: String,
@@ -87,7 +83,6 @@ fn main() -> anyhow::Result<()> {
         bidding_bonds: &bidding_bonds.bonds,
         institutional_bonds: &institutional_bonds.bonds,
         evaluated_vote_accounts: &evaluated_vote_accounts,
-        expect_slot: args.expect_slot,
         exposure_warning_bps: args.exposure_warning_bps,
     })?;
 

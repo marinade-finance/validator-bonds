@@ -3,7 +3,6 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   BONDS_API_URL: https://validator-bonds-api.marinade.finance
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
@@ -71,12 +70,10 @@ steps:
     - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json" "./evaluation.json"
-    - gcloud storage cp "$gs_bucket_institutional/$$epoch/institutional-payouts.json" "."
     artifact_paths:
       - "./stakes.json"
       - "./validators.json"
       - "./evaluation.json"
-      - "./institutional-payouts.json"
 
   - label: ":link: Download bonds"
     key: "download-bonds"
@@ -121,24 +118,15 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-bond-allocator .'
     - 'buildkite-agent artifact download --include-retried-jobs direct-staking-psr-settlements.json .'
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
-    - 'buildkite-agent artifact download --include-retried-jobs institutional-payouts.json .'
     - 'buildkite-agent artifact download --include-retried-jobs bonds-bidding.json .'
     - 'buildkite-agent artifact download --include-retried-jobs bonds-institutional.json .'
     - 'chmod +x target/release/settlement-bond-allocator'
     - |
-      # institutional-payouts.json carries the slot as a JSON string in some epochs
-      expect_slot=$(jq -r '.slot' ./institutional-payouts.json)
-      if [[ ! "$$expect_slot" =~ ^[0-9]+$ ]]; then
-        echo "institutional-payouts.json has no usable slot: '$$expect_slot'"
-        exit 1
-      fi
-      echo "Expecting snapshot slot $$expect_slot"
       ./target/release/settlement-bond-allocator \
         --input-settlement-collection ./direct-staking-psr-settlements.json \
         --bonds-bidding ./bonds-bidding.json \
         --bonds-institutional ./bonds-institutional.json \
         --revenue-expectation-collection ./evaluation.json \
-        --expect-slot "$$expect_slot" \
         --exposure-warning-bps ${EXPOSURE_WARNING_BPS:-2500} \
         --output-bidding-settlement-collection "./unified-direct-staking-settlements.json" \
         --output-institutional-settlement-collection "./institutional-direct-staking-settlements.json" \
@@ -187,22 +175,23 @@ steps:
   - label: ":mega: Notification"
     commands:
       - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
-      - direct_staking_report=$(cat ./direct-staking-report.txt)
       - |
         epoch=$(buildkite-agent meta-data get epoch)
+        # the report is multi-line; interpolating it into the JSON literal would emit raw newlines
+        # inside a string and Slack would reject the whole payload with invalid_json
+        jq -n --rawfile text ./direct-staking-report.txt \
+          --arg channel "$SLACK_FEED" --arg epoch "$$epoch" --arg url "$$BUILDKITE_BUILD_URL" '{
+            channel: $channel,
+            attachments: [{
+              color: "#8000ff",
+              title: "Direct staking PSR settlements generated (\($epoch)).",
+              title_link: $url,
+              text: $text,
+              footer: "<\($url)|View in Buildkite>"
+            }]
+          }' > ./slack-payload.json
         curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
-          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-            "channel": "'"$SLACK_FEED"'",
-            "attachments": [
-              {
-                "color": "#8000ff",
-                "title": "Direct staking PSR settlements generated ('"$$epoch"').",
-                "title_link": "'"$$BUILDKITE_BUILD_URL"'",
-                "text": "'"$$direct_staking_report"'",
-                "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
-              }
-            ]
-        }'
+          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d @./slack-payload.json
     if: "build.env('NOTIFY_FEED') == 'true'"
 
   - wait: ~

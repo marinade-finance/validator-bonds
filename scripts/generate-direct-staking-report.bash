@@ -2,8 +2,7 @@
 
 set -e
 
-# Deterministic decimal-point formatting regardless of the caller's locale
-# (an inherited LC_ALL would override LC_NUMERIC)
+# an inherited LC_ALL would override LC_NUMERIC and change the decimal point
 unset LC_ALL
 export LC_NUMERIC=C
 
@@ -14,8 +13,7 @@ then
     exit 1
 fi
 
-# Ten times settlement-config-direct-staking.yaml's min_settlement_lamports: a settlement this small
-# can cost more in init/fund/close fees than it pays out, which is the input for re-tuning the floor
+# ten times settlement-config-direct-staking.yaml's min_settlement_lamports; keep the two in step
 tiny_settlement_lamports=100000000
 
 decimal_format="%0.9f"
@@ -24,6 +22,13 @@ epoch="$(<"$allocation_report_file" jq '.epoch' -r)"
 slot="$(<"$allocation_report_file" jq '.slot' -r)"
 
 echo "Direct staking PSR in epoch $epoch (slot $slot)"
+
+# the two bond snapshots are collected per bond type, so a skew silently changes routing
+bidding_bonds_epoch="$(<"$allocation_report_file" jq '.bidding_bonds_epoch' -r)"
+institutional_bonds_epoch="$(<"$allocation_report_file" jq '.institutional_bonds_epoch' -r)"
+if [[ "$bidding_bonds_epoch" != "$institutional_bonds_epoch" ]]; then
+    echo "  WARNING bond snapshots disagree: bidding epoch $bidding_bonds_epoch, institutional epoch $institutional_bonds_epoch"
+fi
 
 while IFS=$'\t' read -r settlements_in claims_in bidding_settlements bidding_amount institutional_settlements institutional_amount dropped_settlements dropped_amount; do
   echo "  generated: $settlements_in settlements, ☉$(printf $decimal_format "$claims_in")"
@@ -44,8 +49,7 @@ done < <(<"$allocation_report_file" jq -r '.totals | [
 covered=$(<"$allocation_report_file" jq '.routed | length' -r)
 echo "  covered validators: $covered"
 
-# A drop means a user staked to a validator with no usable bond, i.e. the front-end gate let them
-# through unprotected — always worth a look, never expected in steady state
+# a drop means the front-end gate let a user stake to a validator with no usable bond
 dropped_count=$(<"$allocation_report_file" jq '.dropped_no_usable_bond | length' -r)
 if (( dropped_count > 0 )); then
     echo
@@ -59,20 +63,11 @@ fi
 exposure_count=$(<"$allocation_report_file" jq '.exposure_warnings | length' -r)
 if (( exposure_count > 0 )); then
     echo
-    echo "  EXPOSURE above threshold ($exposure_count):"
+    echo "  EXPOSURE above threshold, direct staking claims only ($exposure_count):"
     while IFS=$'\t' read -r vote_account bond_type exposure_bps threshold_bps amount; do
       echo "    $vote_account ($bond_type): $exposure_bps bps of bond, threshold $threshold_bps bps, ☉$(printf $decimal_format "$amount")"
     done < <(<"$allocation_report_file" jq -r '.exposure_warnings | sort_by(-.exposure_bps) | .[]
       | [.vote_account, .bond_type, (.exposure_bps | tostring), (.threshold_bps | tostring), (.claims_amount / 1e9)] | @tsv')
-fi
-
-# Non-empty means ds-sam's inclusion rule moved under us; downtime cannot be generated for a
-# validator outside the revenue-expectation set, so these should never appear
-missing_count=$(<"$allocation_report_file" jq '.missing_from_evaluation | length' -r)
-if (( missing_count > 0 )); then
-    echo
-    echo "  ABSENT from revenue expectations ($missing_count):"
-    <"$allocation_report_file" jq -r '.missing_from_evaluation[] | "    " + .'
 fi
 
 tiny_count=$(<"$allocation_report_file" jq --argjson limit "$tiny_settlement_lamports" '[.routed[] | select(.claims_amount < $limit)] | length' -r)

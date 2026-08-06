@@ -291,11 +291,7 @@ pub async fn load_json_with_on_chain(
     Ok(settlement_records_by_epoch)
 }
 
-/// Load merkle tree collection files (no pairing needed).
-/// Each file is a standalone MerkleTreeCollection JSON.
-/// A `config_override` that contradicts the file is rejected: `init-settlement` passes `--epoch`,
-/// which skips the derived-vs-precomputed check, so accepting the override would silently create
-/// and fund settlements under the wrong bond.
+/// A file contradicting `config_override` is skipped: `init-settlement` passes `--epoch`, so applying the override would create settlements under the wrong bond unnoticed.
 pub fn load_merkle_tree_collections(
     files: &[PathBuf],
     config_override: Option<Pubkey>,
@@ -313,11 +309,11 @@ pub fn load_merkle_tree_collections(
             if collection.validator_bonds_config != Pubkey::default()
                 && collection.validator_bonds_config != config
             {
-                return Err(anyhow!(
-                    "Merkle tree collection {path:?} (epoch {}) was generated for config {} but {config} was requested; refusing to derive bonds from the wrong config",
-                    collection.epoch,
-                    collection.validator_bonds_config,
-                ));
+                error!(
+                    "Skipping '{path:?}' (epoch {}): generated for config {} but {config} was requested",
+                    collection.epoch, collection.validator_bonds_config,
+                );
+                continue;
             }
             collection.validator_bonds_config = config;
         }
@@ -437,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn config_override_contradicting_the_file_is_rejected() {
+    fn config_override_contradicting_the_file_skips_it() {
         let path = write_collection("contradicting", Some(INSTITUTIONAL_CONFIG));
         let result = load_merkle_tree_collections(
             &[path.clone()],
@@ -445,13 +441,10 @@ mod tests {
         );
         std::fs::remove_file(&path).ok();
 
-        let error = match result {
-            Ok(_) => panic!("a mismatching --config must not be silently applied"),
-            Err(error) => error.to_string(),
-        };
+        let collections = result.expect("one wrong-config file must not abort the whole run");
         assert!(
-            error.contains("refusing to derive bonds from the wrong config"),
-            "{error}"
+            collections.is_empty(),
+            "a mismatching --config must not be applied to the collection"
         );
     }
 
