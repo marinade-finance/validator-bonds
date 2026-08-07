@@ -148,14 +148,16 @@ fi
 BID_CLI="$REPO_ROOT/target/release/bid-distribution-cli"
 INST_CLI="$REPO_ROOT/target/release/institutional-distribution-cli"
 MERKLE_CLI="$REPO_ROOT/target/release/merkle-generator-cli"
+ALLOCATOR_CLI="$REPO_ROOT/target/release/settlement-bond-allocator"
 
-if [[ ! -x "$BID_CLI" || ! -x "$MERKLE_CLI" || ! -x "$INST_CLI" ]]; then
-  echo "Binaries not found. Building..."
-  (cd "$REPO_ROOT" && cargo build --release \
-    --bin bid-distribution-cli \
-    --bin institutional-distribution-cli \
-    --bin merkle-generator-cli)
-fi
+# Unconditional: an existing binary may predate the working tree, and comparing outputs against
+# stale code reports a green run for code that is not being tested. Cargo no-ops when current.
+echo "Building CLIs..."
+(cd "$REPO_ROOT" && cargo build --release \
+  --bin bid-distribution-cli \
+  --bin institutional-distribution-cli \
+  --bin merkle-generator-cli \
+  --bin settlement-bond-allocator)
 
 SETTLEMENT_CONFIG="$REPO_ROOT/settlement-config.yaml"
 if [[ ! -f "$SETTLEMENT_CONFIG" ]]; then
@@ -313,6 +315,106 @@ check_funding_integrity() {
 # ---------------------------------------------------------------------------
 results=()
 
+# Direct-staking profile + bond allocator. Reads process_epoch's locals and sets its
+# direct_staking_status; bonds come from the per-epoch archive so the run stays reproducible.
+run_direct_staking_stage() {
+  local ds_settlements="$actual_dir/direct-staking-psr-settlements.json"
+  local ds_events="$actual_dir/direct-staking-protected-events.json"
+  local ds_bidding="$actual_dir/unified-direct-staking-settlements.json"
+  local ds_institutional="$actual_dir/institutional-direct-staking-settlements.json"
+  local ds_report="$actual_dir/direct-staking-allocation-report.json"
+  local ds_bonds_bidding="$inputs_dir/direct-staking-bonds-bidding.json"
+  local ds_bonds_institutional="$inputs_dir/direct-staking-bonds-institutional.json"
+  local main_settlements="$actual_dir/bid-distribution-settlements.json"
+
+  # the pre-rollout placeholder stays out of $inputs_dir: there gcs_cached_download would treat it as a cache hit and never fetch a later published archive
+  if ! gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-bidding.json" \
+       "$ds_bonds_bidding" > /dev/null; then
+    ds_bonds_bidding="$actual_dir/.empty-bonds-bidding.json"
+    echo '{"bonds":[]}' > "$ds_bonds_bidding"
+  fi
+  if ! gcs_cached_download "$GS_BUCKET/$epoch/direct-staking-bonds-institutional.json" \
+       "$ds_bonds_institutional" > /dev/null; then
+    ds_bonds_institutional="$actual_dir/.empty-bonds-institutional.json"
+    echo '{"bonds":[]}' > "$ds_bonds_institutional"
+  fi
+
+  echo "Running bid-distribution-cli (direct staking config)..."
+  local main_checksum_before
+  main_checksum_before=$(md5sum "$main_settlements" | cut -d' ' -f1)
+  rm -f "$ds_settlements" "$ds_events" "$ds_bidding" "$ds_institutional" "$ds_report"
+
+  if ! "$BID_CLI" \
+      --settlement-config "$REPO_ROOT/settlement-config-direct-staking.yaml" \
+      --stake-meta-collection "$inputs_dir/stakes.json" \
+      --validator-meta-collection "$inputs_dir/validators.json" \
+      --revenue-expectation-collection "$inputs_dir/evaluation.json" \
+      --output-settlement-collection "$ds_settlements" \
+      --output-protected-event-collection "$ds_events" \
+      2>&1 | tail -3; then
+    echo "  FAIL direct staking: bid-distribution-cli error"
+    direct_staking_status="ERROR"
+    return 0
+  fi
+
+  local ds_input_slot
+  ds_input_slot=$(jq -r '.slot' "$ds_settlements")
+
+  if ! "$ALLOCATOR_CLI" \
+      --input-settlement-collection "$ds_settlements" \
+      --bonds-bidding "$ds_bonds_bidding" \
+      --bonds-institutional "$ds_bonds_institutional" \
+      --revenue-expectation-collection "$inputs_dir/evaluation.json" \
+      --output-bidding-settlement-collection "$ds_bidding" \
+      --output-institutional-settlement-collection "$ds_institutional" \
+      --output-report "$ds_report" \
+      2>&1 | tail -3; then
+    echo "  FAIL direct staking: settlement-bond-allocator error"
+    direct_staking_status="ERROR"
+    return 0
+  fi
+
+  direct_staking_status="MATCH"
+
+  # both outputs must exist even when empty: the schedulers use their presence as progress
+  local ds_out
+  for ds_out in "$ds_bidding" "$ds_institutional"; do
+    if [[ ! -f "$ds_out" ]]; then
+      echo "  FAIL direct staking: $ds_out was not written"
+      direct_staking_status="DIFFER"
+      continue
+    fi
+    local ds_out_slot ds_out_epoch
+    ds_out_slot=$(jq -r '.slot' "$ds_out")
+    ds_out_epoch=$(jq -r '.epoch' "$ds_out")
+    if [[ "$ds_out_slot" != "$ds_input_slot" || "$ds_out_epoch" != "$epoch" ]]; then
+      echo "  FAIL direct staking: $(basename "$ds_out") carries slot/epoch $ds_out_slot/$ds_out_epoch, expected $ds_input_slot/$epoch"
+      direct_staking_status="DIFFER"
+    fi
+  done
+
+  local ds_in_amount ds_split_amount
+  ds_in_amount=$(jq -r '.totals.claims_amount_in' "$ds_report")
+  ds_split_amount=$(jq -r '.totals | .bidding_claims_amount + .institutional_claims_amount + .dropped_claims_amount' "$ds_report")
+  if [[ "$ds_in_amount" != "$ds_split_amount" ]]; then
+    echo "  FAIL direct staking: routing lost lamports ($ds_split_amount of $ds_in_amount)"
+    direct_staking_status="DIFFER"
+  fi
+
+  local main_checksum_after
+  main_checksum_after=$(md5sum "$main_settlements" | cut -d' ' -f1)
+  if [[ "$main_checksum_before" != "$main_checksum_after" ]]; then
+    echo "  FAIL direct staking: the main bid output changed while generating the direct staking profile"
+    direct_staking_status="DIFFER"
+  fi
+
+  if [[ "$direct_staking_status" == "MATCH" ]]; then
+    local ds_settlement_count
+    ds_settlement_count=$(jq -r '.settlements | length' "$ds_settlements")
+    echo "  OK direct staking: $ds_settlement_count settlement(s), ☉$ds_in_amount routed, main output byte-stable"
+  fi
+}
+
 process_epoch() {
   local epoch="$1"
   local epoch_dir="$DATA_DIR/$epoch"
@@ -394,7 +496,7 @@ process_epoch() {
 
   # ------- Run bid-distribution-cli ---------------------------------------
 
-  local bid_claims_status="SKIP" bid_merkle_status="SKIP"
+  local bid_claims_status="SKIP" bid_merkle_status="SKIP" direct_staking_status="SKIP"
 
   if [[ "$missing_bid_input" == "true" || "$missing_bid_expected" == "true" ]]; then
     echo "  SKIP bid-distribution: missing input or expected files"
@@ -416,11 +518,19 @@ process_epoch() {
       echo "  FAIL: bid-distribution-cli error"
       bid_claims_status="ERROR"; bid_merkle_status="ERROR"
     else
+      # must precede the merkle stage: production feeds the split into this same unified run
+      run_direct_staking_stage
+
       echo "Running merkle-generator-cli (bid)..."
       rm -f "$actual_dir/unified-merkle-trees.json"
 
+      local bid_merkle_inputs="$actual_dir/bid-distribution-settlements.json"
+      if [[ -f "$actual_dir/unified-direct-staking-settlements.json" ]]; then
+        bid_merkle_inputs="$bid_merkle_inputs,$actual_dir/unified-direct-staking-settlements.json"
+      fi
+
       if ! "$MERKLE_CLI" \
-          --input-settlement-files "$actual_dir/bid-distribution-settlements.json" \
+          --input-settlement-files "$bid_merkle_inputs" \
           --output-merkle-trees "$actual_dir/unified-merkle-trees.json" \
           --validator-bonds-config "$BID_BONDS_CONFIG" \
           2>&1 | tail -3; then
@@ -870,8 +980,13 @@ process_epoch() {
       echo "Running merkle-generator-cli (institutional)..."
       rm -f "$actual_dir/institutional-merkle-trees.json"
 
+      local inst_merkle_inputs="$actual_dir/institutional-distribution-settlements.json"
+      if [[ -f "$actual_dir/institutional-direct-staking-settlements.json" ]]; then
+        inst_merkle_inputs="$inst_merkle_inputs,$actual_dir/institutional-direct-staking-settlements.json"
+      fi
+
       if ! "$MERKLE_CLI" \
-          --input-settlement-files "$actual_dir/institutional-distribution-settlements.json" \
+          --input-settlement-files "$inst_merkle_inputs" \
           --output-merkle-trees "$actual_dir/institutional-merkle-trees.json" \
           --validator-bonds-config "$INST_BONDS_CONFIG" \
           2>&1 | tail -3; then
@@ -966,14 +1081,14 @@ process_epoch() {
   # ------- Determine overall status ---------------------------------------
 
   local overall="PASS"
-  for s in "$bid_claims_status" "$bid_merkle_status" "$sam_results_status" "$inst_claims_status" "$inst_merkle_status"; do
+  for s in "$bid_claims_status" "$bid_merkle_status" "$sam_results_status" "$direct_staking_status" "$inst_claims_status" "$inst_merkle_status"; do
     case "$s" in
       DIFFER|ERROR) overall="FAIL" ;;
       MISSING) if [[ "$REQUIRE_SAM_RESULTS" == "true" ]]; then overall="FAIL"; fi ;;
     esac
   done
 
-  results+=("$epoch $bid_claims_status $bid_merkle_status $sam_results_status $inst_claims_status $inst_merkle_status $overall")
+  results+=("$epoch $bid_claims_status $bid_merkle_status $sam_results_status $direct_staking_status $inst_claims_status $inst_merkle_status $overall")
 }
 
 # ---------------------------------------------------------------------------
@@ -995,15 +1110,15 @@ echo ""
 echo "================================================================"
 echo "  Summary"
 echo "================================================================"
-printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" \
-  "Epoch" "Bid Claims" "Bid Merkle" "SAM results" "Inst Claims" "Inst Merkle" "Status"
-printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
-  "-------" "-----------" "-----------" "-----------" "-----------" "-----------" "------"
+printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" \
+  "Epoch" "Bid Claims" "Bid Merkle" "SAM results" "DirectStake" "Inst Claims" "Inst Merkle" "Status"
+printf "%-7s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%-11s-+-%s\n" \
+  "-------" "-----------" "-----------" "-----------" "-----------" "-----------" "-----------" "------"
 
 any_fail=false
 for entry in "${results[@]}"; do
-  read -r ep bc bm sr ic im status <<< "$entry"
-  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$sr" "$ic" "$im" "$status"
+  read -r ep bc bm sr ds ic im status <<< "$entry"
+  printf "%-7s | %-11s | %-11s | %-11s | %-11s | %-11s | %-11s | %s\n" "$ep" "$bc" "$bm" "$sr" "$ds" "$ic" "$im" "$status"
   if [[ "$status" == "FAIL" ]]; then
     any_fail=true
   fi

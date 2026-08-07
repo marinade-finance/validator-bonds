@@ -123,6 +123,7 @@ fn generate_psr_settlements_for_config(
                     claims_amount,
                     claims,
                     details: None,
+                    product: None,
                 });
             } else {
                 debug!(
