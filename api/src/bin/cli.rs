@@ -1,4 +1,6 @@
-use api::repositories::{bond::store_bonds, common::CommonStoreOptions};
+use api::repositories::{
+    bond::store_bonds, collected_stake::store_collected_stake, common::CommonStoreOptions,
+};
 use clap::{Args, Parser, Subcommand};
 use tracing_log::LogTracer;
 use validator_bonds_common::cli_result::CliResult;
@@ -21,6 +23,7 @@ struct Params {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     StoreBonds(CommonStoreOptions),
+    StoreCollectedStake(CommonStoreOptions),
 }
 
 #[tokio::main]
@@ -53,6 +56,7 @@ async fn real_main() -> anyhow::Result<()> {
 
     match params.command {
         Command::StoreBonds(options) => store_bonds(options).await?,
+        Command::StoreCollectedStake(options) => store_collected_stake(options).await?,
     };
     Ok(())
 }
