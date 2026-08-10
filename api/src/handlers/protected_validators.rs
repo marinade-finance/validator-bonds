@@ -92,10 +92,9 @@ pub async fn handler(
             message: format!("Failed to fetch bonds. Error: {error:?}"),
         })?;
 
-    // The two are collected by separate pipeline steps, so a stale stake snapshot is possible and
-    // must be visible in the logs rather than silently changing who is protected.
+    // Separate pipeline steps write these, so a skew either way must surface rather than move the list.
     if let Some(bonds_epoch) = bonds.iter().map(|bond| bond.epoch).max() {
-        if snapshot.epoch < bonds_epoch {
+        if snapshot.epoch != bonds_epoch {
             tracing::warn!(
                 "Collected stake is from epoch {} while bonds are from epoch {bonds_epoch}",
                 snapshot.epoch

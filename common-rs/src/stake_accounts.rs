@@ -40,15 +40,16 @@ pub async fn get_clock(rpc_client: Arc<RpcClient>) -> anyhow::Result<Clock> {
 pub async fn get_new_rate_activation_epoch(
     rpc_client: Arc<RpcClient>,
 ) -> anyhow::Result<Option<Epoch>> {
+    let feature_id = reduce_stake_warmup_cooldown::id();
     let Some(account) = rpc_client
-        .get_account_with_commitment(&reduce_stake_warmup_cooldown::id(), rpc_client.commitment())
+        .get_account_with_commitment(&feature_id, rpc_client.commitment())
         .await?
         .value
     else {
         return Ok(None);
     };
     let feature = solana_feature_gate_interface::from_account(&account)
-        .ok_or_else(|| anyhow::anyhow!("Account {} is not a feature account", account.owner))?;
+        .ok_or_else(|| anyhow::anyhow!("Account {feature_id} is not a feature account"))?;
     let epoch_schedule = rpc_client.get_epoch_schedule().await?;
     Ok(feature
         .activated_at
@@ -324,8 +325,7 @@ fn aggregate_stake_by_vote_account(
         aggregate.stake_accounts += 1;
     }
 
-    // Fully cooled-down accounts keep their delegation, so they would otherwise contribute rows
-    // carrying no stake at all — 878 of them on the native exit authority for 14 SOL.
+    // Fully cooled-down accounts keep their delegation: 878 such rows on native-exit, for 14 SOL.
     per_vote_account.retain(|_, aggregate| {
         aggregate.effective + aggregate.activating + aggregate.deactivating > 0
     });
@@ -374,6 +374,18 @@ pub async fn collect_stake_by_authority(
         authorities.insert(*stake_authority, per_vote_account);
     }
 
+    // A rollover mid-run would stamp the starting epoch onto accounts scanned after it.
+    let end_epoch = get_clock(rpc_client)
+        .await
+        .map_err(CliError::retry_able)?
+        .epoch;
+    if end_epoch != stake_activation.clock.epoch {
+        return Err(CliError::retry_able(anyhow::anyhow!(
+            "Epoch changed during stake collection: {} -> {end_epoch}",
+            stake_activation.clock.epoch
+        )));
+    }
+
     Ok(StakeByAuthority {
         epoch: stake_activation.clock.epoch,
         slot: stake_activation.clock.slot,
@@ -390,8 +402,7 @@ mod tests {
     const EPOCH: u64 = 1014;
     const STAKE: u64 = 100_000;
 
-    // An empty StakeHistory makes the Agave warmup/cooldown math deterministic: outside the
-    // activation and deactivation epochs it reports the delegation verbatim or nothing at all.
+    // An empty StakeHistory makes Agave report the delegation verbatim, so the epochs alone drive it.
     fn stake_state(
         activation_epoch: u64,
         deactivation_epoch: u64,
@@ -503,8 +514,7 @@ mod tests {
         assert!(aggregate(vec![stake_state(EPOCH - 2, EPOCH - 1, 0)]).is_empty());
     }
 
-    // A lockup gates withdraw, merge and authorize-withdrawer — never delegation or rewards. The
-    // stake still earns for its owner, so the measurement counts it unless explicitly asked not to.
+    // A lockup gates withdraw, merge and authorize-withdrawer — never delegation, so it still earns.
     #[test]
     fn a_locked_stake_account_is_counted_by_default() {
         assert_eq!(
@@ -552,9 +562,7 @@ mod tests {
         );
     }
 
-    // Guards the activation epoch itself: `None` selects the pre-2024 25% rate and cools the account
-    // down almost three times too fast. Needs a cooldown queue larger than the 9% cap, or the rate
-    // never binds and both values agree.
+    // Needs a cooldown queue above the 9% cap, or the rate never binds and both values agree.
     #[test]
     fn the_activation_epoch_selects_the_cooldown_rate() {
         const CLUSTER: u64 = 1_000_000;

@@ -111,10 +111,11 @@ pub fn get_delegated_amount(
     if let Some(delegation) = stake_account_state.delegation() {
         let StakeHistoryEntry {
             effective,
-            deactivating,
+            deactivating: _,
             activating,
         } = stake_activation.status(&delegation);
-        effective + deactivating + activating
+        // Not an addend: Agave's `with_deactivating` sets `effective` to that same amount.
+        effective + activating
     } else {
         0
     }
@@ -481,5 +482,60 @@ mod tests {
                 "{label}"
             );
         }
+    }
+
+    const EPOCH: u64 = 1014;
+
+    fn delegated_between(activation_epoch: u64, deactivation_epoch: u64) -> StakeStateV2 {
+        StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 10 * SOL,
+                    activation_epoch,
+                    deactivation_epoch,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    // An empty StakeHistory makes Agave report the delegation verbatim, so the epochs alone drive it.
+    fn at_epoch() -> StakeActivation {
+        StakeActivation {
+            clock: solana_sdk::clock::Clock {
+                epoch: EPOCH,
+                ..Default::default()
+            },
+            stake_history: solana_sdk::stake_history::StakeHistory::default(),
+            new_rate_activation_epoch: Some(EPOCH - 1),
+        }
+    }
+
+    #[test]
+    fn delegated_amount_of_an_active_account_is_the_delegation() {
+        let state = delegated_between(EPOCH - 1, u64::MAX);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    #[test]
+    fn delegated_amount_of_an_activating_account_is_the_delegation() {
+        let state = delegated_between(EPOCH, u64::MAX);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    // Adding `deactivating` reported 20 SOL for this 10 SOL account, hiding its free lamports.
+    #[test]
+    fn delegated_amount_of_a_cooling_account_is_not_doubled() {
+        let state = delegated_between(EPOCH - 1, EPOCH);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    #[test]
+    fn delegated_amount_of_a_non_delegated_account_is_zero() {
+        let state = initialized_stake(Pubkey::new_unique(), Pubkey::new_unique());
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 0);
     }
 }
