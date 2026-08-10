@@ -7,7 +7,6 @@ use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::stake::state::StakeStateV2;
-use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
@@ -19,7 +18,7 @@ use validator_bonds::instructions::MergeStakeArgs;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::stake_accounts::{
-    is_locked, CollectedStakeAccount, CollectedStakeAccounts,
+    is_locked, CollectedStakeAccount, CollectedStakeAccounts, StakeActivation,
 };
 
 // TODO: better to be loaded from chain
@@ -41,15 +40,14 @@ pub const IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST: [&str; 2] = [
 // - error if all are locked or no stake accounts
 pub fn prioritize_for_claiming(
     stake_accounts: &CollectedStakeAccounts,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> anyhow::Result<Pubkey> {
     let mut non_locked_stake_accounts = stake_accounts
         .iter()
-        .filter(|(_, _, stake)| !is_locked(stake, clock))
+        .filter(|(_, _, stake)| !is_locked(stake, &stake_activation.clock))
         .collect::<Vec<_>>();
     non_locked_stake_accounts.sort_by_cached_key(|(_, lamports, stake_account)| {
-        get_claiming_priority_key(stake_account, *lamports, clock, stake_history)
+        get_claiming_priority_key(stake_account, *lamports, stake_activation)
     });
     if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
@@ -76,8 +74,7 @@ pub enum StakeAccountStateType {
 
 pub fn get_stake_state_type(
     stake_account_state: &StakeStateV2,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> StakeAccountStateType {
     if let StakeStateV2::Initialized(_) = stake_account_state {
         // stake account is initialized and not delegated, it can be delegated just now
@@ -88,7 +85,7 @@ pub fn get_stake_state_type(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
+        } = stake_activation.status(&delegation);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
             StakeAccountStateType::DelegatedAndDeactivated
@@ -109,15 +106,14 @@ pub fn get_stake_state_type(
 
 pub fn get_delegated_amount(
     stake_account_state: &StakeStateV2,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> u64 {
     if let Some(delegation) = stake_account_state.delegation() {
         let StakeHistoryEntry {
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
+        } = stake_activation.status(&delegation);
         effective + deactivating + activating
     } else {
         0
@@ -186,8 +182,7 @@ impl Ord for ClaimingPriorityKey {
 fn get_claiming_priority_key(
     stake_account: &StakeStateV2,
     lamports: u64,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> ClaimingPriorityKey {
     let staker = if let Some(authorized) = stake_account.authorized() {
         authorized.staker
@@ -196,7 +191,7 @@ fn get_claiming_priority_key(
     };
     // Marinade liquid and institutional stake accounts need a different priority to other types
     if staker == Pubkey::from_str(MARINADE_LIQUID_STAKER_AUTHORITY).unwrap() {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::simple(0),
             StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::simple(1),
             StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
@@ -205,7 +200,7 @@ fn get_claiming_priority_key(
             StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::simple(255),
         }
     } else if staker == Pubkey::from_str(MARINADE_INSTITUTIONAL_STAKER_AUTHORITY).unwrap() {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::DelegatedAndDeactivated => {
                 ClaimingPriorityKey::full(0, lamports)
             }
@@ -218,7 +213,7 @@ fn get_claiming_priority_key(
             StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::full(255, lamports),
         }
     } else {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::Initialized => ClaimingPriorityKey::simple(0),
             StakeAccountStateType::DelegatedAndDeactivated => ClaimingPriorityKey::simple(1),
             StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
@@ -282,14 +277,13 @@ pub async fn prepare_merge_instructions(
     config_address: &Pubkey,
     staker_authority: &Pubkey,
     transaction_builder: &mut TransactionBuilder,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> anyhow::Result<Vec<Pubkey>> {
     let mut non_mergeable_stake_accounts: Vec<Pubkey> = vec![];
     // can we merge stake accounts? (stake accounts can be merged only when both in the same state)
     for (stake_account_address, _, stake_account_state) in stake_accounts_to_merge {
         let stake_account_to_merge_state_type =
-            get_stake_state_type(stake_account_state, clock, stake_history);
+            get_stake_state_type(stake_account_state, stake_activation);
         if stake_account_to_merge_state_type != destination_stake_state_type {
             // will be funded each separately
             warn!(

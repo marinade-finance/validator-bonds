@@ -25,10 +25,8 @@ use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
@@ -52,7 +50,7 @@ use validator_bonds_common::settlements::{
     get_settlement_claims_for_settlement_pubkeys, get_settlements_for_pubkeys,
 };
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, get_clock, get_stake_history, CollectedStakeAccounts,
+    collect_stake_accounts, CollectedStakeAccounts, StakeActivation,
 };
 
 #[derive(Parser, Debug)]
@@ -169,10 +167,7 @@ async fn real_main(
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
-    let clock = get_clock(rpc_client.clone())
-        .await
-        .map_err(CliError::retry_able)?;
-    let stake_history = get_stake_history(rpc_client.clone())
+    let stake_activation = StakeActivation::fetch(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
 
@@ -181,8 +176,7 @@ async fn real_main(
         &program,
         &config_address,
         &mut transaction_builder,
-        &clock,
-        &stake_history,
+        &stake_activation,
         rpc_client.clone(),
         transaction_executor.clone(),
         &priority_fee_policy,
@@ -228,8 +222,7 @@ async fn real_main(
             &mut settlement_claimed_amounts,
             &mut stake_accounts_to_cache,
             minimal_stake_lamports,
-            &clock,
-            &stake_history,
+            &stake_activation,
         )
         .await?;
     }
@@ -244,8 +237,7 @@ async fn merge_stake_accounts(
     program: &Program<Arc<DynSigner>>,
     config_address: &Pubkey,
     transaction_builder: &mut TransactionBuilder,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     priority_fee_policy: &PriorityFeePolicy,
@@ -255,7 +247,7 @@ async fn merge_stake_accounts(
     for claimable_settlement in claimable_settlements.iter() {
         let mergeable_stake_accounts = if claimable_settlement.stake_accounts.len() > 1 {
             let destination_stake = claimable_settlement.stake_accounts[0];
-            let destination_type = get_stake_state_type(&destination_stake.2, clock, stake_history);
+            let destination_type = get_stake_state_type(&destination_stake.2, stake_activation);
             let possible_to_merge = claimable_settlement.stake_accounts.iter().skip(1).collect();
             settlements_with_merge_operation.insert(claimable_settlement.settlement_address);
             Some((destination_stake.0, destination_type, possible_to_merge))
@@ -275,8 +267,7 @@ async fn merge_stake_accounts(
                 config_address,
                 &find_settlement_staker_authority(&claimable_settlement.settlement_address).0,
                 transaction_builder,
-                clock,
-                stake_history,
+                stake_activation,
             )
             .await?;
         }
@@ -323,8 +314,7 @@ async fn claim_settlement<'a>(
     settlement_claimed_amounts: &mut HashMap<Pubkey, u64>,
     stake_accounts_to_cache: &mut StakeAccountsCache<'a>,
     minimal_stake_lamports: u64,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
     let empty_stake_accounts: CollectedStakeAccounts = vec![];
@@ -420,8 +410,7 @@ async fn claim_settlement<'a>(
             });
         let stake_account_to = prioritize_for_claiming(
             stake_accounts_to,
-            clock,
-            stake_history,
+            stake_activation,
         ).map_or_else(|e| {
             reporting.warning().with_msg(format!(
                 "No available stake account found where to claim into of staker/withdraw authorities {}/{} (epoch: {}, settlement: {}, claim: {}, index: {}): {:?}",

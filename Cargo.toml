@@ -24,6 +24,7 @@ incremental = false
 opt-level = 3
 
 [workspace.dependencies]
+agave-feature-set = "2.3.13"
 anchor-client = { version = "0.31.1", features = ["async"] }
 anchor-lang = "0.31.1"
 anchor-spl = { version = "0.31.1" }
@@ -54,6 +55,7 @@ solana-account-decoder = "2.3.13"
 solana-account-info = "2.3.0"
 solana-cli-output = "2.3.13"
 solana-client = "2.3.13"
+solana-feature-gate-interface = "2.2.2"
 solana-instructions-sysvar = "2.2.2"
 solana-program = "2.3.0"
 solana-pubkey = "2.3.0"

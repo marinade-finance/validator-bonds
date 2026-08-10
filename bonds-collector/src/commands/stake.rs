@@ -29,6 +29,7 @@ pub async fn collect_stake(options: CollectStakeOptions) -> anyhow::Result<()> {
             .iter()
             .map(|authority| authority.stake_authority)
             .collect::<Vec<_>>(),
+        options.skip_locked,
     )
     .await?;
     let updated_at = chrono::Utc::now();

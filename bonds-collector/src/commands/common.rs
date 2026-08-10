@@ -39,4 +39,10 @@ pub struct CollectStakeOptions {
 
     #[arg(long = "config", help = "Path to the collector YAML configuration")]
     pub config: String,
+
+    #[arg(
+        long = "skip-locked",
+        help = "Exclude locked stake accounts from the collected amounts. Off by default: a lockup blocks withdrawing, not delegating or earning, so locked stake still needs bond coverage."
+    )]
+    pub skip_locked: bool,
 }
