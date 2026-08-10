@@ -1,5 +1,6 @@
+use crate::cli_result::CliError;
 use log::{info, warn};
-use solana_account_decoder::{UiAccountEncoding, UiDataSliceConfig};
+use solana_account_decoder::UiAccountEncoding;
 use solana_client::{
     nonblocking::rpc_client::RpcClient,
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
@@ -232,79 +233,215 @@ fn map_stake_accounts_to_settlement(
         .collect::<HashMap<_, _>>()
 }
 
-pub async fn get_stake_account_slices(
-    rpc_client: Arc<RpcClient>,
-    stake_authority: Option<Pubkey>,
-    slice: Option<(usize, usize)>,
-    fetch_pause_millis: Option<u64>,
-) -> (Vec<(Pubkey, StakeStateV2)>, Option<anyhow::Error>) {
-    info!("Fetching stake account slices {slice:?} with stake authority: {stake_authority:?}");
-    let mut stake_accounts_count = 0;
-    let data_slice = slice.map(|(offset, length)| UiDataSliceConfig { offset, length });
-    let mut stake_accounts: Vec<(Pubkey, StakeStateV2)> = vec![];
-    let mut errors: Vec<String> = vec![];
+#[derive(Default, Clone, Debug, PartialEq)]
+pub struct StakeAggregate {
+    pub effective: u64,
+    pub activating: u64,
+    pub deactivating: u64,
+    pub stake_accounts: u32,
+}
 
-    for page in 0..=u8::MAX {
-        let mut filters: Vec<RpcFilterType> = vec![RpcFilterType::DataSize(200)];
-        if let Some(stake_authority) = stake_authority {
-            filters.push(RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-                4 + 8,
-                stake_authority.to_bytes().to_vec(),
-            )));
+/// `deactivating` is a subset of `effective`, never additive: Agave's `with_deactivating` reports the
+/// cooling-down stake as effective for that epoch too. Active-only is `effective - deactivating`.
+fn aggregate_stake_by_vote_account(
+    stake_accounts: &CollectedStakeAccounts,
+    clock: &Clock,
+    stake_history: &StakeHistory,
+) -> HashMap<Pubkey, StakeAggregate> {
+    let mut per_vote_account: HashMap<Pubkey, StakeAggregate> = HashMap::new();
+
+    for (_, _, stake) in stake_accounts {
+        if is_locked(stake, clock) {
+            continue;
         }
-        filters.push(RpcFilterType::Memcmp(Memcmp::new_raw_bytes(
-            4 + 8 + 32,
-            vec![page],
-        )));
-        let result = rpc_client
-            .get_program_accounts_with_config(
-                &stake_program_id,
-                RpcProgramAccountsConfig {
-                    filters: Some(filters.clone()),
-                    account_config: RpcAccountInfoConfig {
-                        encoding: Some(UiAccountEncoding::Base64),
-                        commitment: Some(rpc_client.commitment()),
-                        data_slice,
-                        min_context_slot: None,
-                    },
-                    with_context: None,
-                    sort_results: None,
-                },
-            )
-            .await;
-        match result {
-            Ok(accounts) => {
-                stake_accounts_count += accounts.len();
-                for (pubkey, account) in accounts {
-                    let stake_state = bincode::deserialize(&account.data).unwrap_or_else(|_| {
-                        panic!("Failed to deserialize stake account data for {pubkey}")
-                    });
-                    stake_accounts.push((pubkey, stake_state));
-                }
-            }
-            Err(err) => {
-                errors.push(format!("Failed to fetch stake accounts slice: {err:?}"));
-            }
+        let Some(delegation) = stake.delegation() else {
+            continue;
         };
+        let StakeHistoryEntry {
+            effective,
+            activating,
+            deactivating,
+        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
 
-        // pause between fetches to not overwhelming the RPC with many requests
-        if let Some(fetch_pause) = fetch_pause_millis {
-            tokio::time::sleep(tokio::time::Duration::from_millis(fetch_pause)).await;
-        }
+        let aggregate = per_vote_account.entry(delegation.voter_pubkey).or_default();
+        aggregate.effective += effective;
+        aggregate.activating += activating;
+        aggregate.deactivating += deactivating;
+        aggregate.stake_accounts += 1;
     }
 
-    info!(
-        "Loaded {} stake accounts with filter: {:?}",
-        stake_accounts_count,
-        (stake_authority, slice)
-    );
-    let result_error = if errors.is_empty() {
-        None
-    } else {
-        Some(anyhow::anyhow!(
-            "Failed to fetch stake accounts: {errors:?}"
-        ))
-    };
+    // Fully cooled-down accounts keep their delegation, so they would otherwise contribute rows
+    // carrying no stake at all — 878 of them on the native exit authority for 14 SOL.
+    per_vote_account.retain(|_, aggregate| {
+        aggregate.effective + aggregate.activating + aggregate.deactivating > 0
+    });
+    per_vote_account
+}
 
-    (stake_accounts, result_error)
+/// Marinade-routed stake per staker authority, per vote account. Errors are never partial: a missing
+/// authority understates the stake and would over-report bond coverage downstream.
+pub async fn collect_stake_by_authority(
+    rpc_client: Arc<RpcClient>,
+    stake_authorities: &[Pubkey],
+) -> Result<HashMap<Pubkey, HashMap<Pubkey, StakeAggregate>>, CliError> {
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let stake_history = get_stake_history(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+
+    let mut collected = HashMap::new();
+    for stake_authority in stake_authorities {
+        let stake_accounts =
+            collect_stake_accounts(rpc_client.clone(), None, Some(stake_authority))
+                .await
+                .map_err(CliError::retry_able)?;
+        let per_vote_account =
+            aggregate_stake_by_vote_account(&stake_accounts, &clock, &stake_history);
+
+        let effective: u64 = per_vote_account
+            .values()
+            .map(|aggregate| aggregate.effective)
+            .sum();
+        info!(
+            "Stake authority {stake_authority}: {} accounts, {} vote accounts, {} lamports effective",
+            stake_accounts.len(),
+            per_vote_account.len(),
+            effective
+        );
+
+        collected.insert(*stake_authority, per_vote_account);
+    }
+
+    Ok(collected)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_program::stake::state::{Delegation, Meta, Stake};
+    use solana_stake_interface::stake_flags::StakeFlags;
+
+    const EPOCH: u64 = 1014;
+    const STAKE: u64 = 100_000;
+
+    // An empty StakeHistory makes the Agave warmup/cooldown math deterministic: outside the
+    // activation and deactivation epochs it reports the delegation verbatim or nothing at all.
+    fn stake_state(
+        activation_epoch: u64,
+        deactivation_epoch: u64,
+        lockup_epoch: u64,
+    ) -> StakeStateV2 {
+        let mut meta = Meta::default();
+        meta.lockup.epoch = lockup_epoch;
+        StakeStateV2::Stake(
+            meta,
+            Stake {
+                delegation: Delegation {
+                    voter_pubkey: vote_account(),
+                    stake: STAKE,
+                    activation_epoch,
+                    deactivation_epoch,
+                    ..Default::default()
+                },
+                credits_observed: 0,
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    fn vote_account() -> Pubkey {
+        Pubkey::from_str_const("We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb")
+    }
+
+    fn aggregate(states: Vec<StakeStateV2>) -> HashMap<Pubkey, StakeAggregate> {
+        let accounts: CollectedStakeAccounts = states
+            .into_iter()
+            .map(|state| (Pubkey::new_unique(), STAKE, state))
+            .collect();
+        let clock = Clock {
+            epoch: EPOCH,
+            ..Default::default()
+        };
+        aggregate_stake_by_vote_account(&accounts, &clock, &StakeHistory::default())
+    }
+
+    fn only(states: Vec<StakeStateV2>) -> StakeAggregate {
+        let aggregated = aggregate(states);
+        assert_eq!(aggregated.len(), 1, "expected one vote account");
+        aggregated.get(&vote_account()).unwrap().clone()
+    }
+
+    #[test]
+    fn activated_stake_is_effective() {
+        assert_eq!(
+            only(vec![stake_state(EPOCH - 1, u64::MAX, 0)]),
+            StakeAggregate {
+                effective: STAKE,
+                activating: 0,
+                deactivating: 0,
+                stake_accounts: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn stake_activating_this_epoch_is_not_effective_yet() {
+        assert_eq!(
+            only(vec![stake_state(EPOCH, u64::MAX, 0)]),
+            StakeAggregate {
+                effective: 0,
+                activating: STAKE,
+                deactivating: 0,
+                stake_accounts: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn deactivating_stake_is_still_reported_as_effective() {
+        // The subset invariant: summing effective + deactivating would double-count this stake.
+        assert_eq!(
+            only(vec![stake_state(EPOCH - 1, EPOCH, 0)]),
+            StakeAggregate {
+                effective: STAKE,
+                activating: 0,
+                deactivating: STAKE,
+                stake_accounts: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn a_fully_deactivated_vote_account_is_dropped() {
+        assert!(aggregate(vec![stake_state(EPOCH - 2, EPOCH - 1, 0)]).is_empty());
+    }
+
+    #[test]
+    fn a_locked_stake_account_is_skipped() {
+        assert!(aggregate(vec![stake_state(EPOCH - 1, u64::MAX, EPOCH + 1)]).is_empty());
+    }
+
+    #[test]
+    fn a_stake_account_without_delegation_is_skipped() {
+        assert!(aggregate(vec![StakeStateV2::Initialized(Meta::default())]).is_empty());
+    }
+
+    #[test]
+    fn accounts_of_one_vote_account_are_summed() {
+        assert_eq!(
+            only(vec![
+                stake_state(EPOCH - 1, u64::MAX, 0),
+                stake_state(EPOCH - 1, u64::MAX, 0),
+                stake_state(EPOCH, u64::MAX, 0),
+            ]),
+            StakeAggregate {
+                effective: 2 * STAKE,
+                activating: STAKE,
+                deactivating: 0,
+                stake_accounts: 3,
+            }
+        );
+    }
 }
