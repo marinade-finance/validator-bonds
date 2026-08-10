@@ -114,6 +114,7 @@ fn build_response(snapshot: CollectedStakeSnapshot) -> CollectedStakeResponse {
     path = "/v1/validators/stake",
     responses(
         (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, at the latest collected epoch.", body = CollectedStakeResponse),
+        (status = 500, description = "No stake has been collected yet, or it could not be read. Deliberately not an empty list, which would read as 'no validator has stake'."),
     )
 )]
 pub async fn handler(

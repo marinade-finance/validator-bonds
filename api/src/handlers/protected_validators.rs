@@ -68,6 +68,7 @@ fn protected_vote_accounts(
     path = "/v1/validators/protected",
     responses(
         (status = 200, description = "Effective bond under the bidding and the institutional config, summed, covers at least 1/2000 of the validator's Marinade stake, and is at least 1 SOL.", body = ProtectedValidatorsResponse),
+        (status = 500, description = "No stake has been collected yet, or bonds could not be read. Deliberately not an empty list, which would read as 'no validator is protected'."),
     )
 )]
 pub async fn handler(

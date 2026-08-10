@@ -84,6 +84,25 @@ mod tests {
         }
     }
 
+    // A generated client with no error branch is worse than none: for the two /v1/validators paths
+    // the 500 is a chosen state, not a failure.
+    #[test]
+    fn every_fallible_endpoint_documents_its_error() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for path in [
+            "/bonds",
+            "/bonds/bidding",
+            "/bonds/institutional",
+            "/v1/validators/protected",
+            "/v1/validators/stake",
+        ] {
+            assert!(
+                docs["paths"][path]["get"]["responses"]["500"].is_object(),
+                "{path} can answer 500 and must document it",
+            );
+        }
+    }
+
     #[test]
     fn the_validators_family_is_documented_under_v1() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
