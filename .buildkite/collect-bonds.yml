@@ -128,8 +128,34 @@ steps:
 
   - wait: ~
 
+  - label: ":bell: Emit Bond Events"
+    key: "emit-bond-events"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
+    - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
+    - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
+    - notifications_api_url=$(buildkite-agent meta-data get notifications_api_url)
+    - echo "--- Emitting bond events for $$bond_type"
+    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
+    - pnpm install
+    - pnpm -r build
+    - |
+      pnpm ts-node packages/bonds-eventing/src/index.ts \
+        "$$bond_type" \
+        --retry-max-attempts "$$retry_max_attempts" \
+        --retry-base-delay-ms "$$retry_base_delay_ms" \
+        --emit-concurrency "$$emit_concurrency" \
+        --notifications-api-url "$$notifications_api_url" \
+        --postgres-ssl-root-cert ./eu-west-1-bundle.pem
+    soft_fail:
+      - exit_status: "*"
+
+  - wait: ~
+
   # Marinade stake per validator is the same for both bond configs, so it is collected on the bidding
-  # run only. `/v1/validators/protected` sizes each bond against it.
+  # run only. `/v1/validators/protected` sizes each bond against it. Placed after bond eventing so a
+  # failure here cannot keep validator notifications from being emitted.
   - label: ":coin: Collect Marinade Stake"
     key: "collect-stake"
     commands:
@@ -137,6 +163,8 @@ steps:
     - |
       if [ "$$bond_type" != "bidding" ]; then
         echo "Bond type '$$bond_type': stake is collected on the bidding run only"
+        # placeholder so the declared artifact always exists; the store step exits before reading it
+        touch collected-stake.yaml
         exit 0
       fi
     - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
@@ -172,31 +200,6 @@ steps:
       automatic:
         - exit_status: 100
           limit: 5
-
-  - wait: ~
-
-  - label: ":bell: Emit Bond Events"
-    key: "emit-bond-events"
-    commands:
-    - bond_type=$(buildkite-agent meta-data get bond_type)
-    - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
-    - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
-    - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
-    - notifications_api_url=$(buildkite-agent meta-data get notifications_api_url)
-    - echo "--- Emitting bond events for $$bond_type"
-    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
-    - pnpm install
-    - pnpm -r build
-    - |
-      pnpm ts-node packages/bonds-eventing/src/index.ts \
-        "$$bond_type" \
-        --retry-max-attempts "$$retry_max_attempts" \
-        --retry-base-delay-ms "$$retry_base_delay_ms" \
-        --emit-concurrency "$$emit_concurrency" \
-        --notifications-api-url "$$notifications_api_url" \
-        --postgres-ssl-root-cert ./eu-west-1-bundle.pem
-    soft_fail:
-      - exit_status: "*"
 
   - wait: ~
 

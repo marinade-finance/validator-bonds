@@ -1,4 +1,4 @@
-use super::common::CommonStoreOptions;
+use super::common::{pg_transient, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
 use openssl::ssl::{SslConnector, SslMethod};
@@ -75,6 +75,8 @@ pub async fn get_collected_stake(
 
 /// One epoch per collection run: the collector stamps every record from a single `Clock`, and the
 /// store replaces that whole epoch. Mixed epochs would make the `DELETE` drop rows it never rewrites.
+/// `slot` and `updated_at` are checked too because `get_collected_stake` reads them off an arbitrary
+/// row of the epoch.
 fn collection_epoch(records: &[CollectedStakeRecord]) -> anyhow::Result<i32> {
     let Some(first) = records.first() else {
         // An empty file must not be allowed to empty the table — the endpoint would silently
@@ -85,6 +87,18 @@ fn collection_epoch(records: &[CollectedStakeRecord]) -> anyhow::Result<i32> {
         records.iter().all(|record| record.epoch == first.epoch),
         "Collected stake records span multiple epochs, expected only {}",
         first.epoch
+    );
+    anyhow::ensure!(
+        records.iter().all(|record| record.slot == first.slot),
+        "Collected stake records span multiple slots, expected only {}",
+        first.slot
+    );
+    anyhow::ensure!(
+        records
+            .iter()
+            .all(|record| record.updated_at == first.updated_at),
+        "Collected stake records span multiple timestamps, expected only {}",
+        first.updated_at
     );
     Ok(first.epoch.try_into()?)
 }
@@ -101,20 +115,22 @@ pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Resul
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
     let connector = MakeTlsConnector::new(builder.build());
 
-    let (mut psql_client, psql_conn) =
-        tokio_postgres::connect(&options.postgres_url, connector).await?;
+    let (mut psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
+        .await
+        .map_err(pg_transient)?;
     tokio::spawn(async move {
         if let Err(err) = psql_conn.await {
             log::error!("PSQL connection terminated: {err}");
         }
     });
 
-    let tx = psql_client.transaction().await?;
+    let tx = psql_client.transaction().await.map_err(pg_transient)?;
 
     // Replace rather than upsert: a validator that fully unstaked has no record in this run, and a
     // left-behind row would keep reporting stake it no longer has.
     tx.execute("DELETE FROM collected_stake WHERE epoch = $1", &[&epoch])
-        .await?;
+        .await
+        .map_err(pg_transient)?;
 
     for chunk in records.chunks(CHUNK_SIZE) {
         let mut param_index = 1;
@@ -154,10 +170,10 @@ pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Resul
             .iter()
             .map(|param| param.as_ref() as &(dyn ToSql + Sync))
             .collect::<Vec<_>>();
-        tx.query(&query, &params).await?;
+        tx.query(&query, &params).await.map_err(pg_transient)?;
     }
 
-    tx.commit().await?;
+    tx.commit().await.map_err(pg_transient)?;
     log::info!(
         "Stored {} collected stake records for epoch {epoch}",
         records.len()
@@ -169,7 +185,13 @@ pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Resul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use chrono::TimeZone;
+
+    // Fixed, not `Utc::now()`: two records of one run carry the very same stamp, and the check
+    // under test is what rejects them when they do not.
+    fn stamp(seconds: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(2026, 8, 10, 12, 0, seconds).unwrap()
+    }
 
     fn record(epoch: u64) -> CollectedStakeRecord {
         CollectedStakeRecord {
@@ -182,7 +204,7 @@ mod tests {
             activating: 0,
             deactivating: 0,
             stake_accounts: 1,
-            updated_at: Utc::now(),
+            updated_at: stamp(0),
         }
     }
 
@@ -203,5 +225,21 @@ mod tests {
     fn mixed_epochs_are_rejected() {
         let err = collection_epoch(&[record(1014), record(1013)]).unwrap_err();
         assert!(err.to_string().contains("multiple epochs"));
+    }
+
+    #[test]
+    fn mixed_slots_are_rejected() {
+        let mut second = record(1014);
+        second.slot += 1;
+        let err = collection_epoch(&[record(1014), second]).unwrap_err();
+        assert!(err.to_string().contains("multiple slots"));
+    }
+
+    #[test]
+    fn mixed_timestamps_are_rejected() {
+        let mut second = record(1014);
+        second.updated_at = stamp(1);
+        let err = collection_epoch(&[record(1014), second]).unwrap_err();
+        assert!(err.to_string().contains("multiple timestamps"));
     }
 }

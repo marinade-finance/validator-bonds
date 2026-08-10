@@ -2,7 +2,6 @@ use crate::commands::common::CollectStakeOptions;
 use crate::config::load_collector_config;
 use crate::utils::rpc::get_rpc_client;
 use log::{log, Level};
-use serde_yaml;
 use std::sync::Arc;
 use validator_bonds_common::dto::CollectedStakeRecord;
 use validator_bonds_common::stake_accounts::collect_stake_by_authority;

@@ -70,8 +70,20 @@ mod tests {
     use super::ApiDoc;
     use utoipa::OpenApi;
 
-    // `/docs` claiming a path that 404s — or omitting one that serves — is what burns consumers, and
-    // the `#[utoipa::path]` attribute drifting from `routes.rs` is not a compile error.
+    // `/docs` claiming a path that 404s is what burns consumers, and the `#[utoipa::path]` attribute
+    // drifting from `routes.rs` is not a compile error. Source text rather than the axum `Router`,
+    // which exposes no way to enumerate what it serves.
+    #[test]
+    fn every_documented_path_is_routed() {
+        let routes = include_str!("routes.rs");
+        for path in ApiDoc::openapi().paths.paths.keys() {
+            assert!(
+                routes.contains(&format!("\"{path}\"")),
+                "{path} is documented but not routed",
+            );
+        }
+    }
+
     #[test]
     fn the_validators_family_is_documented_under_v1() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();

@@ -1,6 +1,6 @@
 use crate::context::WrappedContext;
 use crate::error::AppError;
-use crate::repositories::bond::get_bonds_by_type;
+use crate::repositories::bond::get_summable_bonds;
 use crate::repositories::collected_stake::{get_collected_stake, MarinadeStakeByVoteAccount};
 use axum::extract::{Query, State};
 use axum::Json;
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[allow(unused_imports)] // referenced only in the `value_type` schema attribute below
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{BTreeSet, HashMap};
-use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
+use validator_bonds_common::dto::ValidatorBondRecord;
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct ProtectedValidatorsResponse {
@@ -28,7 +28,9 @@ const ALLOWED_STAKE_PER_BOND_RATIO: u64 = 2000;
 
 fn required_bond_lamports(marinade_stake_lamports: u64) -> Decimal {
     Decimal::from(
-        (marinade_stake_lamports / ALLOWED_STAKE_PER_BOND_RATIO).max(MIN_PROTECTED_BOND_LAMPORTS),
+        marinade_stake_lamports
+            .div_ceil(ALLOWED_STAKE_PER_BOND_RATIO)
+            .max(MIN_PROTECTED_BOND_LAMPORTS),
     )
 }
 
@@ -84,16 +86,11 @@ pub async fn handler(
             message: "No collected stake stored yet".to_string(),
         })?;
 
-    let mut bonds = vec![];
-    for bond_type in [BondType::Bidding, BondType::Institutional] {
-        bonds.extend(
-            get_bonds_by_type(&context.psql_client, bond_type)
-                .await
-                .map_err(|error| AppError {
-                    message: format!("Failed to fetch bonds. Error: {error:?}"),
-                })?,
-        );
-    }
+    let bonds = get_summable_bonds(&context.psql_client)
+        .await
+        .map_err(|error| AppError {
+            message: format!("Failed to fetch bonds. Error: {error:?}"),
+        })?;
 
     // The two are collected by separate pipeline steps, so a stale stake snapshot is possible and
     // must be visible in the logs rather than silently changing who is protected.
@@ -120,6 +117,7 @@ pub async fn handler(
 mod tests {
     use super::*;
     use chrono::Utc;
+    use validator_bonds_common::dto::BondType;
 
     fn sol(amount: u64) -> u64 {
         amount * 1_000_000_000
