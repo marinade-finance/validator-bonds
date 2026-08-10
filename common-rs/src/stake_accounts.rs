@@ -278,12 +278,20 @@ fn aggregate_stake_by_vote_account(
     per_vote_account
 }
 
+/// `epoch`/`slot` are the ones the amounts were computed against, so a caller stamping a snapshot
+/// cannot pair them with a different clock than the warmup/cooldown math used.
+pub struct StakeByAuthority {
+    pub epoch: u64,
+    pub slot: u64,
+    pub authorities: HashMap<Pubkey, HashMap<Pubkey, StakeAggregate>>,
+}
+
 /// Marinade-routed stake per staker authority, per vote account. Errors are never partial: a missing
 /// authority understates the stake and would over-report bond coverage downstream.
 pub async fn collect_stake_by_authority(
     rpc_client: Arc<RpcClient>,
     stake_authorities: &[Pubkey],
-) -> Result<HashMap<Pubkey, HashMap<Pubkey, StakeAggregate>>, CliError> {
+) -> Result<StakeByAuthority, CliError> {
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
@@ -291,7 +299,7 @@ pub async fn collect_stake_by_authority(
         .await
         .map_err(CliError::retry_able)?;
 
-    let mut collected = HashMap::new();
+    let mut authorities = HashMap::new();
     for stake_authority in stake_authorities {
         let stake_accounts =
             collect_stake_accounts(rpc_client.clone(), None, Some(stake_authority))
@@ -311,10 +319,14 @@ pub async fn collect_stake_by_authority(
             effective
         );
 
-        collected.insert(*stake_authority, per_vote_account);
+        authorities.insert(*stake_authority, per_vote_account);
     }
 
-    Ok(collected)
+    Ok(StakeByAuthority {
+        epoch: clock.epoch,
+        slot: clock.slot,
+        authorities,
+    })
 }
 
 #[cfg(test)]

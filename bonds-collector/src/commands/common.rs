@@ -10,12 +10,18 @@ fn parse_bond_type(s: &str) -> Result<BondType, String> {
 }
 
 #[derive(Debug, Args)]
-pub struct CommonCollectOptions {
+pub struct CommonRpcOptions {
     #[arg(short = 'u', env = "RPC_URL")]
     pub rpc_url: String,
 
     #[arg(long = "commitment", default_value = "confirmed")]
     pub commitment: CommitmentLevel,
+}
+
+#[derive(Debug, Args)]
+pub struct CommonCollectOptions {
+    #[command(flatten)]
+    pub rpc: CommonRpcOptions,
 
     #[arg(
         short = 't',
@@ -24,4 +30,13 @@ pub struct CommonCollectOptions {
         help = "Type of bond to collect (bidding or institutional)"
     )]
     pub bond_type: BondType,
+}
+
+#[derive(Debug, Args)]
+pub struct CollectStakeOptions {
+    #[command(flatten)]
+    pub rpc: CommonRpcOptions,
+
+    #[arg(long = "config", help = "Path to the collector YAML configuration")]
+    pub config: String,
 }

@@ -55,6 +55,22 @@ impl fmt::Display for BondType {
     }
 }
 
+/// Stake routed to a validator through one Marinade product, identified by its staker authority.
+/// `deactivating` is a subset of `effective`, not an addend — see `stake_accounts::StakeAggregate`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CollectedStakeRecord {
+    pub epoch: u64,
+    pub slot: u64,
+    pub label: String,
+    pub stake_authority: String,
+    pub vote_account: String,
+    pub effective: u64,
+    pub activating: u64,
+    pub deactivating: u64,
+    pub stake_accounts: u32,
+    pub updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ValidatorBondRecord {
     pub pubkey: String,

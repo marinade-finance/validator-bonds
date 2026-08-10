@@ -1,5 +1,6 @@
 use bonds_collector::commands::bonds::collect_bonds;
-use bonds_collector::commands::common::CommonCollectOptions;
+use bonds_collector::commands::common::{CollectStakeOptions, CommonCollectOptions};
+use bonds_collector::commands::stake::collect_stake;
 use clap::{Args, Parser, Subcommand};
 use tracing_log::LogTracer;
 use validator_bonds_common::cli_result::CliResult;
@@ -22,6 +23,7 @@ struct Params {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     CollectBonds(CommonCollectOptions),
+    CollectStake(CollectStakeOptions),
 }
 
 #[tokio::main]
@@ -54,6 +56,7 @@ async fn real_main() -> anyhow::Result<()> {
 
     match params.command {
         Command::CollectBonds(options) => collect_bonds(options).await?,
+        Command::CollectStake(options) => collect_stake(options).await?,
     };
     Ok(())
 }
