@@ -1,9 +1,77 @@
 use super::common::CommonStoreOptions;
 
+use chrono::{DateTime, Utc};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use tokio_postgres::types::ToSql;
+use std::collections::HashMap;
+use tokio_postgres::{types::ToSql, Client};
 use validator_bonds_common::dto::CollectedStakeRecord;
+
+/// Marinade stake in lamports, keyed by vote account.
+pub type MarinadeStakeByVoteAccount = HashMap<String, u64>;
+
+/// One collection run: every record shares the epoch, slot and timestamp the collector stamped, since
+/// the store replaces a whole epoch at once.
+pub struct CollectedStakeSnapshot {
+    pub epoch: u64,
+    pub slot: u64,
+    pub updated_at: DateTime<Utc>,
+    pub records: Vec<CollectedStakeRecord>,
+}
+
+impl CollectedStakeSnapshot {
+    /// Summed across every configured authority: the bond has to cover the validator's whole
+    /// Marinade stake, whichever product routed it.
+    pub fn effective_by_vote_account(&self) -> MarinadeStakeByVoteAccount {
+        let mut effective = MarinadeStakeByVoteAccount::new();
+        for record in &self.records {
+            *effective.entry(record.vote_account.clone()).or_default() += record.effective;
+        }
+        effective
+    }
+}
+
+/// `None` when nothing has ever been collected. Callers must fail loudly rather than treat that as
+/// "no validator has stake", which would un-protect every validator at once.
+pub async fn get_collected_stake(
+    psql_client: &Client,
+) -> anyhow::Result<Option<CollectedStakeSnapshot>> {
+    let rows = psql_client
+        .query(
+            "SELECT epoch, slot, label, stake_authority, vote_account, effective, activating,
+                    deactivating, stake_accounts, updated_at
+             FROM collected_stake
+             WHERE epoch = (SELECT MAX(epoch) FROM collected_stake)",
+            &[],
+        )
+        .await?;
+
+    let mut records: Vec<CollectedStakeRecord> = vec![];
+    for row in rows {
+        records.push(CollectedStakeRecord {
+            epoch: row.get::<_, i32>("epoch").try_into()?,
+            slot: row.get::<_, i64>("slot").try_into()?,
+            label: row.get("label"),
+            stake_authority: row.get("stake_authority"),
+            vote_account: row.get("vote_account"),
+            effective: row.get::<_, i64>("effective").try_into()?,
+            activating: row.get::<_, i64>("activating").try_into()?,
+            deactivating: row.get::<_, i64>("deactivating").try_into()?,
+            stake_accounts: row.get::<_, i32>("stake_accounts").try_into()?,
+            updated_at: row.get("updated_at"),
+        })
+    }
+
+    let Some(first) = records.first() else {
+        return Ok(None);
+    };
+    Ok(Some(CollectedStakeSnapshot {
+        epoch: first.epoch,
+        slot: first.slot,
+        updated_at: first.updated_at,
+        records,
+    }))
+}
 
 /// One epoch per collection run: the collector stamps every record from a single `Clock`, and the
 /// store replaces that whole epoch. Mixed epochs would make the `DELETE` drop rows it never rewrites.
