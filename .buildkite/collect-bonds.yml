@@ -128,6 +128,53 @@ steps:
 
   - wait: ~
 
+  # Marinade stake per validator is the same for both bond configs, so it is collected on the bidding
+  # run only. `/v1/validators/protected` sizes each bond against it.
+  - label: ":coin: Collect Marinade Stake"
+    key: "collect-stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is collected on the bidding run only"
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
+    - chmod +x target/release/bonds-collector
+    - |
+      ./target/release/bonds-collector collect-stake \
+        --config ./collector-config.yaml > collected-stake.yaml
+    artifact_paths:
+      - collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - wait: ~
+
+  - label: ":coin: Store Marinade Stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is stored on the bidding run only"
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
+    - buildkite-agent artifact download collected-stake.yaml .
+    - chmod +x target/release/validator-bonds-api-cli
+    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
+    - |
+      ./target/release/validator-bonds-api-cli \
+        store-collected-stake --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - wait: ~
+
   - label: ":bell: Emit Bond Events"
     key: "emit-bond-events"
     commands:
