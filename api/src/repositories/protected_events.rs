@@ -2,6 +2,7 @@ use gcp_bigquery_client::model::query_request::QueryRequest;
 use solana_sdk::pubkey::Pubkey;
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::{sync::RwLock, time::sleep};
+use validator_bonds_common::dto::BondType;
 
 use crate::dto::ProtectedEventRecord;
 
@@ -21,7 +22,11 @@ async fn get_protected_events(
         .query(
             project_id,
             QueryRequest::new(format!(
-                "select epoch, vote_account, sum(amount) amount, meta, reason from `mainnet_beta_stakes.psr_settlements` where epoch >= {from_epoch} group by epoch, vote_account, meta, reason order by epoch desc;"
+                "select epoch, vote_account, sum(amount) amount, meta, reason, bond_type, product from ( \
+                   select epoch, vote_account, amount, meta, reason, 'bidding' bond_type, product from `mainnet_beta_stakes.psr_settlements` where epoch >= {from_epoch} \
+                   union all \
+                   select epoch, vote_account, amount, meta, reason, 'institutional' bond_type, product from `mainnet_beta_stakes.institutional_settlements` where epoch >= {from_epoch} \
+                 ) group by epoch, vote_account, meta, reason, bond_type, product order by epoch desc;"
             )),
         )
         .await?;
@@ -68,6 +73,14 @@ fn parse_row(
             &rs.get_string_by_name("reason")?
                 .ok_or_else(|| anyhow::anyhow!("missing reason"))?,
         )?,
+        bond_type: BondType::parse_from_str(
+            &rs.get_string_by_name("bond_type")?
+                .ok_or_else(|| anyhow::anyhow!("missing bond_type"))?,
+        )?,
+        // Skipped rather than defaulted, so a half-applied migration 005 surfaces here.
+        product: rs
+            .get_string_by_name("product")?
+            .ok_or_else(|| anyhow::anyhow!("missing product"))?,
     })
 }
 

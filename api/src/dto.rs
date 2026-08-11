@@ -90,6 +90,10 @@ pub struct ProtectedEventRecord {
     pub vote_account: Pubkey,
     pub meta: SettlementMeta,
     pub reason: SettlementReason,
+    // Not redundant with `product`: `single-validator` occurs under both bond types.
+    #[schema(value_type = String)]
+    pub bond_type: BondType,
+    pub product: String,
 }
 
 /// DEPRECATED: this `{ "funder": ... }` wrapper is retained only for backward compatibility.
@@ -137,7 +141,7 @@ pub struct ValidatorBondRecordSchema {
 
 #[cfg(test)]
 mod tests {
-    use super::{SettlementFunder, SettlementMeta};
+    use super::{ProtectedEventRecord, SettlementFunder, SettlementMeta, SettlementReason};
     use crate::api_docs::ApiDoc;
     use chrono::{DateTime, Utc};
     use rust_decimal::Decimal;
@@ -305,6 +309,84 @@ mod tests {
         })
         .unwrap();
         assert_shape_matches(&docs, schema, &serialized, "SettlementMetaSchema");
+    }
+
+    fn sample_protected_event_record(
+        bond_type: BondType,
+        product: &str,
+        reason: SettlementReason,
+    ) -> ProtectedEventRecord {
+        ProtectedEventRecord {
+            epoch: 1013,
+            amount: 37316490,
+            vote_account: Pubkey::new_unique(),
+            meta: SettlementMeta {
+                funder: SettlementFunder::ValidatorBond,
+            },
+            reason,
+            bond_type,
+            product: product.to_owned(),
+        }
+    }
+
+    #[test]
+    fn protected_event_record_documents_both_settlement_dimensions() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let schema = &docs["components"]["schemas"]["ProtectedEventRecord"];
+
+        let documented: BTreeSet<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let serialized = serde_json::to_value(sample_protected_event_record(
+            BondType::Institutional,
+            "select",
+            SettlementReason::InstitutionalPayout,
+        ))
+        .unwrap();
+        let actual: BTreeSet<&str> = serialized
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            documented, actual,
+            "ProtectedEventRecord: documented property set drifted from the serialized keys",
+        );
+
+        // BondType has no registered component; deriving its schema emits a dangling `$ref`.
+        for field in ["bond_type", "product"] {
+            assert!(
+                documented_accepts(&docs, &schema["properties"][field], "string"),
+                "{field}: must document as a plain string; got {}",
+                schema["properties"][field],
+            );
+        }
+
+        for (bond_type, wire) in [
+            (BondType::Bidding, "bidding"),
+            (BondType::Institutional, "institutional"),
+        ] {
+            let serialized = serde_json::to_value(sample_protected_event_record(
+                bond_type,
+                "single-validator",
+                SettlementReason::Bidding,
+            ))
+            .unwrap();
+            assert_eq!(
+                serialized["bond_type"].as_str(),
+                Some(wire),
+                "bond_type must use the /bonds/* wire value so the two join without a mapping",
+            );
+            assert_eq!(
+                serialized["product"].as_str(),
+                Some("single-validator"),
+                "product must reach the wire verbatim; it is the only direct-staking discriminator",
+            );
+        }
     }
 
     #[test]

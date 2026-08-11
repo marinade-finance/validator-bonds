@@ -18,7 +18,7 @@ pub struct QueryParams {}
     operation_id = "List Bid PSR (protected events)",
     path = "/protected-events",
     responses(
-        (status = 200, body = ProtectedEventsResponse),
+        (status = 200, description = "Settlements from both bond configs. Filter on `bond_type` (bidding | institutional) and `product` (sam | select | single-validator) to narrow the set.", body = ProtectedEventsResponse),
     )
 )]
 pub async fn handler(
