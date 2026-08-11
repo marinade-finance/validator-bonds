@@ -89,25 +89,42 @@ export async function fetchLatestVersionInNpmRegistry(
   }
 }
 
+// patch releases keep the commands compatible, so scripted runs are not stopped by them
+function isMandatoryUpgrade(current: string, latest: string): boolean {
+  const majorMinor = (version: string) =>
+    (version.split('-')[0] as string).split('.').slice(0, 2).join('.')
+  return compareVersions(majorMinor(current), majorMinor(latest)) < 0
+}
+
 /**
  * Checks that the CLI is up to date before executing the command.
  * If the registry is unreachable or times out, the CLI is allowed to proceed.
- * If the CLI version is outdated, throws an error to block execution.
+ * A newer major or minor release blocks execution, a newer patch release only warns.
  */
-export async function requireLatestCliVersion(
+export async function checkCliVersion(
   logger: Logger,
   npmRegistryUrl: string,
   currentVersion: string,
 ): Promise<void> {
   const npmData = await fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
-  if (compareVersions(currentVersion, npmData.version) < 0) {
-    // @latest resolves through the dist-tag, which can lag the version this gate compares against
+  if (compareVersions(currentVersion, npmData.version) >= 0) {
+    return
+  }
+  // @latest resolves through the dist-tag, which can lag the version this gate compares against
+  const installCommand = `npm install -g ${npmData.name}@${npmData.version}`
+  if (isMandatoryUpgrade(currentVersion, npmData.version)) {
     throw new Error(
       `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
         '  Please update before proceeding:\n' +
-        `  npm install -g ${npmData.name}@${npmData.version}`,
+        `  ${installCommand}`,
     )
   }
+  // the pino transport writes to stdout, where printData emits the --format payload
+  console.error(
+    `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
+      '  This is a patch release, the command continues. To update:\n' +
+      `  ${installCommand}`,
+  )
 }
 
 export function compareVersions(a: string, b: string): number {
