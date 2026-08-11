@@ -1,0 +1,26 @@
+---
+# Staker authorities of the Marinade products whose stake a validator bond has to cover.
+# Upstream registry: portfolio-api/packages/data/src/stake-groups.ts (native, select, direct);
+# liquid (mSOL) is not in that registry, so it lives only here.
+#
+# Deliberately excluded:
+#   - the native reward-token recipe authorities (stRcP4…/stR2tj…/stR3WD…/stR11we…/stR4sF…/stR5Et…/
+#     stR6sP…/stR7SJ…/stR8PF…/stR9fP…) — they delegate only to Marinade's own validator, which holds
+#     no bond. Add an entry here if a recipe is ever pointed at a bonded validator.
+#   - 9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco — that is liquid's stake *withdrawer*, paired with
+#     the staker 4bZ6o3eU… below, so it matches no stake account as a staker authority.
+collect_stake_authorities:
+  - label: liquid
+    stake_authority: 4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk
+  - label: native
+    stake_authority: stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq
+  - label: native-exit
+    stake_authority: ex9CfkBZZd6Nv9XdnoDmmB45ymbu4arXVk7g5pWnt3N
+  - label: select
+    stake_authority: STNi1NHDUi6Hvibvonawgze8fM83PFLeJhuGMEXyGps
+  - label: select-exit
+    stake_authority: EX1Fs34ajye3BTMSjTkMdZ8P4hb99vQFWzmueqhKGpH6
+  - label: direct
+    stake_authority: psrStL2hNx4c7hLUUks8SmDngeYriB8pF7uyHFhM8ir
+  - label: direct-exit
+    stake_authority: ExPsrC88dVCUozsuHFXYYpVGytsvwB9vWhwicuaFiypb

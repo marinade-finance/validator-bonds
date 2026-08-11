@@ -57,8 +57,27 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
+curl -X GET --compressed "http://localhost:8000/v1/validators/protected"
+curl -X GET --compressed "http://localhost:8000/v1/validators/stake"
 ```
 
+### Storing collected stake to the database
+
+`/v1/validators/protected` sizes each bond against the stake routed to the validator through the
+Marinade products listed in `collector-config.yaml`, so it needs `collected_stake` populated:
+
+```bash
+cargo run --bin bonds-collector -- collect-stake \
+    --config ./collector-config.yaml > collected-stake.yaml
+cargo run --bin validator-bonds-api-cli -- store-collected-stake \
+    --input-file collected-stake.yaml \
+    --postgres-ssl-root-cert "$PG_SSLROOTCERT" \
+    --postgres-url "$POSTGRES_URL"
+```
+
+With no rows stored the endpoint answers 500 rather than an empty list, which would read as "no
+validator is protected".
+
 The integration tests (`api/tests/http_behavior.rs`) cover routing/middleware only; the
-DB-backed routes (`/bonds/*`, `/protected-events`) and `readyz` are smoke-tested manually
-against the steps above.
+DB-backed routes (`/bonds/*`, `/protected-events`, `/v1/validators/*`) and `readyz` are smoke-tested
+manually against the steps above.

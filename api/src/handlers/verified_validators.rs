@@ -19,7 +19,7 @@ pub struct QueryParams {}
     get,
     tag = "Validators",
     operation_id = "List verified validators",
-    path = "/validators/verified",
+    path = "/v1/validators/verified",
     responses(
         (status = 200, body = VerifiedValidatorsResponse),
     )

@@ -5,6 +5,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+agave-feature-set = { workspace = true }
 anchor-client = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
@@ -16,6 +17,7 @@ solana-stake-interface = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-float"] }
 solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
+solana-feature-gate-interface = { workspace = true }
 solana-program = { workspace = true }
 tokio = { workspace = true }
 validator-bonds = { workspace = true }

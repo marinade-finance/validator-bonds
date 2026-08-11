@@ -56,8 +56,8 @@ use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, get_clock, get_stake_history, obtain_delegated_stake_accounts,
-    CollectedStakeAccount, CollectedStakeAccounts,
+    collect_stake_accounts, obtain_delegated_stake_accounts, CollectedStakeAccount,
+    CollectedStakeAccounts, StakeActivation,
 };
 
 #[derive(Parser, Debug)]
@@ -215,17 +215,17 @@ async fn prepare_funding(
             .await
             .map_err(CliError::retry_able)?;
 
-    let clock = get_clock(rpc_client.clone())
-        .await
-        .map_err(CliError::retry_able)?;
-    let stake_history = get_stake_history(rpc_client.clone())
+    let stake_activation = StakeActivation::fetch(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
     let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
 
-    let mut fund_bond_stake_accounts =
-        get_on_chain_bond_stake_accounts(&all_stake_accounts, &withdrawer_authority, &clock)
-            .await?;
+    let mut fund_bond_stake_accounts = get_on_chain_bond_stake_accounts(
+        &all_stake_accounts,
+        &withdrawer_authority,
+        &stake_activation.clock,
+    )
+    .await?;
 
     let epochs_pending_init = epochs_pending_on_chain_init(settlement_records);
 
@@ -264,7 +264,7 @@ async fn prepare_funding(
             }
             continue;
         }
-        if epoch + config.epochs_to_claim_settlement < clock.epoch {
+        if epoch + config.epochs_to_claim_settlement < stake_activation.clock.epoch {
             reporting.warning().with_msg(format!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason {}) is too old to be funded, skipping funding",
                 settlement_record.settlement_address,
@@ -385,8 +385,7 @@ async fn prepare_funding(
                 }
                 // prioritize the biggest undelegated (inactive) amounts first
                 funding_stake_accounts.sort_by_cached_key(|account| {
-                    let delegated_amount =
-                        get_delegated_amount(&account.state, &clock, &stake_history);
+                    let delegated_amount = get_delegated_amount(&account.state, &stake_activation);
                     account.lamports.saturating_sub(delegated_amount)
                 });
                 funding_stake_accounts.reverse();
@@ -432,8 +431,7 @@ async fn prepare_funding(
                         None
                     } else {
                         let account = stake_accounts_to_fund.remove(0);
-                        let stake_type =
-                            get_stake_state_type(&account.state, &clock, &stake_history);
+                        let stake_type = get_stake_state_type(&account.state, &stake_activation);
                         Some((account, stake_type))
                     };
                 if let Some((
@@ -462,8 +460,7 @@ async fn prepare_funding(
                         config_address,
                         &withdrawer_authority,
                         &mut transaction_builder,
-                        &clock,
-                        &stake_history,
+                        &stake_activation,
                     )
                     .await?;
 

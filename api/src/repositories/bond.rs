@@ -1,4 +1,4 @@
-use super::common::CommonStoreOptions;
+use super::common::{pg_transient, CommonStoreOptions};
 use crate::dto::SqlSerializableBondType;
 
 use openssl::ssl::{SslConnector, SslMethod};
@@ -7,7 +7,6 @@ use rust_decimal::Decimal;
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio_postgres::{types::ToSql, Client};
-use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
 /// ds-sam-calc relay from bonds-eventing: per-validator calc blobs (keyed by vote
@@ -54,35 +53,6 @@ pub async fn get_auction_context(
     Ok(AuctionContext { meta, validators })
 }
 
-fn pg_transient(err: tokio_postgres::Error) -> CliError {
-    let is_transient = err.is_closed()
-        || std::error::Error::source(&err)
-            .and_then(|s| s.downcast_ref::<std::io::Error>())
-            .map(is_transient_io_kind)
-            .unwrap_or(false);
-
-    if is_transient {
-        CliError::retry_able(err)
-    } else {
-        CliError::critical(err)
-    }
-}
-
-fn is_transient_io_kind(io: &std::io::Error) -> bool {
-    use std::io::ErrorKind::*;
-    matches!(
-        io.kind(),
-        ConnectionRefused
-            | ConnectionReset
-            | ConnectionAborted
-            | NotConnected
-            | TimedOut
-            | UnexpectedEof
-            | Interrupted
-            | WouldBlock
-    )
-}
-
 pub async fn get_bonds_by_type(
     psql_client: &Client,
     bond_type: BondType,
@@ -122,32 +92,54 @@ async fn get_bonds_query(
     };
 
     let rows = psql_client.query(&query_string, &params).await?;
+    rows.into_iter().map(map_bond_row).collect()
+}
 
-    let mut bonds: Vec<ValidatorBondRecord> = vec![];
-    for row in rows {
-        let bond_type: SqlSerializableBondType = row.get("bond_type");
-        bonds.push(ValidatorBondRecord {
-            pubkey: row.get("pubkey"),
-            vote_account: row.get("vote_account"),
-            authority: row.get("authority"),
-            epoch: row.get::<_, i32>("epoch").try_into()?,
-            cpmpe: row.get::<_, Decimal>("cpmpe"),
-            max_stake_wanted: row.get::<_, Decimal>("max_stake_wanted"),
-            updated_at: row.get("updated_at"),
-            funded_amount: row.get::<_, Decimal>("funded_amount"),
-            effective_amount: row.get::<_, Decimal>("effective_amount"),
-            remaining_witdraw_request_amount: row
-                .get::<_, Decimal>("remaining_witdraw_request_amount"),
-            remainining_settlement_claim_amount: row
-                .get::<_, Decimal>("remainining_settlement_claim_amount"),
-            bond_type: bond_type.into(),
-            inflation_commission_bps: row.get("inflation_commission_bps"),
-            mev_commission_bps: row.get("mev_commission_bps"),
-            block_commission_bps: row.get("block_commission_bps"),
-        })
-    }
+/// Both configs at one epoch. `/v1/validators/protected` sums their collateral, and each type is
+/// stored by its own pipeline run, so a per-type `MAX(epoch)` could sum two different epochs.
+pub async fn get_summable_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBondRecord>> {
+    let bidding: SqlSerializableBondType = BondType::Bidding.into();
+    let institutional: SqlSerializableBondType = BondType::Institutional.into();
 
-    Ok(bonds)
+    let rows = psql_client
+        .query(
+            "SELECT *
+             FROM bonds
+             WHERE bond_type IN ($1, $2)
+               AND epoch = (
+                   SELECT MIN(newest) FROM (
+                       SELECT MAX(epoch) AS newest
+                       FROM bonds
+                       WHERE bond_type IN ($1, $2)
+                       GROUP BY bond_type
+                   ) newest_per_type
+               )",
+            &[&bidding, &institutional],
+        )
+        .await?;
+    rows.into_iter().map(map_bond_row).collect()
+}
+
+fn map_bond_row(row: tokio_postgres::Row) -> anyhow::Result<ValidatorBondRecord> {
+    let bond_type: SqlSerializableBondType = row.get("bond_type");
+    Ok(ValidatorBondRecord {
+        pubkey: row.get("pubkey"),
+        vote_account: row.get("vote_account"),
+        authority: row.get("authority"),
+        epoch: row.get::<_, i32>("epoch").try_into()?,
+        cpmpe: row.get::<_, Decimal>("cpmpe"),
+        max_stake_wanted: row.get::<_, Decimal>("max_stake_wanted"),
+        updated_at: row.get("updated_at"),
+        funded_amount: row.get::<_, Decimal>("funded_amount"),
+        effective_amount: row.get::<_, Decimal>("effective_amount"),
+        remaining_witdraw_request_amount: row.get::<_, Decimal>("remaining_witdraw_request_amount"),
+        remainining_settlement_claim_amount: row
+            .get::<_, Decimal>("remainining_settlement_claim_amount"),
+        bond_type: bond_type.into(),
+        inflation_commission_bps: row.get("inflation_commission_bps"),
+        mev_commission_bps: row.get("mev_commission_bps"),
+        block_commission_bps: row.get("block_commission_bps"),
+    })
 }
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {

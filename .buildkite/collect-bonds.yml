@@ -153,6 +153,56 @@ steps:
 
   - wait: ~
 
+  # Marinade stake per validator is the same for both bond configs, so it is collected on the bidding
+  # run only. `/v1/validators/protected` sizes each bond against it. Placed after bond eventing so a
+  # failure here cannot keep validator notifications from being emitted.
+  - label: ":coin: Collect Marinade Stake"
+    key: "collect-stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is collected on the bidding run only"
+        # placeholder so the declared artifact always exists; the store step exits before reading it
+        touch collected-stake.yaml
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
+    - chmod +x target/release/bonds-collector
+    - |
+      ./target/release/bonds-collector collect-stake \
+        --config ./collector-config.yaml > collected-stake.yaml
+    artifact_paths:
+      - collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - wait: ~
+
+  - label: ":coin: Store Marinade Stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is stored on the bidding run only"
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
+    - buildkite-agent artifact download collected-stake.yaml .
+    - chmod +x target/release/validator-bonds-api-cli
+    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
+    - |
+      ./target/release/validator-bonds-api-cli \
+        store-collected-stake --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - wait: ~
+
   - label: ":unlock: Concurrency gate unlock"
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/collect-bonds-${CLAIM_TYPE}'

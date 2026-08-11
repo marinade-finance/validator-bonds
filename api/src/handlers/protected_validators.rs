@@ -1,14 +1,15 @@
 use crate::context::WrappedContext;
 use crate::error::AppError;
-use crate::repositories::bond::get_bonds_by_type;
+use crate::repositories::bond::get_summable_bonds;
+use crate::repositories::collected_stake::{get_collected_stake, MarinadeStakeByVoteAccount};
 use axum::extract::{Query, State};
 use axum::Json;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 #[allow(unused_imports)] // referenced only in the `value_type` schema attribute below
 use solana_sdk::pubkey::Pubkey;
-use std::collections::BTreeSet;
-use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
+use std::collections::{BTreeSet, HashMap};
+use validator_bonds_common::dto::ValidatorBondRecord;
 
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct ProtectedValidatorsResponse {
@@ -22,12 +23,41 @@ pub struct QueryParams {}
 
 const MIN_PROTECTED_BOND_LAMPORTS: u64 = 1_000_000_000;
 
-/// Effective, not funded: a settlement reservation or a filed withdraw request forfeits protection.
-fn protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String> {
-    bonds
-        .iter()
-        .filter(|bond| bond.effective_amount >= Decimal::from(MIN_PROTECTED_BOND_LAMPORTS))
-        .map(|bond| bond.vote_account.clone())
+/// Select's ratio, applied to SAM stake too, so one rule replaces SAM's per-epoch PMPE sizing.
+const ALLOWED_STAKE_PER_BOND_RATIO: u64 = 2000;
+
+fn required_bond_lamports(marinade_stake_lamports: u64) -> Decimal {
+    Decimal::from(
+        marinade_stake_lamports
+            .div_ceil(ALLOWED_STAKE_PER_BOND_RATIO)
+            .max(MIN_PROTECTED_BOND_LAMPORTS),
+    )
+}
+
+/// Both configs' bonds are summed against the whole Marinade stake: the badge is per validator,
+/// while collateral and stake each split per product.
+fn protected_vote_accounts(
+    bonds: &[ValidatorBondRecord],
+    marinade_stake: &MarinadeStakeByVoteAccount,
+) -> BTreeSet<String> {
+    let mut effective_amounts: HashMap<&str, Decimal> = HashMap::new();
+    for bond in bonds {
+        // Effective, not funded: a settlement reservation or a withdraw request cannot pay a claim.
+        *effective_amounts
+            .entry(bond.vote_account.as_str())
+            .or_default() += bond.effective_amount;
+    }
+
+    effective_amounts
+        .into_iter()
+        .filter(|(vote_account, effective_amount)| {
+            // Zero stake — or a vote account no configured authority stakes to — has nothing to protect.
+            match marinade_stake.get(*vote_account).copied().unwrap_or(0) {
+                0 => false,
+                stake => *effective_amount >= required_bond_lamports(stake),
+            }
+        })
+        .map(|(vote_account, _)| vote_account.to_string())
         .collect()
 }
 
@@ -35,29 +65,51 @@ fn protected_vote_accounts(bonds: &[ValidatorBondRecord]) -> BTreeSet<String> {
     get,
     tag = "Validators",
     operation_id = "List validators whose stakers are PSR protected",
-    path = "/validators/protected",
+    path = "/v1/validators/protected",
     responses(
-        (status = 200, description = "At least 1 SOL of effective bond under the bidding or the institutional config.", body = ProtectedValidatorsResponse),
+        (status = 200, description = "Effective bond under the bidding and the institutional config, summed, covers at least 1/2000 of the validator's Marinade stake, and is at least 1 SOL.", body = ProtectedValidatorsResponse),
+        (status = 500, description = "No stake has been collected yet, or bonds could not be read. Deliberately not an empty list, which would read as 'no validator is protected'."),
     )
 )]
 pub async fn handler(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
 ) -> Result<Json<ProtectedValidatorsResponse>, AppError> {
-    let psql_client = &context.read().await.psql_client;
+    let context = context.read().await;
 
-    let mut protected = BTreeSet::new();
-    for bond_type in [BondType::Bidding, BondType::Institutional] {
-        let bonds = get_bonds_by_type(psql_client, bond_type)
-            .await
-            .map_err(|error| AppError {
-                message: format!("Failed to fetch bonds. Error: {error:?}"),
-            })?;
-        protected.extend(protected_vote_accounts(&bonds));
+    // Serving the list without stake data would silently un-protect every validator.
+    let snapshot = get_collected_stake(&context.psql_client)
+        .await
+        .map_err(|error| AppError {
+            message: format!("Failed to fetch collected stake. Error: {error:?}"),
+        })?
+        .ok_or_else(|| AppError {
+            message: "No collected stake stored yet".to_string(),
+        })?;
+
+    let bonds = get_summable_bonds(&context.psql_client)
+        .await
+        .map_err(|error| AppError {
+            message: format!("Failed to fetch bonds. Error: {error:?}"),
+        })?;
+
+    // Separate pipeline steps write these, so a skew either way must surface rather than move the list.
+    if let Some(bonds_epoch) = bonds.iter().map(|bond| bond.epoch).max() {
+        if snapshot.epoch != bonds_epoch {
+            tracing::warn!(
+                "Collected stake is from epoch {} while bonds are from epoch {bonds_epoch}",
+                snapshot.epoch
+            );
+        }
     }
 
     Ok(Json(ProtectedValidatorsResponse {
-        protected_validators: protected.into_iter().collect(),
+        protected_validators: protected_vote_accounts(
+            &bonds,
+            &snapshot.effective_by_vote_account(),
+        )
+        .into_iter()
+        .collect(),
     }))
 }
 
@@ -65,8 +117,17 @@ pub async fn handler(
 mod tests {
     use super::*;
     use chrono::Utc;
+    use validator_bonds_common::dto::BondType;
 
-    fn bond(vote_account: &str, effective_amount: Decimal) -> ValidatorBondRecord {
+    fn sol(amount: u64) -> u64 {
+        amount * 1_000_000_000
+    }
+
+    fn bond(
+        vote_account: &str,
+        effective_lamports: u64,
+        bond_type: BondType,
+    ) -> ValidatorBondRecord {
         ValidatorBondRecord {
             pubkey: format!("{vote_account}-bond"),
             vote_account: vote_account.to_string(),
@@ -74,42 +135,110 @@ mod tests {
             cpmpe: Decimal::ZERO,
             max_stake_wanted: Decimal::ZERO,
             epoch: 980,
-            // Max on every fixture: a bond excluded below the floor must be excluded despite it.
+            // Max on every fixture: an excluded bond must stay excluded despite it.
             funded_amount: Decimal::from(u64::MAX),
-            effective_amount,
+            effective_amount: Decimal::from(effective_lamports),
             remaining_witdraw_request_amount: Decimal::ZERO,
             remainining_settlement_claim_amount: Decimal::ZERO,
             updated_at: Utc::now(),
-            bond_type: BondType::Bidding,
+            bond_type,
             inflation_commission_bps: None,
             mev_commission_bps: None,
             block_commission_bps: None,
         }
     }
 
-    fn protected(bonds: Vec<ValidatorBondRecord>) -> Vec<String> {
-        protected_vote_accounts(&bonds).into_iter().collect()
+    fn bidding(vote_account: &str, effective_lamports: u64) -> ValidatorBondRecord {
+        bond(vote_account, effective_lamports, BondType::Bidding)
+    }
+
+    fn stake(entries: &[(&str, u64)]) -> MarinadeStakeByVoteAccount {
+        entries
+            .iter()
+            .map(|(vote_account, stake_lamports)| (vote_account.to_string(), *stake_lamports))
+            .collect()
+    }
+
+    fn protected(
+        bonds: Vec<ValidatorBondRecord>,
+        marinade_stake: &MarinadeStakeByVoteAccount,
+    ) -> Vec<String> {
+        protected_vote_accounts(&bonds, marinade_stake)
+            .into_iter()
+            .collect()
+    }
+
+    #[test]
+    fn the_bond_must_cover_one_two_thousandth_of_the_marinade_stake() {
+        let listed = protected(
+            vec![
+                bidding("voteAtRatio", sol(25)),
+                bidding("voteBelowRatio", sol(25) - 1),
+                bidding("voteAboveRatio", sol(25) + 1),
+            ],
+            &stake(&[
+                ("voteAtRatio", sol(50_000)),
+                ("voteBelowRatio", sol(50_000)),
+                ("voteAboveRatio", sol(50_000)),
+            ]),
+        );
+        assert_eq!(
+            listed,
+            vec!["voteAboveRatio".to_string(), "voteAtRatio".to_string()]
+        );
     }
 
     #[test]
     fn a_bond_below_the_floor_is_not_protected() {
-        let listed = protected(vec![
-            bond("voteAtFloor", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
-            bond(
-                "voteBelowFloor",
-                Decimal::from(MIN_PROTECTED_BOND_LAMPORTS - 1),
-            ),
-            bond("voteZero", Decimal::ZERO),
-        ]);
+        // Without the floor the ratio alone would protect a dust bond of a small stake.
+        let listed = protected(
+            vec![
+                bidding("voteAtFloor", MIN_PROTECTED_BOND_LAMPORTS),
+                bidding("voteBelowFloor", MIN_PROTECTED_BOND_LAMPORTS - 1),
+                bidding("voteZero", 0),
+            ],
+            &stake(&[
+                ("voteAtFloor", sol(100)),
+                ("voteBelowFloor", sol(100)),
+                ("voteZero", sol(100)),
+            ]),
+        );
         assert_eq!(listed, vec!["voteAtFloor".to_string()]);
     }
 
     #[test]
+    fn a_validator_without_marinade_stake_is_not_protected() {
+        let listed = protected(
+            vec![
+                bidding("voteNoStake", sol(50)),
+                bidding("voteWithoutCollectedStake", sol(50)),
+            ],
+            &stake(&[("voteNoStake", 0)]),
+        );
+        assert!(listed.is_empty());
+    }
+
+    #[test]
+    fn bonds_of_both_configs_are_summed() {
+        let listed = protected(
+            vec![
+                bidding("voteBoth", sol(13)),
+                bond("voteBoth", sol(12), BondType::Institutional),
+            ],
+            &stake(&[("voteBoth", sol(50_000))]),
+        );
+        assert_eq!(listed, vec!["voteBoth".to_string()]);
+    }
+
+    #[test]
     fn a_vote_account_appearing_twice_is_listed_once() {
-        let listed = protected(vec![
-            bond("voteTwice", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS)),
-            bond("voteTwice", Decimal::from(MIN_PROTECTED_BOND_LAMPORTS * 20)),
-        ]);
+        let listed = protected(
+            vec![
+                bidding("voteTwice", sol(25)),
+                bidding("voteTwice", sol(500)),
+            ],
+            &stake(&[("voteTwice", sol(50_000))]),
+        );
         assert_eq!(listed, vec!["voteTwice".to_string()]);
     }
 }

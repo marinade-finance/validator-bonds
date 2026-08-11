@@ -32,6 +32,7 @@ pub struct QueryParams {}
     path = "/bonds",
     responses(
         (status = 200, description = "DEPRECATED: Please use /bonds/bidding instead", body = BondsResponse),
+        (status = 500, description = "Bonds could not be read from the database."),
     )
 )]
 #[deprecated]
@@ -50,6 +51,7 @@ pub async fn handler(
     path = "/bonds/institutional",
     responses(
         (status = 200, body = BondsResponse),
+        (status = 500, description = "Bonds could not be read from the database."),
     )
 )]
 pub async fn handler_institutional(
@@ -98,6 +100,7 @@ pub async fn handler_bidding_auction(
     path = "/bonds/bidding",
     responses(
         (status = 200, body = BondsResponse),
+        (status = 500, description = "Bonds could not be read from the database."),
     )
 )]
 pub async fn handler_bidding(

@@ -11042,6 +11042,7 @@ dependencies = [
 name = "validator-bonds-common"
 version = "0.0.0"
 dependencies = [
+ "agave-feature-set",
  "anchor-client",
  "anyhow",
  "bincode",
@@ -11051,6 +11052,7 @@ dependencies = [
  "serde",
  "solana-account-decoder",
  "solana-client",
+ "solana-feature-gate-interface",
  "solana-program",
  "solana-sdk",
  "solana-stake-interface",
