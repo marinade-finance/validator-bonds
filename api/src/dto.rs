@@ -96,6 +96,41 @@ pub struct ProtectedEventRecord {
     pub product: String,
 }
 
+/// The single product `/protected-events` ever reported: SAM bidding PSR. Direct staking now lands
+/// in `psr_settlements` too, so naming it is what keeps the two apart.
+const LEGACY_PRODUCT: &str = "sam";
+
+/// DEPRECATED: the pre-`/v1` shape of `/protected-events`. SAM bidding PSR only.
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
+#[schema(deprecated)]
+pub struct LegacyProtectedEventRecord {
+    pub epoch: u64,
+    pub amount: u64,
+    #[serde(with = "pubkey_string_conversion")]
+    pub vote_account: Pubkey,
+    pub meta: SettlementMeta,
+    pub reason: SettlementReason,
+}
+
+/// Narrows the one BigQuery feed to what the pre-`/v1` endpoint meant. Pinning the product keeps
+/// `(epoch, vote_account, meta, reason)` unique, so this stays a field drop and never re-sums:
+/// folding direct staking into a SAM amount would report a number that is true of neither.
+pub fn legacy_projection(records: &[ProtectedEventRecord]) -> Vec<LegacyProtectedEventRecord> {
+    records
+        .iter()
+        .filter(|record| {
+            matches!(record.bond_type, BondType::Bidding) && record.product == LEGACY_PRODUCT
+        })
+        .map(|record| LegacyProtectedEventRecord {
+            epoch: record.epoch,
+            amount: record.amount,
+            vote_account: record.vote_account,
+            meta: record.meta.clone(),
+            reason: record.reason.clone(),
+        })
+        .collect()
+}
+
 /// DEPRECATED: this `{ "funder": ... }` wrapper is retained only for backward compatibility.
 /// The generated settlement JSON now exposes `funder` directly, and any field carrying this
 /// wrapper will be replaced by a top-level `funder` in a future API version.
@@ -141,7 +176,10 @@ pub struct ValidatorBondRecordSchema {
 
 #[cfg(test)]
 mod tests {
-    use super::{ProtectedEventRecord, SettlementFunder, SettlementMeta, SettlementReason};
+    use super::{
+        legacy_projection, LegacyProtectedEventRecord, ProtectedEventRecord, SettlementFunder,
+        SettlementMeta, SettlementReason,
+    };
     use crate::api_docs::ApiDoc;
     use chrono::{DateTime, Utc};
     use rust_decimal::Decimal;
@@ -532,5 +570,144 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn event(
+        epoch: u64,
+        vote_account: Pubkey,
+        amount: u64,
+        bond_type: BondType,
+        product: &str,
+        reason: SettlementReason,
+    ) -> ProtectedEventRecord {
+        ProtectedEventRecord {
+            epoch,
+            amount,
+            vote_account,
+            meta: SettlementMeta {
+                funder: SettlementFunder::ValidatorBond,
+            },
+            reason,
+            bond_type,
+            product: product.to_owned(),
+        }
+    }
+
+    fn legacy(records: Vec<ProtectedEventRecord>) -> Vec<LegacyProtectedEventRecord> {
+        legacy_projection(&records)
+    }
+
+    // Direct staking loads into `psr_settlements` too. Summing it into the SAM amount would report
+    // a number that is true of neither product.
+    #[test]
+    fn the_legacy_shape_reports_sam_alone_and_never_folds_direct_staking_in() {
+        let vote_account = Pubkey::new_unique();
+        let listed = legacy(vec![
+            event(
+                1013,
+                vote_account,
+                100,
+                BondType::Bidding,
+                "sam",
+                SettlementReason::Bidding,
+            ),
+            event(
+                1013,
+                vote_account,
+                40,
+                BondType::Bidding,
+                "single-validator",
+                SettlementReason::Bidding,
+            ),
+        ]);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].amount, 100);
+    }
+
+    // The pre-/v1 endpoint read `psr_settlements` alone; the union must not leak into it.
+    #[test]
+    fn the_legacy_shape_drops_the_institutional_bond() {
+        let listed = legacy(vec![event(
+            1013,
+            Pubkey::new_unique(),
+            100,
+            BondType::Institutional,
+            "select",
+            SettlementReason::InstitutionalPayout,
+        )]);
+        assert!(listed.is_empty());
+    }
+
+    // Pinning one product is what keeps the old key unique, so the rows pass through as they came.
+    #[test]
+    fn the_legacy_shape_keeps_the_settlement_key_unique() {
+        let vote_account = Pubkey::new_unique();
+        let listed = legacy(vec![
+            event(
+                1013,
+                vote_account,
+                100,
+                BondType::Bidding,
+                "sam",
+                SettlementReason::Bidding,
+            ),
+            event(
+                1013,
+                vote_account,
+                40,
+                BondType::Bidding,
+                "sam",
+                SettlementReason::BidTooLowPenalty,
+            ),
+            event(
+                1012,
+                vote_account,
+                7,
+                BondType::Bidding,
+                "sam",
+                SettlementReason::Bidding,
+            ),
+        ]);
+        assert_eq!(
+            listed
+                .iter()
+                .map(|record| (record.epoch, record.amount))
+                .collect::<Vec<_>>(),
+            vec![(1013, 100), (1013, 40), (1012, 7)],
+        );
+    }
+
+    // The whole point of keeping the old path: its wire shape must not gain the new discriminators.
+    #[test]
+    fn the_legacy_shape_publishes_neither_bond_type_nor_product() {
+        let listed = legacy(vec![event(
+            1013,
+            Pubkey::new_unique(),
+            100,
+            BondType::Bidding,
+            "sam",
+            SettlementReason::Bidding,
+        )]);
+        let serialized = serde_json::to_value(&listed[0]).unwrap();
+        let keys: BTreeSet<&str> = serialized
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            keys,
+            BTreeSet::from(["epoch", "amount", "vote_account", "meta", "reason"]),
+        );
+
+        let documented = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let schema = &documented["components"]["schemas"]["LegacyProtectedEventRecord"];
+        let documented: BTreeSet<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(documented, keys);
     }
 }

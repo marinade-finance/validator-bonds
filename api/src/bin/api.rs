@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let protected_event_records = Arc::new(RwLock::new(vec![]));
+    let protected_event_records = Arc::new(RwLock::new(None));
     let context: WrappedContext = Arc::new(RwLock::new(Context::new(
         psql_client,
         protected_event_records.clone(),
@@ -82,7 +82,7 @@ async fn main() -> anyhow::Result<()> {
             spawn_protected_events_cache(gcp_sa_key, gcp_project_id, protected_event_records).await;
         }
         (None, None) => {
-            error!("GCP parameters not provided, will not populate the protected events.")
+            error!("GCP parameters not provided, /protected-events will answer 500.")
         }
         _ => anyhow::bail!("All GCP parameters must be used together."),
     };
