@@ -21,6 +21,7 @@ pub struct ProtectedValidatorsResponse {
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {}
 
+/// Also what rules out a validator with no Marinade stake, whom the ratio alone would pass at zero.
 const MIN_PROTECTED_BOND_LAMPORTS: u64 = 1_000_000_000;
 
 /// Select's ratio, applied to SAM stake too, so one rule replaces SAM's per-epoch PMPE sizing.
@@ -51,11 +52,8 @@ fn protected_vote_accounts(
     effective_amounts
         .into_iter()
         .filter(|(vote_account, effective_amount)| {
-            // Zero stake — or a vote account no configured authority stakes to — has nothing to protect.
-            match marinade_stake.get(*vote_account).copied().unwrap_or(0) {
-                0 => false,
-                stake => *effective_amount >= required_bond_lamports(stake),
-            }
+            let stake = marinade_stake.get(*vote_account).copied().unwrap_or(0);
+            *effective_amount >= required_bond_lamports(stake)
         })
         .map(|(vote_account, _)| vote_account.to_string())
         .collect()
@@ -77,7 +75,8 @@ pub async fn handler(
 ) -> Result<Json<ProtectedValidatorsResponse>, AppError> {
     let context = context.read().await;
 
-    // Serving the list without stake data would silently un-protect every validator.
+    // Without stake data every validator reads as zero stake, so the floor alone would protect a
+    // whale's dust bond.
     let snapshot = get_collected_stake(&context.psql_client)
         .await
         .map_err(|error| AppError {
@@ -207,15 +206,26 @@ mod tests {
     }
 
     #[test]
-    fn a_validator_without_marinade_stake_is_not_protected() {
+    fn without_marinade_stake_the_floor_alone_decides() {
+        // A zero-stake validator is not excluded outright: the badge tells a staker whether routing
+        // stake there would be covered, and the floor covers the first 4000 SOL.
         let listed = protected(
             vec![
-                bidding("voteNoStake", sol(50)),
-                bidding("voteWithoutCollectedStake", sol(50)),
+                bidding("voteNoStakeAtFloor", MIN_PROTECTED_BOND_LAMPORTS),
+                bidding("voteNoStakeBelowFloor", MIN_PROTECTED_BOND_LAMPORTS - 1),
+                bidding("voteUncollectedAtFloor", MIN_PROTECTED_BOND_LAMPORTS),
+                bidding("voteUncollectedBelowFloor", MIN_PROTECTED_BOND_LAMPORTS - 1),
             ],
-            &stake(&[("voteNoStake", 0)]),
+            // The two `voteUncollected*` accounts are absent, which must read as zero stake.
+            &stake(&[("voteNoStakeAtFloor", 0), ("voteNoStakeBelowFloor", 0)]),
         );
-        assert!(listed.is_empty());
+        assert_eq!(
+            listed,
+            vec![
+                "voteNoStakeAtFloor".to_string(),
+                "voteUncollectedAtFloor".to_string()
+            ]
+        );
     }
 
     #[test]
