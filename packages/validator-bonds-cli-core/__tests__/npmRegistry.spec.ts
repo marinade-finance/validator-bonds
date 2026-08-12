@@ -1,7 +1,7 @@
 import {
+  checkCliVersion,
   compareVersions,
   fetchLatestVersionInNpmRegistry,
-  requireLatestCliVersion,
 } from '../src/npmRegistry'
 
 import type { Logger } from 'pino'
@@ -344,31 +344,98 @@ describe('fetchLatestVersionInNpmRegistry', () => {
   })
 })
 
-describe('requireLatestCliVersion', () => {
+describe('checkCliVersion', () => {
   const originalFetch = global.fetch
+  const registryUrl =
+    'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'
 
-  afterEach(() => {
-    global.fetch = originalFetch
-    jest.clearAllMocks()
-  })
-
-  it('recommends the exact version it compared against, not @latest', async () => {
+  const mockRegistry = (...publishedVersions: string[]) => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => ({
         name: '@marinade.finance/validator-bonds-cli',
-        versions: { '2.4.0': {}, '2.5.0': {} },
+        versions: Object.fromEntries(publishedVersions.map(v => [v, {}])),
       }),
     }) as unknown as typeof fetch
+  }
+
+  let stderrSpy: jest.SpyInstance
+  let stdoutSpy: jest.SpyInstance
+
+  beforeEach(() => {
+    stderrSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    stdoutSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    jest.restoreAllMocks()
+    jest.clearAllMocks()
+  })
+
+  it('recommends the exact version it compared against, not @latest', async () => {
+    mockRegistry('2.4.0', '2.5.0')
 
     await expect(
-      requireLatestCliVersion(
-        mockLogger,
-        'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
-        '2.4.0',
-      ),
+      checkCliVersion(mockLogger, registryUrl, '2.4.0'),
     ).rejects.toThrow(
       'npm install -g @marinade.finance/validator-bonds-cli@2.5.0',
     )
+  })
+
+  it('blocks on a newer minor release', async () => {
+    mockRegistry('2.5.0', '2.6.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.5.3'),
+    ).rejects.toThrow('CLI version 2.5.3 is outdated')
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('blocks on a newer major release', async () => {
+    mockRegistry('2.6.0', '3.0.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).rejects.toThrow('CLI version 2.6.0 is outdated')
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('only warns on a newer patch release', async () => {
+    mockRegistry('2.6.0', '2.6.2')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).toHaveBeenCalledTimes(1)
+    expect(stderrSpy.mock.calls[0]?.[0]).toContain(
+      'npm install -g @marinade.finance/validator-bonds-cli@2.6.2',
+    )
+    expect(stdoutSpy).not.toHaveBeenCalled()
+  })
+
+  it('says nothing when up to date or ahead', async () => {
+    mockRegistry('2.6.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.7.0'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('lets an unreachable registry pass', async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(
+        new TypeError('fetch failed'),
+      ) as unknown as typeof fetch
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).not.toHaveBeenCalled()
   })
 })

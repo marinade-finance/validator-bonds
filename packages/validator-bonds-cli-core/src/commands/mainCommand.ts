@@ -27,7 +27,7 @@ import {
 import { getCliContext, setValidatorBondsCliContext } from '../context'
 import { translateKnownError } from '../errorTranslators'
 import { startFetchingNotificationBanners } from '../notifications'
-import { requireLatestCliVersion } from '../npmRegistry'
+import { checkCliVersion } from '../npmRegistry'
 
 import type {
   CliUsageConfig,
@@ -234,7 +234,7 @@ export function launchCliProgram({
       bondsApiEnabled,
     })
 
-    await requireLatestCliVersion(logger, npmRegistryUrl, version)
+    await checkCliVersion(logger, npmRegistryUrl, version)
   })
 
   const fireCompletion = (result: CompletionResult) => {
