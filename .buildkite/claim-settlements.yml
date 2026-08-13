@@ -31,6 +31,7 @@ steps:
     - . "$HOME/.cargo/env"
     - cargo build --release --bin list-claimable-epoch
     - cargo build --release --bin claim-settlement
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{list-claimable-epoch,claim-settlement}'
     artifact_paths:
       - target/release/list-claimable-epoch
       - target/release/claim-settlement

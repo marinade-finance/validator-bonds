@@ -155,6 +155,7 @@ if [[ ! -x "$BID_CLI" || ! -x "$MERKLE_CLI" || ! -x "$INST_CLI" ]]; then
     --bin bid-distribution-cli \
     --bin institutional-distribution-cli \
     --bin merkle-generator-cli)
+  [ "${CARGO_TARGET_DIR:-target}" = target ] || (cd "$REPO_ROOT" && install -D -t target/release "$CARGO_TARGET_DIR"/release/{bid-distribution-cli,institutional-distribution-cli,merkle-generator-cli})
 fi
 
 SETTLEMENT_CONFIG="$REPO_ROOT/settlement-config.yaml"
