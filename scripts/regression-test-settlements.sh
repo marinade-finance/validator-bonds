@@ -155,6 +155,15 @@ if [[ ! -x "$BID_CLI" || ! -x "$MERKLE_CLI" || ! -x "$INST_CLI" ]]; then
     --bin bid-distribution-cli \
     --bin institutional-distribution-cli \
     --bin merkle-generator-cli)
+  # agents may set CARGO_TARGET_DIR to a shared cache; stage binaries at target/release
+  TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+  if [[ "$TARGET_DIR" != "target" ]]; then
+    (cd "$REPO_ROOT" && mkdir -p target/release && cp -f \
+      "$TARGET_DIR/release/bid-distribution-cli" \
+      "$TARGET_DIR/release/institutional-distribution-cli" \
+      "$TARGET_DIR/release/merkle-generator-cli" \
+      target/release/)
+  fi
 fi
 
 SETTLEMENT_CONFIG="$REPO_ROOT/settlement-config.yaml"

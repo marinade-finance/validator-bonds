@@ -12,6 +12,13 @@ steps:
     commands:
     - source "$HOME/.cargo/env"
     - cargo build --release --bin bonds-collector --bin validator-bonds-api-cli
+    - |
+      # agents may set CARGO_TARGET_DIR to a shared cache; stage binaries at target/release for the artifact upload
+      TARGET_DIR="$${CARGO_TARGET_DIR:-target}"
+      if [ "$$TARGET_DIR" != "target" ]; then
+        mkdir -p target/release
+        cp -f "$$TARGET_DIR/release/bonds-collector" "$$TARGET_DIR/release/validator-bonds-api-cli" target/release/
+      fi
     artifact_paths:
       - target/release/bonds-collector
       - target/release/validator-bonds-api-cli
