@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn without_marinade_stake_the_floor_alone_decides() {
         // A zero-stake validator is not excluded outright: the badge tells a staker whether routing
-        // stake there would be covered, and the floor covers the first 4000 SOL.
+        // stake there would be covered, and the floor covers the first 2000 SOL.
         let listed = protected(
             vec![
                 bidding("voteNoStakeAtFloor", MIN_PROTECTED_BOND_LAMPORTS),
