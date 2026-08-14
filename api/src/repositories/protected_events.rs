@@ -33,18 +33,9 @@ async fn get_protected_events(
         .await?;
 
     let mut protected_events = vec![];
-    let mut skipped = 0usize;
+    // Fail the whole fetch, never a row: a dropped row reads as "this validator owes nothing".
     while rs.next_row() {
-        match parse_row(&rs) {
-            Ok(record) => protected_events.push(record),
-            Err(err) => {
-                skipped += 1;
-                log::error!("Skipping unparseable protected_events row: {err}");
-            }
-        }
-    }
-    if skipped > 0 {
-        log::warn!("Skipped {skipped} unparseable protected_events row(s)");
+        protected_events.push(parse_row(&rs)?);
     }
 
     Ok(protected_events)
@@ -244,7 +235,6 @@ mod tests {
         assert_eq!(record.product, "single-validator");
     }
 
-    // A null would reach the API as a dropped row, not an error, so the parse has to reject it.
     #[test]
     fn a_row_without_a_product_is_rejected() {
         let err = parse_row(&result_set(&[("product", None)])).unwrap_err();
