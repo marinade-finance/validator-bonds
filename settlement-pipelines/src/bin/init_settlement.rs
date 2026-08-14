@@ -111,7 +111,14 @@ async fn real_main(
         &[args.input_merkle_tree_collection.clone()],
         args.global_opts.config,
     )?;
-    if collections.is_empty() || collections.iter().all(|c| c.merkle_trees.is_empty()) {
+    // an input file that never loaded is not the same as an epoch that legitimately settles nothing
+    if collections.is_empty() {
+        anyhow::bail!(
+            "No merkle tree collection loaded from {:?}",
+            args.input_merkle_tree_collection
+        );
+    }
+    if collections.iter().all(|c| c.merkle_trees.is_empty()) {
         warn!("No merkle tree settlements");
         return Ok(());
     }

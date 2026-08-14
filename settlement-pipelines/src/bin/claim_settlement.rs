@@ -116,6 +116,17 @@ async fn real_main(
             "No merkle tree collections loaded from provided files"
         ));
     }
+    // a skipped file only logs; without a report entry a partially loaded run leaves claims behind and stays green
+    if collections.len() != args.json_files.len() {
+        reporting
+            .error()
+            .with_msg(format!(
+                "Loaded {} of {} merkle tree files, the rest was skipped",
+                collections.len(),
+                args.json_files.len(),
+            ))
+            .add();
+    }
 
     // Resolve config address: from CLI or from merkle tree
     let config_address = args.global_opts.config.unwrap_or_else(|| {
