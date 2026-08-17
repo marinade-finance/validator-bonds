@@ -32,7 +32,7 @@ impl CollectedStakeSnapshot {
 }
 
 /// `None` when nothing has ever been collected. Callers must fail loudly rather than treat that as
-/// "no validator has stake", which would un-protect every validator at once.
+/// "no validator has stake", which reduces `/protected` to its bond floor for everyone.
 pub async fn get_collected_stake(
     psql_client: &Client,
 ) -> anyhow::Result<Option<CollectedStakeSnapshot>> {
@@ -79,8 +79,8 @@ pub async fn get_collected_stake(
 /// row of the epoch.
 fn collection_epoch(records: &[CollectedStakeRecord]) -> anyhow::Result<i32> {
     let Some(first) = records.first() else {
-        // An empty file must not be allowed to empty the table — the endpoint would silently
-        // un-protect every validator.
+        // An empty file must not be allowed to empty the table — `/protected` would then judge every
+        // validator against its bond floor alone.
         anyhow::bail!("No collected stake records to store");
     };
     anyhow::ensure!(
