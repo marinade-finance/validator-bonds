@@ -697,7 +697,7 @@ validator-bonds subscriptions <bond-or-vote-account> \
 Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
 
 For Telegram, `pending` only means no notification has been delivered yet; it turns to `active` after the first delivery.
-Once you pressed "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
+Once you press "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
 
 ### View Notifications
 
