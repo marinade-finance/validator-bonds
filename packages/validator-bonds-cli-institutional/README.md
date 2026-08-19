@@ -25,7 +25,7 @@ To get info on available commands
 ```sh
 # to verify installed version
 validator-bonds-institutional --version
-2.6.0
+2.6.1
 
 # get reference of available commands
 validator-bonds-institutional --help
@@ -275,6 +275,9 @@ validator-bonds-institutional subscriptions <bond-or-vote-account> \
 ```
 
 Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
+
+For Telegram, `pending` only means no notification has been delivered yet; it turns to `active` after the first delivery.
+Once you pressed "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
 
 ### View Notifications
 

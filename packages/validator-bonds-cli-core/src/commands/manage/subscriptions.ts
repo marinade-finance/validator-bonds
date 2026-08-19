@@ -162,6 +162,19 @@ export async function showSubscriptions({
       },
       format,
     )
+
+    if (
+      data.some(
+        s => s.channel === 'telegram' && s.telegram_status === 'pending',
+      )
+    ) {
+      logger.info(
+        "Telegram status 'pending' means no notification has been delivered yet." +
+          " It turns to 'active' after the first delivery." +
+          ' If you already pressed Start in the Telegram bot' +
+          ' the subscription is activated and delivery works.',
+      )
+    }
   } catch (e) {
     const httpMsg = formatHttpError(e, notificationsApiUrl)
     if (httpMsg) {

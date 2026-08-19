@@ -274,10 +274,17 @@ function logTelegramResult(
           ' Press Start in the bot to confirm.',
       )
     }
+    logger.info(
+      "The subscription is reported as 'pending' until the first notification" +
+        " is delivered, then it turns to 'active'." +
+        ' Pressing Start is enough, no further action is needed.',
+    )
     return
   }
 
-  logger.info(
-    `Successfully subscribed to telegram notifications for ${bondLabel}`,
+  logger.warn(
+    `Subscription created for ${bondLabel} but the server returned no` +
+      ' Telegram activation link. Notifications cannot be delivered until' +
+      ' the subscription is activated. Please contact support.',
   )
 }
