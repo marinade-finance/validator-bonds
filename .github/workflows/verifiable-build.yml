@@ -1,0 +1,58 @@
+# Calls the org's shared verifiable-build workflow, which builds the program
+# reproducibly and compares the result against the bytecode deployed at the
+# program ID in Anchor.toml's [programs.mainnet] table.
+#
+# All logic lives in marinade-finance/.github; this file only decides when it
+# runs and passes this repo's inputs.
+name: Verifiable Build
+
+on:
+  # Manual runs: the way to prove a deployment matches a given ref on demand,
+  # and the trigger to use for the first adoption run in each repo.
+  workflow_dispatch:
+  # Release tags: the moment a hash becomes worth recording, because this is
+  # the ref that gets deployed.
+  push:
+    tags:
+      - "v*"
+
+# Granting `contents: read` is required. A called workflow can never hold more
+# permission than its caller, so tightening this to `{}` breaks the checkout
+# inside the shared workflow.
+permissions:
+  contents: read
+
+# Concurrency belongs HERE, not in the shared workflow. GitHub evaluates a
+# called workflow's `concurrency` in the caller's context, so if both sides
+# declared the same group the inner job would queue behind this run's own slot
+# and hang until it timed out.
+concurrency:
+  group: verifiable-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verifiable-build:
+    # Pin to a tag or commit SHA instead of @main once this workflow has a
+    # release, so a change to the shared workflow cannot silently change a
+    # published bytecode hash.
+    uses: marinade-finance/.github/.github/workflows/verifiable-build.yml@main
+    # NOTE: deliberately no `secrets: inherit`. This workflow reads only public
+    # Docker Hub images and a public Solana RPC endpoint, and `actions/checkout`
+    # uses the token GitHub injects into every called workflow. Passing secrets
+    # would widen the blast radius for no benefit.
+    with:
+      # Every Marinade program repo keeps Anchor.toml at the repo root, so the
+      # default is correct and this line can be omitted.
+      anchor-workspace: "."
+
+      # Left empty on purpose: the shared workflow derives the build image from
+      # the `solana-program` version pinned in Cargo.lock, which is what
+      # solana-verify does on its own. Set it only for a repo whose lockfile
+      # version has no published image — see rollout/README.md.
+      # base-image: "solanafoundation/solana-verifiable-build:2.3.0"
+
+      # Compares the built hash against the bytecode deployed at the program ID
+      # in Anchor.toml's `[programs.mainnet]` table. The job FAILS if that table
+      # is missing, rather than reporting a green check that verified nothing —
+      # so apply the Anchor.toml patch before the first run.
+      verify-onchain: true
