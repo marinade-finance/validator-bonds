@@ -14,7 +14,10 @@ on:
   # the ref that gets deployed.
   push:
     tags:
-      - "v*"
+      # This repo's program releases are tagged contract-v*; plain v* is the
+      # npm/SDK release series, which does not change the program and whose
+      # refs are ahead of the deployment.
+      - 'contract-v*'
 
 # Granting `contents: read` is required. A called workflow can never hold more
 # permission than its caller, so tightening this to `{}` breaks the checkout
@@ -43,7 +46,9 @@ jobs:
     with:
       # Every Marinade program repo keeps Anchor.toml at the repo root, so the
       # default is correct and this line can be omitted.
-      anchor-workspace: "."
+      anchor-workspace: '.'
+
+      library-name: 'validator_bonds'
 
       # Left empty on purpose: the shared workflow derives the build image from
       # the `solana-program` version pinned in Cargo.lock, which is what
@@ -55,4 +60,13 @@ jobs:
       # in Anchor.toml's `[programs.mainnet]` table. The job FAILS if that table
       # is missing, rather than reporting a green check that verified nothing —
       # so apply the Anchor.toml patch before the first run.
-      verify-onchain: true
+      # Deliberately NOT verifying against the chain yet. This program bakes
+      # env!("GIT_REV") / env!("GIT_REV_NAME") into its security_txt via
+      # build.rs, so a build only reproduces the deployed bytecode when those
+      # match the deployed revision (currently source_revision 1989b66 =
+      # contract-v2.2.1). A caller cannot supply that: cargo-args is a static
+      # string, and GitHub expressions cannot slice github.sha down to the short
+      # rev build.rs uses. Dispatching at the deployed tag does not work either,
+      # because this workflow file does not exist on that tag.
+      # Flip to true once a release records its GIT_REV alongside the hash.
+      verify-onchain: false
