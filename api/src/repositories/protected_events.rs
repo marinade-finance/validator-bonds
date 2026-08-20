@@ -1,4 +1,6 @@
+use gcp_bigquery_client::model::get_query_results_parameters::GetQueryResultsParameters;
 use gcp_bigquery_client::model::query_request::QueryRequest;
+use gcp_bigquery_client::model::query_response::ResultSet;
 use solana_sdk::pubkey::Pubkey;
 use std::{str::FromStr, time::Duration};
 use tokio::time::sleep;
@@ -33,17 +35,62 @@ async fn get_protected_events(
         .await?;
 
     let mut protected_events = vec![];
-    // Fail the whole fetch, never a row: a dropped row reads as "this validator owes nothing".
-    while rs.next_row() {
-        protected_events.push(parse_row(&rs)?);
+    loop {
+        // Fail the whole fetch, never a row: a dropped row reads as "this validator owes nothing".
+        while rs.next_row() {
+            protected_events.push(parse_row(&rs)?);
+        }
+        let Some(page_token) = rs.query_response().page_token.clone() else {
+            break;
+        };
+        let job = rs
+            .query_response()
+            .job_reference
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("BigQuery paged the results but named no job"))?;
+        let job_id = job
+            .job_id
+            .ok_or_else(|| anyhow::anyhow!("BigQuery job reference carries no job id"))?;
+        let results = client
+            .job()
+            .get_query_results(
+                project_id,
+                &job_id,
+                GetQueryResultsParameters {
+                    page_token: Some(page_token),
+                    // mandatory outside US and EU, and the queried dataset is europe-central2
+                    location: job.location,
+                    ..Default::default()
+                },
+            )
+            .await?;
+        rs = ResultSet::new(results.into());
     }
+    ensure_all_rows_loaded(&rs, protected_events.len())?;
 
     Ok(protected_events)
 }
 
-fn parse_row(
-    rs: &gcp_bigquery_client::model::query_response::ResultSet,
-) -> anyhow::Result<ProtectedEventRecord> {
+// `jobs.query` answers with one page and stops; a short read reads as "no validator owes anything".
+fn ensure_all_rows_loaded(rs: &ResultSet, loaded: usize) -> anyhow::Result<()> {
+    let response = rs.query_response();
+    anyhow::ensure!(
+        response.job_complete.unwrap_or(false),
+        "BigQuery job has not completed, {loaded} rows read so far"
+    );
+    let total_rows: usize = response
+        .total_rows
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("BigQuery reported no total row count"))?
+        .parse()?;
+    anyhow::ensure!(
+        loaded == total_rows,
+        "Read {loaded} of {total_rows} rows BigQuery reports"
+    );
+    Ok(())
+}
+
+fn parse_row(rs: &ResultSet) -> anyhow::Result<ProtectedEventRecord> {
     Ok(ProtectedEventRecord {
         epoch: rs
             .get_i64_by_name("epoch")?
@@ -245,5 +292,55 @@ mod tests {
     fn a_row_with_an_unknown_bond_type_is_rejected() {
         let err = parse_row(&result_set(&[("bond_type", Some("direct"))])).unwrap_err();
         assert!(err.to_string().contains("Unknown bond type"));
+    }
+
+    fn last_page(job_complete: Option<bool>, total_rows: Option<&str>) -> ResultSet {
+        ResultSet::new(QueryResponse {
+            job_complete,
+            total_rows: total_rows.map(str::to_string),
+            schema: Some(TableSchema::new(vec![TableFieldSchema::string("epoch")])),
+            rows: Some(vec![]),
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn reading_every_row_bigquery_reports_is_accepted() {
+        ensure_all_rows_loaded(&last_page(Some(true), Some("63917")), 63917).unwrap();
+    }
+
+    #[test]
+    fn an_empty_result_is_accepted() {
+        ensure_all_rows_loaded(&last_page(Some(true), Some("0")), 0).unwrap();
+    }
+
+    #[test]
+    fn a_truncated_read_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(true), Some("63917")), 50000).unwrap_err();
+        assert_eq!(err.to_string(), "Read 50000 of 63917 rows BigQuery reports");
+    }
+
+    #[test]
+    fn an_unfinished_job_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(false), None), 0).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery job has not completed, 0 rows read so far"
+        );
+    }
+
+    #[test]
+    fn a_result_without_a_completion_flag_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(None, Some("1")), 1).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery job has not completed, 1 rows read so far"
+        );
+    }
+
+    #[test]
+    fn a_result_without_a_total_row_count_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(true), None), 10).unwrap_err();
+        assert_eq!(err.to_string(), "BigQuery reported no total row count");
     }
 }
