@@ -972,6 +972,14 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
       },
     )
+    // parseStakeAccountData compares unixTimestamp against wall-clock Date.now(), not the bankrun clock
+    const futureTimestamp = Math.floor(Date.now() / 1000) + 365 * 24 * 3600
+    const { stakeAccount: futureTimestampOnly } =
+      await createInitializedStakeAccount({
+        provider,
+        lockup: new Lockup(futureTimestamp, 0, PublicKey.default),
+        rentExempt: rentExemptStake,
+      })
     const { stakeAccount: noLockup } = await createInitializedStakeAccount({
       provider,
       lockup: new Lockup(0, 0, PublicKey.default),
@@ -984,6 +992,10 @@ describe('Solana stake account behavior verification', () => {
     ).toBe(true)
     expect(
       (await getStakeAccount(provider, realCustodian, currentEpoch)).isLockedUp,
+    ).toBe(true)
+    expect(
+      (await getStakeAccount(provider, futureTimestampOnly, currentEpoch))
+        .isLockedUp,
     ).toBe(true)
     expect(
       (await getStakeAccount(provider, noLockup, currentEpoch)).isLockedUp,
