@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { Keypair } from '@solana/web3.js'
 
@@ -86,7 +84,6 @@ describe('Validator Bonds pause and resume', () => {
 
     const eventsPause = parseCpiEvents(program, executionReturnPause?.response)
     const ePause = assertEvent(eventsPause, EMERGENCY_PAUSE_EVENT)
-    assert(ePause !== undefined)
     expect(ePause.config).toEqual(config.publicKey)
     expect(ePause.pauseAuthority).toEqual(pauseAuthority.publicKey)
 

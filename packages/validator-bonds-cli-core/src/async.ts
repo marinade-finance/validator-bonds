@@ -12,7 +12,7 @@ export async function raceWithTimeout<T>(
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<T>(resolve => {
     timer = setTimeout(() => resolve(fallback), timeoutMs)
-    timer.unref?.()
+    timer.unref()
   })
   try {
     return await Promise.race([operation, timeout])

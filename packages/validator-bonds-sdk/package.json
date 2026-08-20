@@ -35,7 +35,7 @@
     "@coral-xyz/anchor": "0.31.1",
     "@marinade.finance/anchor-common": "5.1.2",
     "@marinade.finance/bankrun-utils": "5.1.2",
-    "@marinade.finance/marinade-ts-sdk": "5.0.15",
+    "@marinade.finance/marinade-ts-sdk": "6.0.1",
     "@marinade.finance/ts-common": "5.1.2",
     "@marinade.finance/web3js-1x": "5.1.2",
     "@metaplex-foundation/mpl-token-metadata": "3.2.0",
@@ -57,7 +57,7 @@
   },
   "peerDependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@marinade.finance/marinade-ts-sdk": "^5.0.15",
+    "@marinade.finance/marinade-ts-sdk": "^6.0.1",
     "@marinade.finance/ts-common": "^5.1.2",
     "@marinade.finance/web3js-1x": "^5.1.2",
     "@solana/spl-token": "^0.3.11",

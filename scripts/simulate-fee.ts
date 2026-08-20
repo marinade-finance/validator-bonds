@@ -307,7 +307,7 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       adj_min_fee_bps?: number
     }
     const bidSettlements = settlements.filter(
-      (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
+      (s): s is BidSettlement => s.reason === 'Bidding',
     )
     const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {

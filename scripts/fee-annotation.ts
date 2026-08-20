@@ -30,8 +30,8 @@ async function main() {
   const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 
   const cfg = parse(readFileSync(configFile, 'utf8')) as {
-    fee_config: { max_fee_bps: number; min_fee_bps: number }
-  }
+    fee_config?: { max_fee_bps: number; min_fee_bps: number }
+  } | null
   if (!cfg?.fee_config) {
     process.stderr.write(`Failed: fee_config missing in ${configFile}\n`)
     process.exit(1)
@@ -47,7 +47,7 @@ async function main() {
   }
 
   const bids = settlements.filter(
-    (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
+    (s): s is BidSettlement => s.reason === 'Bidding',
   )
   const stake = bids.reduce(
     (s, b) =>

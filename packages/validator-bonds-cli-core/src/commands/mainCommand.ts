@@ -189,12 +189,12 @@ export function launchCliProgram({
     if (cliUsageConfig?.enabled && !isTelemetryDisabled()) {
       // Argument parsers like parsePubkey return Promise<PublicKey>; unwrap so
       // we inspect the resolved value, not the pending Promise.
-      const arg = await Promise.resolve(action.processedArgs?.[0]).catch(
+      const arg = await Promise.resolve(action.processedArgs[0]).catch(
         () => undefined,
       )
       const account = arg instanceof PublicKey ? arg.toBase58() : undefined
       const { accountField } = getProgramTelemetryFields(action)
-      const walletPubkey = walletInterface.publicKey?.toBase58()
+      const walletPubkey = walletInterface.publicKey.toBase58()
       const installId = getOrCreateInstallId(logger)
       const sessionId = randomUUID()
       pendingCompletion = {

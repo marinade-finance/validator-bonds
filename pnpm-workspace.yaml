@@ -20,8 +20,9 @@ minimumReleaseAgeExclude:
   - '@marinade.finance/web3js-1x@5.1.2'
 overrides:
   glob@<8: ^10.3.10
-  rpc-websockets: 9.3.10
+  rpc-websockets: ^10.0.1
   utf-8-validate: ^6.0.6
+  uuid: ^11.1.0
 peerDependencyRules:
   allowedVersions:
     jest: '29'

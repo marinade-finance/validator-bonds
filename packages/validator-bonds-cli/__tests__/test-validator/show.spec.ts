@@ -1,7 +1,6 @@
 import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
-import { jsonStringify } from '@marinade.finance/ts-common'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
   initConfigInstruction,
@@ -297,7 +296,7 @@ describe('Show command using CLI', () => {
     )
     const bondMint = bondMintAddress(
       bondAccount,
-      voteAccountShow?.nodePubkey || PublicKey.default,
+      voteAccountShow.nodePubkey || PublicKey.default,
       program.programId,
     )[0].toBase58()
     const expectedDataNoFunding = {
@@ -930,18 +929,12 @@ function formatProductType(input: FormatProduct | FormatProduct[]): object {
           },
         },
       })
-    } else if (configData.custom) {
+    } else {
       const customBuffer = Buffer.from(configData.custom[0])
       result.push({
         productType: productType.custom?.[0],
         configData: [...customBuffer.values()],
       })
-    } else {
-      throw new Error(
-        `formatProductType: Unknown config data format: ${jsonStringify(
-          configData,
-        )}`,
-      )
     }
   }
   return result

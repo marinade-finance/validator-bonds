@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { PublicKey } from '@solana/web3.js'
@@ -84,8 +82,6 @@ describe('Validator Bonds configure bond with mint', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CONFIGURE_BOND_WITH_MINT_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
     expect(e.bondAuthority).toEqual({
       old: oldBondData.authority,

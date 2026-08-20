@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import {
   U64_MAX,
   executeTxSimple,
@@ -115,7 +113,6 @@ describe('Validator Bonds reset settlement stake account', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, RESET_STAKE_EVENT)
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.stakeAccount).toEqual(stakeAccount)
     expect(e.config).toEqual(configAccount)
