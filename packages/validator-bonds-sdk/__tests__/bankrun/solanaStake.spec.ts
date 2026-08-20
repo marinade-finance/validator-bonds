@@ -16,7 +16,11 @@ import { StakeProgram } from '@solana/web3.js'
 import { Clock } from 'solana-bankrun'
 
 import { initBankrunTest } from './bankrun'
-import { getRentExemptStake, getRentExemptVote } from '../../src'
+import {
+  getRentExemptStake,
+  getRentExemptVote,
+  getStakeAccount,
+} from '../../src'
 import { executeTxWithError } from '../utils/helpers'
 import {
   StakeStates,
@@ -947,5 +951,42 @@ describe('Solana stake account behavior verification', () => {
     expect(stakeAccount2Data.Stake?.stake.delegation.voterPubkey).toEqual(
       voteAccount,
     )
+  })
+  it('decides lockup by epoch/timestamp, not by the custodian', async () => {
+    const { epoch } = await provider.context.banksClient.getClock()
+    const currentEpoch = Number(epoch)
+    const futureEpoch = currentEpoch + 20
+    const custodian = Keypair.generate()
+
+    // a default custodian means nobody can lift the lockup early, not that there is no lockup
+    const { stakeAccount: defaultCustodian } =
+      await createInitializedStakeAccount({
+        provider,
+        lockup: new Lockup(0, futureEpoch, PublicKey.default),
+        rentExempt: rentExemptStake,
+      })
+    const { stakeAccount: realCustodian } = await createInitializedStakeAccount(
+      {
+        provider,
+        lockup: new Lockup(0, futureEpoch, custodian.publicKey),
+        rentExempt: rentExemptStake,
+      },
+    )
+    const { stakeAccount: noLockup } = await createInitializedStakeAccount({
+      provider,
+      lockup: new Lockup(0, 0, PublicKey.default),
+      rentExempt: rentExemptStake,
+    })
+
+    expect(
+      (await getStakeAccount(provider, defaultCustodian, currentEpoch))
+        .isLockedUp,
+    ).toBe(true)
+    expect(
+      (await getStakeAccount(provider, realCustodian, currentEpoch)).isLockedUp,
+    ).toBe(true)
+    expect(
+      (await getStakeAccount(provider, noLockup, currentEpoch)).isLockedUp,
+    ).toBe(false)
   })
 })

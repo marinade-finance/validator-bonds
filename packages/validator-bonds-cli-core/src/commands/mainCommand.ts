@@ -265,7 +265,7 @@ export function launchCliProgram({
       logger.debug({ resolution: 'Success', args: process.argv })
       logger.flush()
     },
-    (err: Error) => {
+    (err: unknown) => {
       fireCompletion(errorClass(err))
       const originalErr = err
       let rpcEndpoint: string | undefined
@@ -274,14 +274,18 @@ export function launchCliProgram({
       } catch (_e) {
         // context not yet set (error happened before preAction completed)
       }
-      err = translateKnownError(err, { rpcEndpoint })
-      logger.error(
-        err instanceof ExecutionError
-          ? err.messageWithTransactionError()
-          : err instanceof ErrorWithCause
-            ? err.messageWithCause()
-            : err.message,
-      )
+      if (err instanceof Error) {
+        const translated = translateKnownError(err, { rpcEndpoint })
+        logger.error(
+          translated instanceof ExecutionError
+            ? translated.messageWithTransactionError()
+            : translated instanceof ErrorWithCause
+              ? translated.messageWithCause()
+              : translated.message,
+        )
+      } else {
+        logger.error(String(err))
+      }
       logger.debug({
         resolution: 'Failure',
         err: originalErr,

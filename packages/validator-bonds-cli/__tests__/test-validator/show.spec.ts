@@ -1,6 +1,7 @@
 import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
+import { jsonStringify } from '@marinade.finance/ts-common'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
   initConfigInstruction,
@@ -929,12 +930,19 @@ function formatProductType(input: FormatProduct | FormatProduct[]): object {
           },
         },
       })
-    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- safety net for a future ProductTypeConfig variant; `satisfies never` below turns that into a build error first
+    } else if (configData.custom) {
       const customBuffer = Buffer.from(configData.custom[0])
       result.push({
         productType: productType.custom?.[0],
         configData: [...customBuffer.values()],
       })
+    } else {
+      throw new Error(
+        `formatProductType: Unknown config data format: ${jsonStringify(
+          configData satisfies never,
+        )}`,
+      )
     }
   }
   return result

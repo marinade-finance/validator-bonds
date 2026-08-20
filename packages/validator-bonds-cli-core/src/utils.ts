@@ -63,8 +63,8 @@ export async function getBondFromAddress({
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
   let accountInfo: AccountInfo<Buffer> | null
-  // shape, not instanceof: web3.js is a peer dep, so a PublicKey from another copy fails the instance check
-  if (!('account' in address)) {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- duck-type fallback: catches a PublicKey from another web3.js copy, and a base58 string/Buffer from an untyped caller, which `new PublicKey` below then normalizes
+  if (address instanceof PublicKey || address.publicKey === undefined) {
     address = new PublicKey(address)
     accountInfo = await program.provider.connection.getAccountInfo(address)
   } else {

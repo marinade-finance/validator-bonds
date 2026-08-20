@@ -47,9 +47,13 @@ program.parseAsync(process.argv).then(
   () => {
     logger.debug({ resolution: 'Success', args: process.argv })
   },
-  (err: Error) => {
+  (err: unknown) => {
     logger.error(
-      err instanceof ErrorWithCause ? err.messageWithCause() : err.message,
+      err instanceof ErrorWithCause
+        ? err.messageWithCause()
+        : err instanceof Error
+          ? err.message
+          : String(err),
     )
     logger.debug({ resolution: 'Failure', err, args: process.argv })
     process.exitCode = 200

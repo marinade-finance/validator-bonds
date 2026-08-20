@@ -94,9 +94,9 @@ async function parseStakeAccountData(
     activationEpoch,
     deactivationEpoch,
     isCoolingDown: deactivationEpoch ? !deactivationEpoch.eq(U64_MAX) : false,
+    // agave Lockup::is_in_force(clock, None): custodian only exempts a signer, it never decides whether the lockup is in force
     isLockedUp:
       lockup !== undefined &&
-      lockup.custodian !== PublicKey.default &&
       (lockup.epoch.gt(currentEpoch) ||
         lockup.unixTimestamp.gt(currentTimestamp)),
     balanceLamports,

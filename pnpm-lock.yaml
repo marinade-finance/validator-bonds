@@ -145,8 +145,8 @@ importers:
         specifier: 3.2.1
         version: 3.2.1(@marinade.finance/ts-common@5.1.2)(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.4.5)(utf-8-validate@6.0.6))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.3
-        version: 1.0.3
+        specifier: 1.0.4
+        version: 1.0.4
       '@marinade.finance/ts-common':
         specifier: 5.1.2
         version: 5.1.2
@@ -231,8 +231,8 @@ importers:
         specifier: 3.2.1
         version: 3.2.1(@marinade.finance/ts-common@5.1.2)(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.4.5)(utf-8-validate@6.0.6))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.3
-        version: 1.0.3
+        specifier: 1.0.4
+        version: 1.0.4
       '@marinade.finance/ts-common':
         specifier: 5.1.2
         version: 5.1.2
@@ -303,8 +303,8 @@ importers:
         specifier: 3.2.1
         version: 3.2.1(@marinade.finance/ts-common@5.1.2)(@solana/web3.js@1.98.4(bufferutil@4.1.0)(typescript@5.4.5)(utf-8-validate@6.0.6))(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.4.5)
       '@marinade.finance/notifications-ts-subscription-client':
-        specifier: 1.0.3
-        version: 1.0.3
+        specifier: 1.0.4
+        version: 1.0.4
       '@marinade.finance/ts-common':
         specifier: 5.1.2
         version: 5.1.2
@@ -1157,8 +1157,8 @@ packages:
     resolution: {integrity: sha512-pY0gCEAzW6Md7FV/GKpQ1zWSEKmfhj5Yn3rywZZrXvtNRbJDdpjn8zKs+4YukJWyJrczJVPvBSmcJJyjARE1PA==}
     engines: {node: '>=20.0.0'}
 
-  '@marinade.finance/notifications-ts-subscription-client@1.0.3':
-    resolution: {integrity: sha512-u0DKaAEBiLHgq/YS8L/ZhDqSW9kotFVJqv7A7+EocOmvQTeWF3IkWapXgK1iI+E6zB4jM5dG8sm5kl3mlO/VaQ==}
+  '@marinade.finance/notifications-ts-subscription-client@1.0.4':
+    resolution: {integrity: sha512-Kmu2ayuDfXnYu5nxmN/nDNbVFmKT0XxHg3rojYoWwLSrXS07IuLGEtrDubcSPgrlU9jfmz0dfUuH7BlgA4OYYw==}
     engines: {node: '>=20.0.0'}
 
   '@marinade.finance/ts-common@5.1.2':
@@ -5635,7 +5635,7 @@ snapshots:
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
 
-  '@marinade.finance/notifications-ts-subscription-client@1.0.3': {}
+  '@marinade.finance/notifications-ts-subscription-client@1.0.4': {}
 
   '@marinade.finance/ts-common@5.1.2':
     dependencies:
