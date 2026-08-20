@@ -6,7 +6,7 @@ use std::{str::FromStr, time::Duration};
 use tokio::time::sleep;
 use validator_bonds_common::dto::BondType;
 
-use crate::context::ProtectedEventsCache;
+use crate::context::{ProtectedEvents, ProtectedEventsCache};
 use crate::dto::ProtectedEventRecord;
 
 const CACHE_UPDATE_INTERVAL: Duration = Duration::from_secs(3600);
@@ -155,8 +155,15 @@ pub fn spawn_protected_events_cache_purger(
                         "Successfully fetched the protected events ({})",
                         updated_protected_events.len()
                     );
-                    *protected_events.write().await = Some(updated_protected_events);
-                    log::info!("Protected Events completely updated");
+                    match ProtectedEvents::new(updated_protected_events) {
+                        Ok(events) => {
+                            *protected_events.write().await = Some(events);
+                            log::info!("Protected Events completely updated");
+                        }
+                        Err(err) => {
+                            log::error!("Failed to render the protected events: {err}")
+                        }
+                    }
                 }
                 Err(err) => log::error!("Failed to get the protected events: {err}"),
             };
@@ -174,7 +181,7 @@ pub fn spawn_protected_events_cache_updater(
                 .read()
                 .await
                 .iter()
-                .flatten()
+                .flat_map(|events| &events.records)
                 .fold(0, |max_loaded_epoch, protected_event| {
                     protected_event.epoch.max(max_loaded_epoch)
                 });
@@ -190,15 +197,21 @@ pub fn spawn_protected_events_cache_updater(
                         .read()
                         .await
                         .iter()
-                        .flatten()
+                        .flat_map(|events| &events.records)
                         .filter(|protected_event| protected_event.epoch < max_loaded_epoch)
                         .chain(updated_protected_events.iter())
                         .cloned()
                         .collect();
 
-                    *protected_events.write().await = Some(merged_protected_events);
-
-                    log::info!("Successfully extended the protected events");
+                    match ProtectedEvents::new(merged_protected_events) {
+                        Ok(events) => {
+                            *protected_events.write().await = Some(events);
+                            log::info!("Successfully extended the protected events");
+                        }
+                        Err(err) => {
+                            log::error!("Failed to render the protected events: {err}")
+                        }
+                    }
                 }
                 Err(err) => log::error!("Failed to get the protected events: {err}"),
             };

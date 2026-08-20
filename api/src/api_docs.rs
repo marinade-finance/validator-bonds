@@ -1,6 +1,9 @@
 use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
 use crate::{
-    dto::{LegacyProtectedEventRecord, ProtectedEventRecord},
+    dto::{
+        LegacyProtectedEventRecord, LegacyProtectedEventsResponse, ProtectedEventRecord,
+        ProtectedEventsResponse,
+    },
     handlers::{
         bonds, collected_stake, docs, protected_events, protected_validators, verified_validators,
     },
@@ -35,8 +38,8 @@ use utoipa::{
         schemas(ProtectedEvent),
         schemas(bonds::BondsResponse),
         schemas(bonds::AuctionContextResponse),
-        schemas(protected_events::ProtectedEventsResponse),
-        schemas(protected_events::LegacyProtectedEventsResponse),
+        schemas(ProtectedEventsResponse),
+        schemas(LegacyProtectedEventsResponse),
         schemas(verified_validators::VerifiedValidatorsResponse),
         schemas(protected_validators::ProtectedValidatorsResponse),
         schemas(collected_stake::CollectedStakeResponse),
@@ -123,6 +126,28 @@ mod tests {
             assert!(
                 !documented.contains_key(removed),
                 "{removed} was moved under /v1 and must no longer be documented",
+            );
+        }
+    }
+
+    // The window is the only reason a consumer can stop pulling the whole history, so an
+    // undocumented one is an unusable one.
+    #[test]
+    fn both_protected_events_paths_document_the_epoch_window() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for path in ["/protected-events", "/v1/protected-events"] {
+            let params = docs["paths"][path]["get"]["parameters"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{path} must document its parameters"));
+            let window = params
+                .iter()
+                .find(|param| param["name"] == "from_epoch")
+                .unwrap_or_else(|| panic!("{path} must document from_epoch"));
+            assert_eq!(window["in"], "query");
+            assert_eq!(window["required"], false);
+            assert!(
+                window["description"].is_string(),
+                "{path} must describe from_epoch",
             );
         }
     }

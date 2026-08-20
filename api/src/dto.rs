@@ -131,6 +131,18 @@ pub fn legacy_projection(records: &[ProtectedEventRecord]) -> Vec<LegacyProtecte
         .collect()
 }
 
+// Here rather than with the handler: the cache renders both bodies once per refresh.
+#[derive(Serialize, Debug, utoipa::ToSchema)]
+pub struct ProtectedEventsResponse {
+    pub protected_events: Vec<ProtectedEventRecord>,
+}
+
+#[derive(Serialize, Debug, utoipa::ToSchema)]
+#[schema(deprecated)]
+pub struct LegacyProtectedEventsResponse {
+    pub protected_events: Vec<LegacyProtectedEventRecord>,
+}
+
 /// DEPRECATED: this `{ "funder": ... }` wrapper is retained only for backward compatibility.
 /// The generated settlement JSON now exposes `funder` directly, and any field carrying this
 /// wrapper will be replaced by a top-level `funder` in a future API version.
