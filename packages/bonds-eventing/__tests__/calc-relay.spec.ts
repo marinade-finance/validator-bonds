@@ -20,6 +20,8 @@ function calcValidator(
     idealUnprotectedReserve: 0,
     bondGoodForNEpochs: 5,
     unstakePriority: 1,
+    maxBondDelegation: 60000,
+    bondSamStakeCapSol: 60000,
     auctionStake: { marinadeSamTargetSol: 1000, externalActivatedSol: 0 },
     bondForcedUndelegation: { value: 3, coef: 0, base: 0 },
     revShare: {
@@ -76,6 +78,8 @@ describe('toCalcValidator', () => {
     expect(blob.idealBondPmpe).toBe(12.5)
     expect(blob.bondGoodForNEpochs).toBe(5)
     expect(blob.unstakePriority).toBe(1)
+    expect(blob.maxBondDelegation).toBe(60000)
+    expect(blob.bondSamStakeCapSol).toBe(60000)
     expect(
       (blob.auctionStake as Record<string, unknown>).marinadeSamTargetSol,
     ).toBe(1000)

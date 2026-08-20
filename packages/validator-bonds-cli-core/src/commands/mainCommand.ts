@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 
-import { pinoConfiguration } from '@marinade.finance/ts-common'
+import { ErrorWithCause, pinoConfiguration } from '@marinade.finance/ts-common'
 import {
   DEFAULT_KEYPAIR_PATH,
   ExecutionError,
@@ -278,7 +278,9 @@ export function launchCliProgram({
       logger.error(
         err instanceof ExecutionError
           ? err.messageWithTransactionError()
-          : err.message,
+          : err instanceof ErrorWithCause
+            ? err.messageWithCause()
+            : err.message,
       )
       logger.debug({
         resolution: 'Failure',
