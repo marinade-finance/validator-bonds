@@ -62,7 +62,9 @@ export type FeeSettlement = Extract<
   { reason: 'Bidding' | 'PriorityFee' }
 >
 export function isFeeSettlement(s: Settlement): s is FeeSettlement {
-  return s.reason === 'Bidding' || s.reason === 'PriorityFee'
+  if (s.reason !== 'Bidding' && s.reason !== 'PriorityFee') return false
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settlement JSON is external; epochs before 893 omit `details` on fee settlements
+  return s.details != null
 }
 
 /** Sum of PSR + penalty lamports redistributed to stakers (uses claims_amount). */
