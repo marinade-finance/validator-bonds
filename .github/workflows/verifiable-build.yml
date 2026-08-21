@@ -1,0 +1,22 @@
+name: Verifiable Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'contract-v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verifiable-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verifiable-build:
+    uses: marinade-finance/.github/.github/workflows/verifiable-build.yml@main
+    with:
+      library-name: 'validator_bonds'
+      # security_txt bakes in env!("GIT_REV"), which a caller cannot supply, so a build here never matches the deployment
+      verify-onchain: false
