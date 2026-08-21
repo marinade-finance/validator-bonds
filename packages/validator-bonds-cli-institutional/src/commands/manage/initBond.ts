@@ -20,7 +20,7 @@ export function installInitBond(program: Command) {
     }: {
       voteAccount: Promise<PublicKey>
       validatorIdentity?: Promise<WalletInterface | PublicKey>
-      bondAuthority: Promise<PublicKey>
+      bondAuthority?: Promise<PublicKey>
       rentPayer?: Promise<WalletInterface | PublicKey>
       cpmpe: BN
       maxStakeWanted: BN

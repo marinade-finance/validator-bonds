@@ -83,7 +83,7 @@ export async function manageInitBond({
   config: PublicKey
   voteAccount: PublicKey
   validatorIdentity?: WalletInterface | PublicKey
-  bondAuthority: PublicKey
+  bondAuthority?: PublicKey
   rentPayer?: WalletInterface | PublicKey
   cpmpe: BN
   maxStakeWanted: BN

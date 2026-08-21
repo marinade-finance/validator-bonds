@@ -190,7 +190,6 @@ describe('Validator Bonds claim settlement', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CLAIM_SETTLEMENT_V2_EVENT)
-    assert(e !== undefined)
     expect(e.settlement).toEqual(settlementAccount)
     expect(e.amount).toEqual(treeNodeVoteAccount1Withdrawer1.treeNode.claim)
     expect(e.index).toEqual(treeNodeVoteAccount1Withdrawer1.treeNode.index)

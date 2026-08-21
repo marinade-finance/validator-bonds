@@ -76,7 +76,7 @@ async function fetchAuctionContext(
     () => controller.abort(),
     BOND_TIP_FETCH_TIMEOUT_MS,
   )
-  timeout.unref?.()
+  timeout.unref()
   try {
     const url = `${apiUrl.replace(/\/$/, '')}/bonds/bidding/auction`
     const response = await fetch(url, { signal: controller.signal })

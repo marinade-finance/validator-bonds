@@ -497,21 +497,19 @@ function constructBondMintAddress(
 
 function bondProductShowData(
   bondProducts: ProgramAccount<BondProduct>[],
-): BondProductShow[] | undefined {
+): BondProductShow[] {
   const { verbose: cliVerbose } = getCliContext()
   return bondProducts
-    ? bondProducts
-        .map(p => ({
-          publicKey: cliVerbose ? p.publicKey : undefined,
-          productType: p.account.productType,
-          configData: p.account.configData,
-        }))
-        .sort((a, b) => {
-          if (a.productType.commission && b.productType.custom) return 1
-          if (a.productType.custom && b.productType.commission) return -1
-          return 0
-        })
-    : undefined
+    .map(p => ({
+      publicKey: cliVerbose ? p.publicKey : undefined,
+      productType: p.account.productType,
+      configData: p.account.configData,
+    }))
+    .sort((a, b) => {
+      if (a.productType.commission && b.productType.custom) return 1
+      if (a.productType.custom && b.productType.commission) return -1
+      return 0
+    })
 }
 
 export async function showSettlement({

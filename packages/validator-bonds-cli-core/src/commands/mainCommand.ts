@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 
-import { pinoConfiguration } from '@marinade.finance/ts-common'
+import { ErrorWithCause, pinoConfiguration } from '@marinade.finance/ts-common'
 import {
   DEFAULT_KEYPAIR_PATH,
   ExecutionError,
@@ -189,12 +189,12 @@ export function launchCliProgram({
     if (cliUsageConfig?.enabled && !isTelemetryDisabled()) {
       // Argument parsers like parsePubkey return Promise<PublicKey>; unwrap so
       // we inspect the resolved value, not the pending Promise.
-      const arg = await Promise.resolve(action.processedArgs?.[0]).catch(
+      const arg = await Promise.resolve(action.processedArgs[0]).catch(
         () => undefined,
       )
       const account = arg instanceof PublicKey ? arg.toBase58() : undefined
       const { accountField } = getProgramTelemetryFields(action)
-      const walletPubkey = walletInterface.publicKey?.toBase58()
+      const walletPubkey = walletInterface.publicKey.toBase58()
       const installId = getOrCreateInstallId(logger)
       const sessionId = randomUUID()
       pendingCompletion = {
@@ -265,7 +265,7 @@ export function launchCliProgram({
       logger.debug({ resolution: 'Success', args: process.argv })
       logger.flush()
     },
-    (err: Error) => {
+    (err: unknown) => {
       fireCompletion(errorClass(err))
       const originalErr = err
       let rpcEndpoint: string | undefined
@@ -274,12 +274,18 @@ export function launchCliProgram({
       } catch (_e) {
         // context not yet set (error happened before preAction completed)
       }
-      err = translateKnownError(err, { rpcEndpoint })
-      logger.error(
-        err instanceof ExecutionError
-          ? err.messageWithTransactionError()
-          : err.message,
-      )
+      if (err instanceof Error) {
+        const translated = translateKnownError(err, { rpcEndpoint })
+        logger.error(
+          translated instanceof ExecutionError
+            ? translated.messageWithTransactionError()
+            : translated instanceof ErrorWithCause
+              ? translated.messageWithCause()
+              : translated.message,
+        )
+      } else {
+        logger.error(String(err))
+      }
       logger.debug({
         resolution: 'Failure',
         err: originalErr,

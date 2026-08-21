@@ -52,8 +52,10 @@ export function toCalcValidator(v: AuctionValidator): Record<string, unknown> {
     idealUnprotectedReserve: v.idealUnprotectedReserve,
     bondGoodForNEpochs: v.bondGoodForNEpochs,
     unstakePriority: v.unstakePriority,
+    maxBondDelegation: v.maxBondDelegation,
+    bondSamStakeCapSol: v.bondSamStakeCapSol,
     auctionStake: { marinadeSamTargetSol: v.auctionStake.marinadeSamTargetSol },
-    bondForcedUndelegation: { value: v.bondForcedUndelegation?.value ?? null },
+    bondForcedUndelegation: { value: v.bondForcedUndelegation.value },
     revShare: { ...v.revShare },
     values: {
       bondRiskFeeSol: v.values.bondRiskFeeSol,
@@ -69,7 +71,7 @@ export function toCalcValidator(v: AuctionValidator): Record<string, unknown> {
           marinadeLeftToCapSol: cap.marinadeLeftToCapSol,
         }
       : null,
-    auctions: (v.auctions ?? []).map(a => ({
+    auctions: v.auctions.map(a => ({
       bidPmpe: a.bidPmpe,
       effParticipatingBidPmpe: a.effParticipatingBidPmpe,
     })),

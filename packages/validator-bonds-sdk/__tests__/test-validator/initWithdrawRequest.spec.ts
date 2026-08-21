@@ -104,7 +104,6 @@ describe('Validator Bonds init withdraw request', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_WITHDRAW_REQUEST_EVENT)
-    assert(e !== undefined)
     expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
     expect(e.bond).toEqual(bondAccount)
     expect(e.epoch).toEqual(epoch)

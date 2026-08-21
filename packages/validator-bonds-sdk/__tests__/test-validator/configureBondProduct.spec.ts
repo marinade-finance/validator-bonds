@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 
@@ -93,7 +91,6 @@ describe('Validator Bonds configure bond product', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CONFIGURE_BOND_PRODUCT_EVENT)
-    assert(e !== undefined)
     expect(e.bondProduct).toEqual(commissionProduct)
   })
 
@@ -131,7 +128,6 @@ describe('Validator Bonds configure bond product', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CONFIGURE_BOND_PRODUCT_EVENT)
-    assert(e !== undefined)
     expect(e.bondProduct).toEqual(customProduct)
   })
 })
