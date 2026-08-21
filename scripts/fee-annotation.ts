@@ -47,7 +47,8 @@ async function main() {
   }
 
   const bids = settlements.filter(
-    (s): s is BidSettlement => s.reason === 'Bidding',
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settlement JSON is external; epochs before ~890 omit `details` on Bidding entries
+    (s): s is BidSettlement => s.reason === 'Bidding' && s.details != null,
   )
   const stake = bids.reduce(
     (s, b) =>
