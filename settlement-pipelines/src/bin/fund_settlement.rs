@@ -135,6 +135,17 @@ async fn real_main(
     if collections.is_empty() {
         anyhow::bail!("No merkle tree collections loaded from provided files");
     }
+    // a skipped file only logs; without a report entry a partially loaded run under-funds and stays green
+    if collections.len() != args.json_files.len() {
+        reporting
+            .error()
+            .with_msg(format!(
+                "Loaded {} of {} merkle tree files, the rest was skipped",
+                collections.len(),
+                args.json_files.len(),
+            ))
+            .add();
+    }
 
     // Resolve config address: from CLI or from merkle tree
     let config_address = args.global_opts.config.unwrap_or_else(|| {
@@ -1123,7 +1134,9 @@ impl PrintReportable for FundSettlementsReport {
                             .iter()
                             .all(|v| v.vote_pubkey != vae.vote_account)
                         {
-                            vae.base.severity = ErrorSeverity::Info;
+                            // the chain also carries direct-staking settlements, whose validators are
+                            // not in the institutional list at all, so this must stay visible
+                            vae.base.severity = ErrorSeverity::Warning;
                             vae.base.message =
                                 format!("(non-institutional validator) {}", vae.base.message);
                         }
