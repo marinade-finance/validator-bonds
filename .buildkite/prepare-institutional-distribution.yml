@@ -22,6 +22,7 @@ steps:
     commands:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin institutional-distribution-cli --bin merkle-generator-cli'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{institutional-distribution-cli,merkle-generator-cli}'
     artifact_paths:
       - target/release/institutional-distribution-cli
       - target/release/merkle-generator-cli

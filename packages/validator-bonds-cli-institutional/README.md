@@ -25,7 +25,7 @@ To get info on available commands
 ```sh
 # to verify installed version
 validator-bonds-institutional --version
-2.5.0
+2.6.1
 
 # get reference of available commands
 validator-bonds-institutional --help
@@ -135,6 +135,12 @@ For details on meanings of the particular fields in the listing, please refer to
 
 The bond account exists to be funded to cover rewards distribution.
 
+A Select bond is considered sufficiently funded when its claimable balance covers
+**1 SOL for every 2,000 SOL** of Select stake delegated to the validator.
+That is the threshold the [bond notifications](#notification-subscriptions) are evaluated against.
+The `1 SOL per 1,000 SOL` used in the examples below is the recommended amount —
+it leaves headroom so a PSR penalty or a settlement claim does not immediately push the bond under the threshold.
+
 Funding the bond means underlaying stake account is created.
 Such stake account is delegated to the validator vote account
 and is still generating staking rewards.
@@ -217,6 +223,74 @@ For technical details on creating withdraw request and claiming, please refer to
 
 For details please refer to
 [`Support for Ledger signing` in the Validator Bonds CLI README](https://github.com/marinade-finance/validator-bonds/tree/main/packages/validator-bonds-cli#support-for-ledger-signing).
+
+## Notification Subscriptions
+
+Get notified over Telegram or email when the Select bond needs attention —
+most importantly when it drops under the
+[required 1 SOL per 2,000 SOL of Select stake](#funding-bond-account) and a top-up is due.
+Bond balance changes and applied settlement claims are reported as well.
+
+Subscriptions are off-chain. No transaction is sent and nothing is paid, but the CLI signs a message
+with the bond authority or the validator identity to prove ownership of the bond.
+
+### Subscribe
+
+```sh
+# Subscribe via Telegram
+validator-bonds-institutional subscribe <bond-or-vote-account> \
+  --type telegram --address <your-telegram-handle> \
+  --authority <bond-authority-or-validator-identity-keypair>
+
+# Subscribe via email
+validator-bonds-institutional subscribe <bond-or-vote-account> \
+  --type email --address <your-email> \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+**Telegram activation:** After subscribing, the CLI returns a Telegram deep link and opens it in your browser.
+You **must click "Start"** in the Telegram bot to activate delivery.
+
+### Unsubscribe
+
+```sh
+# Unsubscribe a specific address
+validator-bonds-institutional unsubscribe <bond-or-vote-account> \
+  --type telegram --address <your-telegram-handle> \
+  --authority <bond-authority-or-validator-identity-keypair>
+
+# Unsubscribe all subscriptions of a given type
+validator-bonds-institutional unsubscribe <bond-or-vote-account> \
+  --type telegram \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+Omitting `--address` removes **all** subscriptions of the specified type for the bond.
+
+### List Current Subscriptions
+
+```sh
+validator-bonds-institutional subscriptions <bond-or-vote-account> \
+  --authority <bond-authority-or-validator-identity-keypair>
+```
+
+Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
+
+For Telegram, `pending` only means no notification has been delivered yet; it turns to `active` after the first delivery.
+Once you press "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
+
+### View Notifications
+
+```sh
+# Show notifications for a specific bond
+validator-bonds-institutional show-notifications <bond-or-vote-account>
+
+# Show broadcast announcements only
+validator-bonds-institutional show-notifications
+
+# Filter by priority or limit count
+validator-bonds-institutional show-notifications <bond-or-vote-account> --priority critical --limit 10
+```
 
 ## Details on Bond Processing and Select Programme Calculation
 
@@ -341,7 +415,7 @@ Options:
 
 Commands:
   bond-address <vote-account>                                  From provided vote account address derives the bond account address
-  show-bond [options] [bond-or-vote]                           Showing data of bond account(s)
+  show-bond [options] [bond-or-vote-or-withdraw-request]       Showing data of bond account(s)
   init-bond [options]                                          Create a new bond account.
   configure-bond [options] <bond-or-vote>                      Configure existing bond account.
   fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
@@ -358,5 +432,9 @@ Commands:
                                                                Requires the bond authority signature (--authority, defaults to wallet).
   cancel-withdraw-request [options] [request-or-bond-or-vote]  Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from
                                                                the chain.
+  subscribe [options] <bond-or-vote>                           Subscribe to bond notifications. Requires signing with bond authority or validator identity keypair.
+  unsubscribe [options] <bond-or-vote>                         Unsubscribe from bond notifications. Requires signing with bond authority or validator identity keypair.
+  subscriptions [options] <bond-or-vote>                       Show subscriptions to bond notifications. Requires signing with bond authority or validator identity keypair.
+  show-notifications [options] [bond-or-vote]                  Show notifications for a bond. When no address is provided, shows broadcast announcements.
   help [command]                                               display help for command
 ```

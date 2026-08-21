@@ -12,6 +12,7 @@ steps:
     commands:
     - source "$HOME/.cargo/env"
     - cargo build --release --bin bonds-collector --bin validator-bonds-api-cli
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{bonds-collector,validator-bonds-api-cli}'
     artifact_paths:
       - target/release/bonds-collector
       - target/release/validator-bonds-api-cli

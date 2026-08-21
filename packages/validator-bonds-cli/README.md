@@ -696,6 +696,9 @@ validator-bonds subscriptions <bond-or-vote-account> \
 
 Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
 
+For Telegram, `pending` only means no notification has been delivered yet; it turns to `active` after the first delivery.
+Once you press "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
+
 ### View Notifications
 
 ```sh
@@ -934,7 +937,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.5.0
+> +-- @marinade.finance/validator-bonds-cli@2.6.1
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -954,7 +957,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.5.0
+#         └── @marinade.finance/validator-bonds-cli@2.6.1
 ```
 
 To execute the installed packages from any location,
@@ -1149,7 +1152,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.5.0
+  > `-- @marinade.finance/validator-bonds-cli@2.6.1
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

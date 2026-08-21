@@ -41,6 +41,7 @@ steps:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin list-settlement'
     - 'cargo build --release --bin verify-settlement'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{list-settlement,verify-settlement}'
     artifact_paths:
       - target/release/verify-settlement
       - target/release/list-settlement
