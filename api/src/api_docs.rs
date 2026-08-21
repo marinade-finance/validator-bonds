@@ -149,6 +149,10 @@ mod tests {
                 window["description"].is_string(),
                 "{path} must describe from_epoch",
             );
+            assert!(
+                docs["paths"][path]["get"]["responses"]["400"].is_object(),
+                "{path} rejects an unparsable from_epoch and must document it",
+            );
         }
     }
 }
