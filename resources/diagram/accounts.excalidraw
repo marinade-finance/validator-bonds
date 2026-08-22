@@ -1301,7 +1301,7 @@
     },
     {
       "type": "rectangle",
-      "version": 633,
+      "version": 634,
       "versionNonce": 91170576,
       "index": "b29e",
       "isDeleted": false,
@@ -1317,7 +1317,7 @@
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#b2f2bb",
       "width": 222.96296861436625,
-      "height": 110,
+      "height": 130,
       "seed": 1999935260,
       "groupIds": [
         "jabJSz1vYquGMGrhYfaUm",
@@ -1340,7 +1340,7 @@
     },
     {
       "type": "text",
-      "version": 519,
+      "version": 520,
       "versionNonce": 700879344,
       "index": "b29f",
       "isDeleted": false,
@@ -1356,7 +1356,7 @@
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#b2f2bb",
       "width": 191.69642639160156,
-      "height": 100,
+      "height": 120,
       "seed": 592139164,
       "groupIds": [
         "jabJSz1vYquGMGrhYfaUm",
@@ -1371,11 +1371,11 @@
       "locked": false,
       "fontSize": 16,
       "fontFamily": 1,
-      "text": "\n- init\n- configure\n- fund\n- withdraw (via request)",
+      "text": "\n- init\n- configure\n- fund\n- refund balance\n- withdraw (via request)",
       "textAlign": "left",
       "verticalAlign": "middle",
       "containerId": "5Vy8Qtz2KNxj7ynXAfsbf",
-      "originalText": "\n- init\n- configure\n- fund\n- withdraw (via request)",
+      "originalText": "\n- init\n- configure\n- fund\n- refund balance\n- withdraw (via request)",
       "autoResize": true,
       "lineHeight": 1.25
     },
