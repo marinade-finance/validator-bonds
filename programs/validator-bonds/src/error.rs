@@ -242,4 +242,13 @@ pub enum ErrorCode {
 
     #[msg("Fail to validate ProductConfig value")]
     ProductTypeConfigValidationFailure, // 6078 0x17be
+
+    #[msg("Stake account is not fully deactivated, cannot be withdrawn")]
+    StakeNotFullyDeactivated, // 6079 0x17bf
+
+    #[msg("Stake account is big enough to be reset, withdraw is not permitted")]
+    StakeAccountIsBigEnoughToReset, // 6080 0x17c0
+
+    #[msg("Stake account is not big enough to be funded to settlement")]
+    StakeAccountNotBigEnoughToFund, // 6081 0x17c1
 }
