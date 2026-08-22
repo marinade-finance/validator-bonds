@@ -3,13 +3,11 @@ question: >
   0.08. Its actual_inflation_commission = 5% and actual_mev_commission = 3%.
   The settlement covers stake = 10,000 SOL.
 
-  Compute: (a) base_cps, (b) which markup applies and its fraction,
-  (c) claim_per_stake, (d) the payout in SOL. Show each formula step.
+  Compute: (a) base_cps, (b) claim_per_stake, (c) the payout in SOL.
+  Show each formula step.
 facts:
   - '0.02'
-  - 'base_markup_bps'
-  - '0.022'
-  - '220 SOL'
-wrong_facts:
-  - '400 SOL'
   - '200 SOL'
+wrong_facts:
+  - '220 SOL'
+  - '400 SOL'
