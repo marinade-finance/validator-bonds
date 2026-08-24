@@ -182,13 +182,13 @@ steps:
         # inside a string and Slack would reject the whole payload with invalid_json
         jq -n --rawfile text ./direct-staking-report.txt \
           --arg channel "$SLACK_FEED" --arg epoch "$$epoch" --arg url "$$BUILDKITE_BUILD_URL" '{
-            channel: $channel,
+            channel: $$channel,
             attachments: [{
               color: "#8000ff",
-              title: "Direct staking PSR settlements generated (\($epoch)).",
-              title_link: $url,
-              text: $text,
-              footer: "<\($url)|View in Buildkite>"
+              title: "Direct staking PSR settlements generated (\($$epoch)).",
+              title_link: $$url,
+              text: $$text,
+              footer: "<\($$url)|View in Buildkite>"
             }]
           }' > ./slack-payload.json
         curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
