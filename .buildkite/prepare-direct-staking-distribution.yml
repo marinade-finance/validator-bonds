@@ -173,6 +173,25 @@ steps:
 
   - wait: ~
 
+  # ahead of the notification, unlike prepare-bid-distribution: a Slack failure must not starve
+  # the merkle chain, which has no other way to learn this epoch's split is ready
+  - label: ":gear: Trigger merkle tree scheduler"
+    commands:
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "scheduler-merkle-tree"
+          label: ":rocket: Trigger: Merkle Tree Scheduler"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              NOTIFY_FEED: ${NOTIFY_FEED:-false}
+              gs_bucket: $gs_bucket
+      EOF
+
+  - wait: ~
+
   - label: ":mega: Notification"
     commands:
       - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
