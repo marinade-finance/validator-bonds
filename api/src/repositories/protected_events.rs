@@ -13,9 +13,30 @@ use crate::dto::ProtectedEventRecord;
 const CACHE_UPDATE_INTERVAL: Duration = Duration::from_secs(3600);
 const CACHE_PURGE_INTERVAL: Duration = Duration::from_secs(24 * 3600);
 // Until the first fetch lands both endpoints answer 500, so a failure must not wait out a refresh.
+// Doubled per consecutive failure so an unhealthy BigQuery is not hammered for the whole outage.
 const CACHE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
 const COMPLETION_POLL_TIMEOUT_MS: i32 = 30_000;
 const MAX_COMPLETION_POLLS: u32 = 10;
+// The paging loop bounds token-less polls only; a page token that never advances would spin here
+// forever and silently stop the refresh, so the whole read is bounded in wall-clock terms too.
+const FETCH_TIMEOUT: Duration = Duration::from_secs(900);
+
+async fn fetch_protected_events(
+    gcp_sa_key: &str,
+    project_id: &str,
+    from_epoch: u64,
+) -> anyhow::Result<Vec<ProtectedEventRecord>> {
+    tokio::time::timeout(
+        FETCH_TIMEOUT,
+        get_protected_events(gcp_sa_key, project_id, from_epoch),
+    )
+    .await
+    .map_err(|_| {
+        anyhow::anyhow!(
+            "Reading the protected events from epoch {from_epoch} timed out after {FETCH_TIMEOUT:?}"
+        )
+    })?
+}
 
 async fn get_protected_events(
     gcp_sa_key: &str,
@@ -149,13 +170,21 @@ fn parse_row(rs: &ResultSet) -> anyhow::Result<ProtectedEventRecord> {
     })
 }
 
-async fn store(cache: &ProtectedEventsCache, records: Vec<ProtectedEventRecord>, stored: &str) {
+async fn store(
+    cache: &ProtectedEventsCache,
+    records: Vec<ProtectedEventRecord>,
+    stored: &str,
+) -> bool {
     match ProtectedEvents::new(records) {
         Ok(events) => {
             *cache.write().await = Some(events);
             log::info!("{stored}");
+            true
         }
-        Err(err) => log::error!("{stored} failed, the protected events did not render: {err}"),
+        Err(err) => {
+            log::error!("{stored} failed, the protected events did not render: {err}");
+            false
+        }
     }
 }
 
@@ -184,7 +213,7 @@ pub fn spawn_protected_events_cache_purger(
         loop {
             sleep(CACHE_PURGE_INTERVAL).await;
 
-            match get_protected_events(&gcp_sa_key, &project_id, 0).await {
+            match fetch_protected_events(&gcp_sa_key, &project_id, 0).await {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({})",
@@ -208,6 +237,7 @@ pub fn spawn_protected_events_cache_updater(
     protected_events: ProtectedEventsCache,
 ) {
     tokio::spawn(async move {
+        let mut retry_in = CACHE_RETRY_INTERVAL;
         loop {
             let max_loaded_epoch = protected_events
                 .read()
@@ -218,8 +248,8 @@ pub fn spawn_protected_events_cache_updater(
                     protected_event.epoch.max(max_loaded_epoch)
                 });
 
-            let fetched = get_protected_events(&gcp_sa_key, &project_id, max_loaded_epoch).await;
-            let next_attempt = match fetched {
+            let fetched = fetch_protected_events(&gcp_sa_key, &project_id, max_loaded_epoch).await;
+            let updated = match fetched {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({}) from epoch: {max_loaded_epoch}",
@@ -241,18 +271,30 @@ pub fn spawn_protected_events_cache_updater(
                         merged_protected_events,
                         "Successfully extended the protected events",
                     )
-                    .await;
-                    CACHE_UPDATE_INTERVAL
+                    .await
                 }
                 Err(err) => {
                     log::error!("Failed to get the protected events: {err}");
-                    CACHE_RETRY_INTERVAL
+                    false
                 }
+            };
+
+            let next_attempt = if updated {
+                retry_in = CACHE_RETRY_INTERVAL;
+                CACHE_UPDATE_INTERVAL
+            } else {
+                let waiting = retry_in;
+                retry_in = next_retry(retry_in);
+                waiting
             };
 
             sleep(next_attempt).await;
         }
     });
+}
+
+fn next_retry(retry_in: Duration) -> Duration {
+    retry_in.saturating_mul(2).min(CACHE_UPDATE_INTERVAL)
 }
 
 #[cfg(test)]
@@ -395,6 +437,27 @@ mod tests {
     #[test]
     fn a_failed_fetch_is_retried_sooner_than_the_next_refresh() {
         assert!(CACHE_RETRY_INTERVAL < CACHE_UPDATE_INTERVAL);
+    }
+
+    #[test]
+    fn consecutive_failures_back_off_no_further_than_the_refresh_interval() {
+        let mut retry_in = CACHE_RETRY_INTERVAL;
+        for _ in 0..64 {
+            retry_in = next_retry(retry_in);
+            assert!(retry_in <= CACHE_UPDATE_INTERVAL, "{retry_in:?}");
+        }
+        assert_eq!(retry_in, CACHE_UPDATE_INTERVAL);
+        assert_eq!(next_retry(CACHE_RETRY_INTERVAL), CACHE_RETRY_INTERVAL * 2);
+    }
+
+    #[test]
+    fn a_read_is_bounded_beyond_the_polls_it_may_spend() {
+        assert!(
+            FETCH_TIMEOUT
+                > Duration::from_millis(
+                    MAX_COMPLETION_POLLS as u64 * COMPLETION_POLL_TIMEOUT_MS as u64
+                )
+        );
     }
 
     #[test]
