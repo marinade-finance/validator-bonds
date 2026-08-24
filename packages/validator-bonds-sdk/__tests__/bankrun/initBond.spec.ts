@@ -79,8 +79,8 @@ describe('Validator Bonds init bond account', () => {
       )
     expect(rentWalletInfo!.lamports).toEqual(LAMPORTS_PER_SOL - rentExempt)
     // NO overflow of account size from the first deployment on mainnet
-    expect(bondAccountInfo?.data.byteLength).toBeLessThanOrEqual(260)
-    console.log('bond account length', bondAccountInfo?.data.byteLength)
+    expect(bondAccountInfo.data.byteLength).toBeLessThanOrEqual(260)
+    console.log('bond account length', bondAccountInfo.data.byteLength)
 
     const bondData = await getBond(program, bondAccount)
     expect(bondData.authority).toEqual(bondAuthority.publicKey)

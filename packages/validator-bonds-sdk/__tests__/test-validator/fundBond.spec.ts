@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -95,8 +93,6 @@ describe('Validator Bonds fund bond', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, FUND_BOND_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.depositedAmount).toEqual(2 * LAMPORTS_PER_SOL)
     expect(e.stakeAccount).toEqual(stakeAccount)

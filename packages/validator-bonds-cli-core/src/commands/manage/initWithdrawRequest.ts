@@ -153,10 +153,9 @@ export async function manageInitWithdrawRequest({
     voteAccount,
     programId: program.programId,
   })
-  if (voteAccount === undefined || config === undefined) {
+  if (voteAccount === undefined) {
     const bondData = await getBond(program, bondAccountAddress)
-    voteAccount = voteAccount ?? bondData.voteAccount
-    config = config ?? bondData.config
+    voteAccount = bondData.voteAccount
   }
 
   let amountBN: BN

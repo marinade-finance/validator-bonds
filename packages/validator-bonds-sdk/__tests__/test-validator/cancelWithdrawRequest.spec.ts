@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
@@ -64,8 +62,6 @@ describe('Validator Bonds cancel withdraw request', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CANCEL_WITHDRAW_REQUEST_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.withdrawRequest).toEqual(withdrawRequestAccount)
     expect(e.bond).toEqual(bondAccount)
     expect(e.authority).toEqual(validatorIdentity.publicKey)

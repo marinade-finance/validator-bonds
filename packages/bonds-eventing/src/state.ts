@@ -66,10 +66,10 @@ export async function loadPreviousState(
       bond_good_for_n_epochs: row.bond_good_for_n_epochs,
       cap_constraint: row.cap_constraint,
       cap_marinade_stake_sol: row.cap_marinade_stake_sol,
-      funded_amount_lamports: BigInt(row.funded_amount_lamports ?? '0'),
-      effective_amount_lamports: BigInt(row.effective_amount_lamports ?? '0'),
-      auction_stake_lamports: BigInt(row.auction_stake_lamports ?? '0'),
-      deficit_lamports: BigInt(row.deficit_lamports ?? '0'),
+      funded_amount_lamports: BigInt(row.funded_amount_lamports),
+      effective_amount_lamports: BigInt(row.effective_amount_lamports),
+      auction_stake_lamports: BigInt(row.auction_stake_lamports),
+      deficit_lamports: BigInt(row.deficit_lamports),
       settlement_claims_lamports:
         row.settlement_claims_lamports === null
           ? null

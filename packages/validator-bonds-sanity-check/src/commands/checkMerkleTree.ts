@@ -433,7 +433,7 @@ async function manageCheckMerkleTree({
   logger.info('\n=== Summary ===')
   logger.info(`Epoch: ${merkleTreesDto.epoch}`)
   logger.info(`Format: ${isUnifiedFormat ? 'Unified' : 'Standard'}`)
-  if (isUnifiedFormat && merkleTreesDto.sources) {
+  if (isUnifiedFormat) {
     logger.info(`Sources: ${merkleTreesDto.sources.join(', ')}`)
   }
   logger.info(`Total merkle trees: ${merkleTreesDto.merkle_trees.length}`)

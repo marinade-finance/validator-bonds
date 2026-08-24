@@ -27,7 +27,7 @@ import type { Connection, GetProgramAccountsFilter } from '@solana/web3.js'
 
 // borrowed from https://github.com/marinade-finance/marinade-ts-sdk/blob/v5.0.6/src/marinade-state/marinade-state.ts#L234
 export function deserializeStakeState(data: Buffer | undefined): StakeState {
-  if (data === null || data === undefined) {
+  if (data == null) {
     throw new Error('StakeState data buffer is missing')
   }
   // The data's first 4 bytes are: u8 0x0 0x0 0x0 but borsh uses only the first byte to find the enum's value index.
@@ -88,19 +88,17 @@ async function parseStakeAccountData(
 
   return {
     address: stakeAccountInfo.publicKey,
-    withdrawer: pubkeyOrNull(meta?.authorized?.withdrawer),
-    staker: pubkeyOrNull(meta?.authorized?.staker),
+    withdrawer: pubkeyOrNull(meta?.authorized.withdrawer),
+    staker: pubkeyOrNull(meta?.authorized.staker),
     voter: pubkeyOrNull(delegation?.voterPubkey),
     activationEpoch,
     deactivationEpoch,
     isCoolingDown: deactivationEpoch ? !deactivationEpoch.eq(U64_MAX) : false,
+    // agave Lockup::is_in_force(clock, None): custodian only exempts a signer, it never decides whether the lockup is in force
     isLockedUp:
       lockup !== undefined &&
-      lockup.custodian &&
-      lockup.custodian !== undefined &&
-      lockup.custodian !== PublicKey.default &&
-      (lockup?.epoch.gt(currentEpoch) ||
-        lockup?.unixTimestamp.gt(currentTimestamp)),
+      (lockup.epoch.gt(currentEpoch) ||
+        lockup.unixTimestamp.gt(currentTimestamp)),
     balanceLamports,
     stakedLamports,
     currentEpoch: currentEpoch.toNumber(),

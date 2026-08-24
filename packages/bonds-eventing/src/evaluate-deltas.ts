@@ -145,7 +145,7 @@ export function configAddressForBondType(bondType: BondType): PublicKey {
 }
 
 function isInAuction(v: AuctionValidator): boolean {
-  return (v.auctionStake?.marinadeSamTargetSol ?? 0) > 0
+  return v.auctionStake.marinadeSamTargetSol > 0
 }
 
 /**
@@ -245,10 +245,10 @@ function computePenalties(v: AuctionValidator): {
 } {
   const stake = finiteOr(v.marinadeActivatedStakeSol, 0)
   const bidTooLow =
-    (finiteOr(v.revShare?.bidTooLowPenaltyPmpe, 0) / 1000) * stake
+    (finiteOr(v.revShare.bidTooLowPenaltyPmpe, 0) / 1000) * stake
   const blacklist =
-    (finiteOr(v.revShare?.blacklistPenaltyPmpe, 0) / 1000) * stake
-  const bondRiskFee = finiteOr(v.values?.bondRiskFeeSol, 0)
+    (finiteOr(v.revShare.blacklistPenaltyPmpe, 0) / 1000) * stake
+  const bondRiskFee = finiteOr(v.values.bondRiskFeeSol, 0)
   return {
     total: bidTooLow + blacklist + bondRiskFee,
     bidTooLow,
@@ -266,10 +266,10 @@ function computeDeficitMetrics(v: AuctionValidator): {
   deficit_sol: number | null
   required_sol: number | null
 } {
-  const pmpe = v.revShare?.expectedMaxEffBidPmpe
-  const onchainPmpe = v.revShare?.onchainDistributedPmpe
+  const pmpe = v.revShare.expectedMaxEffBidPmpe
+  const onchainPmpe = v.revShare.onchainDistributedPmpe
   const stake = v.marinadeActivatedStakeSol
-  if (pmpe == null || !isFinite(pmpe) || !stake || !isFinite(stake)) {
+  if (!isFinite(pmpe) || !stake || !isFinite(stake)) {
     return {
       epoch_cost_sol: null,
       expected_max_eff_bid_pmpe: null,
@@ -283,10 +283,9 @@ function computeDeficitMetrics(v: AuctionValidator): {
     0,
     stake - finiteOr(v.unprotectedStakeSol, 0),
   )
-  const onchainCostSol =
-    onchainPmpe != null && isFinite(onchainPmpe)
-      ? (onchainPmpe / 1000) * protectedStakeSol
-      : 0
+  const onchainCostSol = isFinite(onchainPmpe)
+    ? (onchainPmpe / 1000) * protectedStakeSol
+    : 0
 
   // Required for 1 epoch of bid coverage + on-chain obligations
   const requiredSol = onchainCostSol + epochCostSol
@@ -477,14 +476,14 @@ export function evaluateDeltas(
         `New bond detected for validator ${v.voteAccount}. ` +
           `Balance: ${v.bondBalanceSol ?? 0} SOL, ` +
           `in auction: ${currentInAuction}, ` +
-          `bondGoodForNEpochs: ${v.bondGoodForNEpochs == null || !isFinite(v.bondGoodForNEpochs) ? 'N/A' : v.bondGoodForNEpochs}.`,
+          `bondGoodForNEpochs: ${!isFinite(v.bondGoodForNEpochs) ? 'N/A' : v.bondGoodForNEpochs}.`,
         {
           bond_balance_sol: v.bondBalanceSol,
           in_auction: currentInAuction,
           bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
           cap_constraint: currentCap,
           sam_eligible: v.samEligible,
-          auction_stake_sol: v.auctionStake?.marinadeSamTargetSol ?? 0,
+          auction_stake_sol: v.auctionStake.marinadeSamTargetSol,
           marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
           ...deficitMetrics,
         } satisfies FirstSeenDetails,
@@ -503,11 +502,11 @@ export function evaluateDeltas(
           bondType,
           configAddress,
           `Validator ${v.voteAccount} entered the auction. ` +
-            `Target stake: ${v.auctionStake?.marinadeSamTargetSol ?? 0} SOL.`,
+            `Target stake: ${v.auctionStake.marinadeSamTargetSol} SOL.`,
           {
             previous_in_auction: false,
             current_in_auction: true,
-            auction_stake_sol: v.auctionStake?.marinadeSamTargetSol ?? 0,
+            auction_stake_sol: v.auctionStake.marinadeSamTargetSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
           } satisfies AuctionEnteredDetails,
         ),
@@ -657,10 +656,10 @@ export function evaluateDeltas(
     // activating_stake_sol = max(0, SAM target - already activated); pairs with revShare.activatingStakePmpe.
     const activatingStakeSol = Math.max(
       0,
-      finiteOr(v.auctionStake?.marinadeSamTargetSol, 0) -
+      finiteOr(v.auctionStake.marinadeSamTargetSol, 0) -
         finiteOr(v.marinadeActivatedStakeSol, 0),
     )
-    const activatingStakePmpe = finiteOr(v.revShare?.activatingStakePmpe, 0)
+    const activatingStakePmpe = finiteOr(v.revShare.activatingStakePmpe, 0)
     const activatingStakeFee = (activatingStakeSol * activatingStakePmpe) / 1000
     // Shared dust threshold: aligns the emit gate with displayed/emitted
     // values so a sub-dust fee never surfaces as "0.0000 SOL".
@@ -779,7 +778,7 @@ export function validatorToState(
     effective_amount_lamports: solToLamports(
       v.claimableBondBalanceSol ?? v.bondBalanceSol,
     ),
-    auction_stake_lamports: solToLamports(v.auctionStake?.marinadeSamTargetSol),
+    auction_stake_lamports: solToLamports(v.auctionStake.marinadeSamTargetSol),
     deficit_lamports: solToLamports(computeDeficitMetrics(v).deficit_sol),
     settlement_claims_lamports: null,
     sam_eligible: v.samEligible,

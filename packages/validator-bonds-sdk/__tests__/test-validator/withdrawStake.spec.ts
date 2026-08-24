@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
@@ -95,7 +93,6 @@ describe('Validator Bonds withdraw settlement stake account', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, WITHDRAW_STAKE_EVENT)
-    assert(e !== undefined)
     expect(e.stakeAccount).toEqual(stakeAccount)
     expect(e.config).toEqual(configAccount)
     expect(e.settlement).toEqual(fakeSettlement)
