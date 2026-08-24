@@ -115,9 +115,11 @@ pub struct LegacyProtectedEventRecord {
 /// Narrows the one BigQuery feed to what the pre-`/v1` endpoint meant. Pinning the product keeps
 /// `(epoch, vote_account, meta, reason)` unique, so this stays a field drop and never re-sums:
 /// folding direct staking into a SAM amount would report a number that is true of neither.
-pub fn legacy_projection(records: &[ProtectedEventRecord]) -> Vec<LegacyProtectedEventRecord> {
+pub fn legacy_projection<'a>(
+    records: impl IntoIterator<Item = &'a ProtectedEventRecord>,
+) -> Vec<LegacyProtectedEventRecord> {
     records
-        .iter()
+        .into_iter()
         .filter(|record| {
             matches!(record.bond_type, BondType::Bidding) && record.product == LEGACY_PRODUCT
         })
@@ -129,6 +131,18 @@ pub fn legacy_projection(records: &[ProtectedEventRecord]) -> Vec<LegacyProtecte
             reason: record.reason.clone(),
         })
         .collect()
+}
+
+// Here rather than with the handler: the cache renders both bodies once per refresh.
+#[derive(Serialize, Debug, utoipa::ToSchema)]
+pub struct ProtectedEventsResponse {
+    pub protected_events: Vec<ProtectedEventRecord>,
+}
+
+#[derive(Serialize, Debug, utoipa::ToSchema)]
+#[schema(deprecated)]
+pub struct LegacyProtectedEventsResponse {
+    pub protected_events: Vec<LegacyProtectedEventRecord>,
 }
 
 /// DEPRECATED: this `{ "funder": ... }` wrapper is retained only for backward compatibility.
