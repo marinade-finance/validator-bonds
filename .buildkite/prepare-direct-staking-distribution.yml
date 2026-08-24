@@ -1,0 +1,203 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+  BONDS_API_URL: https://validator-bonds-api.marinade.finance
+  SLACK_API: https://slack.com/api/chat.postMessage
+  SLACK_FEED: "feed-pipeline-sam-psr"
+
+steps:
+  - label: ":hammer_and_wrench: :rust: Build CLI"
+    commands:
+    - '. "$HOME/.cargo/env"'
+    - 'cargo build --release --bin bid-distribution-cli --bin settlement-bond-allocator'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{bid-distribution-cli,settlement-bond-allocator}'
+    artifact_paths:
+      - target/release/bid-distribution-cli
+      - target/release/settlement-bond-allocator
+
+  - input: "What is the epoch to generate direct staking settlements for?"
+    fields:
+      - text: "Epoch"
+        key: "epoch"
+        format: "[0-9]+"
+    if: "build.env('EPOCH') == null"
+    blocked_state: running
+
+  - wait: ~
+
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":black_nib: Env variables setup: Prepare Direct Staking Distribution"
+    key: "setup-env-prepare-direct-staking"
+    commands:
+    - |
+      epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      buildkite-agent meta-data set --redacted-vars='' epoch "$$epoch"
+      echo "Epoch: '$$epoch'"
+
+  - label: ":memo: Annotate retry parameters"
+    depends_on: "setup-env-prepare-direct-staking"
+    allow_dependency_failure: true
+    commands:
+      - epoch=${EPOCH:-$(buildkite-agent meta-data get epoch)}
+      - |
+        cat <<- EOF | buildkite-agent annotate --priority 6 --style info --context "general-info"
+        ### Retry environment variables
+        If you need to retry the build, use the following parameters:
+
+        \`\`\`
+        EPOCH=$$epoch
+        BONDS_API_URL=$BONDS_API_URL
+        EXPOSURE_WARNING_BPS=${EXPOSURE_WARNING_BPS:-2500}
+        SLACK_FEED=$SLACK_FEED
+        NOTIFY_FEED=${NOTIFY_FEED:-false}
+        \`\`\`
+        EOF
+
+  - wait: ~
+
+  # The same GCS objects the main bidding run consumed, so both runs describe one snapshot slot
+  - label: ":floppy_disk: :arrow_left: :cloud: Download settlement inputs"
+    key: "download-inputs"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
+    - gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
+    - gcloud storage cp "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json" "./evaluation.json"
+    artifact_paths:
+      - "./stakes.json"
+      - "./validators.json"
+      - "./evaluation.json"
+
+  - label: ":link: Download bonds"
+    key: "download-bonds"
+    commands:
+    - curl --fail --show-error --silent "${BONDS_API_URL}/bonds/bidding" -o "./bonds-bidding.json"
+    - curl --fail --show-error --silent "${BONDS_API_URL}/bonds/institutional" -o "./bonds-institutional.json"
+    artifact_paths:
+      - "./bonds-bidding.json"
+      - "./bonds-institutional.json"
+
+  - wait: ~
+
+  - label: ":scales: Generate Direct Staking PSR Settlements"
+    key: "generate-settlements"
+    env:
+      RUST_LOG: info,bid_distribution=debug
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/bid-distribution-cli .'
+    - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
+    - 'chmod +x target/release/bid-distribution-cli'
+    - |
+      ./target/release/bid-distribution-cli \
+        --settlement-config settlement-config-direct-staking.yaml \
+        --stake-meta-collection ./stakes.json \
+        --validator-meta-collection ./validators.json \
+        --revenue-expectation-collection ./evaluation.json \
+        --output-settlement-collection "./direct-staking-psr-settlements.json" \
+        --output-protected-event-collection "./direct-staking-protected-events.json"
+    artifact_paths:
+    - "./direct-staking-psr-settlements.json"
+    - "./direct-staking-protected-events.json"
+
+  - wait: ~
+
+  - label: ":left_right_arrow: Allocate settlements to bond configs"
+    key: "allocate-bonds"
+    env:
+      RUST_BACKTRACE: 1
+    commands:
+    - 'buildkite-agent artifact download --include-retried-jobs target/release/settlement-bond-allocator .'
+    - 'buildkite-agent artifact download --include-retried-jobs direct-staking-psr-settlements.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs bonds-bidding.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs bonds-institutional.json .'
+    - 'chmod +x target/release/settlement-bond-allocator'
+    - |
+      ./target/release/settlement-bond-allocator \
+        --input-settlement-collection ./direct-staking-psr-settlements.json \
+        --bonds-bidding ./bonds-bidding.json \
+        --bonds-institutional ./bonds-institutional.json \
+        --revenue-expectation-collection ./evaluation.json \
+        --exposure-warning-bps ${EXPOSURE_WARNING_BPS:-2500} \
+        --output-bidding-settlement-collection "./unified-direct-staking-settlements.json" \
+        --output-institutional-settlement-collection "./institutional-direct-staking-settlements.json" \
+        --output-report "./direct-staking-allocation-report.json"
+    artifact_paths:
+    - "./unified-direct-staking-settlements.json"
+    - "./institutional-direct-staking-settlements.json"
+    - "./direct-staking-allocation-report.json"
+
+  - wait: ~
+
+  - label: "📓 Generating report"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-allocation-report.json .
+    - |
+      ./scripts/generate-direct-staking-report.bash "./direct-staking-allocation-report.json" > "./direct-staking-report.txt"
+    artifact_paths:
+      - "./direct-staking-report.txt"
+
+  - wait: ~
+
+  - label: ":floppy_disk: :arrow_right: :cloud: Upload artifacts"
+    commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
+    - buildkite-agent artifact download --include-retried-jobs unified-direct-staking-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs institutional-direct-staking-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-psr-settlements.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-protected-events.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-allocation-report.json .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
+    - buildkite-agent artifact download --include-retried-jobs bonds-bidding.json .
+    - buildkite-agent artifact download --include-retried-jobs bonds-institutional.json .
+    - gcloud storage cp "./direct-staking-psr-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./direct-staking-protected-events.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./direct-staking-allocation-report.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./direct-staking-report.txt" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./bonds-bidding.json" "$gs_bucket/$$epoch/direct-staking-bonds-bidding.json"
+    - gcloud storage cp "./bonds-institutional.json" "$gs_bucket/$$epoch/direct-staking-bonds-institutional.json"
+    - gcloud storage cp "settlement-config-direct-staking.yaml" "$gs_bucket/$$epoch/"
+    # the two allocator outputs are the schedulers' progress markers, so they go up last
+    - gcloud storage cp "./institutional-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
+    - gcloud storage cp "./unified-direct-staking-settlements.json" "$gs_bucket/$$epoch/"
+
+  - wait: ~
+
+  - label: ":mega: Notification"
+    commands:
+      - buildkite-agent artifact download --include-retried-jobs direct-staking-report.txt .
+      - |
+        epoch=$(buildkite-agent meta-data get epoch)
+        # the report is multi-line; interpolating it into the JSON literal would emit raw newlines
+        # inside a string and Slack would reject the whole payload with invalid_json
+        jq -n --rawfile text ./direct-staking-report.txt \
+          --arg channel "$SLACK_FEED" --arg epoch "$$epoch" --arg url "$$BUILDKITE_BUILD_URL" '{
+            channel: $channel,
+            attachments: [{
+              color: "#8000ff",
+              title: "Direct staking PSR settlements generated (\($epoch)).",
+              title_link: $url,
+              text: $text,
+              footer: "<\($url)|View in Buildkite>"
+            }]
+          }' > ./slack-payload.json
+        curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
+          -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d @./slack-payload.json
+    if: "build.env('NOTIFY_FEED') == 'true'"
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
+    concurrency: 1

@@ -38,6 +38,10 @@ path = "src/bin/verify_settlement.rs"
 name = "merge-stakes"
 path = "src/bin/merge_stakes.rs"
 
+[[bin]]
+name = "settlement-bond-allocator"
+path = "src/bin/settlement_bond_allocator.rs"
+
 [dependencies]
 anchor-client = {workspace = true}
 anyhow = { workspace = true }
@@ -55,6 +59,7 @@ solana-transaction-builder-executor = { workspace = true }
 solana-sdk-ids = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
+rust_decimal = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
@@ -65,4 +70,7 @@ solana-client = { workspace = true }
 tokio = { workspace = true }
 validator-bonds = { workspace = true }
 validator-bonds-common = { workspace = true }
+
+[dev-dependencies]
+rust_decimal_macros = { workspace = true }
 

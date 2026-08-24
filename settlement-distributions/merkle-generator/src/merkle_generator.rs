@@ -268,6 +268,7 @@ mod tests {
             claims_amount,
             claims,
             details: None,
+            product: None,
         }
     }
 
@@ -393,6 +394,60 @@ mod tests {
         assert!(
             msg.contains("No settlement sources"),
             "error message should mention missing sources, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_validate_sources_slot_mismatch_returns_error() {
+        let sources = vec![
+            SettlementSource {
+                name: "a.json".to_string(),
+                collection: SettlementCollection {
+                    slot: 5000,
+                    epoch: 42,
+                    ..Default::default()
+                },
+            },
+            SettlementSource {
+                name: "b.json".to_string(),
+                collection: SettlementCollection {
+                    slot: 5001,
+                    epoch: 42,
+                    ..Default::default()
+                },
+            },
+        ];
+        let msg = format!("{}", validate_sources(&sources).unwrap_err());
+        assert!(
+            msg.contains("Slot mismatch"),
+            "expected a slot mismatch error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_validate_sources_epoch_mismatch_returns_error() {
+        let sources = vec![
+            SettlementSource {
+                name: "a.json".to_string(),
+                collection: SettlementCollection {
+                    slot: 5000,
+                    epoch: 42,
+                    ..Default::default()
+                },
+            },
+            SettlementSource {
+                name: "b.json".to_string(),
+                collection: SettlementCollection {
+                    slot: 5000,
+                    epoch: 43,
+                    ..Default::default()
+                },
+            },
+        ];
+        let msg = format!("{}", validate_sources(&sources).unwrap_err());
+        assert!(
+            msg.contains("Epoch mismatch"),
+            "expected an epoch mismatch error, got: {msg}"
         );
     }
 
