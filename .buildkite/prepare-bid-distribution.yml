@@ -240,6 +240,25 @@ steps:
 
   - wait: ~
 
+  # bid-psr-distribution-evaluation.json, uploaded just above, is the direct-staking scheduler's
+  # own input gate, so this epoch becomes processable for it exactly here
+  - label: ":gear: Trigger direct staking scheduler"
+    commands:
+    - |
+      cat <<EOF | buildkite-agent pipeline upload
+      steps:
+        - trigger: "scheduler-direct-staking"
+          label: ":rocket: Trigger: Direct Staking Scheduler"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              NOTIFY_FEED: ${NOTIFY_FEED:-false}
+              gs_bucket: $gs_bucket
+      EOF
+
+  - wait: ~
+
   - label: ":mega: Notification"
     commands:
       - |
