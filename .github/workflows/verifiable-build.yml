@@ -5,6 +5,12 @@ on:
   push:
     tags:
       - 'contract-v*'
+  pull_request:
+    paths:
+      - 'programs/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Anchor.toml'
 
 permissions:
   contents: read
