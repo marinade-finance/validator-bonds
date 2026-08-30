@@ -63,10 +63,6 @@ ignore = [
   "RUSTSEC-2026-0251",
   # rustls-pemfile — unmaintained. Pulled via reqwest 0.11 (gcp-bigquery-client).
   "RUSTSEC-2025-0134",
-  # ansi_term — unmaintained. Pulled via clap 2.x, which the Solana CLI
-  # helper crates (solana-clap-utils -> solana-cli-config / solana-cli-output)
-  # still depend on. Goes away when Solana's CLI crates move off clap 2.
-  "RUSTSEC-2021-0139",
   # proc-macro-error — unmaintained, build-time only (proc-macro dep of
   # utoipa-gen < 4). Repos on utoipa >= 4 don't pull it; bumping utoipa past
   # 3.x is the real fix where the OpenAPI migration is worth it.

@@ -3,6 +3,7 @@ use anyhow::format_err;
 use chrono::Utc;
 use log::{error, info};
 use serde::Serialize;
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::{self, Display};
@@ -706,4 +707,26 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
     } else {
         CliResult(Ok(()))
     }
+}
+
+pub fn build_balance_message(lamports: u64, use_lamports_unit: bool, show_unit: bool) -> String {
+    let value = if use_lamports_unit {
+        lamports.to_string()
+    } else {
+        format!("{:.9}", lamports as f64 / LAMPORTS_PER_SOL as f64)
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
+    };
+    let unit = if show_unit {
+        if use_lamports_unit {
+            let ess = if lamports == 1 { "" } else { "s" };
+            format!(" lamport{ess}")
+        } else {
+            " SOL".to_string()
+        }
+    } else {
+        String::new()
+    };
+    format!("{value}{unit}")
 }

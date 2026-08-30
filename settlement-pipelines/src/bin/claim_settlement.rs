@@ -11,6 +11,7 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_merkle_tree_collections;
+use settlement_pipelines::reporting::build_balance_message;
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
@@ -23,7 +24,6 @@ use settlement_pipelines::stake_accounts::{
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
-use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;

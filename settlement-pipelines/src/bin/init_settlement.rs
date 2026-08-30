@@ -15,6 +15,7 @@ use settlement_pipelines::institutional_validators::{fetch_validator_data, Valid
 use settlement_pipelines::json_data::{
     load_merkle_tree_collections, load_merkle_tree_with_on_chain,
 };
+use settlement_pipelines::reporting::build_balance_message;
 use settlement_pipelines::reporting::ErrorEntry::{Generic, VoteAccount};
 use settlement_pipelines::reporting::{
     with_reporting_ext, ErrorEntry, ErrorSeverity, PrintReportable, ReportHandler,
@@ -24,7 +25,6 @@ use settlement_pipelines::reporting_data::{
     ReportingFunderSettlement, ReportingReasonSettlement, SettlementsReportData,
 };
 use settlement_pipelines::settlement_data::SettlementRecord;
-use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;

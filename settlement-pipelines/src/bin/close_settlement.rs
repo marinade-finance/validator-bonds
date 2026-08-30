@@ -13,6 +13,7 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
+use settlement_pipelines::reporting::build_balance_message;
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
@@ -23,7 +24,6 @@ use settlement_pipelines::stake_accounts::{
     filter_settlement_funded, IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST,
     STAKE_ACCOUNT_RENT_EXEMPTION,
 };
-use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;

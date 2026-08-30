@@ -53,7 +53,6 @@ snapshot-parser-validator-cli = { git = "https://github.com/marinade-finance/sol
 shellexpand = "3.1.0"
 solana-account-decoder = "2.3.13"
 solana-account-info = "2.3.0"
-solana-cli-output = "2.3.13"
 solana-client = "2.3.13"
 solana-feature-gate-interface = "2.2.2"
 solana-instructions-sysvar = "2.2.2"
