@@ -4,6 +4,7 @@ import { join } from 'path'
 
 import { CLIContext, readLargeJsonFile } from '@marinade.finance/cli-common'
 import { NULL_LOG, setContext } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
 import {
@@ -11,12 +12,14 @@ import {
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
   checkEpochHopGuardrail,
+  checkFeeRevenueCeiling,
+  loadFeeRevenueCeiling,
   checkTotalClaimsCeiling,
   validateMaxTotalClaims,
 } from '../src/commands/checkMerkleTree'
 
 import type { MerkleTreeMetrics } from '../src/commands/checkMerkleTree'
-import type { UnifiedMerkleTreesDto } from '../src/dtoMerkleTree'
+import type { MerkleTree, UnifiedMerkleTreesDto } from '../src/dtoMerkleTree'
 
 beforeAll(() => {
   setContext(new CLIContext({ logger: NULL_LOG, commandName: 'test' }))
@@ -294,6 +297,198 @@ describe('checkTotalClaimsCeiling', () => {
     })
 
     expect(exceeded).toBe(true)
+  })
+})
+
+describe('checkFeeRevenueCeiling', () => {
+  const DAO = 'mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz'
+  const MARINADE = 'BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x'
+  const STAKER = '4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk'
+
+  function mockTrees(
+    trees: { authority: string; claim: bigint }[][],
+  ): MerkleTree[] {
+    return trees.map(
+      nodes =>
+        ({
+          tree_nodes: nodes.map(({ authority, claim }) => ({
+            stake_authority: new PublicKey(authority),
+            claim,
+          })),
+        }) as unknown as MerkleTree,
+    )
+  }
+
+  it('passes on the epoch 1010 shape where the fee is capped below min_sol_revenue', () => {
+    const { exceeded, feeRevenueSol, report } = checkFeeRevenueCeiling({
+      epoch: 1010,
+      merkleTrees: mockTrees([
+        [
+          { authority: DAO, claim: 168_101_753_000n },
+          { authority: MARINADE, claim: 18_677_973_000n },
+          { authority: STAKER, claim: 803_083_988n },
+        ],
+      ]),
+      feeAuthorities: [DAO, MARINADE],
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(exceeded).toBe(false)
+    expect(feeRevenueSol.toFixed(6)).toBe('186.779726')
+    expect(report).toContain('WITHIN CEILING')
+  })
+
+  it('sums fee claims across every validator tree', () => {
+    const { feeRevenueSol } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      merkleTrees: mockTrees([
+        [
+          { authority: DAO, claim: 90_000_000_000n },
+          { authority: MARINADE, claim: 10_000_000_000n },
+        ],
+        [
+          { authority: DAO, claim: 90_000_000_000n },
+          { authority: MARINADE, claim: 10_000_000_000n },
+        ],
+      ]),
+      feeAuthorities: [DAO, MARINADE],
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(feeRevenueSol.toFixed(0)).toBe('200')
+  })
+
+  it('fails when the fee optimizer over-collects against the ceiling', () => {
+    const { exceeded, report } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      merkleTrees: mockTrees([
+        [
+          { authority: DAO, claim: 234_000_000_000n },
+          { authority: MARINADE, claim: 26_000_000_000n },
+          { authority: STAKER, claim: 1_000_000_000n },
+        ],
+      ]),
+      feeAuthorities: [DAO, MARINADE],
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(exceeded).toBe(true)
+    expect(report).toContain('CEILING EXCEEDED')
+  })
+
+  it('ignores claims of stakers that are not fee authorities', () => {
+    const { feeRevenueSol } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      merkleTrees: mockTrees([
+        [
+          { authority: DAO, claim: 1_000_000_000n },
+          { authority: STAKER, claim: 500_000_000_000n },
+        ],
+      ]),
+      feeAuthorities: [DAO, MARINADE],
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(feeRevenueSol.toFixed(0)).toBe('1')
+  })
+
+  it('rejects a malformed fee authority instead of silently gating nothing', () => {
+    expect(() =>
+      checkFeeRevenueCeiling({
+        epoch: 1021,
+        merkleTrees: mockTrees([[{ authority: DAO, claim: 1n }]]),
+        feeAuthorities: ['not-a-pubkey'],
+        maxFeeRevenueSol: new Decimal(201),
+      }),
+    ).toThrow('Invalid fee authority public key: not-a-pubkey')
+  })
+})
+
+describe('loadFeeRevenueCeiling', () => {
+  let tmpDir: string
+
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'fee-revenue-ceiling-'))
+  })
+
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  function writeConfig(name: string, content: string): string {
+    const path = join(tmpDir, name)
+    writeFileSync(path, content)
+    return path
+  }
+
+  const FEE_CONFIG = `---
+fee_config:
+  max_fee_bps: 1600
+  min_fee_bps: 200
+  min_sol_revenue: 200
+  marinade:
+    stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+    withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  dao:
+    fee_split_share_bps: 9000
+    stake_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+    withdraw_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+`
+
+  it('derives the ceiling from min_sol_revenue plus the margin', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig('config.yaml', FEE_CONFIG),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.maxFeeRevenueSol.toFixed(0)).toBe('201')
+    expect(ceiling?.feeAuthorities).toEqual([
+      'BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x',
+      'mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz',
+    ])
+  })
+
+  it('follows min_sol_revenue when the configured revenue target changes', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'raised.yaml',
+        FEE_CONFIG.replace('min_sol_revenue: 200', 'min_sol_revenue: 210'),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.maxFeeRevenueSol.toFixed(0)).toBe('211')
+  })
+
+  it('skips the check when no revenue target is configured', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'no-revenue.yaml',
+        FEE_CONFIG.replace('  min_sol_revenue: 200\n', ''),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling).toBeUndefined()
+  })
+
+  it('rejects a config without fee_config instead of gating nothing', () => {
+    expect(() =>
+      loadFeeRevenueCeiling({
+        settlementConfig: writeConfig('empty.yaml', '---\nsettlements: []\n'),
+        feeRevenueMarginSol: new Decimal(1),
+      }),
+    ).toThrow('No fee_config found in')
+  })
+
+  it('parses the production settlement-config.yaml', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: join(__dirname, '../../../settlement-config.yaml'),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.feeAuthorities).toHaveLength(2)
+    expect(ceiling?.maxFeeRevenueSol.isFinite()).toBe(true)
   })
 })
 

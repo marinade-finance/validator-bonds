@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs'
+
 import {
   CliCommandError,
   validateAndReturn,
@@ -9,9 +11,11 @@ import {
   calculateDescriptiveStats,
   detectAnomaly,
   getContext,
+  lamportsToSol,
   loadFileOrDirectory,
   resolveFilePaths,
 } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
@@ -19,6 +23,7 @@ import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
 import { parseSettlements } from '../dtoSettlements'
 import { readLargeJsonFileLossless } from '../losslessJson'
 
+import type { MerkleTree } from '../dtoMerkleTree'
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -79,6 +84,17 @@ export function installCheckMerkleTree(program: Command) {
         'Size it from what the claim pipeline can drain inside the on-chain claiming window.',
       d => new Decimal(d),
       new Decimal(150_000),
+    )
+    .option(
+      '--settlement-config <path>',
+      'Path to settlement-config.yaml. Its fee_config supplies the fee authorities and min_sol_revenue, ' +
+        'which gate how much of the distribution the fee may take. Omit to skip that check.',
+    )
+    .option(
+      '--fee-revenue-margin-sol <sol>',
+      'Added to min_sol_revenue to absorb fee optimizer rounding.',
+      d => new Decimal(d),
+      DECIMAL_ONE,
     )
     .action(manageCheckMerkleTree)
 }
@@ -171,6 +187,8 @@ async function manageCheckMerkleTree({
   minAbsoluteDeviation,
   epochHopThreshold,
   maxTotalClaims,
+  settlementConfig,
+  feeRevenueMarginSol,
 }: {
   merkleTrees: string
   settlementSources?: string[]
@@ -180,6 +198,8 @@ async function manageCheckMerkleTree({
   minAbsoluteDeviation: Decimal
   epochHopThreshold: Decimal
   maxTotalClaims: Decimal
+  settlementConfig?: string
+  feeRevenueMarginSol: Decimal
 }) {
   const { logger } = getContext()
 
@@ -205,6 +225,11 @@ async function manageCheckMerkleTree({
     )
   }
   validateMaxTotalClaims(maxTotalClaims)
+  if (!feeRevenueMarginSol.isFinite() || feeRevenueMarginSol.lessThan(0)) {
+    throw CliCommandError.instance(
+      `feeRevenueMarginSol must be a finite number >= 0, got ${feeRevenueMarginSol.toString()}`,
+    )
+  }
 
   logger.info(`Loading merkle tree file: ${merkleTrees}`)
 
@@ -282,6 +307,31 @@ async function manageCheckMerkleTree({
       `Total claims ${totalClaimsCount} exceeds the ceiling of ${maxTotalClaims.toString()}. ` +
         'The claim pipeline may not drain this within the claiming window.',
     )
+  }
+
+  if (settlementConfig !== undefined) {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig,
+      feeRevenueMarginSol,
+    })
+    if (ceiling === undefined) {
+      logger.info(
+        `No fee_config.min_sol_revenue in ${settlementConfig}, skipping the fee revenue ceiling`,
+      )
+    } else {
+      const feeCeiling = checkFeeRevenueCeiling({
+        epoch: merkleTreesDto.epoch,
+        merkleTrees: merkleTreesDto.merkle_trees,
+        ...ceiling,
+      })
+      logger.info(feeCeiling.report)
+      if (feeCeiling.exceeded) {
+        throw CliCommandError.instance(
+          `Fee authority claims ${feeCeiling.feeRevenueSol.toString()} SOL exceed the ceiling of ${ceiling.maxFeeRevenueSol.toString()} SOL, ` +
+            'so the fee optimizer collected more than min_sol_revenue and stakers were paid less.',
+        )
+      }
+    }
   }
 
   // Check 2: Cross-validate against settlement sources if provided
@@ -549,6 +599,101 @@ export function checkTotalClaimsCeiling({
   ].join('\n')
 
   return { exceeded, report }
+}
+
+interface SettlementConfigFile {
+  fee_config?: {
+    min_sol_revenue?: string | number
+    marinade?: { stake_authority?: string }
+    dao?: { stake_authority?: string }
+  }
+}
+
+export function loadFeeRevenueCeiling({
+  settlementConfig,
+  feeRevenueMarginSol,
+}: {
+  settlementConfig: string
+  feeRevenueMarginSol: Decimal
+}): { feeAuthorities: string[]; maxFeeRevenueSol: Decimal } | undefined {
+  const feeConfig = (
+    YAML.parse(readFileSync(settlementConfig, 'utf-8')) as SettlementConfigFile
+  ).fee_config
+  if (feeConfig === undefined) {
+    throw CliCommandError.instance(`No fee_config found in ${settlementConfig}`)
+  }
+
+  const feeAuthorities = [
+    feeConfig.marinade?.stake_authority,
+    feeConfig.dao?.stake_authority,
+  ].filter((authority): authority is string => authority !== undefined)
+  if (feeAuthorities.length === 0) {
+    throw CliCommandError.instance(
+      `No fee_config stake authorities found in ${settlementConfig}`,
+    )
+  }
+
+  if (feeConfig.min_sol_revenue === undefined) {
+    return undefined
+  }
+  return {
+    feeAuthorities,
+    maxFeeRevenueSol: new Decimal(feeConfig.min_sol_revenue).plus(
+      feeRevenueMarginSol,
+    ),
+  }
+}
+
+export function checkFeeRevenueCeiling({
+  epoch,
+  merkleTrees,
+  feeAuthorities,
+  maxFeeRevenueSol,
+}: {
+  epoch: number
+  merkleTrees: MerkleTree[]
+  feeAuthorities: string[]
+  maxFeeRevenueSol: Decimal
+}): { exceeded: boolean; feeRevenueSol: Decimal; report: string } {
+  const claimed = new Map<string, bigint>()
+  for (const authority of feeAuthorities) {
+    try {
+      claimed.set(new PublicKey(authority).toBase58(), 0n)
+    } catch {
+      throw CliCommandError.instance(
+        `Invalid fee authority public key: ${authority}`,
+      )
+    }
+  }
+
+  for (const tree of merkleTrees) {
+    for (const node of tree.tree_nodes) {
+      const authority = node.stake_authority.toBase58()
+      const claimedSoFar = claimed.get(authority)
+      if (claimedSoFar !== undefined) {
+        claimed.set(authority, claimedSoFar + node.claim)
+      }
+    }
+  }
+
+  const feeRevenueLamports = [...claimed.values()].reduce(
+    (sum, value) => sum + value,
+    0n,
+  )
+  const feeRevenueSol = lamportsToSol(feeRevenueLamports.toString())
+  const exceeded = feeRevenueSol.greaterThan(maxFeeRevenueSol)
+
+  const report = [
+    `\n=== Epoch ${epoch} Fee Revenue Ceiling (max: ${maxFeeRevenueSol.toString()} SOL) ===`,
+    ...[...claimed].map(
+      ([authority, lamports]) =>
+        `  ${authority}: ${lamportsToSol(lamports.toString()).toString()} SOL`,
+    ),
+    `[${exceeded ? '⛔' : '✅'}] feeRevenue: ${feeRevenueSol.toString()} SOL`,
+    'Status: ' + (exceeded ? '⛔ CEILING EXCEEDED' : '✅ WITHIN CEILING'),
+  ].join('\n')
+
+  return { exceeded, feeRevenueSol, report }
 }
 
 export type HopGuardedField = 'totalClaimAmount' | 'avgClaimAmountPerValidator'
