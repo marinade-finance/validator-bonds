@@ -15,15 +15,14 @@ import {
   loadFileOrDirectory,
   resolveFilePaths,
 } from '@marinade.finance/ts-common'
-import { PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
 import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
-import { parseSettlements } from '../dtoSettlements'
+import { ClaimKind, parseSettlements } from '../dtoSettlements'
 import { readLargeJsonFileLossless } from '../losslessJson'
 
-import type { MerkleTree } from '../dtoMerkleTree'
+import type { Settlement } from '../dtoSettlements'
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -87,8 +86,8 @@ export function installCheckMerkleTree(program: Command) {
     )
     .option(
       '--settlement-config <path>',
-      'Path to settlement-config.yaml. Its fee_config supplies the fee authorities and min_sol_revenue, ' +
-        'which gate how much of the distribution the fee may take. Omit to skip that check.',
+      'Path to settlement-config.yaml. Its fee_config.min_sol_revenue gates how much of the distribution ' +
+        'the fee may take. Needs --settlement-sources; omit either to skip that check.',
     )
     .option(
       '--fee-revenue-margin-sol <sol>',
@@ -309,29 +308,14 @@ async function manageCheckMerkleTree({
     )
   }
 
-  if (settlementConfig !== undefined) {
-    const ceiling = loadFeeRevenueCeiling({
-      settlementConfig,
-      feeRevenueMarginSol,
-    })
-    if (ceiling === undefined) {
-      logger.info(
-        `No fee_config.min_sol_revenue in ${settlementConfig}, skipping the fee revenue ceiling`,
-      )
-    } else {
-      const feeCeiling = checkFeeRevenueCeiling({
-        epoch: merkleTreesDto.epoch,
-        merkleTrees: merkleTreesDto.merkle_trees,
-        ...ceiling,
-      })
-      logger.info(feeCeiling.report)
-      if (feeCeiling.exceeded) {
-        throw CliCommandError.instance(
-          `Fee authority claims ${feeCeiling.feeRevenueSol.toString()} SOL exceed the ceiling of ${ceiling.maxFeeRevenueSol.toString()} SOL, ` +
-            'so the fee optimizer collected more than min_sol_revenue and stakers were paid less.',
-        )
-      }
-    }
+  const maxFeeRevenueSol =
+    settlementConfig === undefined
+      ? undefined
+      : loadFeeRevenueCeiling({ settlementConfig, feeRevenueMarginSol })
+  if (settlementConfig !== undefined && maxFeeRevenueSol === undefined) {
+    logger.info(
+      `No fee_config.min_sol_revenue in ${settlementConfig}, skipping the fee revenue ceiling`,
+    )
   }
 
   // Check 2: Cross-validate against settlement sources if provided
@@ -351,6 +335,7 @@ async function manageCheckMerkleTree({
 
     let sourceSettlementsTotal = DECIMAL_ZERO
     let sourceClaimsCount = 0
+    const allSettlements: Settlement[] = []
 
     for (const { data, sourcePath } of settlementDataWithPaths) {
       if (!data) continue
@@ -382,6 +367,7 @@ async function manageCheckMerkleTree({
       )
       sourceSettlementsTotal = sourceSettlementsTotal.plus(sourceSum)
       sourceClaimsCount += sourceClaims
+      allSettlements.push(...settlements.settlements)
     }
 
     logger.info(
@@ -408,6 +394,25 @@ async function manageCheckMerkleTree({
         `Large difference in claim counts: sources (${sourceClaimsCount}) vs merkle trees (${totalClaimsCount}). This may be expected due to claim merging.`,
       )
     }
+
+    if (maxFeeRevenueSol !== undefined) {
+      const feeCeiling = checkFeeRevenueCeiling({
+        epoch: merkleTreesDto.epoch,
+        settlements: allSettlements,
+        maxFeeRevenueSol,
+      })
+      logger.info(feeCeiling.report)
+      if (feeCeiling.exceeded) {
+        throw CliCommandError.instance(
+          `Fee authority claims ${feeCeiling.feeRevenueSol.toString()} SOL exceed the ceiling of ${maxFeeRevenueSol.toString()} SOL, ` +
+            'so the fee optimizer collected more than min_sol_revenue and stakers were paid less.',
+        )
+      }
+    }
+  } else if (maxFeeRevenueSol !== undefined) {
+    logger.info(
+      'No settlement sources provided, skipping the fee revenue ceiling',
+    )
   }
 
   // Check 3: Historical comparison with heuristics
@@ -603,9 +608,7 @@ export function checkTotalClaimsCeiling({
 
 interface SettlementConfigFile {
   fee_config?: {
-    min_sol_revenue?: string | number
-    marinade?: { stake_authority?: string }
-    dao?: { stake_authority?: string }
+    min_sol_revenue?: string | number | null
   }
 }
 
@@ -615,64 +618,68 @@ export function loadFeeRevenueCeiling({
 }: {
   settlementConfig: string
   feeRevenueMarginSol: Decimal
-}): { feeAuthorities: string[]; maxFeeRevenueSol: Decimal } | undefined {
-  const feeConfig = (
-    YAML.parse(readFileSync(settlementConfig, 'utf-8')) as SettlementConfigFile
-  ).fee_config
-  if (feeConfig === undefined) {
+}): Decimal | undefined {
+  let parsed: SettlementConfigFile
+  try {
+    parsed = YAML.parse(
+      readFileSync(settlementConfig, 'utf-8'),
+    ) as SettlementConfigFile
+  } catch (error) {
+    throw CliCommandError.instance(
+      `Failed to load settlement config from path: '${settlementConfig}'`,
+      error,
+    )
+  }
+  if (parsed.fee_config === undefined) {
     throw CliCommandError.instance(`No fee_config found in ${settlementConfig}`)
   }
 
-  const feeAuthorities = [
-    feeConfig.marinade?.stake_authority,
-    feeConfig.dao?.stake_authority,
-  ].filter((authority): authority is string => authority !== undefined)
-  if (feeAuthorities.length === 0) {
-    throw CliCommandError.instance(
-      `No fee_config stake authorities found in ${settlementConfig}`,
-    )
-  }
-
-  if (feeConfig.min_sol_revenue === undefined) {
+  const minSolRevenue = parsed.fee_config.min_sol_revenue
+  if (minSolRevenue === undefined || minSolRevenue === null) {
     return undefined
   }
-  return {
-    feeAuthorities,
-    maxFeeRevenueSol: new Decimal(feeConfig.min_sol_revenue).plus(
-      feeRevenueMarginSol,
-    ),
+
+  // YAML .nan / .inf survive into Decimal, and greaterThan against them is always false
+  let ceiling: Decimal | undefined
+  try {
+    ceiling = new Decimal(minSolRevenue).plus(feeRevenueMarginSol)
+  } catch {
+    ceiling = undefined
   }
+  if (ceiling === undefined || !ceiling.isFinite() || !ceiling.greaterThan(0)) {
+    throw CliCommandError.instance(
+      `fee_config.min_sol_revenue in ${settlementConfig} must be a finite number > 0, got ${String(minSolRevenue)}`,
+    )
+  }
+  return ceiling
 }
+
+// Penalty settlements deposit to the same authorities but sit outside the revenue target.
+const FEE_REVENUE_REASONS = ['Bidding', 'PriorityFee']
 
 export function checkFeeRevenueCeiling({
   epoch,
-  merkleTrees,
-  feeAuthorities,
+  settlements,
   maxFeeRevenueSol,
 }: {
   epoch: number
-  merkleTrees: MerkleTree[]
-  feeAuthorities: string[]
+  settlements: Settlement[]
   maxFeeRevenueSol: Decimal
 }): { exceeded: boolean; feeRevenueSol: Decimal; report: string } {
   const claimed = new Map<string, bigint>()
-  for (const authority of feeAuthorities) {
-    try {
-      claimed.set(new PublicKey(authority).toBase58(), 0n)
-    } catch {
-      throw CliCommandError.instance(
-        `Invalid fee authority public key: ${authority}`,
-      )
+  for (const settlement of settlements) {
+    if (!FEE_REVENUE_REASONS.includes(settlement.reason.getReasonType())) {
+      continue
     }
-  }
-
-  for (const tree of merkleTrees) {
-    for (const node of tree.tree_nodes) {
-      const authority = node.stake_authority.toBase58()
-      const claimedSoFar = claimed.get(authority)
-      if (claimedSoFar !== undefined) {
-        claimed.set(authority, claimedSoFar + node.claim)
+    for (const claim of settlement.claims) {
+      if (claim.kind !== ClaimKind.FeeDeposit) {
+        continue
       }
+      const authority = claim.stake_authority.toBase58()
+      claimed.set(
+        authority,
+        (claimed.get(authority) ?? 0n) + claim.claim_amount,
+      )
     }
   }
 
