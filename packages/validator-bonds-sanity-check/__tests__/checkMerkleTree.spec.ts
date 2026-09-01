@@ -4,6 +4,7 @@ import { join } from 'path'
 
 import { CLIContext, readLargeJsonFile } from '@marinade.finance/cli-common'
 import { NULL_LOG, setContext } from '@marinade.finance/ts-common'
+import { PublicKey } from '@solana/web3.js'
 import Decimal from 'decimal.js'
 
 import {
@@ -11,12 +12,16 @@ import {
   reportMerkleTreeAnomalies,
   detectIndividualAnomaly,
   checkEpochHopGuardrail,
+  checkFeeRevenueCeiling,
+  loadFeeRevenueCeiling,
   checkTotalClaimsCeiling,
   validateMaxTotalClaims,
 } from '../src/commands/checkMerkleTree'
+import { ClaimKind } from '../src/dtoSettlements'
 
 import type { MerkleTreeMetrics } from '../src/commands/checkMerkleTree'
 import type { UnifiedMerkleTreesDto } from '../src/dtoMerkleTree'
+import type { Settlement } from '../src/dtoSettlements'
 
 beforeAll(() => {
   setContext(new CLIContext({ logger: NULL_LOG, commandName: 'test' }))
@@ -294,6 +299,283 @@ describe('checkTotalClaimsCeiling', () => {
     })
 
     expect(exceeded).toBe(true)
+  })
+})
+
+describe('checkFeeRevenueCeiling', () => {
+  const DAO = 'mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz'
+  const MARINADE = 'BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x'
+  const STAKER = '4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk'
+
+  function mockSettlements(
+    settlements: {
+      reason: string
+      claims: { authority: string; amount: bigint; kind?: ClaimKind }[]
+    }[],
+  ): Settlement[] {
+    return settlements.map(
+      ({ reason, claims }) =>
+        ({
+          reason: { getReasonType: () => reason },
+          claims: claims.map(({ authority, amount, kind }) => ({
+            stake_authority: new PublicKey(authority),
+            claim_amount: amount,
+            kind: kind ?? ClaimKind.FeeDeposit,
+          })),
+        }) as unknown as Settlement,
+    )
+  }
+
+  it('passes on the epoch 1010 shape where the fee is capped below min_sol_revenue', () => {
+    const { exceeded, feeRevenueSol, report } = checkFeeRevenueCeiling({
+      epoch: 1010,
+      settlements: mockSettlements([
+        {
+          reason: 'Bidding',
+          claims: [
+            { authority: DAO, amount: 168_086_686_690n },
+            { authority: MARINADE, amount: 18_676_298_521n },
+            {
+              authority: STAKER,
+              amount: 803_083_988n,
+              kind: ClaimKind.StakerPayout,
+            },
+          ],
+        },
+      ]),
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(exceeded).toBe(false)
+    expect(feeRevenueSol.toFixed(6)).toBe('186.762985')
+    expect(report).toContain('WITHIN CEILING')
+  })
+
+  it('sums fee claims across every settlement', () => {
+    const { feeRevenueSol } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      settlements: mockSettlements([
+        {
+          reason: 'Bidding',
+          claims: [
+            { authority: DAO, amount: 90_000_000_000n },
+            { authority: MARINADE, amount: 10_000_000_000n },
+          ],
+        },
+        {
+          reason: 'PriorityFee',
+          claims: [
+            { authority: DAO, amount: 90_000_000_000n },
+            { authority: MARINADE, amount: 10_000_000_000n },
+          ],
+        },
+      ]),
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(feeRevenueSol.toFixed(0)).toBe('200')
+  })
+
+  it('excludes penalty fee deposits that the revenue target does not cover', () => {
+    const { exceeded, feeRevenueSol } = checkFeeRevenueCeiling({
+      epoch: 1010,
+      settlements: mockSettlements([
+        {
+          reason: 'Bidding',
+          claims: [{ authority: DAO, amount: 200_000_000_000n }],
+        },
+        {
+          reason: 'BidTooLowPenalty',
+          claims: [
+            { authority: DAO, amount: 15_066_404n },
+            { authority: MARINADE, amount: 1_674_045n },
+          ],
+        },
+      ]),
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(feeRevenueSol.toFixed(0)).toBe('200')
+    expect(exceeded).toBe(false)
+  })
+
+  it('fails when the fee optimizer over-collects against the ceiling', () => {
+    const { exceeded, report } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      settlements: mockSettlements([
+        {
+          reason: 'Bidding',
+          claims: [
+            { authority: DAO, amount: 234_000_000_000n },
+            { authority: MARINADE, amount: 26_000_000_000n },
+          ],
+        },
+      ]),
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(exceeded).toBe(true)
+    expect(report).toContain('CEILING EXCEEDED')
+  })
+
+  it('ignores staker payouts inside a fee-bearing settlement', () => {
+    const { feeRevenueSol } = checkFeeRevenueCeiling({
+      epoch: 1021,
+      settlements: mockSettlements([
+        {
+          reason: 'Bidding',
+          claims: [
+            { authority: DAO, amount: 1_000_000_000n },
+            {
+              authority: STAKER,
+              amount: 500_000_000_000n,
+              kind: ClaimKind.StakerPayout,
+            },
+          ],
+        },
+      ]),
+      maxFeeRevenueSol: new Decimal(201),
+    })
+
+    expect(feeRevenueSol.toFixed(0)).toBe('1')
+  })
+})
+
+describe('loadFeeRevenueCeiling', () => {
+  let tmpDir: string
+
+  beforeAll(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'fee-revenue-ceiling-'))
+  })
+
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  function writeConfig(name: string, content: string): string {
+    const path = join(tmpDir, name)
+    writeFileSync(path, content)
+    return path
+  }
+
+  const FEE_CONFIG = `---
+fee_config:
+  max_fee_bps: 1600
+  min_fee_bps: 200
+  min_sol_revenue: 200
+  marinade:
+    stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+    withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  dao:
+    fee_split_share_bps: 9000
+    stake_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+    withdraw_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+`
+
+  it('derives the ceiling from min_sol_revenue plus the margin', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig('config.yaml', FEE_CONFIG),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.toFixed(0)).toBe('201')
+  })
+
+  it('follows min_sol_revenue when the configured revenue target changes', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'raised.yaml',
+        FEE_CONFIG.replace('min_sol_revenue: 200', 'min_sol_revenue: 210'),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.toFixed(0)).toBe('211')
+  })
+
+  it('skips the check when no revenue target is configured', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'no-revenue.yaml',
+        FEE_CONFIG.replace('  min_sol_revenue: 200\n', ''),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling).toBeUndefined()
+  })
+
+  it('skips the check when the revenue target is left empty', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'null-revenue.yaml',
+        FEE_CONFIG.replace('min_sol_revenue: 200', 'min_sol_revenue:'),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling).toBeUndefined()
+  })
+
+  it.each(['.nan', '.inf', '-.inf', 'not-a-number', '-5', '-0.5'])(
+    'rejects the revenue target %s that would disable the gate',
+    value => {
+      expect(() =>
+        loadFeeRevenueCeiling({
+          settlementConfig: writeConfig(
+            `revenue-${value}.yaml`,
+            FEE_CONFIG.replace(
+              'min_sol_revenue: 200',
+              `min_sol_revenue: ${value}`,
+            ),
+          ),
+          feeRevenueMarginSol: new Decimal(1),
+        }),
+      ).toThrow('must be a finite number >= 0')
+    },
+  )
+
+  it('accepts a zero revenue target, which means charge the minimum fee', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'zero-revenue.yaml',
+        FEE_CONFIG.replace('min_sol_revenue: 200', 'min_sol_revenue: 0'),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.toFixed(0)).toBe('1')
+  })
+
+  it.each([
+    ['no fee_config key', '---\nsettlements: []\n'],
+    ['an empty document', ''],
+    ['a valueless fee_config key', '---\nfee_config:\n'],
+  ])('rejects %s instead of gating nothing', (_label, content) => {
+    expect(() =>
+      loadFeeRevenueCeiling({
+        settlementConfig: writeConfig(`empty-${_label}.yaml`, content),
+        feeRevenueMarginSol: new Decimal(1),
+      }),
+    ).toThrow('No fee_config found in')
+  })
+
+  it('reports a missing config path as a CLI error', () => {
+    expect(() =>
+      loadFeeRevenueCeiling({
+        settlementConfig: join(tmpDir, 'does-not-exist.yaml'),
+        feeRevenueMarginSol: new Decimal(1),
+      }),
+    ).toThrow('Failed to load settlement config from path')
+  })
+
+  it('parses the production settlement-config.yaml', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: join(__dirname, '../../../settlement-config.yaml'),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.isFinite()).toBe(true)
   })
 })
 

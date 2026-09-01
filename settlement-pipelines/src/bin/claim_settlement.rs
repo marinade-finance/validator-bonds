@@ -1076,6 +1076,8 @@ struct EpochClaimSummary {
     total_nodes: u64,
     claimed_amount_sol: f64,
     total_amount_sol: f64,
+    not_claimed_no_target_sol: f64,
+    not_claimed_no_source_sol: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     json_nodes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1124,6 +1126,8 @@ impl ReportSerializable for ClaimSettlementsReport {
                     let sum_initial = settlements_report.sum_already_claimed();
                     let (json_loaded_nodes, json_loaded_lamports) =
                         settlements_report.sum_json_loaded_settlements();
+                    let (no_account_to, no_account_from) =
+                        settlements_report.sum_update_no_account();
 
                     // Build after amounts from chain data (current state after claiming)
                     let after_amounts: HashMap<Pubkey, (u64, u64)> = after_settlements
@@ -1200,6 +1204,8 @@ impl ReportSerializable for ClaimSettlementsReport {
                         total_nodes: sum_initial.max_merkle_nodes,
                         claimed_amount_sol: lamports_to_sol(after_claimed_lamports),
                         total_amount_sol: lamports_to_sol(sum_initial.max_total_claim),
+                        not_claimed_no_target_sol: lamports_to_sol(no_account_to),
+                        not_claimed_no_source_sol: lamports_to_sol(no_account_from),
                         json_nodes: if json_loaded_nodes > 0 {
                             Some(json_loaded_nodes)
                         } else {

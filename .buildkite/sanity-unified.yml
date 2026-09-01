@@ -4,6 +4,8 @@ env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
   max_total_claims: 150000
+  settlement_config: ./settlement-config.yaml
+  fee_revenue_margin_sol: 1
   SETTLEMENTS_FILES: $SETTLEMENTS_FILES
   PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
@@ -90,11 +92,15 @@ steps:
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
             --max-total-claims $max_total_claims \
+            --settlement-config $settlement_config \
+            --fee-revenue-margin-sol $fee_revenue_margin_sol \
             --settlement-sources $$settlement_sources
         else
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
-            --max-total-claims $max_total_claims
+            --max-total-claims $max_total_claims \
+            --settlement-config $settlement_config \
+            --fee-revenue-margin-sol $fee_revenue_margin_sol
         fi
     soft_fail:
       - exit_status: "*"
