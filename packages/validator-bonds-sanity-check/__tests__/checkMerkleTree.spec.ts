@@ -517,7 +517,7 @@ fee_config:
     expect(ceiling).toBeUndefined()
   })
 
-  it.each(['.nan', '.inf', '-.inf', 'not-a-number', '-5'])(
+  it.each(['.nan', '.inf', '-.inf', 'not-a-number', '-5', '-0.5'])(
     'rejects the revenue target %s that would disable the gate',
     value => {
       expect(() =>
@@ -531,14 +531,30 @@ fee_config:
           ),
           feeRevenueMarginSol: new Decimal(1),
         }),
-      ).toThrow('must be a finite number > 0')
+      ).toThrow('must be a finite number >= 0')
     },
   )
 
-  it('rejects a config without fee_config instead of gating nothing', () => {
+  it('accepts a zero revenue target, which means charge the minimum fee', () => {
+    const ceiling = loadFeeRevenueCeiling({
+      settlementConfig: writeConfig(
+        'zero-revenue.yaml',
+        FEE_CONFIG.replace('min_sol_revenue: 200', 'min_sol_revenue: 0'),
+      ),
+      feeRevenueMarginSol: new Decimal(1),
+    })
+
+    expect(ceiling?.toFixed(0)).toBe('1')
+  })
+
+  it.each([
+    ['no fee_config key', '---\nsettlements: []\n'],
+    ['an empty document', ''],
+    ['a valueless fee_config key', '---\nfee_config:\n'],
+  ])('rejects %s instead of gating nothing', (_label, content) => {
     expect(() =>
       loadFeeRevenueCeiling({
-        settlementConfig: writeConfig('empty.yaml', '---\nsettlements: []\n'),
+        settlementConfig: writeConfig(`empty-${_label}.yaml`, content),
         feeRevenueMarginSol: new Decimal(1),
       }),
     ).toThrow('No fee_config found in')

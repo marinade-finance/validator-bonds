@@ -619,39 +619,41 @@ export function loadFeeRevenueCeiling({
   settlementConfig: string
   feeRevenueMarginSol: Decimal
 }): Decimal | undefined {
-  let parsed: SettlementConfigFile
+  let parsed: SettlementConfigFile | null
   try {
     parsed = YAML.parse(
       readFileSync(settlementConfig, 'utf-8'),
-    ) as SettlementConfigFile
+    ) as SettlementConfigFile | null
   } catch (error) {
     throw CliCommandError.instance(
       `Failed to load settlement config from path: '${settlementConfig}'`,
       error,
     )
   }
-  if (parsed.fee_config === undefined) {
+  // an empty document parses to null, and a valueless `fee_config:` key to a null value
+  if (parsed?.fee_config == null) {
     throw CliCommandError.instance(`No fee_config found in ${settlementConfig}`)
   }
 
   const minSolRevenue = parsed.fee_config.min_sol_revenue
-  if (minSolRevenue === undefined || minSolRevenue === null) {
+  if (minSolRevenue == null) {
     return undefined
   }
 
-  // YAML .nan / .inf survive into Decimal, and greaterThan against them is always false
-  let ceiling: Decimal | undefined
+  // the target is validated, not the sum: YAML .nan / .inf survive into Decimal and make
+  // greaterThan always false, and a negative target would hide behind a positive margin
+  let target: Decimal | undefined
   try {
-    ceiling = new Decimal(minSolRevenue).plus(feeRevenueMarginSol)
+    target = new Decimal(minSolRevenue)
   } catch {
-    ceiling = undefined
+    target = undefined
   }
-  if (ceiling === undefined || !ceiling.isFinite() || !ceiling.greaterThan(0)) {
+  if (target === undefined || !target.isFinite() || target.lessThan(0)) {
     throw CliCommandError.instance(
-      `fee_config.min_sol_revenue in ${settlementConfig} must be a finite number > 0, got ${String(minSolRevenue)}`,
+      `fee_config.min_sol_revenue in ${settlementConfig} must be a finite number >= 0, got ${String(minSolRevenue)}`,
     )
   }
-  return ceiling
+  return target.plus(feeRevenueMarginSol)
 }
 
 // Penalty settlements deposit to the same authorities but sit outside the revenue target.
