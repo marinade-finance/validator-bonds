@@ -11,6 +11,11 @@ import {
   subscribeMessage,
 } from '@marinade.finance/notifications-ts-subscription-client'
 import {
+  bondAddress,
+  MARINADE_CONFIG_ADDRESS,
+  MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+} from '@marinade.finance/validator-bonds-sdk'
+import {
   instanceOfWallet,
   parsePubkey,
   parseWalletOrPubkeyOption,
@@ -23,6 +28,7 @@ import { formatHttpError, getBondFromAddress } from '../../utils'
 
 import type { SubscribeResponse } from '@marinade.finance/notifications-ts-subscription-client'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
+import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { KeypairWallet } from '@marinade.finance/web3js-1x'
 import type { Wallet as WalletInterface } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
@@ -235,6 +241,85 @@ export async function manageSubscribe({
     }
     throw e
   }
+
+  // Outside the try above so it can never be reported as a subscription failure
+  await warnAboutOtherBondType({
+    program,
+    logger,
+    configAddress,
+    voteAccount,
+    type,
+    channelAddress,
+    withAuthority: authority !== undefined,
+  })
+}
+
+// each CLI owns one notification type, so a vote account with both bonds needs both subscriptions
+async function warnAboutOtherBondType({
+  program,
+  logger,
+  configAddress,
+  voteAccount,
+  type,
+  channelAddress,
+  withAuthority,
+}: {
+  program: ValidatorBondsProgram
+  logger: LoggerWrapper
+  configAddress: PublicKey
+  voteAccount: PublicKey
+  type: string
+  channelAddress: string
+  withAuthority: boolean
+}): Promise<void> {
+  try {
+    const other = otherBondConfig(configAddress)
+    if (other === null) {
+      return
+    }
+    const [otherBond] = bondAddress(
+      other.config,
+      voteAccount,
+      program.programId,
+    )
+    const accountInfo =
+      await program.provider.connection.getAccountInfo(otherBond)
+    if (accountInfo === null || !accountInfo.owner.equals(program.programId)) {
+      return
+    }
+    logger.warn(
+      `This vote account also has a ${other.label} bond ` +
+        `(${otherBond.toBase58()}). Its notifications are subscribed ` +
+        `separately: ${other.cli} subscribe ${voteAccount.toBase58()}` +
+        ` --type ${type} --address ${channelAddress}` +
+        (withAuthority ? ' --authority <keypair-or-ledger>' : ''),
+    )
+  } catch (e) {
+    logger.debug({
+      msg: 'could not check for a bond of the other type',
+      error: e instanceof Error ? e.message : String(e),
+    })
+  }
+}
+
+export function otherBondConfig(
+  configAddress: PublicKey,
+): { config: PublicKey; label: string; cli: string } | null {
+  if (configAddress.equals(MARINADE_CONFIG_ADDRESS)) {
+    return {
+      config: MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
+      label: 'Marinade Select',
+      cli: 'validator-bonds-institutional',
+    }
+  }
+  if (configAddress.equals(MARINADE_INSTITUTIONAL_CONFIG_ADDRESS)) {
+    return {
+      config: MARINADE_CONFIG_ADDRESS,
+      label: 'bidding',
+      cli: 'validator-bonds',
+    }
+  }
+  return null
 }
 
 function logTelegramResult(
