@@ -64,6 +64,7 @@ steps:
     - |
       buildkite-agent meta-data set --redacted-vars='' non_funded_per_epoch "${NON_FUNDED_PER_EPOCH:-15}"
       buildkite-agent meta-data set --redacted-vars='' non_funded_sol_per_epoch "${NON_FUNDED_SOL_PER_EPOCH:-5}"
+      buildkite-agent meta-data set --redacted-vars='' non_funded_dust_sol "${NON_FUNDED_DUST_SOL:-0.0001}"
       buildkite-agent meta-data set --redacted-vars='' non_existing_to_report "${NON_EXISTING_TO_REPORT:-0}"
 
   - label: ":memo: Annotate retry parameters"
@@ -74,6 +75,7 @@ steps:
       - slack_feed=$(buildkite-agent meta-data get slack_feed)
       - non_funded_per_epoch=$(buildkite-agent meta-data get non_funded_per_epoch)
       - non_funded_sol_per_epoch=$(buildkite-agent meta-data get non_funded_sol_per_epoch)
+      - non_funded_dust_sol=$(buildkite-agent meta-data get non_funded_dust_sol)
       - non_existing_to_report=$(buildkite-agent meta-data get non_existing_to_report)
       - printable_rpc_url=$(./scripts/printable-rpc-url.sh "$$RPC_URL")
       - |
@@ -87,6 +89,7 @@ steps:
         NOTIFY_FEED=${NOTIFY_FEED:-false}
         NON_FUNDED_PER_EPOCH=$$non_funded_per_epoch
         NON_FUNDED_SOL_PER_EPOCH=$$non_funded_sol_per_epoch
+        NON_FUNDED_DUST_SOL=$$non_funded_dust_sol
         NON_EXISTING_TO_REPORT=$$non_existing_to_report
         # RPC_URL='$$printable_rpc_url'
         \`\`\`
@@ -205,6 +208,7 @@ steps:
     - claim_type=$(buildkite-agent meta-data get claim_type)
     - non_funded_per_epoch=$(buildkite-agent meta-data get non_funded_per_epoch)
     - non_funded_sol_per_epoch=$(buildkite-agent meta-data get non_funded_sol_per_epoch)
+    - non_funded_dust_sol=$(buildkite-agent meta-data get non_funded_dust_sol)
     - non_existing_to_report=$(buildkite-agent meta-data get non_existing_to_report)
     - chmod +x ./scripts/parse-verify-alerts.sh
     - |
@@ -212,6 +216,7 @@ steps:
         -f ./verify-report.json \
         -x "$$non_funded_per_epoch" \
         -s "$$non_funded_sol_per_epoch" \
+        -d "$$non_funded_dust_sol" \
         -e "$$non_existing_to_report" || alert_exit_code=$?
     - |
       if [ "$${alert_exit_code:-0}" -ne 0 ]; then
@@ -231,7 +236,7 @@ steps:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_in_alert"' non-existing (≥ '"$$non_existing_to_report"' threshold; '"$$non_existing_count"' seen) | '"$$non_funded_settlements_alerting"' non-funded across '"$$non_funded_epochs_alert"' epoch(s) over threshold (per-epoch: ≥ '"$$non_funded_per_epoch"' or ≥ '"$$non_funded_sol_per_epoch"' SOL; '"$$non_funded_count"' seen)"
+                    "text": "*Summary:* '"$$unknown_count"' unknown | '"$$non_verified_count"' non-verified epochs | '"$$non_existing_in_alert"' non-existing (≥ '"$$non_existing_to_report"' threshold; '"$$non_existing_count"' seen) | '"$$non_funded_settlements_alerting"' non-funded across '"$$non_funded_epochs_alert"' epoch(s) over threshold (per-epoch: ≥ '"$$non_funded_per_epoch"' or ≥ '"$$non_funded_sol_per_epoch"' SOL; '"$$non_funded_count"' seen, '"$$non_funded_dust_count"' dust < '"$$non_funded_dust_sol"' SOL)"
                   }
                 },
                 {
