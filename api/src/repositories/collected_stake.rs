@@ -20,14 +20,16 @@ pub struct CollectedStakeSnapshot {
 }
 
 impl CollectedStakeSnapshot {
-    /// Summed across every configured authority: the bond has to cover the validator's whole
-    /// Marinade stake, whichever product routed it.
-    pub fn effective_by_vote_account(&self) -> MarinadeStakeByVoteAccount {
-        let mut effective = MarinadeStakeByVoteAccount::new();
+    /// Summed across every configured authority, `activating` included: the bond has to cover the
+    /// validator's whole Marinade stake, whichever product routed it, and it has to cover stake
+    /// already routed there before that stake goes live. `deactivating` is a subset of `effective`.
+    pub fn stake_to_cover_by_vote_account(&self) -> MarinadeStakeByVoteAccount {
+        let mut to_cover = MarinadeStakeByVoteAccount::new();
         for record in &self.records {
-            *effective.entry(record.vote_account.clone()).or_default() += record.effective;
+            *to_cover.entry(record.vote_account.clone()).or_default() +=
+                record.effective + record.activating;
         }
-        effective
+        to_cover
     }
 }
 
@@ -206,6 +208,72 @@ mod tests {
             stake_accounts: 1,
             updated_at: stamp(0),
         }
+    }
+
+    fn snapshot(records: Vec<CollectedStakeRecord>) -> CollectedStakeSnapshot {
+        CollectedStakeSnapshot {
+            epoch: 1014,
+            slot: 438413520,
+            updated_at: stamp(0),
+            records,
+        }
+    }
+
+    fn stake_record(
+        vote_account: &str,
+        label: &str,
+        effective: u64,
+        activating: u64,
+        deactivating: u64,
+    ) -> CollectedStakeRecord {
+        CollectedStakeRecord {
+            vote_account: vote_account.to_string(),
+            label: label.to_string(),
+            effective,
+            activating,
+            deactivating,
+            ..record(1014)
+        }
+    }
+
+    #[test]
+    fn activating_stake_counts_towards_the_amount_to_cover() {
+        let to_cover = snapshot(vec![stake_record(
+            "voteActivating",
+            "direct",
+            0,
+            101_000,
+            0,
+        )])
+        .stake_to_cover_by_vote_account();
+        assert_eq!(to_cover.get("voteActivating"), Some(&101_000));
+    }
+
+    #[test]
+    fn deactivating_stake_is_not_added_on_top_of_effective() {
+        // Agave keeps deactivating stake effective for that epoch, so it is a subset, never an addend.
+        let to_cover = snapshot(vec![stake_record(
+            "voteDeactivating",
+            "native",
+            500,
+            0,
+            500,
+        )])
+        .stake_to_cover_by_vote_account();
+        assert_eq!(to_cover.get("voteDeactivating"), Some(&500));
+    }
+
+    #[test]
+    fn every_authority_of_a_vote_account_is_summed() {
+        let to_cover = snapshot(vec![
+            stake_record("voteMulti", "native", 10, 1, 0),
+            stake_record("voteMulti", "select", 20, 2, 0),
+            stake_record("voteMulti", "direct", 0, 4, 0),
+            stake_record("voteOther", "native", 7, 0, 0),
+        ])
+        .stake_to_cover_by_vote_account();
+        assert_eq!(to_cover.get("voteMulti"), Some(&37));
+        assert_eq!(to_cover.get("voteOther"), Some(&7));
     }
 
     #[test]

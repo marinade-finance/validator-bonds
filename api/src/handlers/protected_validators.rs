@@ -65,7 +65,7 @@ fn protected_vote_accounts(
     operation_id = "List validators whose stakers are PSR protected",
     path = "/v1/validators/protected",
     responses(
-        (status = 200, description = "Effective bond under the bidding and the institutional config, summed, covers at least 1/2000 of the validator's Marinade stake, and is at least 1 SOL.", body = ProtectedValidatorsResponse),
+        (status = 200, description = "Effective bond under the bidding and the institutional config, summed, covers at least 1/2000 of the validator's Marinade stake including the stake still activating, and is at least 1 SOL.", body = ProtectedValidatorsResponse),
         (status = 500, description = "No stake has been collected yet, or bonds could not be read. Deliberately not an empty list, which would read as 'no validator is protected'."),
     )
 )]
@@ -105,7 +105,7 @@ pub async fn handler(
     Ok(Json(ProtectedValidatorsResponse {
         protected_validators: protected_vote_accounts(
             &bonds,
-            &snapshot.effective_by_vote_account(),
+            &snapshot.stake_to_cover_by_vote_account(),
         )
         .into_iter()
         .collect(),
@@ -115,8 +115,9 @@ pub async fn handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::repositories::collected_stake::CollectedStakeSnapshot;
     use chrono::Utc;
-    use validator_bonds_common::dto::BondType;
+    use validator_bonds_common::dto::{BondType, CollectedStakeRecord};
 
     fn sol(amount: u64) -> u64 {
         amount * 1_000_000_000
@@ -165,6 +166,31 @@ mod tests {
         protected_vote_accounts(&bonds, marinade_stake)
             .into_iter()
             .collect()
+    }
+
+    fn collected(entries: &[(&str, u64, u64)]) -> CollectedStakeSnapshot {
+        CollectedStakeSnapshot {
+            epoch: 1027,
+            slot: 443_966_005,
+            updated_at: Utc::now(),
+            records: entries
+                .iter()
+                .map(
+                    |(vote_account, effective, activating)| CollectedStakeRecord {
+                        epoch: 1027,
+                        slot: 443_966_005,
+                        label: "direct".to_string(),
+                        stake_authority: "psrStL2hNx4c7hLUUks8SmDngeYriB8pF7uyHFhM8ir".to_string(),
+                        vote_account: vote_account.to_string(),
+                        effective: *effective,
+                        activating: *activating,
+                        deactivating: 0,
+                        stake_accounts: 2,
+                        updated_at: Utc::now(),
+                    },
+                )
+                .collect(),
+        }
     }
 
     #[test]
@@ -250,5 +276,38 @@ mod tests {
             &stake(&[("voteTwice", sol(50_000))]),
         );
         assert_eq!(listed, vec!["voteTwice".to_string()]);
+    }
+
+    #[test]
+    fn stake_still_activating_is_already_covered_by_the_bond() {
+        // A bond sized only once the stake goes live leaves the first epoch of it unprotected.
+        let listed = protected(
+            vec![
+                bidding("voteActivatingCovered", sol(51)),
+                bidding("voteActivatingShort", sol(12)),
+            ],
+            &collected(&[
+                ("voteActivatingCovered", 0, sol(101_000)),
+                ("voteActivatingShort", 0, sol(101_000)),
+            ])
+            .stake_to_cover_by_vote_account(),
+        );
+        assert_eq!(listed, vec!["voteActivatingCovered".to_string()]);
+    }
+
+    #[test]
+    fn activating_stake_adds_to_the_effective_stake_of_the_same_validator() {
+        let listed = protected(
+            vec![
+                bidding("voteSumCovered", sol(25)),
+                bidding("voteSumShort", sol(25) - 1),
+            ],
+            &collected(&[
+                ("voteSumCovered", sol(30_000), sol(20_000)),
+                ("voteSumShort", sol(30_000), sol(20_000)),
+            ])
+            .stake_to_cover_by_vote_account(),
+        );
+        assert_eq!(listed, vec!["voteSumCovered".to_string()]);
     }
 }
