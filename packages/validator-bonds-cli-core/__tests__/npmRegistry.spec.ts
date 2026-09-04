@@ -421,7 +421,7 @@ describe('checkCliVersion', () => {
       checkCliVersion(mockLogger, registryUrl, '2.6.0'),
     ).resolves.toBeUndefined()
     await expect(
-      checkCliVersion(mockLogger, registryUrl, '2.6.1'),
+      checkCliVersion(mockLogger, registryUrl, '2.7.1000'),
     ).resolves.toBeUndefined()
     expect(stderrSpy).not.toHaveBeenCalled()
   })
