@@ -12,7 +12,7 @@ export const VALIDATOR_BONDS_NPM_URL =
   'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli-institutional'
 
 launchCliProgram({
-  version: '2.7.0',
+  version: '2.6.2',
   installAdditionalOptions: program => {
     program.setOptionValueWithSource(
       'programId',
