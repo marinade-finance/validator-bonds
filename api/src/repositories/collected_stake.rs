@@ -229,6 +229,8 @@ mod tests {
         CollectedStakeRecord {
             vote_account: vote_account.to_string(),
             label: label.to_string(),
+            // Rows are unique on (epoch, stake_authority, vote_account); label and authority are 1:1.
+            stake_authority: format!("{label}-authority"),
             effective,
             activating,
             deactivating,

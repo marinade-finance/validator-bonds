@@ -1,7 +1,9 @@
 use crate::context::WrappedContext;
 use crate::error::AppError;
 use crate::repositories::bond::get_summable_bonds;
-use crate::repositories::collected_stake::{get_collected_stake, MarinadeStakeByVoteAccount};
+use crate::repositories::collected_stake::{
+    get_collected_stake, CollectedStakeSnapshot, MarinadeStakeByVoteAccount,
+};
 use axum::extract::{Query, State};
 use axum::Json;
 use rust_decimal::Decimal;
@@ -59,6 +61,14 @@ fn protected_vote_accounts(
         .collect()
 }
 
+// The handler must keep routing through here: the tests cover this fold, never `handler` itself.
+fn protected_from_snapshot(
+    bonds: &[ValidatorBondRecord],
+    snapshot: &CollectedStakeSnapshot,
+) -> BTreeSet<String> {
+    protected_vote_accounts(bonds, &snapshot.stake_to_cover_by_vote_account())
+}
+
 #[utoipa::path(
     get,
     tag = "Validators",
@@ -103,19 +113,15 @@ pub async fn handler(
     }
 
     Ok(Json(ProtectedValidatorsResponse {
-        protected_validators: protected_vote_accounts(
-            &bonds,
-            &snapshot.stake_to_cover_by_vote_account(),
-        )
-        .into_iter()
-        .collect(),
+        protected_validators: protected_from_snapshot(&bonds, &snapshot)
+            .into_iter()
+            .collect(),
     }))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::repositories::collected_stake::CollectedStakeSnapshot;
     use chrono::Utc;
     use validator_bonds_common::dto::{BondType, CollectedStakeRecord};
 
@@ -164,6 +170,15 @@ mod tests {
         marinade_stake: &MarinadeStakeByVoteAccount,
     ) -> Vec<String> {
         protected_vote_accounts(&bonds, marinade_stake)
+            .into_iter()
+            .collect()
+    }
+
+    fn protected_snapshot(
+        bonds: Vec<ValidatorBondRecord>,
+        snapshot: &CollectedStakeSnapshot,
+    ) -> Vec<String> {
+        protected_from_snapshot(&bonds, snapshot)
             .into_iter()
             .collect()
     }
@@ -281,7 +296,7 @@ mod tests {
     #[test]
     fn stake_still_activating_is_already_covered_by_the_bond() {
         // A bond sized only once the stake goes live leaves the first epoch of it unprotected.
-        let listed = protected(
+        let listed = protected_snapshot(
             vec![
                 bidding("voteActivatingCovered", sol(51)),
                 bidding("voteActivatingShort", sol(12)),
@@ -289,15 +304,14 @@ mod tests {
             &collected(&[
                 ("voteActivatingCovered", 0, sol(101_000)),
                 ("voteActivatingShort", 0, sol(101_000)),
-            ])
-            .stake_to_cover_by_vote_account(),
+            ]),
         );
         assert_eq!(listed, vec!["voteActivatingCovered".to_string()]);
     }
 
     #[test]
     fn activating_stake_adds_to_the_effective_stake_of_the_same_validator() {
-        let listed = protected(
+        let listed = protected_snapshot(
             vec![
                 bidding("voteSumCovered", sol(25)),
                 bidding("voteSumShort", sol(25) - 1),
@@ -305,8 +319,7 @@ mod tests {
             &collected(&[
                 ("voteSumCovered", sol(30_000), sol(20_000)),
                 ("voteSumShort", sol(30_000), sol(20_000)),
-            ])
-            .stake_to_cover_by_vote_account(),
+            ]),
         );
         assert_eq!(listed, vec!["voteSumCovered".to_string()]);
     }
