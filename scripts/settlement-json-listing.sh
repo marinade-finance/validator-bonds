@@ -67,7 +67,7 @@ CONFIG_PUBKEY=$("$SCRIPT_DIR"/bonds-config-pubkey.sh "$CLAIM_TYPE")
 MERKLE_TREES_EPOCH=$(jq '.epoch' "$MERKLE_TREES_JSON_FILE")
 echo "EPOCH: $MERKLE_TREES_EPOCH"
 
-# stake account minimal size
+# stake account minimal size; 2282880 is the pinned reserve bonds compares against, not today's rent
 CONFIG_MIN_STAKE=$(config_min_stake "$CONFIG_PUBKEY")
 STAKE_ACCOUNT_MINIMAL_SIZE=$(($CONFIG_MIN_STAKE + 2282880))
 echo "  (minimal delegated stake account lamports: ${STAKE_ACCOUNT_MINIMAL_SIZE})"

@@ -25,9 +25,9 @@ use settlement_pipelines::settlement_data::{
     SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
-    fund_settlement_split_underflow, get_delegated_amount, get_stake_state_type,
-    prepare_merge_instructions, settlement_funded_claimable_lamports, StakeAccountStateType,
-    STAKE_ACCOUNT_RENT_EXEMPTION,
+    fetch_stake_account_rent, fund_settlement_split_underflow, get_delegated_amount,
+    get_stake_state_type, prepare_merge_instructions, settlement_funded_claimable_lamports,
+    StakeAccountStateType, STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -229,7 +229,12 @@ async fn prepare_funding(
     let stake_activation = StakeActivation::fetch(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
+    // what the on-chain `split_stake_account` will be created with, mirroring Anchor's `init`
+    let split_stake_rent_exempt = fetch_stake_account_rent(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
 
     let mut fund_bond_stake_accounts = get_on_chain_bond_stake_accounts(
         &all_stake_accounts,
@@ -381,6 +386,7 @@ async fn prepare_funding(
                     funding_stake_accounts,
                     amount_needed,
                     minimal_stake_lamports,
+                    split_stake_rent_exempt,
                 );
                 for underwater in underwater_stake_accounts.iter() {
                     reporting.warning().with_msg(format!(
@@ -564,8 +570,10 @@ async fn prepare_funding(
                             let lamports_available_after_split = destination_merged_lamports
                                 .saturating_sub(amount_to_fund)
                                 .saturating_sub(minimal_stake_lamports);
+                            // the program splits only when the leftover also covers the split account's own rent
                             if fund_destination
-                                && lamports_available_after_split >= minimal_stake_lamports
+                                && lamports_available_after_split
+                                    >= minimal_stake_lamports + split_stake_rent_exempt
                             {
                                 funding_stake_accounts.push(FundBondStakeAccount {
                                     lamports: lamports_available_after_split,
@@ -677,7 +685,8 @@ async fn fund_settlements(
     transaction_builder.add_signer_checked(&marinade_wallet);
 
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     // WARN: the prior processing REQUIRES that the fund bond transactions are executed in sequence (execute_in_sequence)
     //       Funding works with ordered stake accounts where one stake account can be used for multiple settlements
@@ -831,6 +840,7 @@ fn underwater_split_stake_accounts(
     stake_accounts: &[FundBondStakeAccount],
     amount_needed: u64,
     minimal_stake_lamports: u64,
+    split_stake_rent_exempt: u64,
 ) -> Vec<UnderwaterStakeAccount> {
     stake_accounts
         .iter()
@@ -840,7 +850,7 @@ fn underwater_split_stake_accounts(
                 account.lamports,
                 amount_needed,
                 minimal_stake_lamports,
-                STAKE_ACCOUNT_RENT_EXEMPTION,
+                split_stake_rent_exempt,
             )
             .map(|delegation_stake| UnderwaterStakeAccount {
                 stake_account: account.stake_account,
@@ -1251,7 +1261,9 @@ mod tests {
     use validator_bonds::state::settlement::Settlement;
 
     const SOL: u64 = 1_000_000_000;
-    const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+    const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
+    // SIMD-0437 step 1: Anchor funds the split account below the pinned reserve
+    const LIVE_RENT: u64 = 2_077_224;
 
     fn on_chain_settlement() -> Settlement {
         Settlement {
@@ -1345,7 +1357,8 @@ mod tests {
 
         // 10 SOL available >= 3 + MIN + rent needed -> the program would split and underflow
         let amount_needed_split = 3 * SOL;
-        let underwater_accounts = underwater_split_stake_accounts(&pool, amount_needed_split, MIN);
+        let underwater_accounts =
+            underwater_split_stake_accounts(&pool, amount_needed_split, MIN, LIVE_RENT);
         assert_eq!(underwater_accounts.len(), 1);
         assert_eq!(underwater_accounts[0].stake_account, underwater_address);
         assert_eq!(underwater_accounts[0].lamports, 10 * SOL);
@@ -1365,7 +1378,7 @@ mod tests {
         // 10 SOL available < 10 + MIN + rent needed -> whole-account path, no underflow to avoid
         let amount_needed_no_split = 10 * SOL;
         let underwater_accounts =
-            underwater_split_stake_accounts(&pool, amount_needed_no_split, MIN);
+            underwater_split_stake_accounts(&pool, amount_needed_no_split, MIN, LIVE_RENT);
         assert!(underwater_accounts.is_empty());
 
         let to_fund =
@@ -1384,7 +1397,8 @@ mod tests {
         let mut pool = vec![underwater];
 
         let amount_needed = 3 * SOL;
-        let underwater_accounts = underwater_split_stake_accounts(&pool, amount_needed, MIN);
+        let underwater_accounts =
+            underwater_split_stake_accounts(&pool, amount_needed, MIN, LIVE_RENT);
         assert_eq!(underwater_accounts.len(), 1);
 
         let to_fund = take_stake_accounts_to_fund(&mut pool, &underwater_accounts, amount_needed);
