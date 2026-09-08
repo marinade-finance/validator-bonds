@@ -11,7 +11,7 @@ use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
 use settlement_pipelines::stake_accounts::{
-    settlement_funded_claimable_lamports, STAKE_ACCOUNT_RENT_EXEMPTION,
+    settlement_funded_claimable_lamports, STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
@@ -274,7 +274,8 @@ async fn real_main(
         collect_stake_accounts(rpc_client.clone(), Some(&bonds_withdrawer_authority), None)
             .await
             .map_err(CliError::retry_able)?;
-    let minimal_stake_lamports = config_data.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let minimal_stake_lamports =
+        config_data.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     let epochs: Vec<_> = claiming_epoch_range.clone().collect();
     info!(
@@ -380,7 +381,7 @@ mod tests {
     use solana_sdk::stake::state::{Authorized, Lockup, Meta, StakeStateV2};
 
     const SOL: u64 = 1_000_000_000;
-    const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+    const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     fn make_settlement(
         max_total_claim: u64,
@@ -428,7 +429,7 @@ mod tests {
             Pubkey::new_unique(),
             lamports,
             StakeStateV2::Initialized(Meta {
-                rent_exempt_reserve: STAKE_ACCOUNT_RENT_EXEMPTION,
+                rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
                 authorized: Authorized {
                     staker,
                     withdrawer: Pubkey::new_unique(),

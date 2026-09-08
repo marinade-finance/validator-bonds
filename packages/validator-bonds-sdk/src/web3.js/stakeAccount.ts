@@ -267,6 +267,14 @@ export async function getRentExemptStake(
   )
 }
 
+// The bonds program checks the stored Meta.rent_exempt_reserve, which the stake program still pins at this value (SIMD-0490) even though live rent is now lower (SIMD-0437) — mirror it, never read live rent.
+export const STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE = 2_282_880
+
+// Mirrors `minimal_size_stake_account` of the validator-bonds program.
+export function minimalSizeStakeAccount(minimumStakeLamports: BN): BN {
+  return minimumStakeLamports.addn(STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE)
+}
+
 function pubkeyOrNull(
   value?: ConstructorParameters<typeof PublicKey>[0] | null,
 ): PublicKey | null {
