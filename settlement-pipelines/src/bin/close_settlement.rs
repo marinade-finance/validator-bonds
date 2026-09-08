@@ -187,9 +187,17 @@ async fn close_settlements(
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
-    let stake_account_rent = fetch_stake_account_rent(rpc_client.clone())
-        .await
-        .map_err(CliError::retry_able)?;
+    // unused by settlements without a split rent collector, so an empty or split-free batch must not fail on the lookup
+    let stake_account_rent = if expired_settlements
+        .iter()
+        .any(|(_, settlement, _)| settlement.split_rent_collector.is_some())
+    {
+        fetch_stake_account_rent(rpc_client.clone())
+            .await
+            .map_err(CliError::retry_able)?
+    } else {
+        0
+    };
     for (settlement_address, settlement, _) in expired_settlements.iter() {
         let (split_rent_collector, split_rent_refund_account) =
             match obtain_settlement_closing_refunds(
