@@ -22,10 +22,10 @@ use validator_bonds_common::stake_accounts::{
     is_locked, CollectedStakeAccount, CollectedStakeAccounts, StakeActivation,
 };
 
-/// The bonds program checks the stored `Meta.rent_exempt_reserve`, which the stake program still pins at this value (SIMD-0490) even though live rent is now lower (SIMD-0437); for live rent use `fetch_stake_account_rent`.
+// The bonds program checks the stored Meta.rent_exempt_reserve, which the stake program still pins at this value (SIMD-0490) even though live rent is now lower (SIMD-0437); for live rent use fetch_stake_account_rent.
 pub const STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE: u64 = 2282880;
 
-/// Live rent for a stake account, i.e. what Anchor's `init` pays for a `split_stake_account`.
+// Live rent for a stake account, i.e. what Anchor's `init` pays for a `split_stake_account`.
 pub async fn fetch_stake_account_rent(rpc_client: Arc<RpcClient>) -> anyhow::Result<u64> {
     rpc_client
         .get_minimum_balance_for_rent_exemption(std::mem::size_of::<StakeStateV2>())

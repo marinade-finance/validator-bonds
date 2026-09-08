@@ -198,6 +198,7 @@ async fn close_settlements(
     } else {
         0
     };
+    let mut closed_settlements: Vec<(Pubkey, Settlement)> = vec![];
     for (settlement_address, settlement, _) in expired_settlements.iter() {
         let (split_rent_collector, split_rent_refund_account) =
             match obtain_settlement_closing_refunds(
@@ -244,6 +245,7 @@ async fn close_settlements(
                 "Close Settlement {settlement_address}, refunding split rent from stake account {split_rent_refund_account}"
             ),
         )?;
+        closed_settlements.push((*settlement_address, settlement.clone()));
     }
 
     let execution_result = execute_parallel(
@@ -255,7 +257,7 @@ async fn close_settlements(
     .await;
     reporting
         .reportable
-        .set_closed_settlements(expired_settlements);
+        .set_closed_settlements(closed_settlements);
 
     reporting.add_tx_execution_result(execution_result, "CloseSettlements");
 
@@ -677,11 +679,8 @@ impl CloseSettlementReport {
         self.withdraw_wallet = withdraw_wallet;
     }
 
-    fn set_closed_settlements(&mut self, settlements: &[(Pubkey, Settlement, Option<Bond>)]) {
-        self.closed_settlements = settlements
-            .iter()
-            .map(|(p, s, _)| (*p, s.clone()))
-            .collect::<Vec<(Pubkey, Settlement)>>();
+    fn set_closed_settlements(&mut self, settlements: Vec<(Pubkey, Settlement)>) {
+        self.closed_settlements = settlements;
     }
 
     fn add_reset_stake(
