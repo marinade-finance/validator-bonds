@@ -57,7 +57,15 @@ async function manageBidding(opts: Record<string, unknown>) {
     epoch,
     voteAccountOf: v => v.voteAccount,
     evaluate: (vals, previousState, ep) =>
-      evaluateDeltas(vals, previousState, ep, bondType, logger),
+      evaluateDeltas(
+        vals,
+        previousState,
+        ep,
+        bondType,
+        logger,
+        // bondGoodForNEpochs subtracts (1 + minBondEpochs); consumers need it back.
+        1 + meta.minBondEpochs,
+      ),
     toState: (v, ep) => validatorToState(v, ep, bondType),
     saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
   })
