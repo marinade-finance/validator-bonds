@@ -18,6 +18,7 @@ minimumReleaseAgeExclude:
   - '@marinade.finance/ts-common@5.1.2'
   - '@marinade.finance/web3js-1x-testing@5.1.2'
   - '@marinade.finance/web3js-1x@5.1.2'
+  - '@marinade.finance/notifications-bonds-event-v1@1.0.5-rc.1'
 overrides:
   glob@<8: ^10.3.10
   rpc-websockets: ^10.0.1
