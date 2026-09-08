@@ -444,6 +444,11 @@ export function buildValidatorDelistedEvent(
   )
 }
 
+// Mirrors the offset ds-sam-sdk subtracts when it computes bondGoodForNEpochs.
+export function requiredEpochsFor(minBondEpochs: number): number {
+  return 1 + minBondEpochs
+}
+
 export function evaluateDeltas(
   currentValidators: AuctionValidator[],
   previousState: Map<string, ValidatorState>,

@@ -3,7 +3,11 @@ import { Option } from 'commander'
 
 import { addSharedEventingOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
-import { evaluateDeltas, validatorToState } from '../evaluate-deltas'
+import {
+  evaluateDeltas,
+  requiredEpochsFor,
+  validatorToState,
+} from '../evaluate-deltas'
 import { runEventingPipeline } from '../pipeline'
 import { runAuction } from '../run-auction'
 import { saveAuctionMeta } from '../state'
@@ -63,8 +67,7 @@ async function manageBidding(opts: Record<string, unknown>) {
         ep,
         bondType,
         logger,
-        // bondGoodForNEpochs subtracts (1 + minBondEpochs); consumers need it back.
-        1 + meta.minBondEpochs,
+        requiredEpochsFor(meta.minBondEpochs),
       ),
     toState: (v, ep) => validatorToState(v, ep, bondType),
     saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),

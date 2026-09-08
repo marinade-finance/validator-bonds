@@ -4,6 +4,7 @@ import pino from 'pino'
 
 import {
   evaluateDeltas,
+  requiredEpochsFor,
   validatorToState,
   configAddressForBondType,
   solToLamports,
@@ -1101,6 +1102,13 @@ describe('validatorToState', () => {
     expect(
       (state.auction_validator as Record<string, unknown>).voteAccount,
     ).toBe(TEST_VOTE_ACCOUNT)
+  })
+})
+
+describe('requiredEpochsFor', () => {
+  it('adds the epoch ds-sam-sdk charges on top of minBondEpochs', () => {
+    expect(requiredEpochsFor(4)).toBe(5)
+    expect(requiredEpochsFor(0)).toBe(1)
   })
 })
 
