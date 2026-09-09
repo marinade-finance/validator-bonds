@@ -7,7 +7,8 @@ use crate::{
         ProtectedEventsResponse,
     },
     handlers::{
-        bonds, collected_stake, docs, protected_events, protected_validators, verified_validators,
+        bonds, collected_stake, direct_staking_allocation, docs, protected_events,
+        protected_validators, verified_validators,
     },
 };
 use settlement_common::{
@@ -50,8 +51,9 @@ use utoipa::{
         schemas(collected_stake::AuthorityTotal),
         schemas(collected_stake::ValidatorStake),
         schemas(collected_stake::AuthorityStake),
+        schemas(direct_staking_allocation::DirectStakingAllocationResponse),
     ),
-    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, verified_validators::handler, protected_validators::handler, collected_stake::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, direct_staking_allocation::handler, verified_validators::handler, protected_validators::handler, collected_stake::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;
@@ -104,6 +106,7 @@ mod tests {
             "/bonds/institutional",
             "/protected-events",
             "/v1/protected-events",
+            "/v1/protected-events/allocation",
             "/v1/validators/protected",
             "/v1/validators/stake",
         ] {
