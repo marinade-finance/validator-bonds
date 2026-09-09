@@ -73,6 +73,27 @@ curl -X GET --compressed "http://localhost:8000/v1/validators/stake?from_epoch=1
 only the rows the filters returned. An epoch missing from the range was never collected — the
 collector runs on the bidding run of `collect-bonds.yml` alone — and nothing is interpolated.
 
+#### Reading stake out-flow
+
+Exiting rotates the staker authority to the product's exit authority _before_ deactivating, so a
+product's own label never shows out-flow — `direct.deactivating` is structurally zero. Pair the two
+labels (`label=direct,direct-exit`) to see a product's in-flow and out-flow together.
+
+- `direct-exit.deactivating` in epoch N is stake that **entered cooldown** in epoch N. That is not
+  necessarily the epoch the exit was initiated in: rotating the authority and requesting
+  deactivation are separate transactions and need not land in the same epoch.
+- `direct-exit.effective` is stake still cooling down at that snapshot. `deactivating` is a subset
+  of it, so active-only is `effective - deactivating`.
+- Cooldown lasts one epoch and there is one snapshot per epoch, so **a missed collection loses that
+  out-flow event permanently**. The endpoint is a per-epoch signal, not a cumulative ledger.
+- A position that has finished cooling down is no longer reported, and neither is stake an exit
+  authority holds without delegating it — there is no vote account to attribute it to. At epoch 1030
+  that was 73.2 SOL under `select-exit`.
+
+`direct-exit` and `select-exit` routinely have no rows at all: the collector writes a row only where
+an authority has non-zero stake on a validator. They stay valid `label` filters regardless, and an
+empty result for one means "nothing was exiting", not "unknown label".
+
 ### Storing collected stake to the database
 
 `/v1/validators/protected` sizes each bond against the stake routed to the validator through the

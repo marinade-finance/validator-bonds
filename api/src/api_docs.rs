@@ -173,6 +173,48 @@ mod tests {
         }
     }
 
+    // Out-flow semantics are the whole reason the -exit labels are queryable, and getting the
+    // wording wrong misreports when stake left. "Started exiting" is specifically wrong: rotating
+    // the authority and requesting deactivation are separate transactions.
+    #[test]
+    fn the_stake_endpoint_documents_exit_semantics() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let properties = &docs["components"]["schemas"]["AuthorityStake"]["properties"];
+
+        let deactivating = properties["deactivating"]["description"]
+            .as_str()
+            .expect("deactivating must be described: it is the only out-flow signal");
+        assert!(
+            deactivating.contains("cooldown"),
+            "deactivating must say the stake entered cooldown, got: {deactivating}",
+        );
+        assert!(
+            !deactivating.to_lowercase().contains("started exiting")
+                && !deactivating.to_lowercase().contains("began exiting"),
+            "deactivating must not claim the exit started in this epoch, got: {deactivating}",
+        );
+        assert!(
+            deactivating.contains("effective - deactivating"),
+            "deactivating must state it is a subset of effective, got: {deactivating}",
+        );
+
+        let label = properties["label"]["description"]
+            .as_str()
+            .expect("label must explain the -exit labels");
+        assert!(label.contains("-exit"), "got: {label}");
+
+        let response = docs["paths"]["/v1/validators/stake"]["get"]["responses"]["200"]
+            ["description"]
+            .as_str()
+            .unwrap();
+        for expected in ["-exit", "cooling down", "without delegating"] {
+            assert!(
+                response.contains(expected),
+                "the 200 description must cover {expected:?}, got: {response}",
+            );
+        }
+    }
+
     // The window is the only reason a consumer can stop pulling the whole history, so an
     // undocumented one is an unusable one.
     #[test]

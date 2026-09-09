@@ -22,11 +22,22 @@ const MAX_EPOCH_WINDOW: u64 = 100;
 /// an additive change. `deactivating` is a subset of `effective`, not an addend.
 #[derive(Serialize, Debug, utoipa::ToSchema)]
 pub struct AuthorityStake {
+    /// The Marinade product that routed this stake. A `-exit` label (`direct-exit`, `native-exit`,
+    /// `select-exit`) is stake on its way out: exiting rotates the staker authority to the exit
+    /// authority before deactivating, so out-flow is only ever readable under a `-exit` label, and
+    /// the in-flow label's own `deactivating` is structurally zero.
     label: String,
     #[schema(value_type = Pubkey)]
     stake_authority: String,
+    /// Stake earning rewards at this snapshot, cooling-down stake included.
     effective: u64,
+    /// Stake that will start earning next epoch. Not part of `effective` yet.
     activating: u64,
+    /// Stake that entered cooldown in this epoch, which need not be the epoch the exit was
+    /// initiated in: rotating the staker authority and requesting deactivation are separate
+    /// transactions. A subset of `effective`, never an addend, so active-only is
+    /// `effective - deactivating`. Visible for the cooldown epoch only; once a position has fully
+    /// cooled down it is no longer reported at all.
     deactivating: u64,
     stake_accounts: u32,
 }
@@ -223,7 +234,7 @@ fn build_response(snapshot: CollectedStakeSnapshot) -> CollectedStakeResponse {
     path = "/v1/validators/stake",
     params(QueryParams),
     responses(
-        (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, one element per epoch, newest first. With no parameters that is the latest collected epoch alone. An epoch absent from the range was never collected — it does not mean no validator had stake, and nothing is interpolated. `totals` aggregate only the rows the filters returned, so a filtered call carries filtered totals. Stake held by a staker authority but not delegated to any validator is not reported: it has no vote account.", body = CollectedStakeHistoryResponse),
+        (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, one element per epoch, newest first. With no parameters that is the latest collected epoch alone. An epoch absent from the range was never collected — it does not mean no validator had stake, and nothing is interpolated. `totals` aggregate only the rows the filters returned, so a filtered call carries filtered totals.\n\nOut-flow is read from the `-exit` labels (`label=direct,direct-exit` pairs a product with its exit), and only for the epoch a position is cooling down in: one snapshot per epoch means a missed collection loses that event permanently. Two things are never reported, because neither can be attributed to a validator: stake a staker authority holds without delegating it, and a position that has finished cooling down.", body = CollectedStakeHistoryResponse),
         (status = 400, description = "`from_epoch` is after `to_epoch`, the window is wider than 100 epochs, `vote_account` is not a valid pubkey, or `label` is not a configured staker label."),
         (status = 500, description = "No stake has been collected yet, or it could not be read. Deliberately not an empty list, which would read as 'no validator has stake'."),
     )
