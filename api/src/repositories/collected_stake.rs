@@ -3,8 +3,8 @@ use super::common::{pg_transient, CommonStoreOptions};
 use chrono::{DateTime, Utc};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use std::collections::HashMap;
-use tokio_postgres::{types::ToSql, Client};
+use std::collections::{BTreeMap, HashMap};
+use tokio_postgres::{types::ToSql, Client, Row};
 use validator_bonds_common::dto::CollectedStakeRecord;
 
 /// Marinade stake in lamports, keyed by vote account.
@@ -12,6 +12,7 @@ pub type MarinadeStakeByVoteAccount = HashMap<String, u64>;
 
 /// One collection run: every record shares the epoch, slot and timestamp the collector stamped, since
 /// the store replaces a whole epoch at once.
+#[derive(Debug)]
 pub struct CollectedStakeSnapshot {
     pub epoch: u64,
     pub slot: u64,
@@ -33,6 +34,70 @@ impl CollectedStakeSnapshot {
     }
 }
 
+/// Epoch range plus optional filters. Empty filter vectors mean "no filter", not "match nothing".
+pub struct CollectedStakeQuery {
+    pub from_epoch: u64,
+    pub to_epoch: u64,
+    pub labels: Vec<String>,
+    pub vote_accounts: Vec<String>,
+}
+
+const SELECT_COLUMNS: &str = "SELECT epoch, slot, label, stake_authority, vote_account, effective,
+                                     activating, deactivating, stake_accounts, updated_at
+                              FROM collected_stake";
+
+fn map_collected_stake_row(row: Row) -> anyhow::Result<CollectedStakeRecord> {
+    Ok(CollectedStakeRecord {
+        epoch: row.get::<_, i32>("epoch").try_into()?,
+        slot: row.get::<_, i64>("slot").try_into()?,
+        label: row.get("label"),
+        stake_authority: row.get("stake_authority"),
+        vote_account: row.get("vote_account"),
+        effective: row.get::<_, i64>("effective").try_into()?,
+        activating: row.get::<_, i64>("activating").try_into()?,
+        deactivating: row.get::<_, i64>("deactivating").try_into()?,
+        stake_accounts: row.get::<_, i32>("stake_accounts").try_into()?,
+        updated_at: row.get("updated_at"),
+    })
+}
+
+/// Epoch-descending. The write side stamps one slot and one timestamp per epoch
+/// (see `collection_epoch`), so a group that disagrees is a corrupted table rather than a data
+/// state the readers may paper over.
+fn group_by_epoch(
+    records: Vec<CollectedStakeRecord>,
+) -> anyhow::Result<Vec<CollectedStakeSnapshot>> {
+    let mut by_epoch: BTreeMap<u64, Vec<CollectedStakeRecord>> = BTreeMap::new();
+    for record in records {
+        by_epoch.entry(record.epoch).or_default().push(record);
+    }
+
+    by_epoch
+        .into_values()
+        .rev()
+        .map(|records| {
+            let first = records
+                .first()
+                .expect("a group exists only because a record created it");
+            let (epoch, slot, updated_at) = (first.epoch, first.slot, first.updated_at);
+            anyhow::ensure!(
+                records.iter().all(|record| record.slot == slot),
+                "Collected stake of epoch {epoch} spans multiple slots, expected only {slot}"
+            );
+            anyhow::ensure!(
+                records.iter().all(|record| record.updated_at == updated_at),
+                "Collected stake of epoch {epoch} spans multiple timestamps, expected only {updated_at}"
+            );
+            Ok(CollectedStakeSnapshot {
+                epoch,
+                slot,
+                updated_at,
+                records,
+            })
+        })
+        .collect()
+}
+
 /// `None` when nothing has ever been collected. Callers must fail loudly rather than treat that as
 /// "no validator has stake", which reduces `/protected` to its bond floor for everyone.
 pub async fn get_collected_stake(
@@ -40,39 +105,64 @@ pub async fn get_collected_stake(
 ) -> anyhow::Result<Option<CollectedStakeSnapshot>> {
     let rows = psql_client
         .query(
-            "SELECT epoch, slot, label, stake_authority, vote_account, effective, activating,
-                    deactivating, stake_accounts, updated_at
-             FROM collected_stake
-             WHERE epoch = (SELECT MAX(epoch) FROM collected_stake)",
+            &format!("{SELECT_COLUMNS} WHERE epoch = (SELECT MAX(epoch) FROM collected_stake)"),
             &[],
         )
         .await?;
 
-    let mut records: Vec<CollectedStakeRecord> = vec![];
-    for row in rows {
-        records.push(CollectedStakeRecord {
-            epoch: row.get::<_, i32>("epoch").try_into()?,
-            slot: row.get::<_, i64>("slot").try_into()?,
-            label: row.get("label"),
-            stake_authority: row.get("stake_authority"),
-            vote_account: row.get("vote_account"),
-            effective: row.get::<_, i64>("effective").try_into()?,
-            activating: row.get::<_, i64>("activating").try_into()?,
-            deactivating: row.get::<_, i64>("deactivating").try_into()?,
-            stake_accounts: row.get::<_, i32>("stake_accounts").try_into()?,
-            updated_at: row.get("updated_at"),
-        })
-    }
+    let records = rows
+        .into_iter()
+        .map(map_collected_stake_row)
+        .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let Some(first) = records.first() else {
-        return Ok(None);
-    };
-    Ok(Some(CollectedStakeSnapshot {
-        epoch: first.epoch,
-        slot: first.slot,
-        updated_at: first.updated_at,
-        records,
-    }))
+    Ok(group_by_epoch(records)?.pop())
+}
+
+pub async fn get_latest_collected_epoch(psql_client: &Client) -> anyhow::Result<Option<u64>> {
+    let row = psql_client
+        .query_one("SELECT MAX(epoch) AS epoch FROM collected_stake", &[])
+        .await?;
+    row.get::<_, Option<i32>>("epoch")
+        .map(|epoch| Ok(u64::try_from(epoch)?))
+        .transpose()
+}
+
+/// Resolved before the range query so an oversized window is rejected without ever running it.
+pub async fn get_collected_stake_range(
+    psql_client: &Client,
+    query: &CollectedStakeQuery,
+) -> anyhow::Result<Vec<CollectedStakeSnapshot>> {
+    let from_epoch = i32::try_from(query.from_epoch)?;
+    let to_epoch = i32::try_from(query.to_epoch)?;
+
+    let rows = psql_client
+        .query(
+            &format!(
+                "{SELECT_COLUMNS}
+                 WHERE epoch BETWEEN $1 AND $2
+                   AND (cardinality($3::text[]) = 0 OR label = ANY($3))
+                   AND (cardinality($4::text[]) = 0 OR vote_account = ANY($4))
+                 ORDER BY epoch DESC"
+            ),
+            &[&from_epoch, &to_epoch, &query.labels, &query.vote_accounts],
+        )
+        .await?;
+
+    let records = rows
+        .into_iter()
+        .map(map_collected_stake_row)
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    group_by_epoch(records)
+}
+
+/// Labels a collection has actually produced. Narrower than the configured set — an authority with
+/// no non-zero stake anywhere writes no rows at all.
+pub async fn get_distinct_labels(psql_client: &Client) -> anyhow::Result<Vec<String>> {
+    let rows = psql_client
+        .query("SELECT DISTINCT label FROM collected_stake", &[])
+        .await?;
+    Ok(rows.into_iter().map(|row| row.get("label")).collect())
 }
 
 /// One epoch per collection run: the collector stamps every record from a single `Clock`, and the
@@ -311,5 +401,73 @@ mod tests {
         second.updated_at = stamp(1);
         let err = collection_epoch(&[record(1014), second]).unwrap_err();
         assert!(err.to_string().contains("multiple timestamps"));
+    }
+
+    fn epoch_record(epoch: u64, slot: u64) -> CollectedStakeRecord {
+        CollectedStakeRecord {
+            epoch,
+            slot,
+            ..record(epoch)
+        }
+    }
+
+    #[test]
+    fn nothing_collected_yields_no_snapshot() {
+        assert!(group_by_epoch(vec![]).unwrap().is_empty());
+    }
+
+    #[test]
+    fn epochs_are_grouped_newest_first() {
+        let grouped = group_by_epoch(vec![
+            epoch_record(1013, 100),
+            epoch_record(1014, 200),
+            epoch_record(1013, 100),
+        ])
+        .unwrap();
+        assert_eq!(
+            grouped
+                .iter()
+                .map(|snapshot| (snapshot.epoch, snapshot.slot, snapshot.records.len()))
+                .collect::<Vec<_>>(),
+            vec![(1014, 200, 1), (1013, 100, 2)]
+        );
+    }
+
+    #[test]
+    fn a_missing_epoch_stays_missing() {
+        let grouped =
+            group_by_epoch(vec![epoch_record(1012, 100), epoch_record(1014, 200)]).unwrap();
+        assert_eq!(
+            grouped
+                .iter()
+                .map(|snapshot| snapshot.epoch)
+                .collect::<Vec<_>>(),
+            vec![1014, 1012]
+        );
+    }
+
+    #[test]
+    fn one_epoch_spanning_two_slots_is_rejected() {
+        let err = group_by_epoch(vec![epoch_record(1014, 100), epoch_record(1014, 101)])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("multiple slots"), "{err}");
+        assert!(err.contains("1014"), "{err}");
+    }
+
+    #[test]
+    fn one_epoch_spanning_two_timestamps_is_rejected() {
+        let mut second = epoch_record(1014, 100);
+        second.updated_at = stamp(1);
+        let err = group_by_epoch(vec![epoch_record(1014, 100), second])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("multiple timestamps"), "{err}");
+    }
+
+    // The same slot in two different epochs is normal data, not the corruption above.
+    #[test]
+    fn slots_may_repeat_across_epochs() {
+        group_by_epoch(vec![epoch_record(1013, 100), epoch_record(1014, 100)]).unwrap();
     }
 }

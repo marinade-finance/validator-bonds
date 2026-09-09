@@ -58,8 +58,20 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
 curl -X GET --compressed "http://localhost:8000/v1/validators/protected"
+
+# the latest collected epoch, as a one-element `epochs` array
 curl -X GET --compressed "http://localhost:8000/v1/validators/stake"
+
+# an epoch range, newest first, at most 100 epochs wide
+curl -X GET --compressed "http://localhost:8000/v1/validators/stake?from_epoch=1020&to_epoch=1030"
+
+# only the direct-staking in-flow and out-flow, across that range
+curl -X GET --compressed "http://localhost:8000/v1/validators/stake?from_epoch=1020&to_epoch=1030&label=direct,direct-exit"
 ```
+
+`label` and `vote_account` are comma-separated lists, not repeated parameters. `totals` aggregate
+only the rows the filters returned. An epoch missing from the range was never collected — the
+collector runs on the bidding run of `collect-bonds.yml` alone — and nothing is interpolated.
 
 ### Storing collected stake to the database
 
@@ -81,3 +93,11 @@ validator is protected".
 The integration tests (`api/tests/http_behavior.rs`) cover routing/middleware only; the
 DB-backed routes (`/bonds/*`, `/protected-events`, `/v1/validators/*`) and `readyz` are smoke-tested
 manually against the steps above.
+
+`api/tests/collected_stake_queries.rs` does run the `collected_stake` SQL against a real database.
+It skips itself unless `TEST_POSTGRES_URL` is set, and it confines itself to epochs 900001-900004:
+
+```bash
+TEST_POSTGRES_URL="postgresql://${DB}:${DB}@localhost:5444/${DB}" \
+  cargo test -p api --test collected_stake_queries
+```

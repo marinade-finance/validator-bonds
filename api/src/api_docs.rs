@@ -42,6 +42,7 @@ use utoipa::{
         schemas(LegacyProtectedEventsResponse),
         schemas(verified_validators::VerifiedValidatorsResponse),
         schemas(protected_validators::ProtectedValidatorsResponse),
+        schemas(collected_stake::CollectedStakeHistoryResponse),
         schemas(collected_stake::CollectedStakeResponse),
         schemas(collected_stake::AuthorityTotal),
         schemas(collected_stake::ValidatorStake),
@@ -130,12 +131,52 @@ mod tests {
         }
     }
 
+    // A `$ref` to a type left out of `schemas(...)` generates a client with a hole in it, and
+    // utoipa emits the dangling reference without complaint.
+    #[test]
+    fn every_referenced_schema_is_registered() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let registered = docs["components"]["schemas"].as_object().unwrap();
+
+        let mut referenced: Vec<String> = vec![];
+        let mut pending = vec![&docs];
+        while let Some(node) = pending.pop() {
+            match node {
+                serde_json::Value::Object(fields) => {
+                    for (key, value) in fields {
+                        if key == "$ref" {
+                            referenced.push(value.as_str().unwrap().to_string());
+                        }
+                        pending.push(value);
+                    }
+                }
+                serde_json::Value::Array(items) => pending.extend(items),
+                _ => {}
+            }
+        }
+        assert!(!referenced.is_empty(), "the docs must reference schemas");
+
+        for reference in referenced {
+            let name = reference
+                .strip_prefix("#/components/schemas/")
+                .unwrap_or_else(|| panic!("{reference} is not a component reference"));
+            assert!(
+                registered.contains_key(name),
+                "{name} is referenced but not registered in schemas(...)",
+            );
+        }
+    }
+
     // The window is the only reason a consumer can stop pulling the whole history, so an
     // undocumented one is an unusable one.
     #[test]
-    fn both_protected_events_paths_document_the_epoch_window() {
+    fn every_epoch_windowed_path_documents_from_epoch() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        for path in ["/protected-events", "/v1/protected-events"] {
+        for path in [
+            "/protected-events",
+            "/v1/protected-events",
+            "/v1/validators/stake",
+        ] {
             let params = docs["paths"][path]["get"]["parameters"]
                 .as_array()
                 .unwrap_or_else(|| panic!("{path} must document its parameters"));
