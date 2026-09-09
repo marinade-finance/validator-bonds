@@ -2,13 +2,16 @@ use anyhow::{anyhow, ensure};
 use log::{info, warn};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use settlement_common::settlement_collection::{
     Settlement, SettlementCollection, SettlementProduct,
 };
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
+pub use validator_bonds_common::allocation::{
+    AllocationReport, DroppedValidator, ExposureWarning, ReportTotals, RoutedValidator,
+};
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
 pub const DEFAULT_EXPOSURE_WARNING_BPS: u64 = 2500;
@@ -34,60 +37,6 @@ pub struct AllocatorOutput {
     pub bidding: SettlementCollection,
     pub institutional: SettlementCollection,
     pub report: AllocationReport,
-}
-
-#[derive(Debug, Serialize)]
-pub struct AllocationReport {
-    pub epoch: u64,
-    pub slot: u64,
-    pub totals: ReportTotals,
-    pub routed: Vec<RoutedValidator>,
-    pub dropped_no_usable_bond: Vec<DroppedValidator>,
-    pub exposure_warnings: Vec<ExposureWarning>,
-    /// Bond snapshots are resolved per bond type, so the two files can legitimately differ by an epoch.
-    pub bidding_bonds_epoch: Option<u64>,
-    pub institutional_bonds_epoch: Option<u64>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ReportTotals {
-    pub settlements_in: usize,
-    pub claims_amount_in: u64,
-    pub bidding_settlements: usize,
-    pub bidding_claims_amount: u64,
-    pub institutional_settlements: usize,
-    pub institutional_claims_amount: u64,
-    pub dropped_settlements: usize,
-    pub dropped_claims_amount: u64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RoutedValidator {
-    pub vote_account: String,
-    pub bond_type: String,
-    pub settlements: usize,
-    pub claims_amount: u64,
-    pub effective_amount: String,
-    pub exposure_bps: u64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct DroppedValidator {
-    pub vote_account: String,
-    pub settlements: usize,
-    pub claims_amount: u64,
-    pub bidding_effective_amount: String,
-    pub institutional_effective_amount: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ExposureWarning {
-    pub vote_account: String,
-    pub bond_type: String,
-    pub claims_amount: u64,
-    pub effective_amount: String,
-    pub exposure_bps: u64,
-    pub threshold_bps: u64,
 }
 
 /// Splits a direct-staking settlement collection into one collection per bond config, keeping only

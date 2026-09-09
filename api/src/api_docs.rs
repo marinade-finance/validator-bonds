@@ -1,4 +1,6 @@
-use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
+use crate::dto::{
+    DirectStakingAllocationRecordSchema, SettlementMetaSchema, ValidatorBondRecordSchema,
+};
 use crate::{
     dto::{
         LegacyProtectedEventRecord, LegacyProtectedEventsResponse, ProtectedEventRecord,
@@ -30,6 +32,7 @@ use utoipa::{
     ),
     components(
         schemas(ValidatorBondRecordSchema),
+        schemas(DirectStakingAllocationRecordSchema),
         schemas(ProtectedEventRecord),
         schemas(LegacyProtectedEventRecord),
         schemas(SettlementMetaSchema),

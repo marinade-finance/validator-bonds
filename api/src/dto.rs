@@ -188,6 +188,46 @@ pub struct ValidatorBondRecordSchema {
     block_commission_bps: Option<i64>,
 }
 
+/// Doc-only mirror of `validator_bonds_common::dto::DirectStakingAllocationRecord`, whose crate
+/// stays free of `utoipa`. The union of both `outcome` variants, so the bond fields are optional
+/// here while the Rust enum keeps them mandatory per variant. Drift is caught by
+/// `allocation_record_schema_matches_both_outcomes`.
+#[derive(ToSchema)]
+#[schema(as = DirectStakingAllocationRecord)]
+#[allow(dead_code)]
+pub struct DirectStakingAllocationRecordSchema {
+    epoch: u64,
+    slot: u64,
+    #[schema(value_type = Pubkey)]
+    vote_account: String,
+    /// `routed` = a bond pays these claims. `dropped` = no usable bond, so this validator's direct
+    /// stakers are unprotected for the epoch.
+    outcome: String,
+    /// Bond config the claims were routed to. Absent on a dropped row.
+    bond_type: Option<String>,
+    settlements: u32,
+    claims_amount: u64,
+    // serde-float makes these Decimals serialize as JSON numbers, not utoipa's default string.
+    /// Effective amount of the chosen bond. Absent on a dropped row.
+    #[schema(value_type = Option<f64>)]
+    effective_amount: Option<Decimal>,
+    /// Share of the chosen bond these direct-staking claims alone consume; the same epoch's SAM
+    /// claims against the same bond are not counted. Absent on a dropped row.
+    exposure_bps: Option<u64>,
+    /// Present only on a dropped row, where it is `<= 0` by construction — the row records that
+    /// neither bond had a positive effective amount, not that a bond was too small.
+    #[schema(value_type = Option<f64>)]
+    bidding_effective_amount: Option<Decimal>,
+    #[schema(value_type = Option<f64>)]
+    institutional_effective_amount: Option<Decimal>,
+    /// Epoch of the bidding bond snapshot the allocator routed against. The two snapshots are
+    /// resolved per bond type and can legitimately differ; a stale one routes validators to the
+    /// other config, and these fields are the only record of which was used.
+    bidding_bonds_epoch: Option<u64>,
+    institutional_bonds_epoch: Option<u64>,
+    updated_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
@@ -329,6 +369,100 @@ mod tests {
                 schema["properties"][name],
             );
         }
+    }
+
+    // The hand mirror declares the union of both outcomes, so neither variant alone can equal it.
+    // Asserting the union instead catches a field documented but never emitted, and a field emitted
+    // but never documented, from one place.
+    #[test]
+    fn allocation_record_schema_matches_both_outcomes() {
+        use validator_bonds_common::dto::{AllocationOutcome, DirectStakingAllocationRecord};
+
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let schema = &docs["components"]["schemas"]["DirectStakingAllocationRecord"];
+
+        let record = |outcome| DirectStakingAllocationRecord {
+            epoch: 1030,
+            slot: 445_356_003,
+            vote_account: Pubkey::new_unique().to_string(),
+            settlements: 1,
+            claims_amount: 37_316_490,
+            bidding_bonds_epoch: Some(1030),
+            institutional_bonds_epoch: Some(1030),
+            outcome,
+            updated_at: Utc::now(),
+        };
+
+        let outcomes = [
+            AllocationOutcome::Routed {
+                bond_type: BondType::Bidding,
+                effective_amount: Decimal::new(5_000_000_000, 0),
+                exposure_bps: 75,
+            },
+            AllocationOutcome::Dropped {
+                bidding_effective_amount: Decimal::ZERO,
+                institutional_effective_amount: Decimal::ZERO,
+            },
+        ];
+
+        let documented: BTreeSet<&str> = schema["properties"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+
+        let serialized: Vec<serde_json::Value> = outcomes
+            .into_iter()
+            .map(|outcome| serde_json::to_value(record(outcome)).unwrap())
+            .collect();
+
+        let mut emitted: BTreeSet<&str> = BTreeSet::new();
+        for value in &serialized {
+            for key in value.as_object().unwrap().keys() {
+                emitted.insert(key.as_str());
+            }
+        }
+        assert_eq!(
+            documented, emitted,
+            "DirectStakingAllocationRecordSchema: documented properties drifted from the union of both outcomes",
+        );
+
+        for value in &serialized {
+            for (name, field) in value.as_object().unwrap() {
+                let actual_type = json_type(field);
+                assert!(
+                    documented_accepts(&docs, &schema["properties"][name], actual_type),
+                    "DirectStakingAllocationRecord.{name}: serialized as {actual_type}, documented as {}",
+                    schema["properties"][name],
+                );
+            }
+        }
+
+        for field in [
+            "effective_amount",
+            "bidding_effective_amount",
+            "institutional_effective_amount",
+        ] {
+            assert_eq!(
+                (
+                    schema["properties"][field]["type"].as_str(),
+                    schema["properties"][field]["format"].as_str(),
+                ),
+                (Some("number"), Some("double")),
+                "{field}: Decimal must publish as a JSON double",
+            );
+        }
+
+        // The discriminator is what tells a client which half of the union to read.
+        assert!(
+            schema["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|field| field == "outcome"),
+            "outcome must be required: it discriminates routed from dropped",
+        );
     }
 
     #[test]
