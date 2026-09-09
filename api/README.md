@@ -90,14 +90,41 @@ cargo run --bin validator-bonds-api-cli -- store-collected-stake \
 With no rows stored the endpoint answers 500 rather than an empty list, which would read as "no
 validator is protected".
 
-The integration tests (`api/tests/http_behavior.rs`) cover routing/middleware only; the
-DB-backed routes (`/bonds/*`, `/protected-events`, `/v1/validators/*`) and `readyz` are smoke-tested
-manually against the steps above.
+### Storing the direct staking allocation to the database
 
-`api/tests/collected_stake_queries.rs` does run the `collected_stake` SQL against a real database.
-It skips itself unless `TEST_POSTGRES_URL` is set, and it confines itself to epochs 900001-900004:
+`/v1/protected-events/allocation` reports which bond paid each validator's direct-staking PSR
+claims, and which validators had no usable bond at all. That cannot be derived from settlements — a
+validator with no usable bond produces no settlement — so it comes from the allocator's report,
+stored by the `store-direct-staking-allocation` step of `.buildkite/prepare-direct-staking-distribution.yml`:
+
+```bash
+cargo run --bin validator-bonds-api-cli -- store-direct-staking-allocation \
+    --input-file direct-staking-allocation-report.json \
+    --postgres-ssl-root-cert "$PG_SSLROOTCERT" \
+    --postgres-url "$POSTGRES_URL"
+
+curl -X GET --compressed "http://localhost:8000/v1/protected-events/allocation"
+curl -X GET --compressed "http://localhost:8000/v1/protected-events/allocation?from_epoch=1030"
+```
+
+The store replaces the report's epoch wholesale, so re-running it is idempotent. A report that
+routed nothing is legal — epoch 1020 was the first direct-staking run and both buckets were empty —
+and stores zero rows, which is indistinguishable from never having been stored. With nothing stored
+at all the endpoint answers 500 rather than an empty list, which would read as "nobody was left
+unprotected"; an epoch with no rows inside a non-empty table answers 200 with an empty list.
+
+Requires migration `0013-add-direct-staking-allocation.sql`.
+
+### Tests
+
+`api/tests/http_behavior.rs` covers routing/middleware only. `/bonds/*`, `/protected-events` and
+`readyz` are smoke-tested manually against the steps above.
+
+Two test files do run SQL against a real database. Each skips itself unless `TEST_POSTGRES_URL` is
+set, and each confines itself to epochs 900001-900004 so a run against a populated database cannot
+disturb it:
 
 ```bash
 TEST_POSTGRES_URL="postgresql://${DB}:${DB}@localhost:5444/${DB}" \
-  cargo test -p api --test collected_stake_queries
+  cargo test -p api --test collected_stake_queries --test direct_staking_allocation_queries
 ```
