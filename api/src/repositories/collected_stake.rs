@@ -1,10 +1,11 @@
-use super::common::{pg_transient, CommonStoreOptions};
+use super::common::{pg_transient, read_yaml_input, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use std::collections::{BTreeMap, HashMap};
 use tokio_postgres::{types::ToSql, Client, Row};
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::CollectedStakeRecord;
 
 /// Marinade stake in lamports, keyed by vote account.
@@ -199,9 +200,8 @@ pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Resul
     const CHUNK_SIZE: usize = 512;
     const PARAMS_PER_INSERT: usize = 10;
 
-    let input = std::fs::File::open(options.input_path)?;
-    let records: Vec<CollectedStakeRecord> = serde_yaml::from_reader(input)?;
-    let epoch = collection_epoch(&records)?;
+    let records: Vec<CollectedStakeRecord> = read_yaml_input(&options.input_path)?;
+    let epoch = collection_epoch(&records).map_err(CliError::critical)?;
 
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;

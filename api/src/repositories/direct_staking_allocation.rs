@@ -1,4 +1,4 @@
-use super::common::{pg_transient, CommonStoreOptions};
+use super::common::{pg_transient, read_json_input, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
 use openssl::ssl::{SslConnector, SslMethod};
@@ -233,23 +233,6 @@ pub async fn get_latest_allocation_epoch(psql_client: &Client) -> anyhow::Result
         .transpose()
 }
 
-/// Errors are raised as `CliError`, because `CliResult` logs only what downcasts to one — a bare
-/// `anyhow::Error` exits 1 with nothing printed, leaving Buildkite showing a failure with no reason.
-/// Critical, not retry-able: re-reading a corrupted report cannot fix it.
-fn read_report(input_path: &str) -> anyhow::Result<AllocationReport> {
-    let input = std::fs::File::open(input_path).map_err(|error| {
-        CliError::critical(anyhow::anyhow!(
-            "Failed to open allocation report {input_path}: {error}"
-        ))
-    })?;
-    serde_json::from_reader(input).map_err(|error| {
-        CliError::critical(anyhow::anyhow!(
-            "Failed to parse allocation report {input_path}: {error}"
-        ))
-        .into()
-    })
-}
-
 /// The whole epoch is replaced in one transaction, so a re-run stays idempotent and cannot leave a
 /// validator the allocator no longer reports. Separated from the connection setup so the SQL itself
 /// is reachable from `api/tests/direct_staking_allocation_queries.rs` without TLS.
@@ -304,7 +287,7 @@ pub async fn replace_epoch_allocation(
 }
 
 pub async fn store_direct_staking_allocation(options: CommonStoreOptions) -> anyhow::Result<()> {
-    let report = read_report(&options.input_path)?;
+    let report: AllocationReport = read_json_input(&options.input_path)?;
     let epoch = i32::try_from(report.epoch).map_err(CliError::critical)?;
     // Deliberately not rejected the way an empty collected-stake file is: epoch 1020 was the first
     // direct-staking run and routed nothing at all. The report's presence in GCS is the record that
@@ -517,34 +500,5 @@ mod tests {
         impossible.exposure_bps = u64::MAX;
         let records = report_records(&report(vec![impossible], vec![]), stamp()).unwrap();
         sql_params(&records[0]).unwrap_err();
-    }
-
-    #[test]
-    fn a_missing_report_is_reported_as_critical() {
-        let error = read_report("/nonexistent/allocation-report.json").unwrap_err();
-        assert!(error.to_string().contains("Failed to open"), "{error}");
-        assert!(
-            matches!(
-                error.downcast_ref::<CliError>(),
-                Some(CliError::Critical(_))
-            ),
-            "a bare anyhow error would exit 1 with nothing logged",
-        );
-    }
-
-    #[test]
-    fn a_malformed_report_is_reported_as_critical() {
-        let path = std::env::temp_dir().join("validator-bonds-malformed-allocation.json");
-        std::fs::write(&path, b"{ not json").unwrap();
-        let error = read_report(path.to_str().unwrap()).unwrap_err();
-        std::fs::remove_file(&path).unwrap();
-        assert!(error.to_string().contains("Failed to parse"), "{error}");
-        assert!(
-            matches!(
-                error.downcast_ref::<CliError>(),
-                Some(CliError::Critical(_))
-            ),
-            "a corrupted report must be logged, and must not be retried",
-        );
     }
 }
