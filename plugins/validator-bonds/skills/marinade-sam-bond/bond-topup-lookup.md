@@ -42,15 +42,15 @@ also lets you filter by instruction name interactively.
 `gs://marinade-validator-bonds-mainnet/{epoch}/bonds.json`. Diff consecutive epochs
 to detect balance changes (fund, withdrawal, settlement drain).
 
-**bonds-collector PostgreSQL** — fastest for historical queries; `collect-bonds` writes
-a bond-state row per epoch. Example — find top-ups between epochs:
+**Per-epoch store documents** (needs a `/bonds/**:ro` token) — `collect-bonds` writes the whole
+bond set of an epoch to `/bonds/{bidding,institutional}/{epoch}` in marinade-directory. Diff two
+epochs' documents the same way as the GCS snapshots:
 
-```sql
-SELECT curr.vote_account, (curr.amount_active - prev.amount_active) AS delta_lamports
-FROM bonds curr
-JOIN bonds prev ON curr.vote_account = prev.vote_account AND prev.epoch = curr.epoch - 1
-WHERE curr.epoch = <N> AND curr.amount_active > prev.amount_active
-ORDER BY delta_lamports DESC;
+```sh
+for EPOCH in $((N-1)) $N; do
+  curl -sf -H "Authorization: Bearer $DIRECTORY_TOKEN" \
+    "$DIRECTORY_URL/v1/bonds/bidding/$EPOCH" > "bonds-$EPOCH.json"
+done
 ```
 
 **Protected events / settlements** — `GET https://validator-bonds-api.marinade.finance/protected-events`

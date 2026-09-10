@@ -80,7 +80,7 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
 | `common-rs`                                           | Shared Rust types: bond DTOs, settlement, config                |
 | `merkle-tree`                                         | Generic Merkle tree library                                     |
 | `bonds-collector`                                     | CLI: loads on-chain bond data → YAML                            |
-| `api`                                                 | Warp HTTP server (OpenAPI) serving bonds data from Postgres     |
+| `api`                                                 | axum HTTP server (OpenAPI) serving bonds data from marinade-directory |
 | `settlement-pipelines`                                | Pipeline CLIs: init/fund/claim/close settlements on-chain       |
 | `settlement-distributions/bid-distribution`           | Core engine: SAM scores + rewards → bidding/PSR settlement JSON |
 | `settlement-distributions/institutional-distribution` | Settlement engine for institutional staking payouts             |
