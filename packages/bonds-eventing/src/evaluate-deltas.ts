@@ -54,9 +54,8 @@ export function lamportsToSol(lamports: bigint): number {
  * Coerce a possibly-non-finite number to a fallback. The DS SAM SDK
  * initializes several validator aggregate fields to `NaN` (see
  * `validatorAggDefaults()` in ds-sam-sdk) and only fills them in for
- * eligible validators. `value ?? 0` does NOT catch NaN, so any NaN that
- * leaks into an event payload makes slonik's `sql.jsonb` throw
- * `JSON payload cannot be stringified.` (safe-stable-stringify strict mode).
+ * eligible validators. `value ?? 0` does NOT catch NaN, so without this a NaN
+ * reaches the event payload and serializes as a bare null.
  */
 function finiteOr(value: number | null | undefined, fallback: number): number {
   return value == null || !isFinite(value) ? fallback : value

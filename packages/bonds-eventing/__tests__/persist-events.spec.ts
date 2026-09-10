@@ -1,26 +1,26 @@
-import { sanitizeForJsonb } from '../src/persist-events'
+import { sanitizeJson } from '../src/persist-events'
 
-describe('sanitizeForJsonb', () => {
+describe('sanitizeJson', () => {
   it('replaces NaN with null', () => {
-    expect(sanitizeForJsonb(NaN)).toBeNull()
+    expect(sanitizeJson(NaN)).toBeNull()
   })
 
   it('replaces ±Infinity with null', () => {
-    expect(sanitizeForJsonb(Infinity)).toBeNull()
-    expect(sanitizeForJsonb(-Infinity)).toBeNull()
+    expect(sanitizeJson(Infinity)).toBeNull()
+    expect(sanitizeJson(-Infinity)).toBeNull()
   })
 
   it('passes finite numbers through', () => {
-    expect(sanitizeForJsonb(0)).toBe(0)
-    expect(sanitizeForJsonb(-1.5)).toBe(-1.5)
-    expect(sanitizeForJsonb(1e20)).toBe(1e20)
+    expect(sanitizeJson(0)).toBe(0)
+    expect(sanitizeJson(-1.5)).toBe(-1.5)
+    expect(sanitizeJson(1e20)).toBe(1e20)
   })
 
   it('preserves non-number primitives and null', () => {
-    expect(sanitizeForJsonb(null)).toBeNull()
-    expect(sanitizeForJsonb(undefined)).toBeUndefined()
-    expect(sanitizeForJsonb('x')).toBe('x')
-    expect(sanitizeForJsonb(true)).toBe(true)
+    expect(sanitizeJson(null)).toBeNull()
+    expect(sanitizeJson(undefined)).toBeUndefined()
+    expect(sanitizeJson('x')).toBe('x')
+    expect(sanitizeJson(true)).toBe(true)
   })
 
   it('recursively sanitizes nested objects and arrays', () => {
@@ -35,7 +35,7 @@ describe('sanitizeForJsonb', () => {
         },
       },
     }
-    expect(sanitizeForJsonb(event)).toEqual({
+    expect(sanitizeJson(event)).toEqual({
       type: 'bonds',
       data: {
         details: {
@@ -48,13 +48,11 @@ describe('sanitizeForJsonb', () => {
     })
   })
 
-  it('produces an output that JSON.stringify accepts in strict mode', () => {
-    // Mimics slonik's safe-stable-stringify strict behavior: regular JSON
-    // already throws on BigInt and silently nulls NaN — we only need to
-    // assert that nothing remains that strict mode would reject.
-    const sanitized = sanitizeForJsonb({ a: NaN, b: [Infinity, { c: NaN }] })
-    expect(JSON.stringify(sanitized)).toBe(
-      JSON.stringify({ a: null, b: [null, { c: null }] }),
+  it('stores what the emitted payload serializes to', () => {
+    const raw = { a: NaN, b: [Infinity, { c: NaN }] }
+    expect(JSON.stringify(sanitizeJson(raw))).toBe(JSON.stringify(raw))
+    expect(JSON.stringify(sanitizeJson(raw))).toBe(
+      '{"a":null,"b":[null,{"c":null}]}',
     )
   })
 })

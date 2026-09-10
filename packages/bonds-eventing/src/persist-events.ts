@@ -1,13 +1,27 @@
-import { type DatabasePool, sql, type SerializableValue } from 'slonik'
+import { DirectoryConflictError } from './directory'
 
-import type { BondsEventV1, EmitResult } from './types'
+import type { Directory } from './directory'
+import type { BondType, BondsEventV1, EmitResult } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
-// slonik's `sql.jsonb(...)` uses safe-stable-stringify in strict mode, which
-// throws on NaN / ±Infinity. Native `JSON.stringify` (used by the emit step)
-// silently maps them to null — this helper aligns the persisted payload with
-// what the notifications API already receives.
-export function sanitizeForJsonb(value: unknown): unknown {
+/** One emitted event as it is stored, mirroring the envelope the notifications API received. */
+interface EmittedEvent {
+  message_id: string
+  inner_type: BondsEventV1['inner_type']
+  vote_account: BondsEventV1['vote_account']
+  bond_pubkey: BondsEventV1['bond_pubkey']
+  bond_type: BondType
+  epoch: number
+  payload: unknown
+  status: EmitResult['status']
+  error: string | null
+  created_at: string
+}
+
+// NaN and ±Infinity are not JSON. `JSON.stringify` maps them to null on its own,
+// so this makes the stored payload equal to the one the emit step POSTed and
+// keeps that mapping under test.
+export function sanitizeJson(value: unknown): unknown {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null
   }
@@ -15,17 +29,17 @@ export function sanitizeForJsonb(value: unknown): unknown {
     return value
   }
   if (Array.isArray(value)) {
-    return value.map(sanitizeForJsonb)
+    return value.map(sanitizeJson)
   }
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    out[k] = sanitizeForJsonb(v)
+    out[k] = sanitizeJson(v)
   }
   return out
 }
 
 export async function persistEvents(
-  pool: DatabasePool,
+  dir: Directory,
   results: Map<BondsEventV1, EmitResult>,
   logger: LoggerWrapper,
 ): Promise<void> {
@@ -33,30 +47,30 @@ export async function persistEvents(
     return
   }
 
-  const valueTuples = Array.from(
-    results,
-    ([event, result]) =>
-      sql.fragment`(
-      ${result.messageId},
-      ${event.inner_type},
-      ${event.vote_account},
-      ${event.bond_pubkey},
-      ${event.bond_type},
-      ${event.epoch},
-      ${sql.jsonb(sanitizeForJsonb(event) as SerializableValue)},
-      ${result.status},
-      ${result.error ?? null},
-      NOW()
-    )`,
-  )
+  const createdAt = new Date().toISOString()
+  for (const [event, result] of results) {
+    const record: EmittedEvent = {
+      message_id: result.messageId,
+      inner_type: event.inner_type,
+      vote_account: event.vote_account,
+      bond_pubkey: event.bond_pubkey,
+      bond_type: event.bond_type,
+      epoch: event.epoch,
+      payload: sanitizeJson(event),
+      status: result.status,
+      error: result.error ?? null,
+      created_at: createdAt,
+    }
+    const path = `/bonds/events/${event.bond_type}/${event.epoch}/${result.messageId}`
 
-  await pool.query(sql.unsafe`
-    INSERT INTO emitted_bond_events (
-      message_id, inner_type, vote_account, bond_pubkey,
-      bond_type, epoch, payload, status, error, created_at
-    ) VALUES ${sql.join(valueTuples, sql.fragment`, `)}
-    ON CONFLICT (message_id) DO NOTHING
-  `)
+    try {
+      await dir.put(path, record, { create: true })
+    } catch (err) {
+      // The message id is already stored: the record is append-only, so the
+      // refusal means the event is persisted.
+      if (!(err instanceof DirectoryConflictError)) throw err
+    }
+  }
 
   logger.info(`Persisted ${results.size} event records`)
 }

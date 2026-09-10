@@ -1,15 +1,9 @@
-import * as fs from 'fs'
-
-import { createPool, createTypeParserPreset } from 'slonik'
-
 import { emitEvents } from './emit-events'
 import { persistEvents } from './persist-events'
-import {
-  deleteRemovedValidators,
-  loadPreviousState,
-  saveCurrentState,
-} from './state'
+import { loadPreviousState, saveState } from './state'
 
+import type { AuctionMeta } from './calc-relay'
+import type { Directory } from './directory'
 import type {
   BondType,
   BondsEventV1,
@@ -17,11 +11,11 @@ import type {
   ValidatorState,
 } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
-import type { CommonQueryMethods } from 'slonik'
 
 export async function runEventingPipeline<V>(opts: {
   bondType: BondType
   config: EventingConfig
+  dir: Directory
   logger: LoggerWrapper
   validators: V[]
   epoch: number
@@ -32,55 +26,20 @@ export async function runEventingPipeline<V>(opts: {
     epoch: number,
   ) => BondsEventV1[]
   toState: (v: V, epoch: number) => ValidatorState
-  saveMeta?: (tx: CommonQueryMethods) => Promise<void>
+  meta?: AuctionMeta
 }): Promise<void> {
-  const { bondType, config, logger, validators, epoch } = opts
-
-  let previousState = new Map<string, ValidatorState>()
-
-  let pool: Awaited<ReturnType<typeof createPool>> | null = null
+  const { bondType, config, dir, logger, validators, epoch } = opts
 
   try {
-    if (config.postgresUrl) {
-      const poolConfig: Parameters<typeof createPool>[1] = {
-        typeParsers: [
-          ...createTypeParserPreset(),
-          {
-            name: 'timestamptz',
-            parse: (timestamp: string) => new Date(timestamp).toISOString(),
-          },
-          {
-            name: 'numeric',
-            parse: (numeric: string) => numeric,
-          },
-        ],
-        maximumPoolSize: 5,
-      }
+    const previous = await loadPreviousState(dir, bondType, logger)
 
-      if (config.postgresSslRootCert) {
-        const ca = fs.readFileSync(config.postgresSslRootCert, 'utf8')
-        ;(poolConfig as Record<string, unknown>).ssl = {
-          rejectUnauthorized: true,
-          ca: [ca],
-        }
-      }
-
-      pool = await createPool(config.postgresUrl, poolConfig)
-      previousState = await loadPreviousState(pool, bondType, logger)
-    } else {
-      logger.warn(
-        'No POSTGRES_URL configured, running without state (all validators will be first_seen)',
-      )
-    }
-
-    const events = opts.evaluate(validators, previousState, epoch)
+    const events = opts.evaluate(validators, previous.validators, epoch)
 
     const results = await emitEvents(events, config, logger)
 
-    if (pool && !config.dryRun) {
-      await persistEvents(pool, results, logger)
+    if (!config.dryRun) {
+      await persistEvents(dir, results, logger)
 
-      // Save current state per validator — only for validators whose events all posted successfully
       const failedVoteAccounts = new Set<string>()
       for (const [event, result] of results) {
         if (result.status === 'failed') {
@@ -90,31 +49,45 @@ export async function runEventingPipeline<V>(opts: {
 
       if (failedVoteAccounts.size > 0) {
         logger.warn(
-          `${failedVoteAccounts.size} validator(s) had failed events — their state will not be saved so deltas are retried on next run`,
+          `${failedVoteAccounts.size} validator(s) had failed events — their state is kept as it was so deltas are retried on next run`,
         )
       }
 
-      const succeededStates = validators
-        .filter(v => !failedVoteAccounts.has(opts.voteAccountOf(v)))
-        .map(v => opts.toState(v, epoch))
-
-      // Delete state only for delisted validators whose validator_delisted event succeeded.
-      // All currently tracked validators must keep their state rows (even if their events failed).
-      const keepVoteAccounts = new Set(validators.map(opts.voteAccountOf))
-      for (const va of failedVoteAccounts) {
-        keepVoteAccounts.add(va) // don't delete state for failed removals either
+      // A validator whose events all posted takes its new state; one with a
+      // failed event keeps the entry the previous run left.
+      const currentVoteAccounts = new Set<string>()
+      for (const validator of validators) {
+        const voteAccount = opts.voteAccountOf(validator)
+        currentVoteAccounts.add(voteAccount)
+        if (!failedVoteAccounts.has(voteAccount)) {
+          previous.validators.set(voteAccount, opts.toState(validator, epoch))
+        }
       }
 
-      // Save state + delete removed in a single transaction for consistency
-      await pool.transaction(async tx => {
-        if (succeededStates.length > 0) {
-          await saveCurrentState(tx, succeededStates, logger)
+      // A delisted validator leaves the document once its delist event posted.
+      for (const voteAccount of previous.validators.keys()) {
+        if (
+          !currentVoteAccounts.has(voteAccount) &&
+          !failedVoteAccounts.has(voteAccount)
+        ) {
+          previous.validators.delete(voteAccount)
         }
-        await deleteRemovedValidators(tx, bondType, keepVoteAccounts, logger)
-        if (opts.saveMeta) {
-          await opts.saveMeta(tx)
-        }
-      })
+      }
+
+      // A 412 here means a second run wrote the document while this one was
+      // emitting; it propagates, because its events are already POSTed and
+      // re-evaluating against the winner's state would emit them again.
+      await saveState(
+        dir,
+        bondType,
+        {
+          epoch,
+          meta: opts.meta ?? previous.meta,
+          validators: previous.validators,
+        },
+        previous.etag,
+        logger,
+      )
     }
 
     const sent = [...results.values()].filter(r => r.status === 'sent').length
@@ -127,7 +100,7 @@ export async function runEventingPipeline<V>(opts: {
   } catch (err) {
     // Surface the stack and any structured payload so log scrapers see more
     // than just `err.message` (the top-level handler in `index.ts` only logs
-    // the message, which made past slonik failures untraceable).
+    // the message).
     logger.error(
       {
         err:
@@ -138,9 +111,5 @@ export async function runEventingPipeline<V>(opts: {
       'Eventing failed',
     )
     throw err
-  } finally {
-    if (pool) {
-      await pool.end()
-    }
   }
 }

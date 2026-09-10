@@ -1,198 +1,154 @@
-import {
-  type CommonQueryMethods,
-  type DatabasePool,
-  type SerializableValue,
-  sql,
-} from 'slonik'
-
 import { jsonSafe } from './calc-relay'
 
 import type { AuctionMeta } from './calc-relay'
+import type { Directory } from './directory'
 import type { BondType, ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
+/** Stored shape of one validator entry: lamport amounts are decimal strings. */
+interface ValidatorStateJson {
+  vote_account: string
+  bond_pubkey: string | null
+  bond_type: BondType
+  epoch: number
+  in_auction: boolean
+  bond_good_for_n_epochs: number | null
+  cap_constraint: string | null
+  cap_marinade_stake_sol: number | null
+  funded_amount_lamports: string
+  effective_amount_lamports: string
+  auction_stake_lamports: string
+  deficit_lamports: string
+  settlement_claims_lamports: string | null
+  sam_eligible: boolean
+  updated_at: string
+  auction_validator?: Record<string, unknown>
+}
+
+interface EventingDocJson {
+  epoch: number
+  meta?: AuctionMeta
+  validators: Record<string, ValidatorStateJson>
+}
+
+export interface EventingDocument {
+  epoch: number
+  meta: AuctionMeta | undefined
+  validators: Map<string, ValidatorState>
+}
+
+export interface PreviousState {
+  validators: Map<string, ValidatorState>
+  meta: AuctionMeta | undefined
+  /** null when the document does not exist yet, which makes the next save a create. */
+  etag: string | null
+}
+
+function statePath(bondType: BondType): string {
+  return `/bonds/eventing/${bondType}`
+}
+
+function fromJson(row: ValidatorStateJson): ValidatorState {
+  return {
+    vote_account: row.vote_account,
+    bond_pubkey: row.bond_pubkey,
+    bond_type: row.bond_type,
+    epoch: row.epoch,
+    in_auction: row.in_auction,
+    bond_good_for_n_epochs: row.bond_good_for_n_epochs,
+    cap_constraint: row.cap_constraint,
+    cap_marinade_stake_sol: row.cap_marinade_stake_sol,
+    funded_amount_lamports: BigInt(row.funded_amount_lamports),
+    effective_amount_lamports: BigInt(row.effective_amount_lamports),
+    auction_stake_lamports: BigInt(row.auction_stake_lamports),
+    deficit_lamports: BigInt(row.deficit_lamports),
+    settlement_claims_lamports:
+      row.settlement_claims_lamports === null
+        ? null
+        : BigInt(row.settlement_claims_lamports),
+    sam_eligible: row.sam_eligible,
+    updated_at: row.updated_at,
+    auction_validator: row.auction_validator,
+  }
+}
+
+function toJson(state: ValidatorState): ValidatorStateJson {
+  return {
+    vote_account: state.vote_account,
+    bond_pubkey: state.bond_pubkey,
+    bond_type: state.bond_type,
+    epoch: state.epoch,
+    in_auction: state.in_auction,
+    bond_good_for_n_epochs: state.bond_good_for_n_epochs,
+    cap_constraint: state.cap_constraint,
+    cap_marinade_stake_sol: state.cap_marinade_stake_sol,
+    funded_amount_lamports: state.funded_amount_lamports.toString(),
+    effective_amount_lamports: state.effective_amount_lamports.toString(),
+    auction_stake_lamports: state.auction_stake_lamports.toString(),
+    deficit_lamports: state.deficit_lamports.toString(),
+    settlement_claims_lamports:
+      state.settlement_claims_lamports?.toString() ?? null,
+    sam_eligible: state.sam_eligible,
+    updated_at: state.updated_at,
+    auction_validator: state.auction_validator,
+  }
+}
+
 export async function loadPreviousState(
-  pool: DatabasePool,
+  dir: Directory,
   bondType: BondType,
   logger: LoggerWrapper,
-): Promise<Map<string, ValidatorState>> {
-  const result = await pool.query(sql.unsafe`
-    SELECT
-      vote_account,
-      bond_pubkey,
-      bond_type,
-      epoch,
-      in_auction,
-      bond_good_for_n_epochs,
-      cap_constraint,
-      cap_marinade_stake_sol,
-      funded_amount_lamports,
-      effective_amount_lamports,
-      auction_stake_lamports,
-      deficit_lamports,
-      settlement_claims_lamports,
-      sam_eligible,
-      updated_at
-    FROM bond_event_state
-    WHERE bond_type = ${bondType}
-  `)
+): Promise<PreviousState> {
+  const path = statePath(bondType)
+  const doc = await dir.get<EventingDocJson>(path)
 
-  interface StateRow {
-    vote_account: string
-    bond_pubkey: string | null
-    bond_type: string
-    epoch: number
-    in_auction: boolean
-    bond_good_for_n_epochs: number | null
-    cap_constraint: string | null
-    cap_marinade_stake_sol: number | null
-    funded_amount_lamports: string
-    effective_amount_lamports: string
-    auction_stake_lamports: string
-    deficit_lamports: string
-    settlement_claims_lamports: string | null
-    sam_eligible: boolean
-    updated_at: string
+  if (doc === null) {
+    logger.info(`No state document at ${path}, starting from an empty map`)
+    return { validators: new Map(), meta: undefined, etag: null }
   }
 
-  const stateMap = new Map<string, ValidatorState>()
-  for (const row of result.rows as unknown as StateRow[]) {
-    const state: ValidatorState = {
-      vote_account: row.vote_account,
-      bond_pubkey: row.bond_pubkey,
-      bond_type: row.bond_type as BondType,
-      epoch: row.epoch,
-      in_auction: row.in_auction,
-      bond_good_for_n_epochs: row.bond_good_for_n_epochs,
-      cap_constraint: row.cap_constraint,
-      cap_marinade_stake_sol: row.cap_marinade_stake_sol,
-      funded_amount_lamports: BigInt(row.funded_amount_lamports ?? '0'),
-      effective_amount_lamports: BigInt(row.effective_amount_lamports ?? '0'),
-      auction_stake_lamports: BigInt(row.auction_stake_lamports ?? '0'),
-      deficit_lamports: BigInt(row.deficit_lamports ?? '0'),
-      settlement_claims_lamports:
-        row.settlement_claims_lamports === null
-          ? null
-          : BigInt(row.settlement_claims_lamports),
-      sam_eligible: row.sam_eligible,
-      updated_at: String(row.updated_at),
-    }
-    stateMap.set(state.vote_account, state)
+  if (typeof doc.body.validators !== 'object' || doc.body.validators === null) {
+    throw new Error(`Directory document ${path} carries no validators map`)
+  }
+
+  const validators = new Map<string, ValidatorState>()
+  for (const [voteAccount, row] of Object.entries(doc.body.validators)) {
+    validators.set(voteAccount, fromJson(row))
   }
 
   logger.info(
-    `Loaded previous state: ${stateMap.size} validators for bond_type=${bondType}`,
+    `Loaded previous state: ${validators.size} validators for bond_type=${bondType}`,
   )
-  return stateMap
+  return { validators, meta: doc.body.meta, etag: doc.etag }
 }
 
-export async function saveCurrentState(
-  db: CommonQueryMethods,
-  states: ValidatorState[],
+export async function saveState(
+  dir: Directory,
+  bondType: BondType,
+  doc: EventingDocument,
+  etag: string | null,
   logger: LoggerWrapper,
 ): Promise<void> {
-  if (states.length === 0) {
-    logger.info('No state to save')
-    return
+  const validators: Record<string, ValidatorStateJson> = {}
+  for (const [voteAccount, state] of doc.validators) {
+    validators[voteAccount] = toJson(state)
   }
 
-  const valueTuples = states.map(
-    state => sql.fragment`(
-      ${state.vote_account},
-      ${state.bond_pubkey},
-      ${state.bond_type},
-      ${state.epoch},
-      ${state.in_auction},
-      ${state.bond_good_for_n_epochs},
-      ${state.cap_constraint},
-      ${state.cap_marinade_stake_sol},
-      ${state.funded_amount_lamports.toString()},
-      ${state.effective_amount_lamports.toString()},
-      ${state.auction_stake_lamports.toString()},
-      ${state.deficit_lamports.toString()},
-      ${state.settlement_claims_lamports?.toString() ?? null},
-      ${state.sam_eligible},
-      ${sql.jsonb((state.auction_validator ?? null) as SerializableValue)},
-      NOW()
-    )`,
+  const body: EventingDocJson = {
+    epoch: doc.epoch,
+    validators,
+  }
+  if (doc.meta !== undefined) {
+    body.meta = jsonSafe(doc.meta)
+  }
+
+  await dir.put(
+    statePath(bondType),
+    body,
+    etag === null ? { create: true } : { ifMatch: etag },
   )
-
-  await db.query(sql.unsafe`
-    INSERT INTO bond_event_state (
-      vote_account, bond_pubkey, bond_type, epoch,
-      in_auction, bond_good_for_n_epochs, cap_constraint,
-      cap_marinade_stake_sol,
-      funded_amount_lamports, effective_amount_lamports,
-      auction_stake_lamports, deficit_lamports, settlement_claims_lamports,
-      sam_eligible, auction_validator, updated_at
-    ) VALUES
-      ${sql.join(valueTuples, sql.fragment`, `)}
-    ON CONFLICT (vote_account, bond_type) DO UPDATE SET
-      bond_pubkey = EXCLUDED.bond_pubkey,
-      epoch = EXCLUDED.epoch,
-      in_auction = EXCLUDED.in_auction,
-      bond_good_for_n_epochs = EXCLUDED.bond_good_for_n_epochs,
-      cap_constraint = EXCLUDED.cap_constraint,
-      cap_marinade_stake_sol = EXCLUDED.cap_marinade_stake_sol,
-      funded_amount_lamports = EXCLUDED.funded_amount_lamports,
-      effective_amount_lamports = EXCLUDED.effective_amount_lamports,
-      auction_stake_lamports = EXCLUDED.auction_stake_lamports,
-      deficit_lamports = EXCLUDED.deficit_lamports,
-      settlement_claims_lamports = EXCLUDED.settlement_claims_lamports,
-      sam_eligible = EXCLUDED.sam_eligible,
-      auction_validator = EXCLUDED.auction_validator,
-      updated_at = NOW()
-  `)
-
-  logger.info(`Saved current state: ${states.length} validators`)
-}
-
-export async function saveAuctionMeta(
-  db: CommonQueryMethods,
-  bondType: BondType,
-  meta: AuctionMeta,
-  logger: LoggerWrapper,
-): Promise<void> {
-  await db.query(sql.unsafe`
-    INSERT INTO bond_event_meta (bond_type, epoch, data, updated_at)
-    VALUES (${bondType}, ${meta.epoch}, ${sql.jsonb(jsonSafe(meta) as unknown as SerializableValue)}, NOW())
-    ON CONFLICT (bond_type) DO UPDATE SET
-      epoch = EXCLUDED.epoch,
-      data = EXCLUDED.data,
-      updated_at = NOW()
-  `)
 
   logger.info(
-    `Saved auction meta for bond_type=${bondType}, epoch=${meta.epoch}`,
+    `Saved state: ${doc.validators.size} validators for bond_type=${bondType}, epoch=${doc.epoch}`,
   )
-}
-
-export async function deleteRemovedValidators(
-  db: CommonQueryMethods,
-  bondType: BondType,
-  currentVoteAccounts: Set<string>,
-  logger: LoggerWrapper,
-): Promise<void> {
-  if (currentVoteAccounts.size === 0) {
-    // All validators removed - clear all state for this bond type
-    await db.query(sql.unsafe`
-      DELETE FROM bond_event_state WHERE bond_type = ${bondType}
-    `)
-    logger.info(`Deleted all state rows for bond_type=${bondType}`)
-    return
-  }
-
-  const voteAccountList = [...currentVoteAccounts]
-  // Delete rows for validators no longer present in the auction result
-  const result = await db.query(sql.unsafe`
-    DELETE FROM bond_event_state
-    WHERE bond_type = ${bondType}
-      AND vote_account != ALL(${sql.array(voteAccountList, 'text')})
-  `)
-
-  if (result.rowCount > 0) {
-    logger.info(
-      `Deleted ${result.rowCount} stale state rows for bond_type=${bondType}`,
-    )
-  }
 }

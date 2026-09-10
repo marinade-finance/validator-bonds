@@ -44,8 +44,8 @@ export interface ValidatorState {
   settlement_claims_lamports: bigint | null
   sam_eligible: boolean
   updated_at: string
-  // Calc blob relayed to the CLI; set only on save (validatorToState), not loaded
-  // back — it is not part of the delta comparison.
+  // Calc blob relayed to the CLI. Not part of the delta comparison; it is kept
+  // on the stored entry so a validator whose events failed does not lose it.
   auction_validator?: Record<string, unknown>
 }
 
@@ -63,8 +63,8 @@ export interface EventingConfig {
   institutionalApiUrl: string
   notificationsApiUrl: string | undefined
   notificationsJwt: string | undefined
-  postgresUrl: string | undefined
-  postgresSslRootCert: string | undefined
+  directoryUrl: string
+  directoryToken: string
   retryMaxAttempts: number
   retryBaseDelayMs: number
   emitConcurrency: number

@@ -61,7 +61,7 @@ describe('jsonSafe', () => {
     })
   })
 
-  it('produces JSON-serializable output (the slonik strict-stringify hazard)', () => {
+  it('produces JSON-serializable output', () => {
     const out = jsonSafe({ a: NaN, b: [Infinity] })
     expect(() => JSON.stringify(out)).not.toThrow()
     expect(JSON.stringify(out)).toBe('{"a":null,"b":[null]}')
