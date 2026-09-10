@@ -1,47 +1,16 @@
 use clap::Args;
-use tokio_postgres::error::SqlState;
 use validator_bonds_common::cli_result::CliError;
+use validator_bonds_common::directory::DirectoryError;
 
-pub fn pg_transient(err: tokio_postgres::Error) -> CliError {
-    let is_transient = err.is_closed()
-        || err.code().is_some_and(is_transient_sql_state)
-        || std::error::Error::source(&err)
-            .and_then(|s| s.downcast_ref::<std::io::Error>())
-            .map(is_transient_io_kind)
-            .unwrap_or(false);
-
-    if is_transient {
-        CliError::retry_able(err)
-    } else {
-        CliError::critical(err)
+/// Retry what a later run can still win — the store unreachable, or a fault on its side. A 4xx
+/// will not fix itself: a bad token stays bad, and a 412 means another writer got there first,
+/// which is the alarm the serialization gate was bypassed.
+pub fn http_transient(err: DirectoryError) -> CliError {
+    match err {
+        DirectoryError::Transport { .. } => CliError::retry_able(err),
+        DirectoryError::Status { status, .. } if status >= 500 => CliError::retry_able(err),
+        _ => CliError::critical(err),
     }
-}
-
-// A server answer carries no IO error, yet a lost transaction race or an RDS failover must retry.
-fn is_transient_sql_state(code: &SqlState) -> bool {
-    matches!(
-        *code,
-        SqlState::T_R_SERIALIZATION_FAILURE
-            | SqlState::T_R_DEADLOCK_DETECTED
-            | SqlState::ADMIN_SHUTDOWN
-            | SqlState::CRASH_SHUTDOWN
-            | SqlState::CANNOT_CONNECT_NOW
-    )
-}
-
-fn is_transient_io_kind(io: &std::io::Error) -> bool {
-    use std::io::ErrorKind::*;
-    matches!(
-        io.kind(),
-        ConnectionRefused
-            | ConnectionReset
-            | ConnectionAborted
-            | NotConnected
-            | TimedOut
-            | UnexpectedEof
-            | Interrupted
-            | WouldBlock
-    )
 }
 
 #[derive(Debug, Args)]
@@ -49,9 +18,13 @@ pub struct CommonStoreOptions {
     #[arg(long = "input-file")]
     pub input_path: String,
 
-    #[arg(long = "postgres-url")]
-    pub postgres_url: String,
+    #[arg(long = "directory-url", env = "DIRECTORY_URL")]
+    pub directory_url: String,
 
-    #[arg(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
-    pub postgres_ssl_root_cert: String,
+    #[arg(long = "directory-token", env = "DIRECTORY_TOKEN")]
+    pub directory_token: String,
 }
+
+#[cfg(test)]
+#[path = "common_test.rs"]
+mod common_test;

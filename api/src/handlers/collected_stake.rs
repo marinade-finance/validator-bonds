@@ -123,7 +123,7 @@ pub async fn handler(
 ) -> Result<Json<CollectedStakeResponse>, AppError> {
     let context = context.read().await;
 
-    let snapshot = get_collected_stake(&context.psql_client)
+    let snapshot = get_collected_stake(&context.directory)
         .await
         .map_err(|error| AppError {
             message: format!("Failed to fetch collected stake. Error: {error:?}"),

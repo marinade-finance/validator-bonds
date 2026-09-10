@@ -8,6 +8,7 @@ pub mod bonds;
 pub mod cli_result;
 pub mod config;
 pub mod constants;
+pub mod directory;
 pub mod dto;
 pub mod funded_bonds;
 pub mod settlement_claims;

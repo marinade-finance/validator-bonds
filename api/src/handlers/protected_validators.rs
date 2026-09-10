@@ -77,7 +77,7 @@ pub async fn handler(
 
     // Without stake data every validator reads as zero stake, so the floor alone would protect a
     // whale's dust bond.
-    let snapshot = get_collected_stake(&context.psql_client)
+    let snapshot = get_collected_stake(&context.directory)
         .await
         .map_err(|error| AppError {
             message: format!("Failed to fetch collected stake. Error: {error:?}"),
@@ -86,7 +86,7 @@ pub async fn handler(
             message: "No collected stake stored yet".to_string(),
         })?;
 
-    let bonds = get_summable_bonds(&context.psql_client)
+    let bonds = get_summable_bonds(&context.directory)
         .await
         .map_err(|error| AppError {
             message: format!("Failed to fetch bonds. Error: {error:?}"),

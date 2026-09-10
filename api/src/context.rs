@@ -1,23 +1,23 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio_postgres::Client;
+use validator_bonds_common::directory::Directory;
 
 use crate::dto::ProtectedEventRecord;
 
 pub struct Context {
-    pub psql_client: Client,
+    pub directory: Directory,
     pub protected_events_records: Arc<RwLock<Vec<ProtectedEventRecord>>>,
     pub verified_validators: Vec<String>,
 }
 
 impl Context {
     pub fn new(
-        psql_client: Client,
+        directory: Directory,
         protected_events_records: Arc<RwLock<Vec<ProtectedEventRecord>>>,
         verified_validators: Vec<String>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            psql_client,
+            directory,
             protected_events_records,
             verified_validators,
         })
