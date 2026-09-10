@@ -373,7 +373,8 @@ mod tests {
 
     // The hand mirror declares the union of both outcomes, so neither variant alone can equal it.
     // Asserting the union instead catches a field documented but never emitted, and a field emitted
-    // but never documented, from one place.
+    // but never documented, from one place. Both bond-epoch shapes are crossed in because the
+    // mirror declares them nullable by hand, and only a serialized `null` checks that claim.
     #[test]
     fn allocation_record_schema_matches_both_outcomes() {
         use validator_bonds_common::dto::{AllocationOutcome, DirectStakingAllocationRecord};
@@ -381,14 +382,14 @@ mod tests {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
         let schema = &docs["components"]["schemas"]["DirectStakingAllocationRecord"];
 
-        let record = |outcome| DirectStakingAllocationRecord {
+        let record = |outcome, bonds_epoch| DirectStakingAllocationRecord {
             epoch: 1030,
             slot: 445_356_003,
             vote_account: Pubkey::new_unique().to_string(),
             settlements: 1,
             claims_amount: 37_316_490,
-            bidding_bonds_epoch: Some(1030),
-            institutional_bonds_epoch: Some(1030),
+            bidding_bonds_epoch: bonds_epoch,
+            institutional_bonds_epoch: bonds_epoch,
             outcome,
             updated_at: Utc::now(),
         };
@@ -414,7 +415,11 @@ mod tests {
 
         let serialized: Vec<serde_json::Value> = outcomes
             .into_iter()
-            .map(|outcome| serde_json::to_value(record(outcome)).unwrap())
+            .flat_map(|outcome| {
+                [Some(1030), None].map(|bonds_epoch| {
+                    serde_json::to_value(record(outcome.clone(), bonds_epoch)).unwrap()
+                })
+            })
             .collect();
 
         let mut emitted: BTreeSet<&str> = BTreeSet::new();
