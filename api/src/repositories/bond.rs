@@ -96,8 +96,8 @@ async fn get_last_bonds(
         .map(|document| document.body))
 }
 
-/// `None` where that type never stored the epoch, which reads as the empty row set the
-/// `bond_type IN (…) AND epoch = …` filter used to return.
+/// `None` where that type never stored the epoch; the sum then counts only the other
+/// type's collateral at that epoch.
 async fn get_bonds_at(
     directory: &Directory,
     bond_type: BondType,

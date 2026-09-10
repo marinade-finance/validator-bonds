@@ -62,8 +62,8 @@ impl Directory {
         }
     }
 
-    /// `None` for a path the store does not have, which every caller reads as
-    /// the empty set the missing table used to produce.
+    /// `None` for a path the store does not have; every caller reads that as
+    /// an empty set, not an error.
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: &str,
