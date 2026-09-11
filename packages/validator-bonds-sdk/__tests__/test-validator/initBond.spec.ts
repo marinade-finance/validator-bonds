@@ -106,8 +106,6 @@ describe('Validator Bonds init bond', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_BOND_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.authority).toEqual(bondAuthority)
     expect(e.config).toEqual(configAccount)

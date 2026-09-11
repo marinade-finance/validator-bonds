@@ -323,6 +323,7 @@ pub fn load_rewards_from_directory(
         &validators_inflation,
         &validators_mev,
     )?;
+    verify_block_rewards_present(&validators_blocks)?;
 
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(
@@ -356,6 +357,18 @@ fn verify_stakers_rewards_present(
     if !validators_mev.is_empty() && mev_rewards.is_empty() {
         return Err(anyhow::anyhow!(
             "{VALIDATORS_MEV_REWARDS_FILE} has entries but {MEV_REWARDS_FILE} is empty - either the stakers' MEV rewards export is incomplete or no stakers received MEV rewards; refusing to derive 100% commissions"
+        ));
+    }
+    Ok(())
+}
+
+// unlike inflation and mev, block rewards have no stakers' counterpart file to cross-check against
+fn verify_block_rewards_present(
+    validators_blocks: &[ValidatorBlockRewardEntry],
+) -> anyhow::Result<()> {
+    if validators_blocks.is_empty() {
+        return Err(anyhow::anyhow!(
+            "{VALIDATORS_BLOCKS_REWARDS_FILE} is empty - every bond would be charged zero block commission and the stakers' block rewards would drop out of the payout"
         ));
     }
     Ok(())
@@ -605,6 +618,22 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(error.contains("mev.json is empty"), "{error}");
+    }
+
+    #[test]
+    fn test_verify_block_rewards_present() {
+        let blocks = vec![ValidatorBlockRewardEntry {
+            epoch: 1,
+            identity_account: Pubkey::default(),
+            node_pubkey: Pubkey::default(),
+            authorized_voter: Pubkey::default(),
+            vote_account: Pubkey::new_unique(),
+            amount: 10,
+        }];
+        assert!(verify_block_rewards_present(&blocks).is_ok());
+
+        let error = verify_block_rewards_present(&[]).unwrap_err().to_string();
+        assert!(error.contains("validators_blocks.json is empty"), "{error}");
     }
 
     #[test]

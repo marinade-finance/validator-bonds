@@ -82,7 +82,6 @@ describe('Validator Bonds mint bond', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, MINT_BOND_EVENT)
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.validatorIdentity).toEqual(validatorIdentity.publicKey)
     expect(e.validatorIdentityTokenAccount).toEqual(

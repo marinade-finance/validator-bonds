@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { sleep } from '@marinade.finance/ts-common'
 import {
   executeTxSimple,
@@ -85,8 +83,6 @@ describe('Validator Bonds init config', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_CONFIG_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.adminAuthority).toEqual(adminAuthority)
     expect(e.operatorAuthority).toEqual(operatorAuthority)
     expect(e.epochsToClaimSettlement).toEqual(1)

@@ -1,4 +1,4 @@
-use crate::repositories::collected_stake::collected_stake;
+use crate::repositories::collected_stake::{collected_stake, CollectedStakeSnapshot};
 use chrono::{DateTime, TimeZone, Utc};
 use validator_bonds_common::dto::CollectedStakeRecord;
 
@@ -23,6 +23,74 @@ fn record(epoch: u64) -> CollectedStakeRecord {
         stake_accounts: 1,
         updated_at: stamp(0),
     }
+}
+
+fn snapshot(records: Vec<CollectedStakeRecord>) -> CollectedStakeSnapshot {
+    CollectedStakeSnapshot {
+        epoch: 1014,
+        slot: 438413520,
+        updated_at: stamp(0),
+        records,
+    }
+}
+
+fn stake_record(
+    vote_account: &str,
+    label: &str,
+    effective: u64,
+    activating: u64,
+    deactivating: u64,
+) -> CollectedStakeRecord {
+    CollectedStakeRecord {
+        vote_account: vote_account.to_owned(),
+        label: label.to_owned(),
+        // Records are unique on (epoch, stake_authority, vote_account); label and authority are 1:1.
+        stake_authority: format!("{label}-authority"),
+        effective,
+        activating,
+        deactivating,
+        ..record(1014)
+    }
+}
+
+#[test]
+fn activating_stake_counts_towards_the_amount_to_cover() {
+    let to_cover = snapshot(vec![stake_record(
+        "voteActivating",
+        "direct",
+        0,
+        101_000,
+        0,
+    )])
+    .stake_to_cover_by_vote_account();
+    assert_eq!(to_cover.get("voteActivating"), Some(&101_000));
+}
+
+#[test]
+fn deactivating_stake_is_not_added_on_top_of_effective() {
+    // Agave keeps deactivating stake effective for that epoch, so it is a subset, never an addend.
+    let to_cover = snapshot(vec![stake_record(
+        "voteDeactivating",
+        "native",
+        500,
+        0,
+        500,
+    )])
+    .stake_to_cover_by_vote_account();
+    assert_eq!(to_cover.get("voteDeactivating"), Some(&500));
+}
+
+#[test]
+fn every_authority_of_a_vote_account_is_summed() {
+    let to_cover = snapshot(vec![
+        stake_record("voteMulti", "native", 10, 1, 0),
+        stake_record("voteMulti", "select", 20, 2, 0),
+        stake_record("voteMulti", "direct", 0, 4, 0),
+        stake_record("voteOther", "native", 7, 0, 0),
+    ])
+    .stake_to_cover_by_vote_account();
+    assert_eq!(to_cover.get("voteMulti"), Some(&37));
+    assert_eq!(to_cover.get("voteOther"), Some(&7));
 }
 
 #[test]

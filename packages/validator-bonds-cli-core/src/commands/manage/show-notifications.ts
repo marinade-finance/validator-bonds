@@ -146,7 +146,8 @@ export async function showNotifications({
     }
 
     if (data.length === 0) {
-      logger.info(
+      // the pino transport writes to stdout, where printData emits the --format payload
+      console.error(
         voteAccount
           ? `No notifications found for vote account ${voteAccount}`
           : 'No broadcast notifications found',

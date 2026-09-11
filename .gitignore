@@ -59,6 +59,7 @@ plugins/validator-bonds/evals/report/
 # Demo recordings
 *.cast
 *.gif
+.refs
 
 # Local working dirs
 /specs/

@@ -63,6 +63,7 @@ export async function getBondFromAddress({
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
   let accountInfo: AccountInfo<Buffer> | null
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- duck-type fallback: catches a PublicKey from another web3.js copy, and a base58 string/Buffer from an untyped caller, which `new PublicKey` below then normalizes
   if (address instanceof PublicKey || address.publicKey === undefined) {
     address = new PublicKey(address)
     accountInfo = await program.provider.connection.getAccountInfo(address)
@@ -185,6 +186,7 @@ export async function getBondFromAddress({
     accountInfo = bondAccountInfo
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- safeguard kept deliberately; narrowing proves non-null but a lying input type must not reach the decode
   if (accountInfo === null) {
     throw new CliCommandError({
       valueName: '[address]',
@@ -421,12 +423,12 @@ export function isExpectedAnchorTransactionError(
   anchorErrMsg: string,
 ) {
   if (err instanceof ExecutionError) {
-    if (err.cause !== null && err.cause instanceof SendTransactionError) {
+    if (err.cause instanceof SendTransactionError) {
       const sendTransactionError = err.cause
       const parsedCustomError =
-        sendTransactionError.transactionError?.message
-          ?.toString()
-          .match(/custom program error: 0x([0-9a-fA-F]+)/) ?? null
+        sendTransactionError.transactionError.message.match(
+          /custom program error: 0x([0-9a-fA-F]+)/,
+        ) ?? null
       const decimalValue =
         parsedCustomError !== null && parsedCustomError[1]
           ? parseInt(parsedCustomError[1], 16)
@@ -524,7 +526,8 @@ export async function executeTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<ExecuteTxReturn> {
   try {
-    const result = await executeTx(args)
+    // executeTx's ExecuteTxParams overload claims ExecuteTxReturnExecuted, but printOnly returns undefined
+    const result = (await executeTx(args)) as ExecuteTxReturn
     if (result && 'signature' in result && result.signature) {
       recordTxSignature(result.signature)
     }

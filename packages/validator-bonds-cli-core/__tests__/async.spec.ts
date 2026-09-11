@@ -9,7 +9,7 @@ describe('raceWithTimeout', () => {
   it('returns the fallback when the timeout wins', async () => {
     const slow = new Promise<number>(resolve => {
       const t = setTimeout(() => resolve(42), 1000)
-      t.unref?.()
+      t.unref()
     })
     const result = await raceWithTimeout(slow, 10, -1)
     expect(result).toBe(-1)

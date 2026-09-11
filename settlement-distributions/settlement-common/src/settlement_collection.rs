@@ -150,6 +150,13 @@ pub struct SettlementMeta {
     pub funder: SettlementFunder,
 }
 
+// Off-chain product attribution; the wire value matches portfolio-api's StrategySlug so analytics join without a mapping table.
+#[derive(Clone, Deserialize, Serialize, Debug, Eq, PartialEq)]
+pub enum SettlementProduct {
+    #[serde(rename = "single-validator")]
+    SingleValidator,
+}
+
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct Settlement {
     pub reason: SettlementReason,
@@ -162,6 +169,8 @@ pub struct Settlement {
     pub claims: Vec<SettlementClaim>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub details: Option<crate::settlement_details::SettlementDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product: Option<SettlementProduct>,
 }
 
 #[derive(Clone, Deserialize, Serialize, Debug, Default)]
@@ -235,5 +244,40 @@ mod tests {
         let json = serde_json::to_value(&from_string).unwrap();
         assert!(json["claim_amount"].is_u64());
         assert_eq!(json["claim_amount"].as_u64(), Some(9007199254740993));
+    }
+
+    const SETTLEMENT_WITHOUT_PRODUCT: &str = r#"{
+        "reason": "Bidding",
+        "funder": "ValidatorBond",
+        "vote_account": "We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb",
+        "claims_count": 0,
+        "claims_amount": 0,
+        "claims": []
+    }"#;
+
+    // The product tag is additive: files written before it stay readable, and untagged
+    // settlements must not start emitting the key.
+    #[test]
+    fn settlement_product_is_optional_on_the_wire() {
+        let untagged: Settlement = serde_json::from_str(SETTLEMENT_WITHOUT_PRODUCT).unwrap();
+        assert_eq!(untagged.product, None);
+
+        let round_tripped = serde_json::to_value(&untagged).unwrap();
+        assert!(
+            round_tripped.get("product").is_none(),
+            "an untagged settlement must serialize without the key"
+        );
+
+        let mut tagged = untagged;
+        tagged.product = Some(SettlementProduct::SingleValidator);
+        let json = serde_json::to_value(&tagged).unwrap();
+        assert_eq!(json["product"], serde_json::json!("single-validator"));
+
+        let reparsed: Settlement = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            reparsed.product,
+            Some(SettlementProduct::SingleValidator),
+            "the portfolio-api slug must survive a round trip verbatim"
+        );
     }
 }

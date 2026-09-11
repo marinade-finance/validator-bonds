@@ -57,6 +57,7 @@ pub fn public_data_routes(context: WrappedContext) -> Router {
         )
         .route("/bonds/institutional", get(bonds::handler_institutional))
         .route("/protected-events", get(protected_events::handler))
+        .route("/v1/protected-events", get(protected_events::handler_v1))
         // The /validators family is versioned; the unversioned paths were removed, not aliased.
         .route("/v1/validators/verified", get(verified_validators::handler))
         .route(

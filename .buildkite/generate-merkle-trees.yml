@@ -6,7 +6,7 @@ env:
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED_DEFAULT: "feed-pipeline-sam-psr"
   VALIDATOR_BONDS_CONFIG_DEFAULT: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
-  SETTLEMENTS_FILES_DEFAULT: "bid-distribution-settlements.json" # comma separated
+  SETTLEMENTS_FILES_DEFAULT: "bid-distribution-settlements.json,unified-direct-staking-settlements.json" # comma separated
 
 steps:
   - label: ":hammer_and_wrench: :rust: Build Merkle Generator"
@@ -151,6 +151,7 @@ steps:
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
     - slack_feed=$(buildkite-agent meta-data get slack_feed)
+    - settlements_files=$(buildkite-agent meta-data get settlements_files)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
@@ -165,6 +166,7 @@ steps:
               NOTIFY_DISCORD_FEED: true
               NOTIFY_FEED: $NOTIFY_FEED
               SLACK_FEED: $$slack_feed
+              SETTLEMENTS_FILES: $$settlements_files
               gs_bucket: $gs_bucket
       EOF
 

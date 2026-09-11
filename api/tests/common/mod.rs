@@ -143,8 +143,7 @@ pub fn store_options(store: &Store, input_path: String) -> CommonStoreOptions {
 
 pub fn context(directory: Directory) -> WrappedContext {
     Arc::new(RwLock::new(
-        Context::new(directory, Arc::new(RwLock::new(vec![])), vec![])
-            .expect("the context is built"),
+        Context::new(directory, Arc::new(RwLock::new(None)), vec![]).expect("the context is built"),
     ))
 }
 

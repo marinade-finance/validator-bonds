@@ -1,0 +1,66 @@
+agents:
+  queue: "snapshots"
+
+env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
+
+steps:
+  - label: ":closed_lock_with_key: Concurrency gate lock"
+    key: "concurrency-lock"
+    command: echo "--> Start of concurrency gate"
+    concurrency_group: 'validator-bonds/scheduler-direct-staking'
+    concurrency: 1
+
+  - wait: ~
+
+  - label: ":calendar: Schedule Prepare Direct Staking Distribution"
+    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
+    concurrency: 1
+    commands:
+    - |
+      set -o pipefail
+      max_processed_epoch=$(gcloud storage ls "${gs_bucket}/**/unified-direct-staking-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+      max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
+      max_processed_epoch=$${max_processed_epoch:-0}
+
+      # bid-psr-distribution-evaluation.json is the main bidding run's own upload, so requiring it
+      # here is what keeps this run from racing ahead of the epoch's SAM side
+      max_available_epoch=-1
+      input_listings=(
+        "${gs_bucket}/**/stakes.json"
+        "${gs_bucket}/**/bid-psr-distribution-evaluation.json"
+      )
+      for listing in "$${input_listings[@]}"; do
+        entry_max_available_epoch=$(gcloud storage ls "$$listing" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 23) || exit 23
+        entry_max_available_epoch="$${entry_max_available_epoch%%[^0-9]*}"
+        entry_max_available_epoch=$${entry_max_available_epoch:-0}
+        if (( $$max_available_epoch == -1 )) || (( $$entry_max_available_epoch < $$max_available_epoch )); then
+          max_available_epoch=$$entry_max_available_epoch
+        fi
+        echo "Input '$$listing' has max available epoch: $$entry_max_available_epoch (current min of max epochs: $$max_available_epoch)"
+      done
+    - |
+      echo "direct-staking:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
+      if (( $$max_available_epoch > 0 )) && (( $$max_processed_epoch < $$max_available_epoch )); then
+        cat <<EOF | buildkite-agent pipeline upload
+        steps:
+          - trigger: "prepare-direct-staking-distribution"
+            label: ":rocket: Trigger: Prepare Direct Staking Distribution ($$max_available_epoch)"
+            async: false
+            build:
+              branch: $$BUILDKITE_BRANCH
+              env:
+                EPOCH: $$max_available_epoch
+                NOTIFY_FEED: $NOTIFY_FEED
+      EOF
+        echo "Scheduled direct staking distribution for epoch $$max_available_epoch"
+      else
+        echo "No new epochs to process (max_processed: $$max_processed_epoch, max_available: $$max_available_epoch)"
+      fi
+
+  - wait: ~
+
+  - label: ":unlock: Concurrency gate unlock"
+    command: echo "End of concurrency gate <--"
+    concurrency_group: 'validator-bonds/scheduler-direct-staking'
+    concurrency: 1

@@ -1,6 +1,9 @@
 use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
 use crate::{
-    dto::ProtectedEventRecord,
+    dto::{
+        LegacyProtectedEventRecord, LegacyProtectedEventsResponse, ProtectedEventRecord,
+        ProtectedEventsResponse,
+    },
     handlers::{
         bonds, collected_stake, docs, protected_events, protected_validators, verified_validators,
     },
@@ -28,13 +31,15 @@ use utoipa::{
     components(
         schemas(ValidatorBondRecordSchema),
         schemas(ProtectedEventRecord),
+        schemas(LegacyProtectedEventRecord),
         schemas(SettlementMetaSchema),
         schemas(SettlementReason),
         schemas(SettlementFunder),
         schemas(ProtectedEvent),
         schemas(bonds::BondsResponse),
         schemas(bonds::AuctionContextResponse),
-        schemas(protected_events::ProtectedEventsResponse),
+        schemas(ProtectedEventsResponse),
+        schemas(LegacyProtectedEventsResponse),
         schemas(verified_validators::VerifiedValidatorsResponse),
         schemas(protected_validators::ProtectedValidatorsResponse),
         schemas(collected_stake::CollectedStakeResponse),
@@ -42,7 +47,7 @@ use utoipa::{
         schemas(collected_stake::ValidatorStake),
         schemas(collected_stake::AuthorityStake),
     ),
-    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, verified_validators::handler, protected_validators::handler, collected_stake::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, verified_validators::handler, protected_validators::handler, collected_stake::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;
@@ -84,8 +89,8 @@ mod tests {
         }
     }
 
-    // A generated client with no error branch is worse than none: for the two /v1/validators paths
-    // the 500 is a chosen state, not a failure.
+    // A generated client with no error branch is worse than none: for the /v1/validators paths and
+    // /protected-events the 500 is a chosen state, not a failure.
     #[test]
     fn every_fallible_endpoint_documents_its_error() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
@@ -93,6 +98,8 @@ mod tests {
             "/bonds",
             "/bonds/bidding",
             "/bonds/institutional",
+            "/protected-events",
+            "/v1/protected-events",
             "/v1/validators/protected",
             "/v1/validators/stake",
         ] {
@@ -119,6 +126,32 @@ mod tests {
             assert!(
                 !documented.contains_key(removed),
                 "{removed} was moved under /v1 and must no longer be documented",
+            );
+        }
+    }
+
+    // The window is the only reason a consumer can stop pulling the whole history, so an
+    // undocumented one is an unusable one.
+    #[test]
+    fn both_protected_events_paths_document_the_epoch_window() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for path in ["/protected-events", "/v1/protected-events"] {
+            let params = docs["paths"][path]["get"]["parameters"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{path} must document its parameters"));
+            let window = params
+                .iter()
+                .find(|param| param["name"] == "from_epoch")
+                .unwrap_or_else(|| panic!("{path} must document from_epoch"));
+            assert_eq!(window["in"], "query");
+            assert_eq!(window["required"], false);
+            assert!(
+                window["description"].is_string(),
+                "{path} must describe from_epoch",
+            );
+            assert!(
+                docs["paths"][path]["get"]["responses"]["400"].is_object(),
+                "{path} rejects an unparsable from_epoch and must document it",
             );
         }
     }

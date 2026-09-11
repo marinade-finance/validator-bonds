@@ -3,6 +3,7 @@ use anchor_client::anchor_lang::solana_program::stake_history::StakeHistoryEntry
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use log::warn;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
@@ -21,8 +22,16 @@ use validator_bonds_common::stake_accounts::{
     is_locked, CollectedStakeAccount, CollectedStakeAccounts, StakeActivation,
 };
 
-// TODO: better to be loaded from chain
-pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
+// The bonds program checks the stored Meta.rent_exempt_reserve, which the stake program still pins at this value (SIMD-0490) even though live rent is now lower (SIMD-0437); for live rent use fetch_stake_account_rent.
+pub const STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE: u64 = 2282880;
+
+// Live rent for a stake account, i.e. what Anchor's `init` pays for a `split_stake_account`.
+pub async fn fetch_stake_account_rent(rpc_client: Arc<RpcClient>) -> anyhow::Result<u64> {
+    rpc_client
+        .get_minimum_balance_for_rent_exemption(std::mem::size_of::<StakeStateV2>())
+        .await
+        .map_err(|e| anyhow!("Cannot fetch stake account rent exemption: {e:?}"))
+}
 
 pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk";
 pub const MARINADE_INSTITUTIONAL_STAKER_AUTHORITY: &str =
@@ -334,11 +343,11 @@ mod tests {
     const SOL: u64 = 1_000_000_000;
     // minimum delegation (1 SOL) + rent exemption, matching `minimal_stake_lamports` used by the
     // funding pipeline.
-    const MIN: u64 = SOL + STAKE_ACCOUNT_RENT_EXEMPTION;
+    const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     fn initialized_stake(staker: Pubkey, withdrawer: Pubkey) -> StakeStateV2 {
         StakeStateV2::Initialized(Meta {
-            rent_exempt_reserve: STAKE_ACCOUNT_RENT_EXEMPTION,
+            rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
             authorized: Authorized { staker, withdrawer },
             lockup: Lockup::default(),
         })
@@ -421,6 +430,38 @@ mod tests {
             },
             StakeFlags::empty(),
         )
+    }
+
+    // Passing the pinned reserve as the split rent lifts the predicted threshold and hides a splitting underwater account.
+    #[test]
+    fn fund_settlement_split_underflow_uses_the_live_split_rent_not_the_pinned_reserve() {
+        const LIVE_RENT: u64 = 2_077_224;
+        const NEEDED: u64 = 3 * SOL;
+        let gap = STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE - LIVE_RENT;
+        assert_eq!(gap, 205_656);
+
+        let state = delegated_stake(100 * SOL);
+        // sits inside the band: the program splits, the pinned reserve would predict no split
+        let available = NEEDED + MIN + LIVE_RENT + gap - 1;
+        assert_eq!(
+            fund_settlement_split_underflow(&state, available, NEEDED, MIN, LIVE_RENT),
+            Some(100 * SOL)
+        );
+        assert_eq!(
+            fund_settlement_split_underflow(
+                &state,
+                available,
+                NEEDED,
+                MIN,
+                STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn stake_account_size_matches_what_the_program_allocates() {
+        assert_eq!(std::mem::size_of::<StakeStateV2>(), 200);
     }
 
     #[test]

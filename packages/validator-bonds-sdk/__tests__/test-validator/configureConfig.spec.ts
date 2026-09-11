@@ -84,8 +84,6 @@ describe('Validator Bonds configure config', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CONFIGURE_CONFIG_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.adminAuthority).toEqual({
       old: adminAuthority.publicKey,
       new: newAdminAuthority.publicKey,

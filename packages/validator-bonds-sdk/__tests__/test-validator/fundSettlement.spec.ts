@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { executeTxSimple, transaction } from '@marinade.finance/web3js-1x'
 import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
@@ -122,7 +120,6 @@ describe('Validator Bonds fund settlement', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, FUND_SETTLEMENT_EVENT)
-    assert(e !== undefined)
     expect(e.settlement).toEqual(settlementAccount)
     expect(e.bond).toEqual(bondAccount)
     expect(e.fundingAmount).toEqual(2 * LAMPORTS_PER_SOL)

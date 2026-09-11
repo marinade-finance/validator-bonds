@@ -20,14 +20,16 @@ pub struct CollectedStakeSnapshot {
 }
 
 impl CollectedStakeSnapshot {
-    /// Summed across every configured authority: the bond has to cover the validator's whole
-    /// Marinade stake, whichever product routed it.
-    pub fn effective_by_vote_account(&self) -> MarinadeStakeByVoteAccount {
-        let mut effective = MarinadeStakeByVoteAccount::new();
+    /// Summed across every configured authority, `activating` included: the bond has to cover the
+    /// validator's whole Marinade stake, whichever product routed it, and it has to cover stake
+    /// already routed there before that stake goes live. `deactivating` is a subset of `effective`.
+    pub fn stake_to_cover_by_vote_account(&self) -> MarinadeStakeByVoteAccount {
+        let mut to_cover = MarinadeStakeByVoteAccount::new();
         for record in &self.records {
-            *effective.entry(record.vote_account.clone()).or_default() += record.effective;
+            *to_cover.entry(record.vote_account.clone()).or_default() +=
+                record.effective + record.activating;
         }
-        effective
+        to_cover
     }
 }
 

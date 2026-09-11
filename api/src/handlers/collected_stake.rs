@@ -26,7 +26,7 @@ pub struct AuthorityStake {
 pub struct ValidatorStake {
     #[schema(value_type = Pubkey)]
     vote_account: String,
-    /// Sum of `effective` over every authority — the amount the validator's bond has to cover.
+    /// Sum of `effective` over every authority. See `/v1/validators/protected` for bond sizing.
     effective: u64,
     stake: Vec<AuthorityStake>,
 }

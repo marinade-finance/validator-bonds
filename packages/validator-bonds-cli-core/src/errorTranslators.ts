@@ -29,7 +29,7 @@ export function resolveRpcEndpoint(
   conn: Connection | Provider,
 ): string | undefined {
   if ('rpcEndpoint' in conn) return conn.rpcEndpoint
-  return conn.connection?.rpcEndpoint
+  return conn.connection.rpcEndpoint
 }
 
 function resolveFeePayer(args: ExecuteTxParams): PublicKey | undefined {

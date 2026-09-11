@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
+import { getCauseChain } from '@marinade.finance/ts-common'
 import { ExecutionError } from '@marinade.finance/web3js-1x'
 
 import type { PublicKey } from '@solana/web3.js'
@@ -211,7 +212,11 @@ export function errorClass(err: unknown): CompletionResult {
   if (err instanceof ExecutionError) return 'transaction_error'
   if (err instanceof Error) {
     if (err.name === 'CommanderError') return 'validation_error'
-    if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|fetch failed/i.test(err.message)) {
+    // CliCommandError carries the transport failure only in the cause, not in .message
+    const messages = getCauseChain(err)
+      .map(e => (e instanceof Error ? e.message : ''))
+      .join('\n')
+    if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|fetch failed/i.test(messages)) {
       return 'network_error'
     }
   }

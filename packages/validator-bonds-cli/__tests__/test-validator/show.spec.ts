@@ -297,7 +297,7 @@ describe('Show command using CLI', () => {
     )
     const bondMint = bondMintAddress(
       bondAccount,
-      voteAccountShow?.nodePubkey || PublicKey.default,
+      voteAccountShow.nodePubkey || PublicKey.default,
       program.programId,
     )[0].toBase58()
     const expectedDataNoFunding = {
@@ -930,6 +930,7 @@ function formatProductType(input: FormatProduct | FormatProduct[]): object {
           },
         },
       })
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- safety net for a future ProductTypeConfig variant; `satisfies never` below turns that into a build error first
     } else if (configData.custom) {
       const customBuffer = Buffer.from(configData.custom[0])
       result.push({
@@ -939,7 +940,7 @@ function formatProductType(input: FormatProduct | FormatProduct[]): object {
     } else {
       throw new Error(
         `formatProductType: Unknown config data format: ${jsonStringify(
-          configData,
+          configData satisfies never,
         )}`,
       )
     }

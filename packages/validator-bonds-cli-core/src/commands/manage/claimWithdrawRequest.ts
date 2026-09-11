@@ -222,7 +222,7 @@ export async function manageClaimWithdrawRequest({
     bondAccount = bondAcc
     if (amountToWithdraw <= new BN(0)) {
       logger.info(
-        `Withdraw request ${withdrawRequestAddress?.toBase58()} for bond account ${bondAccount.toBase58()}` +
+        `Withdraw request ${withdrawRequestAddress.toBase58()} for bond account ${bondAccount.toBase58()}` +
           'has been fully withdrawn, with nothing left to claim.\n' +
           'If you want to withdraw more funds, please cancel the current request and create a new one.',
       )
@@ -233,7 +233,7 @@ export async function manageClaimWithdrawRequest({
   if (instructionsToProcess.length === 0) {
     throw new CliCommandError({
       valueName: 'address',
-      value: withdrawRequestAddress?.toBase58(),
+      value: withdrawRequestAddress.toBase58(),
       msg:
         'CLI internal error. No instruction for claiming generated. ' +
         'Try to run with --debug to get more info.',
@@ -248,14 +248,14 @@ export async function manageClaimWithdrawRequest({
   })
 
   logger.info(
-    `Claiming withdraw request ${withdrawRequestAddress?.toBase58()} ` +
+    `Claiming withdraw request ${withdrawRequestAddress.toBase58()} ` +
       `for bond account ${bondAccount.toBase58()} with stake accounts: [` +
       `${stakeAccountsToWithdraw.map(s => s.toBase58()).join(',')}]`,
   )
   await splitAndExecuteTxHandleErrors({
     connection: provider.connection,
     transaction: tx,
-    errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress?.toBase58()}`,
+    errMessage: `Failed to claim withdraw requests ${withdrawRequestAddress.toBase58()}`,
     signers,
     logger,
     computeUnitLimit,
@@ -269,7 +269,7 @@ export async function manageClaimWithdrawRequest({
   logger.info(
     txOutcomeMessage(
       simulate || printOnly,
-      `Withdraw request accounts: ${withdrawRequestAddress?.toBase58()} ` +
+      `Withdraw request accounts: ${withdrawRequestAddress.toBase58()} ` +
         `for bond account ${bondAccount.toBase58()} successfully claimed`,
     ),
   )

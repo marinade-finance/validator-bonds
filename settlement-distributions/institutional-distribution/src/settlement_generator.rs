@@ -116,6 +116,7 @@ fn generate_institutional_settlements(
                 claims_amount: 0,
                 claims: vec![],
                 details: None,
+                product: None,
             });
         settlement.claims_amount += payout.payout_lamports;
 

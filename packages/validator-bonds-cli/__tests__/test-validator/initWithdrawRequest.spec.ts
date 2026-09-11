@@ -2,7 +2,9 @@ import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
+  getConfig,
   getWithdrawRequest,
+  minimalSizeStakeAccount,
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
@@ -174,6 +176,8 @@ describe('Init withdraw request using CLI', () => {
     expect(withdrawRequestDataAll.bond).toEqual(bondAccount)
     expect(withdrawRequestDataAll.requestedAmount).toEqual(U64_MAX)
 
+    const { minimumStakeLamports } = await getConfig(program, configAccount)
+    const minimalAmount = minimalSizeStakeAccount(minimumStakeLamports)
     await expect([
       'pnpm',
       [
@@ -195,8 +199,9 @@ describe('Init withdraw request using CLI', () => {
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 200,
-      stdout:
-        /100 lamports is less than the minimal amount 1002282880 lamports/,
+      stdout: new RegExp(
+        `100 lamports is less than the minimal amount ${minimalAmount.toString()} lamports`,
+      ),
     })
   })
 

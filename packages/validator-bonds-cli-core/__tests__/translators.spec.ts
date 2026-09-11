@@ -4,6 +4,7 @@ import { ExecutionError } from '@marinade.finance/web3js-1x'
 import { Keypair, SolanaJSONRPCError } from '@solana/web3.js'
 import pino from 'pino'
 
+import { errorClass } from '../src/cliUsage'
 import {
   buildRpcRemediationMsg,
   translateKnownError,
@@ -199,7 +200,9 @@ describe('translateKnownError → CliCommandError classification', () => {
     expect(translated).toBeInstanceOf(CliCommandError)
     expect(translated.message).toContain('Cannot reach RPC')
     expect(translated.message).toContain(endpoint)
-    expect(translated.message).toContain('Failed to fetch bond account')
+    expect((translated as CliCommandError).messageWithCause()).toContain(
+      'Failed to fetch bond account',
+    )
   })
 
   it('does not read a command-composed ExecutionError message as RPC evidence', () => {
@@ -301,5 +304,28 @@ describe('translateKnownError → translateInsufficientLamportsError', () => {
       txArgs: buildTxArgs(Keypair.generate().publicKey),
     })
     expect(translated).toBe(err)
+  })
+})
+
+describe('errorClass', () => {
+  it('classifies a transport failure that only the cause carries', () => {
+    const err = new CliCommandError({
+      valueName: 'bond-address',
+      value: 'unknown',
+      msg: 'Failed to fetch bond account',
+      cause: new Error('fetch failed'),
+    })
+    expect(err.message).not.toContain('fetch failed')
+    expect(errorClass(err)).toBe('network_error')
+  })
+
+  it('leaves an unrelated wrapped failure as other', () => {
+    const err = new CliCommandError({
+      valueName: 'bond-address',
+      value: 'unknown',
+      msg: 'Failed to fetch bond account',
+      cause: new Error('account not found'),
+    })
+    expect(errorClass(err)).toBe('other')
   })
 })

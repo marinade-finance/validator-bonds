@@ -3,7 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
-  SETTLEMENTS_FILES: "bid-distribution-settlements.json" # comma separated
+  SETTLEMENTS_FILES: "bid-distribution-settlements.json,unified-direct-staking-settlements.json" # comma separated
   VALIDATOR_BONDS_CONFIG: vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU
 
 steps:
@@ -27,7 +27,9 @@ steps:
         echo "Working with settlements files: $SETTLEMENTS_FILES"
         IFS=',' read -ra settlement_files_entries <<< "$SETTLEMENTS_FILES"
         for entry in "$${settlement_files_entries[@]}"; do
-          entry_max_available_epoch=$(gcloud storage ls "${gs_bucket}/**/$$entry" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 23) || exit 23
+          # a settlement file with no epoch yet pins the minimum to 0 and the run no-ops: waiting for
+          # a not-yet-produced input is the normal state, not a build failure
+          entry_max_available_epoch=$(gcloud storage ls "${gs_bucket}/**/$$entry" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
           entry_max_available_epoch="$${entry_max_available_epoch%%[^0-9]*}"
           entry_max_available_epoch=$${entry_max_available_epoch:-0}
           if (( $$max_available_epoch == -1 )) || (( $$entry_max_available_epoch < $$max_available_epoch )); then

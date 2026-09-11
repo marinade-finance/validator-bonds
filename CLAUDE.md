@@ -74,18 +74,18 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
 
 ### Rust workspace members
 
-| Crate                                                 | Purpose                                                         |
-| ----------------------------------------------------- | --------------------------------------------------------------- |
-| `programs/validator-bonds`                            | Anchor on-chain program (the contract)                          |
-| `common-rs`                                           | Shared Rust types: bond DTOs, settlement, config                |
-| `merkle-tree`                                         | Generic Merkle tree library                                     |
-| `bonds-collector`                                     | CLI: loads on-chain bond data → YAML                            |
+| Crate                                                 | Purpose                                                               |
+| ----------------------------------------------------- | --------------------------------------------------------------------- |
+| `programs/validator-bonds`                            | Anchor on-chain program (the contract)                                |
+| `common-rs`                                           | Shared Rust types: bond DTOs, settlement, config                      |
+| `merkle-tree`                                         | Generic Merkle tree library                                           |
+| `bonds-collector`                                     | CLI: loads on-chain bond data → YAML                                  |
 | `api`                                                 | axum HTTP server (OpenAPI) serving bonds data from marinade-directory |
-| `settlement-pipelines`                                | Pipeline CLIs: init/fund/claim/close settlements on-chain       |
-| `settlement-distributions/bid-distribution`           | Core engine: SAM scores + rewards → bidding/PSR settlement JSON |
-| `settlement-distributions/institutional-distribution` | Settlement engine for institutional staking payouts             |
-| `settlement-distributions/merkle-generator`           | Generates Merkle tree JSON from settlement collections          |
-| `settlement-distributions/settlement-common`          | Shared types: `SettlementCollection`, `StakeMetaIndex`          |
+| `settlement-pipelines`                                | Pipeline CLIs: init/fund/claim/close settlements on-chain             |
+| `settlement-distributions/bid-distribution`           | Core engine: SAM scores + rewards → bidding/PSR settlement JSON       |
+| `settlement-distributions/institutional-distribution` | Settlement engine for institutional staking payouts                   |
+| `settlement-distributions/merkle-generator`           | Generates Merkle tree JSON from settlement collections                |
+| `settlement-distributions/settlement-common`          | Shared types: `SettlementCollection`, `StakeMetaIndex`                |
 
 ### On-chain program (`programs/validator-bonds/`)
 

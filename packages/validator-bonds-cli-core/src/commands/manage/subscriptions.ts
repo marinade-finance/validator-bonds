@@ -149,7 +149,8 @@ export async function showSubscriptions({
     )
 
     if (data.length === 0) {
-      logger.info(
+      // the pino transport writes to stdout, where printData emits the --format payload
+      console.error(
         `No notification subscriptions found for vote account ${voteAccount.toBase58()}`,
       )
       return
@@ -162,6 +163,19 @@ export async function showSubscriptions({
       },
       format,
     )
+
+    if (
+      data.some(
+        s => s.channel === 'telegram' && s.telegram_status === 'pending',
+      )
+    ) {
+      console.error(
+        "Telegram status 'pending' means no notification has been delivered yet." +
+          " It turns to 'active' after the first delivery." +
+          ' If you already pressed Start in the Telegram bot' +
+          ' the subscription is activated and delivery works.',
+      )
+    }
   } catch (e) {
     const httpMsg = formatHttpError(e, notificationsApiUrl)
     if (httpMsg) {

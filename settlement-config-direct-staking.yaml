@@ -1,0 +1,28 @@
+---
+# Separate from settlement-config.yaml on purpose: whitelist_stake_authorities is global across
+# generators, so listing psrSt there would charge SAM bids on stake nobody bid for.
+fee_config:
+  max_fee_bps: 0
+  min_fee_bps: 0
+  marinade:
+    stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+    withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  dao:
+    fee_split_share_bps: 9000
+    stake_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+    withdraw_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+
+# Direct-staking positions: staker authority while staked, and while exiting.
+whitelist_stake_authorities:
+  - psrStL2hNx4c7hLUUks8SmDngeYriB8pF7uyHFhM8ir
+  - ExPsrC88dVCUozsuHFXYYpVGytsvwB9vWhwicuaFiypb
+
+settlements:
+  # Downtime only. Adding a CommissionSamIncreaseSettlement entry here would turn commission
+  # protection on, but its expectation is defined against a SAM auction direct stake never entered.
+  - type: DowntimeRevenueImpactSettlement
+    meta:
+      funder: ValidatorBond
+    min_settlement_lamports: 10000000 # 0.01 SOL
+    grace_downtime_bps: 100 # 1 %
+    covered_range_bps: [0, 10000] # 0 % - 100 %, the validator pays the whole loss

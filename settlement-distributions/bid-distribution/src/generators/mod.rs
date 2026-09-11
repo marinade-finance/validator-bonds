@@ -32,6 +32,7 @@ pub fn add_to_settlement_collection(
             claims_amount,
             claims,
             details,
+            product: None,
         });
     }
 }

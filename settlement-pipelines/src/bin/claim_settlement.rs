@@ -19,7 +19,7 @@ use settlement_pipelines::settlement_data::{parse_from_merkle_tree_collections, 
 use settlement_pipelines::settlements::{list_claimable_settlements, ClaimableSettlementsReturn};
 use settlement_pipelines::stake_accounts::{
     get_stake_state_type, prepare_merge_instructions, prioritize_for_claiming,
-    STAKE_ACCOUNT_RENT_EXEMPTION,
+    STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
@@ -34,6 +34,7 @@ use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::time::sleep;
 use validator_bonds::instructions::ClaimSettlementV2Args;
@@ -45,6 +46,9 @@ use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
+use validator_bonds_common::constants::{
+    DIRECT_STAKING_EXIT_STAKE_AUTHORITY, DIRECT_STAKING_STAKE_AUTHORITY,
+};
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
 use validator_bonds_common::settlements::{
     get_settlement_claims_for_settlement_pubkeys, get_settlements_for_pubkeys,
@@ -112,6 +116,17 @@ async fn real_main(
             "No merkle tree collections loaded from provided files"
         ));
     }
+    // a skipped file only logs; without a report entry a partially loaded run leaves claims behind and stays green
+    if collections.len() != args.json_files.len() {
+        reporting
+            .error()
+            .with_msg(format!(
+                "Loaded {} of {} merkle tree files, the rest was skipped",
+                collections.len(),
+                args.json_files.len(),
+            ))
+            .add();
+    }
 
     // Resolve config address: from CLI or from merkle tree
     let config_address = args.global_opts.config.unwrap_or_else(|| {
@@ -124,7 +139,8 @@ async fn real_main(
         .await
         .map_err(CliError::retry_able)?;
 
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     let json_loaded_settlements_per_epoch =
         parse_from_merkle_tree_collections(&collections, args.epoch).map_err(CliError::critical)?;
@@ -427,9 +443,11 @@ async fn claim_settlement<'a>(
             stake_account_to
         } else {
             // stake accounts for these authorities were not found in this or some prior run (error was already reported)
-            reporting
-                .reportable
-                .update_no_account_to(settlement_json_data, tree_node.claim);
+            reporting.reportable.update_no_account_to(
+                settlement_json_data,
+                tree_node.claim,
+                &tree_node.stake_authority,
+            );
             continue;
         };
 
@@ -562,6 +580,18 @@ impl AlreadyClaimed {
     }
 }
 
+fn is_direct_staking_authority(stake_authority: &Pubkey) -> bool {
+    [
+        DIRECT_STAKING_STAKE_AUTHORITY,
+        DIRECT_STAKING_EXIT_STAKE_AUTHORITY,
+    ]
+    .iter()
+    .any(|authority| {
+        Pubkey::from_str(authority).expect("hardcoded direct staking authority is a valid pubkey")
+            == *stake_authority
+    })
+}
+
 #[derive(Default)]
 struct ClaimSettlementReport {
     json_loaded_settlements: HashSet<SettlementRecord>,
@@ -570,6 +600,9 @@ struct ClaimSettlementReport {
     // reason why claiming was not possible with amounts
     settlements_claimable_no_account_to: HashMap<Pubkey, u64>,
     settlements_claimable_no_account_from: HashMap<Pubkey, u64>,
+    // direct-staking leaves lost to a missing destination; the user may have revoked the staker
+    // authority or withdrawn, which is accepted but must stay measurable
+    direct_staking_no_account_to: u64,
 }
 
 impl ClaimSettlementsReport {
@@ -666,13 +699,21 @@ impl ClaimSettlementsReport {
     }
 
     /// issue of no stake account to claim to, adding to report
-    fn update_no_account_to(&mut self, settlement_record: &SettlementRecord, tree_node_claim: u64) {
+    fn update_no_account_to(
+        &mut self,
+        settlement_record: &SettlementRecord,
+        tree_node_claim: u64,
+        stake_authority: &Pubkey,
+    ) {
         let report = self.mut_ref(settlement_record.epoch);
         Self::update_no_account(
             &mut report.settlements_claimable_no_account_to,
             &settlement_record.settlement_address,
             tree_node_claim,
         );
+        if is_direct_staking_authority(stake_authority) {
+            report.direct_staking_no_account_to += 1;
+        }
     }
 
     fn update_no_account(
@@ -896,6 +937,12 @@ impl PrintReportable for ClaimSettlementsReport {
                     build_balance_message(no_account_to, false, false),
                     build_balance_message(no_account_from, false, false),
                     ));
+                if settlements_report.direct_staking_no_account_to > 0 {
+                    report.push(format!(
+                        "  Direct staking leaves with no destination stake account: {}",
+                        settlements_report.direct_staking_no_account_to
+                    ));
+                }
                 if total_claim_nodes != json_loaded_nodes {
                     report.push(format!(
                         "  [WARNING] JSON Merkle nodes {json_loaded_nodes} do not match the Merkle nodes available on-chain {total_claim_nodes}"
@@ -1030,6 +1077,8 @@ struct EpochClaimSummary {
     total_nodes: u64,
     claimed_amount_sol: f64,
     total_amount_sol: f64,
+    not_claimed_no_target_sol: f64,
+    not_claimed_no_source_sol: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     json_nodes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1078,6 +1127,8 @@ impl ReportSerializable for ClaimSettlementsReport {
                     let sum_initial = settlements_report.sum_already_claimed();
                     let (json_loaded_nodes, json_loaded_lamports) =
                         settlements_report.sum_json_loaded_settlements();
+                    let (no_account_to, no_account_from) =
+                        settlements_report.sum_update_no_account();
 
                     // Build after amounts from chain data (current state after claiming)
                     let after_amounts: HashMap<Pubkey, (u64, u64)> = after_settlements
@@ -1154,6 +1205,8 @@ impl ReportSerializable for ClaimSettlementsReport {
                         total_nodes: sum_initial.max_merkle_nodes,
                         claimed_amount_sol: lamports_to_sol(after_claimed_lamports),
                         total_amount_sol: lamports_to_sol(sum_initial.max_total_claim),
+                        not_claimed_no_target_sol: lamports_to_sol(no_account_to),
+                        not_claimed_no_source_sol: lamports_to_sol(no_account_from),
                         json_nodes: if json_loaded_nodes > 0 {
                             Some(json_loaded_nodes)
                         } else {
