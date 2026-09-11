@@ -18,7 +18,7 @@ jest.setTimeout(120_000)
 const logger = pino({ level: 'silent' })
 const EPOCH = 750
 const GCS_IMAGE = 'fsouza/fake-gcs-server:1.56.1'
-const DIRECTORY_IMAGE = 'marinade-directory:v0.1.0'
+const DIRECTORY_IMAGE = 'marinade-directory:test'
 const JWT_SECRET = 'bonds-eventing-test-secret-at-least-32-bytes'
 const BUCKET = 'bonds-eventing-test'
 

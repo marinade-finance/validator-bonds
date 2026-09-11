@@ -4,11 +4,11 @@ Validator Bonds API serves on-chain data about validator bonds out of
 [marinade-directory](https://github.com/marinade-finance/marinade-directory), a versioned JSON
 document store over a bucket. One document holds one whole set:
 
-| path | written by | read by |
-| --- | --- | --- |
-| `/bonds/{bidding,institutional}/{epoch}` | `validator-bonds-api-cli store-bonds` | `/bonds/{type}`, `/v1/validators/protected` |
-| `/bonds/stake/{epoch}` | `validator-bonds-api-cli store-collected-stake` | `/v1/validators/stake`, `/v1/validators/protected` |
-| `/bonds/eventing/{type}` | `bonds-eventing` | `/bonds/bidding/auction` |
+| path                                     | written by                                      | read by                                            |
+| ---------------------------------------- | ----------------------------------------------- | -------------------------------------------------- |
+| `/bonds/{bidding,institutional}/{epoch}` | `validator-bonds-api-cli store-bonds`           | `/bonds/{type}`, `/v1/validators/protected`        |
+| `/bonds/stake/{epoch}`                   | `validator-bonds-api-cli store-collected-stake` | `/v1/validators/stake`, `/v1/validators/protected` |
+| `/bonds/eventing/{type}`                 | `bonds-eventing`                                | `/bonds/bidding/auction`                           |
 
 The API reads with a token granted `/bonds/**:ro`; each store command needs `:rw` on the prefix
 it writes.
@@ -31,7 +31,7 @@ curl -X POST "http://localhost:$GCS_PORT/storage/v1/b?project=validator-bonds" \
 docker run -d --rm --name bonds-store --network host \
   -e "STORAGE_EMULATOR_HOST=localhost:$GCS_PORT" -e GCS_BUCKET=bonds \
   -e "JWT_SECRET=$SECRET" -e "PORT=$STORE_PORT" -e METRICS_PORT=0 \
-  marinade-directory:v0.1.0
+  marinade-directory:test
 
 export DIRECTORY_URL="http://localhost:$STORE_PORT"
 ```

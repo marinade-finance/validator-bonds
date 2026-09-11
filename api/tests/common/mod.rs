@@ -21,7 +21,7 @@ use tokio::sync::RwLock;
 use validator_bonds_common::directory::Directory;
 
 const GCS_IMAGE: &str = "fsouza/fake-gcs-server:1.56.1";
-const STORE_IMAGE: &str = "marinade-directory:v0.1.0";
+const STORE_IMAGE: &str = "marinade-directory:test";
 const BUCKET: &str = "bonds";
 /// HS256 needs 32 bytes; the tests mint their own token against it.
 const SECRET: &str = "validator-bonds-test-secret-key-32b";
