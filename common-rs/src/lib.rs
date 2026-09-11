@@ -3,6 +3,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::signature::Keypair;
 use std::{str::FromStr, sync::Arc};
 
+pub mod allocation;
 pub mod bond_products;
 pub mod bonds;
 pub mod cli_result;

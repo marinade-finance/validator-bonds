@@ -1,11 +1,14 @@
-use crate::dto::{SettlementMetaSchema, ValidatorBondRecordSchema};
+use crate::dto::{
+    DirectStakingAllocationRecordSchema, SettlementMetaSchema, ValidatorBondRecordSchema,
+};
 use crate::{
     dto::{
         LegacyProtectedEventRecord, LegacyProtectedEventsResponse, ProtectedEventRecord,
         ProtectedEventsResponse,
     },
     handlers::{
-        bonds, collected_stake, docs, protected_events, protected_validators, verified_validators,
+        bonds, collected_stake, direct_staking_allocation, docs, protected_events,
+        protected_validators, verified_validators,
     },
 };
 use settlement_common::{
@@ -30,6 +33,7 @@ use utoipa::{
     ),
     components(
         schemas(ValidatorBondRecordSchema),
+        schemas(DirectStakingAllocationRecordSchema),
         schemas(ProtectedEventRecord),
         schemas(LegacyProtectedEventRecord),
         schemas(SettlementMetaSchema),
@@ -42,12 +46,14 @@ use utoipa::{
         schemas(LegacyProtectedEventsResponse),
         schemas(verified_validators::VerifiedValidatorsResponse),
         schemas(protected_validators::ProtectedValidatorsResponse),
+        schemas(collected_stake::CollectedStakeHistoryResponse),
         schemas(collected_stake::CollectedStakeResponse),
         schemas(collected_stake::AuthorityTotal),
         schemas(collected_stake::ValidatorStake),
         schemas(collected_stake::AuthorityStake),
+        schemas(direct_staking_allocation::DirectStakingAllocationResponse),
     ),
-    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, verified_validators::handler, protected_validators::handler, collected_stake::handler),
+    paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, direct_staking_allocation::handler, verified_validators::handler, protected_validators::handler, collected_stake::handler),
     modifiers(&PubkeyScheme),
 )]
 pub struct ApiDoc;
@@ -100,6 +106,7 @@ mod tests {
             "/bonds/institutional",
             "/protected-events",
             "/v1/protected-events",
+            "/v1/protected-events/allocation",
             "/v1/validators/protected",
             "/v1/validators/stake",
         ] {
@@ -130,12 +137,94 @@ mod tests {
         }
     }
 
+    // A `$ref` to a type left out of `schemas(...)` generates a client with a hole in it, and
+    // utoipa emits the dangling reference without complaint.
+    #[test]
+    fn every_referenced_schema_is_registered() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let registered = docs["components"]["schemas"].as_object().unwrap();
+
+        let mut referenced: Vec<String> = vec![];
+        let mut pending = vec![&docs];
+        while let Some(node) = pending.pop() {
+            match node {
+                serde_json::Value::Object(fields) => {
+                    for (key, value) in fields {
+                        if key == "$ref" {
+                            referenced.push(value.as_str().unwrap().to_string());
+                        }
+                        pending.push(value);
+                    }
+                }
+                serde_json::Value::Array(items) => pending.extend(items),
+                _ => {}
+            }
+        }
+        assert!(!referenced.is_empty(), "the docs must reference schemas");
+
+        for reference in referenced {
+            let name = reference
+                .strip_prefix("#/components/schemas/")
+                .unwrap_or_else(|| panic!("{reference} is not a component reference"));
+            assert!(
+                registered.contains_key(name),
+                "{name} is referenced but not registered in schemas(...)",
+            );
+        }
+    }
+
+    // Out-flow semantics are the whole reason the -exit labels are queryable, and getting the
+    // wording wrong misreports when stake left. "Started exiting" is specifically wrong: rotating
+    // the authority and requesting deactivation are separate transactions.
+    #[test]
+    fn the_stake_endpoint_documents_exit_semantics() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let properties = &docs["components"]["schemas"]["AuthorityStake"]["properties"];
+
+        let deactivating = properties["deactivating"]["description"]
+            .as_str()
+            .expect("deactivating must be described: it is the only out-flow signal");
+        assert!(
+            deactivating.contains("cooldown"),
+            "deactivating must say the stake entered cooldown, got: {deactivating}",
+        );
+        assert!(
+            !deactivating.to_lowercase().contains("started exiting")
+                && !deactivating.to_lowercase().contains("began exiting"),
+            "deactivating must not claim the exit started in this epoch, got: {deactivating}",
+        );
+        assert!(
+            deactivating.contains("effective - deactivating"),
+            "deactivating must state it is a subset of effective, got: {deactivating}",
+        );
+
+        let label = properties["label"]["description"]
+            .as_str()
+            .expect("label must explain the -exit labels");
+        assert!(label.contains("-exit"), "got: {label}");
+
+        let response = docs["paths"]["/v1/validators/stake"]["get"]["responses"]["200"]
+            ["description"]
+            .as_str()
+            .unwrap();
+        for expected in ["-exit", "cooling down", "without delegating"] {
+            assert!(
+                response.contains(expected),
+                "the 200 description must cover {expected:?}, got: {response}",
+            );
+        }
+    }
+
     // The window is the only reason a consumer can stop pulling the whole history, so an
     // undocumented one is an unusable one.
     #[test]
-    fn both_protected_events_paths_document_the_epoch_window() {
+    fn every_epoch_windowed_path_documents_from_epoch() {
         let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
-        for path in ["/protected-events", "/v1/protected-events"] {
+        for path in [
+            "/protected-events",
+            "/v1/protected-events",
+            "/v1/validators/stake",
+        ] {
             let params = docs["paths"][path]["get"]["parameters"]
                 .as_array()
                 .unwrap_or_else(|| panic!("{path} must document its parameters"));

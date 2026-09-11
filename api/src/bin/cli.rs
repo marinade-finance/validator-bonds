@@ -1,5 +1,6 @@
 use api::repositories::{
     bond::store_bonds, collected_stake::store_collected_stake, common::CommonStoreOptions,
+    direct_staking_allocation::store_direct_staking_allocation,
 };
 use clap::{Args, Parser, Subcommand};
 use tracing_log::LogTracer;
@@ -24,6 +25,7 @@ struct Params {
 pub enum Command {
     StoreBonds(CommonStoreOptions),
     StoreCollectedStake(CommonStoreOptions),
+    StoreDirectStakingAllocation(CommonStoreOptions),
 }
 
 #[tokio::main]
@@ -57,6 +59,9 @@ async fn real_main() -> anyhow::Result<()> {
     match params.command {
         Command::StoreBonds(options) => store_bonds(options).await?,
         Command::StoreCollectedStake(options) => store_collected_stake(options).await?,
+        Command::StoreDirectStakingAllocation(options) => {
+            store_direct_staking_allocation(options).await?
+        }
     };
     Ok(())
 }
