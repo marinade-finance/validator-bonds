@@ -84,8 +84,8 @@ importers:
         specifier: 0.2.0
         version: 0.2.0
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.4
-        version: 1.0.4
+        specifier: 1.0.5
+        version: 1.0.5
       '@marinade.finance/ts-common':
         specifier: 5.1.2
         version: 5.1.2
@@ -1147,8 +1147,8 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.4':
     resolution: {integrity: sha512-//7kjIJFXmCIOauxzQl3B+Y/Av66Sf2pjJsmu+e8/Nk74rUBO4aL0rPSEiGhMvatZV1NXOQXdEZ3Ue34FN6Aaw==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.4':
-    resolution: {integrity: sha512-4H5eDCbJSl6jWrC9g1rWBD7NaEXjkUzEEKXlb55Whl1s+0EIPkBU8HMkk+wNdhojk8BDRPcjTkRN9lVIZ+LJ6g==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.5':
+    resolution: {integrity: sha512-WnXb93dnsxEsadPcTli0NsvvdFaVw2Qt+pFa+jiDV+Gvh95bUJPGLnuJMvQ+Xlmkmq7RE8jFXVVkJvjn/seoRQ==}
 
   '@marinade.finance/notifications-header-v1@1.0.0':
     resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
@@ -2888,6 +2888,7 @@ packages:
   eslint@9.36.0:
     resolution: {integrity: sha512-hB4FIzXovouYzwzECDcUkJ4OcfOEkXTv2zRY6B9bkwjx/cprAq0uvm1nl7zvQ0/TsUk0zQiN4uPfJpB9m+rPMQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -2983,8 +2984,8 @@ packages:
   fast-stable-stringify@1.0.0:
     resolution: {integrity: sha512-wpYMUmFu5f00Sm0cj2pfivpmawLZ0NKdviQ4w9zJeR8JVtOpOxHmLaJuj0vxvGqMJQWyP/COUkF75/57OKyRag==}
 
-  fast-uri@3.1.2:
-    resolution: {integrity: sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==}
+  fast-uri@3.1.7:
+    resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
 
   fastestsmallesttextencoderdecoder@1.0.22:
     resolution: {integrity: sha512-Pb8d48e+oIuY4MaM64Cd7OW1gt4nxCHs7/ddPPZ/Ic3sg8yVGM7O9wDvZ7us6ScaUupzM+pfBolwtYhN1IxBIw==}
@@ -5621,7 +5622,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.4':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.5':
     dependencies:
       '@marinade.finance/notifications-ts-message': 1.0.0
       ajv: 8.20.0
@@ -6787,7 +6788,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.2
+      fast-uri: 3.1.7
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -7833,7 +7834,7 @@ snapshots:
 
   fast-stable-stringify@1.0.0: {}
 
-  fast-uri@3.1.2: {}
+  fast-uri@3.1.7: {}
 
   fastestsmallesttextencoderdecoder@1.0.22: {}
 

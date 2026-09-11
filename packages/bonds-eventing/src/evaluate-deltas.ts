@@ -450,6 +450,7 @@ export function evaluateDeltas(
   epoch: number,
   bondType: BondType,
   logger: LoggerWrapper,
+  requiredEpochs?: number | null,
 ): BondsEventV1[] {
   const configAddress = configAddressForBondType(bondType)
   const events: BondsEventV1[] = []
@@ -607,6 +608,7 @@ export function evaluateDeltas(
           {
             previous_epochs: prev.bond_good_for_n_epochs,
             current_epochs: currentEpochsRounded,
+            required_epochs: requiredEpochs ?? null,
             previous_deficit_sol: previousDeficitSol,
             bond_balance_sol: v.bondBalanceSol,
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,

@@ -362,6 +362,54 @@ describe('evaluateDeltas', () => {
     expect(underfunded!.data.message).toMatch(/top-up needed .* SOL \(Δ /)
   })
 
+  it('carries required_epochs so the offset can be undone', () => {
+    const validators = [makeValidator({ bondGoodForNEpochs: -3.12 })]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({ bond_good_for_n_epochs: 5 }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+      5,
+    )
+
+    const underfunded = events.find(
+      e => e.inner_type === 'bond_underfunded_change',
+    )
+    const details = underfunded!.data.details as BondUnderfundedChangeDetails
+    expect(details.required_epochs).toBe(5)
+    expect(details.current_epochs).toBe(-3.12)
+  })
+
+  it('emits required_epochs null when the caller does not supply it', () => {
+    const validators = [makeValidator({ bondGoodForNEpochs: 2 })]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({ bond_good_for_n_epochs: 5 }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const underfunded = events.find(
+      e => e.inner_type === 'bond_underfunded_change',
+    )
+    const details = underfunded!.data.details as BondUnderfundedChangeDetails
+    expect(details.required_epochs).toBeNull()
+  })
+
   it('emits bond_balance_change when funded amount changes', () => {
     // Previous: 10 SOL, Current: 8 SOL
     const validators = [makeValidator({ bondBalanceSol: 8.0 })]

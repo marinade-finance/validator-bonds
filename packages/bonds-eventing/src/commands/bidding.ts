@@ -57,7 +57,15 @@ async function manageBidding(opts: Record<string, unknown>) {
     epoch,
     voteAccountOf: v => v.voteAccount,
     evaluate: (vals, previousState, ep) =>
-      evaluateDeltas(vals, previousState, ep, bondType, logger),
+      evaluateDeltas(
+        vals,
+        previousState,
+        ep,
+        bondType,
+        logger,
+        // Mirrors the offset ds-sam-sdk subtracts when it computes bondGoodForNEpochs.
+        1 + meta.minBondEpochs,
+      ),
     toState: (v, ep) => validatorToState(v, ep, bondType),
     saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
   })
