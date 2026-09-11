@@ -7,7 +7,6 @@ use validator_bonds::state::config::{find_bonds_withdrawer_authority, Config};
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 use validator_bonds_common::cli_result::CliError;
 
-use crate::stake_accounts::STAKE_ACCOUNT_RENT_EXEMPTION;
 use crate::CONTRACT_V2_DEPLOYMENT_EPOCH;
 use validator_bonds_common::settlement_claims::SettlementClaimsBitmap;
 use validator_bonds_common::settlements::{
@@ -213,6 +212,7 @@ pub async fn obtain_settlement_closing_refunds(
     settlement_address: &Pubkey,
     settlement: &Settlement,
     bonds_withdrawer_authority: &Pubkey,
+    stake_account_rent: u64,
 ) -> anyhow::Result<SettlementRefundPubkeys> {
     let (settlement_staker_authority, _) = find_settlement_staker_authority(settlement_address);
     let (split_rent_collector, split_rent_refund_account) = {
@@ -238,9 +238,7 @@ pub async fn obtain_settlement_closing_refunds(
             let split_rent_refund_account = if let Some(found_matching_account) =
                 split_rent_refund_accounts.iter().find(|collected_stake| {
                     collected_stake.2.delegation().is_some()
-                        && collected_stake
-                            .1
-                            .saturating_sub(STAKE_ACCOUNT_RENT_EXEMPTION)
+                        && collected_stake.1.saturating_sub(stake_account_rent)
                             >= settlement.split_rent_amount
                 }) {
                 found_matching_account.0

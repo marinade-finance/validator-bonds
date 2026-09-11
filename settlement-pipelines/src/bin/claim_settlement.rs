@@ -19,7 +19,7 @@ use settlement_pipelines::settlement_data::{parse_from_merkle_tree_collections, 
 use settlement_pipelines::settlements::{list_claimable_settlements, ClaimableSettlementsReturn};
 use settlement_pipelines::stake_accounts::{
     get_stake_state_type, prepare_merge_instructions, prioritize_for_claiming,
-    STAKE_ACCOUNT_RENT_EXEMPTION,
+    STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use settlement_pipelines::stake_accounts_cache::StakeAccountsCache;
 use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
@@ -139,7 +139,8 @@ async fn real_main(
         .await
         .map_err(CliError::retry_able)?;
 
-    let minimal_stake_lamports = config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
     let json_loaded_settlements_per_epoch =
         parse_from_merkle_tree_collections(&collections, args.epoch).map_err(CliError::critical)?;
