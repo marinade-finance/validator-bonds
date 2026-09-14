@@ -11,11 +11,12 @@ steps:
   - label: ":hammer_and_wrench: :rust: Build CLI"
     commands:
     - '. "$HOME/.cargo/env"'
-    - 'cargo build --release --bin bid-distribution-cli --bin settlement-bond-allocator'
-    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{bid-distribution-cli,settlement-bond-allocator}'
+    - 'cargo build --release --bin bid-distribution-cli --bin settlement-bond-allocator --bin validator-bonds-api-cli'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{bid-distribution-cli,settlement-bond-allocator,validator-bonds-api-cli}'
     artifact_paths:
       - target/release/bid-distribution-cli
       - target/release/settlement-bond-allocator
+      - target/release/validator-bonds-api-cli
 
   - input: "What is the epoch to generate direct staking settlements for?"
     fields:
@@ -213,6 +214,25 @@ steps:
         curl ${SLACK_API} -X POST -H 'Content-Type: application/json; charset=utf-8' \
           -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d @./slack-payload.json
     if: "build.env('NOTIFY_FEED') == 'true'"
+
+  - wait: ~
+
+  # Last, deliberately: GCS is what stakes-etl and the archive read, and the merkle chain has no
+  # other way to learn this epoch is ready. A late API row is recoverable by re-running this step;
+  # starving either of those is not.
+  - label: ":coin: :arrow_right: :floppy_disk: Store direct staking allocation"
+    commands:
+    - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
+    - buildkite-agent artifact download --include-retried-jobs direct-staking-allocation-report.json .
+    - chmod +x target/release/validator-bonds-api-cli
+    - curl -fsSL https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
+    - |
+      ./target/release/validator-bonds-api-cli \
+        store-direct-staking-allocation --postgres-url "$$VALIDATOR_BONDS_POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file direct-staking-allocation-report.json
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
 
   - wait: ~
 

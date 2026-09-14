@@ -121,7 +121,7 @@ steps:
     - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
-        store-bonds --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
+        store-bonds --postgres-url "$$VALIDATOR_BONDS_POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
     retry:
       automatic:
         - exit_status: 100
@@ -148,6 +148,7 @@ steps:
         --retry-base-delay-ms "$$retry_base_delay_ms" \
         --emit-concurrency "$$emit_concurrency" \
         --notifications-api-url "$$notifications_api_url" \
+        --postgres-url "$$VALIDATOR_BONDS_POSTGRES_URL" \
         --postgres-ssl-root-cert ./eu-west-1-bundle.pem
     soft_fail:
       - exit_status: "*"
@@ -196,7 +197,7 @@ steps:
     - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
-        store-collected-stake --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
+        store-collected-stake --postgres-url "$$VALIDATOR_BONDS_POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
     retry:
       automatic:
         - exit_status: 100

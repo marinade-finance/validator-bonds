@@ -1,4 +1,4 @@
-use super::common::{pg_transient, CommonStoreOptions};
+use super::common::{pg_transient, read_yaml_input, CommonStoreOptions};
 use crate::dto::SqlSerializableBondType;
 
 use openssl::ssl::{SslConnector, SslMethod};
@@ -160,8 +160,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
         }
     });
 
-    let input = std::fs::File::open(options.input_path)?;
-    let bonds: Vec<ValidatorBondRecord> = serde_yaml::from_reader(input)?;
+    let bonds: Vec<ValidatorBondRecord> = read_yaml_input(&options.input_path)?;
     let bonds_records: HashMap<_, _> = bonds
         .iter()
         .map(|record| (record.pubkey.clone(), record))

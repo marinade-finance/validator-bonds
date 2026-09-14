@@ -58,8 +58,41 @@ cargo run --bin api -- --postgres-url "$POSTGRES_URL" \
 # data is gzipped so we use curl --compressed
 curl -X GET --compressed "http://localhost:8000/bonds/bidding"
 curl -X GET --compressed "http://localhost:8000/v1/validators/protected"
+
+# the latest collected epoch, as a one-element `epochs` array
 curl -X GET --compressed "http://localhost:8000/v1/validators/stake"
+
+# an epoch range, newest first, at most 100 epochs wide
+curl -X GET --compressed "http://localhost:8000/v1/validators/stake?from_epoch=1020&to_epoch=1030"
+
+# only the direct-staking in-flow and out-flow, across that range
+curl -X GET --compressed "http://localhost:8000/v1/validators/stake?from_epoch=1020&to_epoch=1030&label=direct,direct-exit"
 ```
+
+`label` and `vote_account` are comma-separated lists, not repeated parameters. `totals` aggregate
+only the rows the filters returned. An epoch missing from the range was never collected — the
+collector runs on the bidding run of `collect-bonds.yml` alone — and nothing is interpolated.
+
+#### Reading stake out-flow
+
+Exiting rotates the staker authority to the product's exit authority _before_ deactivating, so a
+product's own label never shows out-flow — `direct.deactivating` is structurally zero. Pair the two
+labels (`label=direct,direct-exit`) to see a product's in-flow and out-flow together.
+
+- `direct-exit.deactivating` in epoch N is stake that **entered cooldown** in epoch N. That is not
+  necessarily the epoch the exit was initiated in: rotating the authority and requesting
+  deactivation are separate transactions and need not land in the same epoch.
+- `direct-exit.effective` is stake still cooling down at that snapshot. `deactivating` is a subset
+  of it, so active-only is `effective - deactivating`.
+- Cooldown lasts one epoch and there is one snapshot per epoch, so **a missed collection loses that
+  out-flow event permanently**. The endpoint is a per-epoch signal, not a cumulative ledger.
+- A position that has finished cooling down is no longer reported, and neither is stake an exit
+  authority holds without delegating it — there is no vote account to attribute it to. At epoch 1030
+  that was 73.2 SOL under `select-exit`.
+
+`direct-exit` and `select-exit` routinely have no rows at all: the collector writes a row only where
+an authority has non-zero stake on a validator. They stay valid `label` filters regardless, and an
+empty result for one means "nothing was exiting", not "unknown label".
 
 ### Storing collected stake to the database
 
@@ -78,6 +111,41 @@ cargo run --bin validator-bonds-api-cli -- store-collected-stake \
 With no rows stored the endpoint answers 500 rather than an empty list, which would read as "no
 validator is protected".
 
-The integration tests (`api/tests/http_behavior.rs`) cover routing/middleware only; the
-DB-backed routes (`/bonds/*`, `/protected-events`, `/v1/validators/*`) and `readyz` are smoke-tested
-manually against the steps above.
+### Storing the direct staking allocation to the database
+
+`/v1/protected-events/allocation` reports which bond paid each validator's direct-staking PSR
+claims, and which validators had no usable bond at all. That cannot be derived from settlements — a
+validator with no usable bond produces no settlement — so it comes from the allocator's report,
+stored by the `store-direct-staking-allocation` step of `.buildkite/prepare-direct-staking-distribution.yml`:
+
+```bash
+cargo run --bin validator-bonds-api-cli -- store-direct-staking-allocation \
+    --input-file direct-staking-allocation-report.json \
+    --postgres-ssl-root-cert "$PG_SSLROOTCERT" \
+    --postgres-url "$POSTGRES_URL"
+
+curl -X GET --compressed "http://localhost:8000/v1/protected-events/allocation"
+curl -X GET --compressed "http://localhost:8000/v1/protected-events/allocation?from_epoch=1030"
+```
+
+The store replaces the report's epoch wholesale, so re-running it is idempotent. A report that
+routed nothing is legal — epoch 1020 was the first direct-staking run and both buckets were empty —
+and stores zero rows, which is indistinguishable from never having been stored. With nothing stored
+at all the endpoint answers 500 rather than an empty list, which would read as "nobody was left
+unprotected"; an epoch with no rows inside a non-empty table answers 200 with an empty list.
+
+Requires migration `0013-add-direct-staking-allocation.sql`.
+
+### Tests
+
+`api/tests/http_behavior.rs` covers routing/middleware only. `/bonds/*`, `/protected-events` and
+`readyz` are smoke-tested manually against the steps above.
+
+Two test files do run SQL against a real database. Each skips itself unless `TEST_POSTGRES_URL` is
+set, and each confines itself to epochs 900001-900004 so a run against a populated database cannot
+disturb it:
+
+```bash
+TEST_POSTGRES_URL="postgresql://${DB}:${DB}@localhost:5444/${DB}" \
+  cargo test -p api --test collected_stake_queries --test direct_staking_allocation_queries
+```
