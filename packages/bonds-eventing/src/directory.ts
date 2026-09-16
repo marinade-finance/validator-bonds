@@ -1,7 +1,8 @@
 const REQUEST_TIMEOUT_MS = 30_000
 
-export interface DirectoryDoc<T> {
-  body: T
+/** The body is whatever JSON the store held: a caller narrows it itself. */
+export interface DirectoryDoc {
+  body: unknown
   etag: string
 }
 
@@ -24,7 +25,7 @@ export class DirectoryConflictError extends Error {
 }
 
 export interface Directory {
-  get<T>(path: string): Promise<DirectoryDoc<T> | null>
+  get(path: string): Promise<DirectoryDoc | null>
   put(
     path: string,
     body: unknown,
@@ -60,7 +61,7 @@ export function createDirectory(url: string, token: string): Directory {
   const authorization = `Bearer ${token}`
 
   return {
-    async get<T>(path: string): Promise<DirectoryDoc<T> | null> {
+    async get(path: string): Promise<DirectoryDoc | null> {
       const response = await fetch(`${base}/v1${path}`, {
         headers: { Authorization: authorization },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -73,7 +74,8 @@ export function createDirectory(url: string, token: string): Directory {
       if (etag === null)
         throw new Error(`Directory GET ${path} answered without an ETag`)
 
-      return { body: (await response.json()) as T, etag }
+      const body: unknown = await response.json()
+      return { body, etag }
     },
 
     async put(

@@ -94,20 +94,35 @@ function toJson(state: ValidatorState): ValidatorStateJson {
   }
 }
 
+/**
+ * The store answers with whatever JSON it holds. This checks the shape the
+ * loader walks — an object whose `validators` is an object — and leaves each
+ * row to `fromJson`, whose BigInt conversions refuse a malformed one loudly.
+ */
+function isEventingDocJson(body: unknown): body is EventingDocJson {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    'validators' in body &&
+    typeof body.validators === 'object' &&
+    body.validators !== null
+  )
+}
+
 export async function loadPreviousState(
   dir: Directory,
   bondType: BondType,
   logger: LoggerWrapper,
 ): Promise<PreviousState> {
   const path = statePath(bondType)
-  const doc = await dir.get<EventingDocJson>(path)
+  const doc = await dir.get(path)
 
   if (doc === null) {
     logger.info(`No state document at ${path}, starting from an empty map`)
     return { validators: new Map(), meta: undefined, etag: null }
   }
 
-  if (typeof doc.body.validators !== 'object' || doc.body.validators === null) {
+  if (!isEventingDocJson(doc.body)) {
     throw new Error(`Directory document ${path} carries no validators map`)
   }
 

@@ -38,14 +38,12 @@ function fakeDirectory(): FakeDirectory {
 
   return {
     docs,
-    get<T>(path: string): Promise<DirectoryDoc<T> | null> {
+    get(path: string): Promise<DirectoryDoc | null> {
       const stored = docs.get(path)
       if (stored === undefined) return Promise.resolve(null)
       // The store answers with JSON, so the caller never shares objects with it.
-      return Promise.resolve({
-        body: JSON.parse(JSON.stringify(stored.body)) as T,
-        etag: stored.etag,
-      })
+      const body: unknown = JSON.parse(JSON.stringify(stored.body))
+      return Promise.resolve({ body, etag: stored.etag })
     },
     put(
       path: string,
