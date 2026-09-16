@@ -30,7 +30,7 @@ export function addSharedEventingOptions(command: Command): Command {
     .addOption(
       new Option(
         '--directory-token <token>',
-        'Bearer token for marinade-directory, granted bonds/eventing/**:rw and bonds/events/**:rw (required)',
+        'Bearer token for marinade-directory, granted /bonds/eventing/**:rw and /bonds/events/**:rw (required)',
       ).env('DIRECTORY_TOKEN'),
     )
     .addOption(

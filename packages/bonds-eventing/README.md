@@ -36,7 +36,9 @@ back with `If-Match` on the version it loaded. A `412` there means a concurrent 
 first: the run fails, without retrying, because its events are already POSTed.
 
 `--directory-url` / `DIRECTORY_URL` and `--directory-token` / `DIRECTORY_TOKEN` are required;
-the token needs the `bonds/eventing/**:rw` and `bonds/events/**:rw` grants.
+the token needs the `/bonds/eventing/**:rw` and `/bonds/events/**:rw` grants. The leading
+slash is load-bearing: the store matches a grant against a path that starts with one, so
+`bonds/**:rw` matches nothing and every write 403s.
 
 ### Design notes
 
