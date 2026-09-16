@@ -1,5 +1,3 @@
-import { DirectoryConflictError } from './directory'
-
 import type { Directory } from './directory'
 import type { BondType, BondsEventV1, EmitResult } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -63,13 +61,9 @@ export async function persistEvents(
     }
     const path = `/bonds/events/${event.bond_type}/${event.epoch}/${result.messageId}`
 
-    try {
-      await dir.put(path, record, { create: true })
-    } catch (err) {
-      // The message id is already stored: the record is append-only, so the
-      // refusal means the event is persisted.
-      if (!(err instanceof DirectoryConflictError)) throw err
-    }
+    // The path carries a message id minted for this POST, so a refusal is a
+    // uuidv7 collision rather than a replay of something already stored.
+    await dir.put(path, record, { create: true })
   }
 
   logger.info(`Persisted ${results.size} event records`)

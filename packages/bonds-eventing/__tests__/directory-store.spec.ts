@@ -260,24 +260,30 @@ describeStore('marinade-directory store', () => {
   })
 
   /**
-   * Recording the same emitted event twice is not an error. Assumes the second
-   * run answers 412 on the create-only PUT. Verifies the call succeeds and the
-   * stored record carries the event fields and its emit status.
+   * A message id is minted per POST, so the store refusing the create-only PUT
+   * means two ids collided, not that the event was already recorded. Assumes
+   * the first call stored the record. Verifies the second call surfaces the
+   * conflict and leaves the first record standing.
    */
-  it('counts a 412 on an event PUT as persisted', async () => {
+  it('surfaces a 412 on an event PUT', async () => {
     const event = bondsEvent('vote1')
     const result: EmitResult = { status: 'sent', messageId: `msg-${suffix}` }
     const results = new Map<BondsEventV1, EmitResult>([[event, result]])
 
     await persistEvents(dir, results, logger)
-    await persistEvents(dir, results, logger)
 
-    const stored = await dir.get<Record<string, unknown>>(
+    await expect(persistEvents(dir, results, logger)).rejects.toBeInstanceOf(
+      DirectoryConflictError,
+    )
+
+    const stored = await dir.get(
       `/bonds/events/bidding/${EPOCH}/${result.messageId}`,
     )
-    expect(stored?.body.message_id).toBe(result.messageId)
-    expect(stored?.body.inner_type).toBe('first_seen')
-    expect(stored?.body.status).toBe('sent')
-    expect(stored?.body.error).toBeNull()
+    expect(stored?.body).toMatchObject({
+      message_id: result.messageId,
+      inner_type: 'first_seen',
+      status: 'sent',
+      error: null,
+    })
   })
 })
