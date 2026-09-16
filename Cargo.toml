@@ -41,7 +41,7 @@ log = "0.4.14"
 merkle-tree = { path = "./merkle-tree" }
 regex = "1.10.4"
 reqwest = "0.11.22"
-rust_decimal = { version = "1.37.1", features = ["db-postgres"] }
+rust_decimal = "1.37.1"
 rust_decimal_macros = "1.37.1"
 serde = "1.0.197"
 serde_json = "1.0.114"
