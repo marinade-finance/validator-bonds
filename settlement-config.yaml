@@ -36,20 +36,12 @@ settlements:
     meta:
       funder: ValidatorBond
 
-  # PSR - Validator funded (0-50% loss)
   - type: DowntimeRevenueImpactSettlement
     meta:
       funder: ValidatorBond
     min_settlement_lamports: 100000000 # 0.1 SOL
     grace_downtime_bps: 100 # 1 %
-    covered_range_bps: [0, 5000] # 0 % - 50 %
-
-  # PSR - Marinade funded (50-100% loss)
-  - type: DowntimeRevenueImpactSettlement
-    meta:
-      funder: Marinade
-    min_settlement_lamports: 100000000 # 0.1 SOL
-    covered_range_bps: [5000, 10000] # 50 % - 100 %
+    covered_range_bps: [0, 10000] # 0 % - 100 %
 
   - type: CommissionSamIncreaseSettlement
     meta:
