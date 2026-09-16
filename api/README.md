@@ -17,6 +17,13 @@ it writes.
 
 ### A store of your own
 
+The store image is not published anywhere, so build it from a checkout of
+[marinade-directory](https://github.com/marinade-finance/marinade-directory) first:
+
+```bash
+docker build -t marinade-directory:test /path/to/marinade-directory
+```
+
 ```bash
 GCS_PORT=4443
 STORE_PORT=8080
