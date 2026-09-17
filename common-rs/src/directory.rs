@@ -6,6 +6,9 @@
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::Duration;
 
 /// A document as the store served it, with the version to send back in `If-Match`.
 #[derive(Debug)]
@@ -40,6 +43,12 @@ pub enum DirectoryError {
     #[error("{path}: the store answered without an ETag")]
     MissingEtag { path: String },
     #[error("{path}: the stored document does not have the expected shape")]
+    Decode {
+        path: String,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("{path}: the stored document does not have the expected shape")]
     Body {
         path: String,
         #[source]
@@ -47,10 +56,29 @@ pub enum DirectoryError {
     },
 }
 
+/// Bounds one store request. The handlers above have no timeout of their own.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Read by the readiness probe. Any stored path would do; this one is read by
+/// the service anyway, so the probe exercises a real grant rather than a
+/// reachability check.
+const READINESS_PATH: &str = "/bonds/stake/@last";
+
 pub struct Directory {
     url: String,
     token: String,
     client: reqwest::Client,
+    /// The last body seen at each path, with the ETag it carried.
+    ///
+    /// The store meters a token by the bytes it serves, over a rolling window,
+    /// and these documents are hundreds of kilobytes that every request reads
+    /// whole. Served unconditionally, one ordinary consumer polling once a
+    /// second exhausts the budget in minutes, after which the store answers
+    /// 429 and every route here fails until the window rolls. A conditional
+    /// request costs nothing when the document has not moved, and the ETag is
+    /// taken over the resolved path, so `@last` moving to a new epoch misses
+    /// the check and refetches on its own.
+    seen: Mutex<HashMap<String, (String, Vec<u8>)>>,
 }
 
 impl Directory {
@@ -58,7 +86,14 @@ impl Directory {
         Self {
             url: url.trim_end_matches('/').to_owned(),
             token: token.to_owned(),
-            client: reqwest::Client::new(),
+            // reqwest has no default timeout, and nothing above this bounds a
+            // handler: a store that stops answering mid-response would park
+            // every in-flight request until the process ran out of memory.
+            client: reqwest::Client::builder()
+                .timeout(REQUEST_TIMEOUT)
+                .build()
+                .expect("a reqwest client with only a timeout set cannot fail to build"),
+            seen: Mutex::new(HashMap::new()),
         }
     }
 
@@ -68,31 +103,65 @@ impl Directory {
         &self,
         path: &str,
     ) -> Result<Option<Doc<T>>, DirectoryError> {
-        let response = self
+        let known = self.remembered(path);
+        let mut request = self
             .client
             .get(self.endpoint(path))
-            .bearer_auth(&self.token)
+            .bearer_auth(&self.token);
+        if let Some((etag, _)) = &known {
+            request = request.header(reqwest::header::IF_NONE_MATCH, etag);
+        }
+        let response = request
             .send()
             .await
             .map_err(|source| DirectoryError::Transport {
                 path: path.to_owned(),
                 source,
             })?;
-
         if response.status() == reqwest::StatusCode::NOT_FOUND {
+            self.forget(path);
             return Ok(None);
+        }
+        if response.status() == reqwest::StatusCode::NOT_MODIFIED {
+            if let Some((etag, bytes)) = known {
+                return Ok(Some(Doc {
+                    body: parse(path, &bytes)?,
+                    etag,
+                }));
+            }
         }
 
         let response = checked(path, response).await?;
         let etag = etag(path, &response)?;
-        let body = response
-            .json()
+        let bytes = response
+            .bytes()
             .await
             .map_err(|source| DirectoryError::Body {
                 path: path.to_owned(),
                 source,
             })?;
+        let body = parse(path, &bytes)?;
+        self.remember(path, &etag, bytes.to_vec());
         Ok(Some(Doc { body, etag }))
+    }
+
+    fn remembered(&self, path: &str) -> Option<(String, Vec<u8>)> {
+        self.seen
+            .lock()
+            .expect("directory cache")
+            .get(path)
+            .cloned()
+    }
+
+    fn remember(&self, path: &str, etag: &str, bytes: Vec<u8>) {
+        self.seen
+            .lock()
+            .expect("directory cache")
+            .insert(path.to_owned(), (etag.to_owned(), bytes));
+    }
+
+    fn forget(&self, path: &str) {
+        self.seen.lock().expect("directory cache").remove(path);
     }
 
     /// The stored version after the write.
@@ -147,24 +216,30 @@ impl Directory {
             .await
     }
 
-    /// The store's own probe: it answers once its bucket is reachable.
+    /// Readiness, asked as this service asks for data: an authenticated read.
+    ///
+    /// The store's own `/ready` sits outside its authenticator, so a probe
+    /// against it answers for the bucket and says nothing about the token —
+    /// and every token carries an expiry the store enforces. Probing it left
+    /// a pod reporting Ready while every read answered 401.
+    ///
+    /// A path the store does not hold is ready: a fresh deployment is ready
+    /// before its first write, which is why `/ready` was chosen originally.
     pub async fn ready(&self) -> Result<(), DirectoryError> {
-        let response = self
-            .client
-            .get(format!("{}/ready", self.url))
-            .send()
-            .await
-            .map_err(|source| DirectoryError::Transport {
-                path: "/ready".to_owned(),
-                source,
-            })?;
-        checked("/ready", response).await?;
+        self.get::<serde::de::IgnoredAny>(READINESS_PATH).await?;
         Ok(())
     }
 
     fn endpoint(&self, path: &str) -> String {
         format!("{}/v1{path}", self.url)
     }
+}
+
+fn parse<T: DeserializeOwned>(path: &str, bytes: &[u8]) -> Result<T, DirectoryError> {
+    serde_json::from_slice(bytes).map_err(|source| DirectoryError::Decode {
+        path: path.to_owned(),
+        source,
+    })
 }
 
 async fn checked(

@@ -13,6 +13,7 @@ bincode = { workspace = true }
 log = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
+serde_json = { workspace = true }
 solana-sdk = { workspace = true }
 solana-stake-interface = { workspace = true }
 rust_decimal = { workspace = true, features = ["serde-float"] }

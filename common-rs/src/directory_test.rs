@@ -9,6 +9,9 @@ const REPLACED: &str =
 const CONFLICT: &str =
     "HTTP/1.1 412 Precondition Failed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 const MISSING: &str = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+const NOT_MODIFIED: &str = "HTTP/1.1 304 Not Modified\r\nEtag: \"v2\"\r\nConnection: close\r\n\r\n";
+const UNAUTHORIZED: &str =
+    "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 const FAULT: &str =
     "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 7\r\nConnection: close\r\n\r\nno luck";
 // The header spelling the store emits, which is what the client has to match.
@@ -171,16 +174,68 @@ async fn a_server_fault_carries_its_status() {
 }
 
 #[tokio::test]
-async fn ready_is_probed_without_a_token() {
-    let stub = stub(vec![REPLACED]).await;
+async fn ready_is_probed_with_the_token_this_service_reads_with() {
+    let stub = stub(vec![DOCUMENT]).await;
     directory(&stub).ready().await.expect("the store is ready");
     let probe = stub.request(0);
     assert!(
-        probe.starts_with("GET /ready HTTP/1.1"),
-        "the probe is not under /v1: {probe}",
+        probe.starts_with("GET /v1/bonds/stake/@last HTTP/1.1"),
+        "the probe reads a real path: {probe}",
     );
     assert!(
-        !probe.contains("authorization:"),
-        "the probe is anonymous: {probe}",
+        probe.to_lowercase().contains("authorization: bearer"),
+        "an anonymous probe cannot see the token expire: {probe}",
     );
+}
+
+/// A store that does not hold the path is still ready: a fresh deployment is
+/// ready before its first write.
+#[tokio::test]
+async fn ready_accepts_a_path_the_store_does_not_hold() {
+    let stub = stub(vec![MISSING]).await;
+    directory(&stub)
+        .ready()
+        .await
+        .expect("an empty store is ready");
+}
+
+#[tokio::test]
+async fn a_rejected_token_makes_the_service_unready() {
+    let stub = stub(vec![UNAUTHORIZED]).await;
+    directory(&stub)
+        .ready()
+        .await
+        .expect_err("a 401 is not ready");
+}
+
+/// The store meters a token by the bytes it serves, so a document that has not
+/// moved must not be served again.
+#[tokio::test]
+async fn a_second_read_is_conditional_and_reuses_the_body() {
+    let stub = stub(vec![DOCUMENT, NOT_MODIFIED]).await;
+    let directory = directory(&stub);
+
+    let first = directory
+        .get::<serde_json::Value>("/bonds/stake/@last")
+        .await
+        .expect("first read")
+        .expect("a document");
+    assert!(
+        !stub.request(0).to_lowercase().contains("if-none-match"),
+        "nothing is known yet on the first read: {}",
+        stub.request(0),
+    );
+
+    let second = directory
+        .get::<serde_json::Value>("/bonds/stake/@last")
+        .await
+        .expect("second read")
+        .expect("a document");
+    assert!(
+        stub.request(1).contains("if-none-match: \"v2\""),
+        "the second read carries the ETag it was given: {}",
+        stub.request(1),
+    );
+    assert_eq!(second.body, first.body, "a 304 answers from what was read");
+    assert_eq!(second.etag, first.etag);
 }
