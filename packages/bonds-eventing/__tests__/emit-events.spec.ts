@@ -40,6 +40,7 @@ function makeConfig(overrides: Partial<EventingConfig> = {}): EventingConfig {
     retryBaseDelayMs: 10, // fast for tests
     emitConcurrency: 20,
     dryRun: false,
+    allowEmptyState: false,
     cacheInputs: undefined,
     ...overrides,
   }

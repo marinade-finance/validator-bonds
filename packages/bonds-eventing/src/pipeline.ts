@@ -33,13 +33,29 @@ export async function runEventingPipeline<V>(opts: {
   try {
     const previous = await loadPreviousState(dir, bondType, logger)
 
+    // An empty state against a non-empty input makes every validator
+    // first_seen: one notification each, fanned out to their subscribers, and
+    // nothing recalls them. A store pointed somewhere fresh, or a state
+    // document deleted, looks identical to a genuine first run from here - so
+    // the genuine one says so.
+    if (previous.validators.size === 0 && validators.length > 0) {
+      if (!config.allowEmptyState) {
+        throw new Error(
+          `No previous state for ${bondType} and ${validators.length} validators to evaluate — ` +
+            'refusing to run (would notify every validator as first_seen). ' +
+            'Pass --allow-empty-state if this really is the first run.',
+        )
+      }
+      logger.warn(
+        `Evaluating ${validators.length} validators against no previous state — every one is first_seen`,
+      )
+    }
+
     const events = opts.evaluate(validators, previous.validators, epoch)
 
     const results = await emitEvents(events, config, logger)
 
     if (!config.dryRun) {
-      await persistEvents(dir, results, logger)
-
       const failedVoteAccounts = new Set<string>()
       for (const [event, result] of results) {
         if (result.status === 'failed') {
@@ -88,6 +104,12 @@ export async function runEventingPipeline<V>(opts: {
         previous.etag,
         logger,
       )
+
+      // After the state, not before it. These are N independent writes, and a
+      // failure among them used to leave the state unwritten - so the next run
+      // re-evaluated against it and re-POSTed every event of this one, which
+      // have already gone out. A missing audit document is the cheaper loss.
+      await persistEvents(dir, results, logger)
     }
 
     const sent = [...results.values()].filter(r => r.status === 'sent').length

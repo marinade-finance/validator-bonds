@@ -78,6 +78,8 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
       20,
     ),
     dryRun: opts.dryRun === true || opts.dryRun === 'true',
+    allowEmptyState:
+      opts.allowEmptyState === true || opts.allowEmptyState === 'true',
     cacheInputs: opts.cacheInputs as string | undefined,
   }
 }

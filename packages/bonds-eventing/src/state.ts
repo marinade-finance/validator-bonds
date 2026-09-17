@@ -122,6 +122,12 @@ export async function loadPreviousState(
     return { validators: new Map(), meta: undefined, etag: null }
   }
 
+  // A store that answers but holds nothing looks exactly like a genuine first
+  // run, and evaluating against it makes every validator first_seen - one
+  // notification each, fanned out to their subscribers, with no way to recall
+  // them. The same refusal the institutional run already makes on an empty
+  // bond list, from the other side.
+
   if (!isEventingDocJson(doc.body)) {
     throw new Error(`Directory document ${path} carries no validators map`)
   }

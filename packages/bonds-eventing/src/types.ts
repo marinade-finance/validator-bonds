@@ -69,5 +69,6 @@ export interface EventingConfig {
   retryBaseDelayMs: number
   emitConcurrency: number
   dryRun: boolean
+  allowEmptyState: boolean
   cacheInputs: string | undefined
 }
