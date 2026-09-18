@@ -77,29 +77,6 @@ steps:
 
   - wait: ~
 
-  - label: ":mega: Notification initializing settlements"
-    commands:
-    - epoch=$(buildkite-agent meta-data get epoch)
-    - claim_type=$(buildkite-agent meta-data get claim_type)
-    - slack_feed=$(buildkite-agent meta-data get slack_feed)
-    - |
-      curl $SLACK_API -X POST -H 'Content-Type: application/json; charset=utf-8' \
-        -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -d '{
-          "channel": "'"$$slack_feed"'",
-          "attachments": [
-            {
-              "color": "#8000ff",
-              "title": "Confirm Settlements Initialization for Validator Bonds ('"$$epoch"')/('"$$claim_type"')",
-              "title_link": "'"$$BUILDKITE_BUILD_URL"'",
-              "text": "Please review the *'"'"'Unblock'"'"'* if ready to proceed",
-              "footer": "<'"$$BUILDKITE_BUILD_URL"'|View in Buildkite>"
-            }
-          ]
-      }'
-    if: "build.env('NOTIFY_FEED') == 'true'"
-
-  - wait: ~
-
   - label: ":hammer_and_wrench: :rust: Build init-settlement"
     commands:
     - '. "$HOME/.cargo/env"'
