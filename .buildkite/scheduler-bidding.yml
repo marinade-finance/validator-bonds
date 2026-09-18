@@ -53,6 +53,8 @@ steps:
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/validators.json" "$gs_bucket/$$epoch/"
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/stakes.json" "$gs_bucket/$$epoch/"
 
+            notify_feed=$${NOTIFY_FEED:-$${NOTIFY:-false}}
+
             cat <<EOF | buildkite-agent pipeline upload
               steps:
                 - trigger: "prepare-bid-distribution"
@@ -62,7 +64,7 @@ steps:
                     branch: $$BUILDKITE_BRANCH
                     env:
                       EPOCH: $$epoch
-                      NOTIFY_FEED: $NOTIFY_FEED
+                      NOTIFY_FEED: $$notify_feed
                       gs_bucket: $gs_bucket
         EOF
             echo "Scheduling BID DISTRIBUTION completed for epoch $$epoch"
