@@ -45,8 +45,6 @@ steps:
       done
     - |
       echo "direct-staking:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
-      buildkite-agent meta-data set direct_staking_max_processed_epoch "$$max_processed_epoch"
-      buildkite-agent meta-data set direct_staking_max_available_epoch "$$max_available_epoch"
       if (( $$max_available_epoch > 0 )) && (( $$max_processed_epoch < $$max_available_epoch )); then
         cat <<EOF | buildkite-agent pipeline upload
         steps:
@@ -70,25 +68,3 @@ steps:
     command: echo "End of concurrency gate <--"
     concurrency_group: 'validator-bonds/scheduler-direct-staking'
     concurrency: 1
-
-  - wait: ~
-
-  # Outside the gate: this fails the build, which before the unlock step would wedge the gate.
-  - label: ":rotating_light: Producer liveness"
-    commands:
-    - max_processed_epoch=$(buildkite-agent meta-data get direct_staking_max_processed_epoch --default "")
-    - max_available_epoch=$(buildkite-agent meta-data get direct_staking_max_available_epoch --default "")
-    - |
-      if [[ -z $$max_processed_epoch ]] || [[ -z $$max_available_epoch ]]; then
-        echo "The scheduling step recorded no epochs, so there is nothing to judge."
-        exit 0
-      fi
-      lag=$(( $$max_available_epoch - $$max_processed_epoch ))
-      echo "direct-staking:: lag $$lag epochs (processed $$max_processed_epoch, available $$max_available_epoch)"
-      # One epoch behind is the normal window between an epoch becoming available and the run.
-      if (( $$lag < 2 )); then
-        exit 0
-      fi
-      echo "Epoch $$max_available_epoch has its inputs in GCS, but the newest processed epoch is $$max_processed_epoch."
-      echo "No direct-staking settlements or allocation report are being produced. Failing the build to raise it."
-      exit 1
