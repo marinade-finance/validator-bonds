@@ -1,6 +1,10 @@
 agents:
   queue: "snapshots"
 
+notify:
+  - slack: '#feed-pipeline-sam-psr'
+    if: build.state == "failed"
+
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
 
