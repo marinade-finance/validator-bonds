@@ -144,7 +144,9 @@ steps:
       outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
       outcome3=$$(buildkite-agent step get "outcome" --step "sanity-check-3")
 
+      sanity_failed=false
       if [[ "$$outcome1 $$outcome2 $$outcome3" =~ soft_failed ]]; then
+         sanity_failed=true
          cat <<- YAML | buildkite-agent pipeline upload
          steps:
            - block: ":interrobang: Sanity check failed"
@@ -152,6 +154,10 @@ steps:
              if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
              blocked_state: running
       YAML
+      fi
+      # mirrors the two conditional block steps: the sanity-failure one above and the confirm one below
+      if [[ "$$NOTIFY_FEED" == "true" && ( "$$PIPELINES_AUTO_APPROVAL" != "true" || "$$sanity_failed" == "true" ) ]]; then
+        curl "$$SLACK_API" -X POST -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -H 'Content-type: application/json; charset=utf-8' -d "{\"channel\":\"$$(buildkite-agent meta-data get slack_feed)\",\"text\":\":interrobang: Confirm Settlements Initialization for Validator Bonds ($$(buildkite-agent meta-data get epoch))/($$(buildkite-agent meta-data get claim_type)), review and *Unblock* if ready to proceed: $$BUILDKITE_BUILD_URL\"}"
       fi
     depends_on: 
       - "sanity-check-1"
