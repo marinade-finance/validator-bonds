@@ -3108,6 +3108,32 @@ fn test_settlement_config_yaml_deserialization() {
         !psr_configs.is_empty(),
         "Should have at least one PSR config"
     );
+
+    let downtime: Vec<_> = psr_configs
+        .iter()
+        .filter(|c| {
+            matches!(
+                c.kind,
+                PsrSettlementConfigKind::DowntimeRevenueImpactSettlement { .. }
+            )
+        })
+        .collect();
+    assert_eq!(
+        downtime.len(),
+        1,
+        "MIP-23: a single downtime entry, the Marinade-funded band is gone"
+    );
+    assert_eq!(
+        downtime[0].meta.funder,
+        SettlementFunder::ValidatorBond,
+        "MIP-23: the validator funds the whole downtime loss"
+    );
+    match downtime[0].kind {
+        PsrSettlementConfigKind::DowntimeRevenueImpactSettlement {
+            covered_range_bps, ..
+        } => assert_eq!(covered_range_bps, [0, 10_000]),
+        ref other => panic!("expected a downtime settlement config, got {other:?}"),
+    }
 }
 
 // ===== Direct-staking PSR profile (settlement-config-direct-staking.yaml) =====
