@@ -19,7 +19,7 @@ steps:
     commands:
       - |
         set -o pipefail
-        max_processed_epoch=$(gcloud storage ls "${gs_bucket}/**/unified-merkle-trees.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+        max_processed_epoch=$(gcloud storage ls "${gs_bucket}/**/unified-merkle-trees.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 22) || exit 22
         max_processed_epoch="$${max_processed_epoch%%[^0-9]*}"
         max_processed_epoch=$${max_processed_epoch:-0}
 

@@ -21,7 +21,7 @@ steps:
       - |
         set -o pipefail
         # Check for latest epoch with bid-distribution settlements (indicates prepare-bid-distribution ran)
-        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/bid-distribution-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/bid-distribution-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 21) || exit 21
         max_processed_epoch_bid="$${max_processed_epoch_bid%%[^0-9]*}"
         max_processed_epoch_bid=$${max_processed_epoch_bid:-0}
 
