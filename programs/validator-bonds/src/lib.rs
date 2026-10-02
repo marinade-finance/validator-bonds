@@ -112,6 +112,11 @@ pub mod validator_bonds {
         FundBond::process(ctx)
     }
 
+    pub fn refund_bond_balance(ctx: Context<RefundBondBalance>) -> Result<()> {
+        check_context(&ctx)?;
+        RefundBondBalance::process(ctx)
+    }
+
     pub fn init_withdraw_request(
         ctx: Context<InitWithdrawRequest>,
         create_withdraw_request_args: InitWithdrawRequestArgs,

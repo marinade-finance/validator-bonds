@@ -172,6 +172,8 @@ export const VALIDATOR_BONDS_ERROR__BOND_PRODUCT_SETUP_NOT_PERMITTED = 0x17bc //
 export const VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS = 0x17bd // 6077
 /** ProductTypeConfigValidationFailure: Fail to validate ProductConfig value */
 export const VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE = 0x17be // 6078
+/** RefundBondBalanceNoExcessLamports: Bond account has no lamports above the rent-exempt minimum */
+export const VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS = 0x17bf // 6079
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -223,6 +225,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__OPERATOR_AND_PAUSE_AUTHORITY_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE
   | typeof VALIDATOR_BONDS_ERROR__PROGRAM_IS_PAUSED
+  | typeof VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS
   | typeof VALIDATOR_BONDS_ERROR__RENT_COLLECTOR_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_ACCOUNT_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_ALREADY_CLAIMED
@@ -306,6 +309,7 @@ if (process.env.NODE_ENV !== 'production') {
     [VALIDATOR_BONDS_ERROR__OPERATOR_AND_PAUSE_AUTHORITY_MISMATCH]: `Operation permitted only to operator or pause authority`,
     [VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE]: `Fail to validate ProductConfig value`,
     [VALIDATOR_BONDS_ERROR__PROGRAM_IS_PAUSED]: `Emergency Pause is Active`,
+    [VALIDATOR_BONDS_ERROR__REFUND_BOND_BALANCE_NO_EXCESS_LAMPORTS]: `Bond account has no lamports above the rent-exempt minimum`,
     [VALIDATOR_BONDS_ERROR__RENT_COLLECTOR_MISMATCH]: `Rent collector address does not match permitted rent collector`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_ACCOUNT_MISMATCH]: `Settlement account address does not match with the stored one`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_ALREADY_CLAIMED]: `Settlement has been already claimed`,
