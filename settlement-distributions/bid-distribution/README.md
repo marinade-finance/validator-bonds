@@ -45,6 +45,10 @@ gcloud storage cp "$gs_bucket_etl/$epoch/rewards_validators_blocks.json" "$rewar
 gcloud storage cp "$gs_bucket_etl/$epoch/rewards_priority_fee.json" "$rewards_dir"/jito_priority_fee.json
 ```
 
+The actual inflation commission in `evaluation.json` is `validators.json`'s
+`inflation_rewards_commission_bps`, the `epoch_stakes(E)` rate agave applied to the epoch;
+the u8 `commission` is the live state at the snapshot slot, used only by snapshots without that field.
+
 ### 2. Generating Settlements
 
 Fee parameters and per-settlement configuration live in the repo's
