@@ -45,9 +45,10 @@ gcloud storage cp "$gs_bucket_etl/$epoch/rewards_validators_blocks.json" "$rewar
 gcloud storage cp "$gs_bucket_etl/$epoch/rewards_priority_fee.json" "$rewards_dir"/jito_priority_fee.json
 ```
 
-The actual inflation commission in `evaluation.json` is `validators.json`'s
-`inflation_rewards_commission_bps`, the `epoch_stakes(E)` rate agave applied to the epoch;
-the u8 `commission` is the live state at the snapshot slot, used only by snapshots without that field.
+The actual inflation commission in `evaluation.json` starts from `validators.json`'s
+`inflation_rewards_commission_bps`, the `epoch_stakes(E)` rate agave applied to the epoch, capped by
+the bond's `inflation_commission_bps`; the u8 `commission` is the live state at the snapshot slot,
+used only by snapshots without that field. This holds once ds-sam reads that field (marinade-finance/ds-sam#149).
 
 ### 2. Generating Settlements
 
