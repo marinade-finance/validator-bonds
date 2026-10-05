@@ -35,7 +35,7 @@ clap = { version = "4.1.11", features = ["derive", "env"] }
 env_logger = "0.10.0"
 fast-math = "0.1.1"
 futures = "0.3.29"
-gcp-bigquery-client = "0.17.1"
+gcp-bigquery-client = "0.28.0"
 hex = "0.4.3"
 log = "0.4.14"
 merkle-tree = { path = "./merkle-tree" }
