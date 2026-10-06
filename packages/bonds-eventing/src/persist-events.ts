@@ -2,7 +2,6 @@ import type { Directory } from './directory'
 import type { BondType, BondsEventV1, EmitResult } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
-/** One emitted event as it is stored, mirroring the envelope the notifications API received. */
 interface EmittedEvent {
   message_id: string
   inner_type: BondsEventV1['inner_type']
@@ -16,9 +15,7 @@ interface EmittedEvent {
   created_at: string
 }
 
-// NaN and ±Infinity are not JSON. `JSON.stringify` maps them to null on its own,
-// so this makes the stored payload equal to the one the emit step POSTed and
-// keeps that mapping under test.
+// NaN and ±Infinity are not JSON: the stored payload must equal the one the emit step POSTed.
 export function sanitizeJson(value: unknown): unknown {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null
@@ -61,8 +58,6 @@ export async function persistEvents(
     }
     const path = `/bonds/events/${event.bond_type}/${event.epoch}/${result.messageId}`
 
-    // The path carries a message id minted for this POST, so a refusal is a
-    // uuidv7 collision rather than a replay of something already stored.
     await dir.put(path, record, { create: true })
   }
 

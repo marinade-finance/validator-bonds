@@ -2,9 +2,8 @@
 //! the store's own image in front of it, both on the host network, both removed
 //! when the harness drops.
 //!
-//! Without `docker` the tests that need a store say so and pass — the round-trips
-//! prove nothing that a stub could not fake, and a box without a container runtime
-//! is not a broken build.
+//! Without `docker` the tests that need a store say so and pass: a box without a
+//! container runtime is not a broken build.
 
 use api::context::{Context, WrappedContext};
 use api::repositories::common::CommonStoreOptions;
@@ -61,8 +60,6 @@ pub async fn start_store() -> Option<Store> {
     let bucket_name = format!("bonds-test-gcs-{bucket_port}");
     let store_name = format!("bonds-test-store-{store_port}");
 
-    // Host network, because the store reaches the bucket emulator by the very host and port
-    // the test itself uses.
     docker(&[
         "run",
         "-d",
@@ -147,8 +144,6 @@ pub fn context(directory: Directory) -> WrappedContext {
     ))
 }
 
-/// The production app, middleware and all, over a real socket — the same assembly
-/// `bin/api.rs` serves.
 pub async fn spawn_api(context: WrappedContext) -> String {
     let app = api::routes::build_app(context);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -167,7 +162,6 @@ pub async fn spawn_api(context: WrappedContext) -> String {
     format!("http://{addr}")
 }
 
-/// The internal `:9000` server, where `readyz` lives.
 pub async fn spawn_internal(context: WrappedContext) -> String {
     let app = api::routes::internal_router(context);
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
@@ -183,7 +177,6 @@ pub async fn spawn_internal(context: WrappedContext) -> String {
     format!("http://{addr}")
 }
 
-/// Test inputs are the YAML the collector prints, read back by the store commands.
 pub fn write_yaml<T: serde::Serialize>(name: &str, value: &T) -> String {
     std::fs::create_dir_all("./tmp").expect("./tmp is writable");
     let path = format!("./tmp/{name}.yaml");

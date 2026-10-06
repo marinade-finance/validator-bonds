@@ -62,6 +62,8 @@ fn stake(vote_account: &str, epoch: u64, effective: u64) -> CollectedStakeRecord
     }
 }
 
+// A stored set is served as written; a re-run replaces it, so a bond closed since is gone and
+// the other bond type has not moved.
 #[tokio::test]
 async fn stored_bonds_are_what_the_route_serves() {
     let Some(store) = common::start_store().await else {
@@ -79,8 +81,6 @@ async fn stored_bonds_are_what_the_route_serves() {
     assert_eq!(served["bonds"][0]["vote_account"], "voteA");
     assert_eq!(served["bonds"][0]["epoch"], 750);
 
-    // A re-run replaces the set rather than merging into it, so a bond closed since the
-    // first run is gone instead of lingering to the end of the epoch.
     let two = common::write_yaml(
         "bonds-750-rerun",
         &vec![
@@ -110,11 +110,12 @@ async fn stored_bonds_are_what_the_route_serves() {
     assert_eq!(latest["bonds"].as_array().map(Vec::len), Some(1));
     assert_eq!(latest["bonds"][0]["epoch"], 751, "@last must move on");
 
-    // The other type is written by its own pipeline and must not have moved.
     let institutional = common::get_json(&format!("{base}/bonds/institutional")).await;
     assert_eq!(institutional["bonds"].as_array().map(Vec::len), Some(0));
 }
 
+// Bidding stored through 751 (emptied), institutional only through 750 -> protected is summed at
+// 750; each type at its own newest epoch would take the emptied 751 bond.
 #[tokio::test]
 async fn protected_pins_both_types_to_the_older_newest_epoch() {
     let Some(store) = common::start_store().await else {
@@ -130,7 +131,6 @@ async fn protected_pins_both_types_to_the_older_newest_epoch() {
         .await
         .expect("the stake of the epoch is stored");
 
-    // 1 SOL covers 2000 SOL of Marinade stake, and only the epoch-750 bond has it.
     let bidding_750 = common::write_yaml(
         "protected-bidding-750",
         &vec![bond("votePinned", 750, BondType::Bidding, sol(1))],
@@ -153,7 +153,6 @@ async fn protected_pins_both_types_to_the_older_newest_epoch() {
         .await
         .expect("the institutional pipeline is still at 750");
 
-    // Reading each type at its own newest epoch would take the emptied 751 bidding bond.
     let protected = common::get_json(&format!("{base}/v1/validators/protected")).await;
     assert_eq!(
         protected["protected_validators"]
@@ -163,6 +162,7 @@ async fn protected_pins_both_types_to_the_older_newest_epoch() {
     );
 }
 
+// A re-run drops the record of a validator that unstaked in between; a mixed file -> refused.
 #[tokio::test]
 async fn stored_stake_replaces_its_epoch_and_a_mixed_file_is_refused() {
     let Some(store) = common::start_store().await else {
@@ -195,7 +195,6 @@ async fn stored_stake_replaces_its_epoch_and_a_mixed_file_is_refused() {
     let served = common::get_json(&format!("{base}/v1/validators/stake")).await;
     assert_eq!(served["validators"].as_array().map(Vec::len), Some(2));
 
-    // A validator that unstaked between runs has no record, and must not keep its old one.
     let one = common::write_yaml("stake-750-rerun", &vec![stake("voteA", 750, sol(1))]);
     store_collected_stake(common::store_options(&store, one))
         .await
@@ -206,8 +205,8 @@ async fn stored_stake_replaces_its_epoch_and_a_mixed_file_is_refused() {
     assert_eq!(replaced["epoch"], 750);
 }
 
-/// The eventing document is written by bonds-eventing; the API only reads it, and only the
-/// entries belonging to the auction the document's `meta` describes.
+// An entry from an earlier epoch, left by a run whose events failed to post -> not served; only
+// entries of the epoch `meta` describes are.
 #[tokio::test]
 async fn the_auction_context_serves_only_the_pinned_epoch() {
     let Some(store) = common::start_store().await else {
@@ -229,7 +228,6 @@ async fn the_auction_context_serves_only_the_pinned_epoch() {
                 "meta": { "epoch": 751 },
                 "validators": {
                     "voteCurrent": { "epoch": 751, "auction_validator": { "revShare": 1 } },
-                    // Left behind by an earlier run whose events failed to post.
                     "voteStale": { "epoch": 750, "auction_validator": { "revShare": 2 } },
                     "voteWithoutBlob": { "epoch": 751 },
                 },

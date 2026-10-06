@@ -80,7 +80,6 @@ pub async fn handler_bidding_auction(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
 ) -> Result<Json<AuctionContextResponse>, AppError> {
-    // No eventing run yet → an empty context, as an empty table was.
     let Some(state) = get_eventing_state(&context.read().await.directory, BondType::Bidding)
         .await
         .map_err(|error| AppError {
@@ -98,8 +97,7 @@ pub async fn handler_bidding_auction(
         meta,
         validators,
     } = state;
-    // A validator whose events failed to post keeps the entry an earlier run left, so its blob
-    // belongs to an older auction than `meta` — the pin is what excludes it.
+    // A validator whose events failed to post keeps an older run's entry; the pin drops it.
     let auction_validators = validators
         .into_iter()
         .filter(|(_, validator)| validator.epoch == epoch)

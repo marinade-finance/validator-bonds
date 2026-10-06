@@ -63,14 +63,8 @@ pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Resul
     Ok(())
 }
 
-/// One epoch per collection run: the collector stamps every record from a single `Clock`, and the
-/// store replaces that whole epoch. A mixed file has no one document to be, and is refused before
-/// anything is written. `slot` and `updated_at` are checked too because the snapshot reports them
-/// off an arbitrary record of the run.
 fn collected_stake(records: Vec<CollectedStakeRecord>) -> anyhow::Result<CollectedStakeSnapshot> {
     let Some(first) = records.first() else {
-        // An empty file must not be allowed to empty the epoch — `/protected` would then judge
-        // every validator against its bond floor alone.
         anyhow::bail!("No collected stake records to store");
     };
     let epoch = first.epoch;

@@ -35,7 +35,6 @@ function parsePositiveInt(
   return Math.floor(n)
 }
 
-/** Read a required option. Throws when it is unset, before the run does any work. */
 function requireOption(name: string, env: string, value: unknown): string {
   if (typeof value !== 'string' || value === '') {
     throw new Error(`Missing required option ${name} (env ${env})`)

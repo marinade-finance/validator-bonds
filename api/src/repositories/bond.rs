@@ -59,13 +59,11 @@ pub async fn get_bonds_by_type(
 
 /// Both configs at one epoch. `/v1/validators/protected` sums their collateral, and each type is
 /// stored by its own pipeline run, so the newest of one type can be an epoch the other has yet
-/// to reach.
+/// to reach. The sum is taken at the older epoch; a type that never stored it counts as empty.
 pub async fn get_summable_bonds(directory: &Directory) -> anyhow::Result<Vec<ValidatorBondRecord>> {
     let mut bidding = get_last_bonds(directory, BondType::Bidding).await?;
     let mut institutional = get_last_bonds(directory, BondType::Institutional).await?;
 
-    // Summing at the newer type's epoch would count only that type's collateral, halving a
-    // validator's cover until the other pipeline catches up.
     let epochs = (
         bidding.as_ref().map(|document| document.epoch),
         institutional.as_ref().map(|document| document.epoch),
@@ -96,8 +94,6 @@ async fn get_last_bonds(
         .map(|document| document.body))
 }
 
-/// `None` where that type never stored the epoch; the sum then counts only the other
-/// type's collateral at that epoch.
 async fn get_bonds_at(
     directory: &Directory,
     bond_type: BondType,
@@ -125,12 +121,8 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Where the set belongs, and what to write there. One collector run holds one epoch of one
-/// bond type, and those two are the path — a file that disagrees with itself has no one path
-/// and is refused before anything is written.
 fn collected_bonds(bonds: Vec<ValidatorBondRecord>) -> anyhow::Result<(String, BondsDocument)> {
     let Some(first) = bonds.first() else {
-        // An empty file must not be allowed to replace a stored set with nothing.
         anyhow::bail!("No bonds to store");
     };
     let epoch = first.epoch;

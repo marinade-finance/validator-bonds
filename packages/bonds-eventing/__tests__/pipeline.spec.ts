@@ -41,7 +41,6 @@ function fakeDirectory(): FakeDirectory {
     get(path: string): Promise<DirectoryDoc | null> {
       const stored = docs.get(path)
       if (stored === undefined) return Promise.resolve(null)
-      // The store answers with JSON, so the caller never shares objects with it.
       const body: unknown = JSON.parse(JSON.stringify(stored.body))
       return Promise.resolve({ body, etag: stored.etag })
     },
@@ -113,7 +112,6 @@ function event(voteAccount: string): BondsEventV1 {
   }
 }
 
-/** Notifications API stub that fails the POST for the given vote accounts. */
 function mockNotifications(failFor: string[] = []) {
   const failing = new Set(failFor)
   return jest.fn((_url: string, init?: RequestInit) => {
@@ -177,8 +175,6 @@ async function run(
     validators,
     epoch: EPOCH,
     voteAccountOf: v => v.voteAccount,
-    // One event per current validator, plus a delist event for every validator
-    // the previous run knew and this one does not see.
     evaluate: vals => {
       const events = vals.map(v => event(v.voteAccount))
       for (const voteAccount of previousVoteAccounts) {
@@ -327,7 +323,6 @@ describe('runEventingPipeline state merge', () => {
       const response = await notify(url, init)
       if (!raced) {
         raced = true
-        // A second run lands its own save between this run's emit and save.
         const current = dir.docs.get(STATE_PATH)
         await dir.put(
           STATE_PATH,

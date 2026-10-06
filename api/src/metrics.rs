@@ -101,14 +101,11 @@ pub async fn healthz() -> StatusCode {
     StatusCode::OK
 }
 
-/// Readiness: the process can serve traffic, gated on the document store answering its own
-/// probe. Returns 503 while the store is unreachable so the pod is pulled from the Service
-/// endpoints until it recovers. The store caches its bucket probe for 20 s, so a recovery can
-/// show up to that late.
+/// Readiness: 503 while the document store's probe fails or takes over 2 s. The store caches
+/// its bucket probe for 20 s, so a recovery can show up to that late.
 pub async fn readyz(
     axum::extract::State(context): axum::extract::State<crate::context::WrappedContext>,
 ) -> StatusCode {
-    // Bounded so a stalled store fails the probe fast instead of piling up handler tasks.
     let probe = async { context.read().await.directory.ready().await };
     match tokio::time::timeout(std::time::Duration::from_secs(2), probe).await {
         Ok(Ok(())) => StatusCode::OK,

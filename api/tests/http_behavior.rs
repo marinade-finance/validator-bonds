@@ -29,11 +29,6 @@ async fn wait_until_accepting(addr: SocketAddr) {
     panic!("server at {addr} did not start accepting connections in time");
 }
 
-/// Build the storeless routes with the same public-tier rate limit + global
-/// middleware as `routes::build_app`, bind an ephemeral port, spawn the
-/// server, and return its base URL. The store-backed routes are excluded (they
-/// need a `Context`); the middleware stack under test is shared with
-/// production via the `api::routes` building blocks.
 async fn spawn_test_server() -> String {
     let app = with_trailing_slash_tolerance(with_global_middleware(with_public_rate_limit(
         meta_routes(),
@@ -55,8 +50,6 @@ async fn spawn_test_server() -> String {
     format!("http://{addr}")
 }
 
-/// Spawn the state-free subset of the internal server (`/metrics`, `/healthz`).
-/// `readyz` needs a `Context` and is exercised by `directory_store.rs`.
 async fn spawn_internal_server() -> String {
     let app = axum::Router::new()
         .route(

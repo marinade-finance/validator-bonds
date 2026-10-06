@@ -56,28 +56,17 @@ pub enum DirectoryError {
     },
 }
 
-/// Bounds one store request. The handlers above have no timeout of their own.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Read by the readiness probe. Any stored path would do; this one is read by
-/// the service anyway, so the probe exercises a real grant rather than a
-/// reachability check.
 const READINESS_PATH: &str = "/bonds/stake/@last";
 
 pub struct Directory {
     url: String,
     token: String,
     client: reqwest::Client,
-    /// The last body seen at each path, with the ETag it carried.
-    ///
-    /// The store meters a token by the bytes it serves, over a rolling window,
-    /// and these documents are hundreds of kilobytes that every request reads
-    /// whole. Served unconditionally, one ordinary consumer polling once a
-    /// second exhausts the budget in minutes, after which the store answers
-    /// 429 and every route here fails until the window rolls. A conditional
-    /// request costs nothing when the document has not moved, and the ETag is
-    /// taken over the resolved path, so `@last` moving to a new epoch misses
-    /// the check and refetches on its own.
+    /// The last body at each path with its ETag. The store meters a token by bytes served and
+    /// these documents are hundreds of kilobytes, so a conditional read that costs nothing when
+    /// the document has not moved keeps the budget from running out into 429s.
     seen: Mutex<HashMap<String, (String, Vec<u8>)>>,
 }
 
@@ -86,9 +75,6 @@ impl Directory {
         Self {
             url: url.trim_end_matches('/').to_owned(),
             token: token.to_owned(),
-            // reqwest has no default timeout, and nothing above this bounds a
-            // handler: a store that stops answering mid-response would park
-            // every in-flight request until the process ran out of memory.
             client: reqwest::Client::builder()
                 .timeout(REQUEST_TIMEOUT)
                 .build()
@@ -97,8 +83,7 @@ impl Directory {
         }
     }
 
-    /// `None` for a path the store does not have; every caller reads that as
-    /// an empty set, not an error.
+    /// `None` for a path the store does not have; callers read that as an empty set.
     pub async fn get<T: DeserializeOwned>(
         &self,
         path: &str,
@@ -192,10 +177,8 @@ impl Directory {
         etag(path, &response)
     }
 
-    /// Create, and on the conflict a re-run for an already written path produces,
-    /// replace the version the store currently holds. The replace is not retried:
-    /// a second conflict means a concurrent writer, which is the alarm and not a
-    /// condition to write through.
+    /// Create, and on the conflict a re-run produces, replace the version the store holds. The
+    /// replace is not retried: a second conflict means a concurrent writer.
     pub async fn put_or_replace<T: Serialize>(
         &self,
         path: &str,
@@ -216,15 +199,9 @@ impl Directory {
             .await
     }
 
-    /// Readiness, asked as this service asks for data: an authenticated read.
-    ///
-    /// The store's own `/ready` sits outside its authenticator, so a probe
-    /// against it answers for the bucket and says nothing about the token —
-    /// and every token carries an expiry the store enforces. Probing it left
-    /// a pod reporting Ready while every read answered 401.
-    ///
-    /// A path the store does not hold is ready: a fresh deployment is ready
-    /// before its first write, which is why `/ready` was chosen originally.
+    /// Readiness as an authenticated read: the store's own `/ready` sits outside its
+    /// authenticator, so it says nothing about the token's expiry. A path the store does not
+    /// hold counts as ready, so a fresh deployment is ready before its first write.
     pub async fn ready(&self) -> Result<(), DirectoryError> {
         self.get::<serde::de::IgnoredAny>(READINESS_PATH).await?;
         Ok(())
@@ -266,7 +243,6 @@ async fn checked(
     })
 }
 
-/// The store spells the header `Etag`; header names match case-insensitively.
 fn etag(path: &str, response: &reqwest::Response) -> Result<String, DirectoryError> {
     response
         .headers()

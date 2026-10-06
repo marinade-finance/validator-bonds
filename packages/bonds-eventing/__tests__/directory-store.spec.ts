@@ -208,8 +208,6 @@ describeStore('marinade-directory store', () => {
    * loaded entry equals the saved one, and that the meta comes back too.
    */
   it('round-trips validator state through the document', async () => {
-    // The auction meta is a full DsSamConfig in a real run; the fields the
-    // document round trip touches are enough here.
     const meta = {
       epoch: EPOCH,
       winningTotalPmpe: 12.5,

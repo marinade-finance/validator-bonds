@@ -5,7 +5,6 @@ import type { Directory } from './directory'
 import type { BondType, ValidatorState } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
-/** Stored shape of one validator entry: lamport amounts are decimal strings. */
 interface ValidatorStateJson {
   vote_account: string
   bond_pubkey: string | null
@@ -94,11 +93,6 @@ function toJson(state: ValidatorState): ValidatorStateJson {
   }
 }
 
-/**
- * The store answers with whatever JSON it holds. This checks the shape the
- * loader walks — an object whose `validators` is an object — and leaves each
- * row to `fromJson`, whose BigInt conversions refuse a malformed one loudly.
- */
 function isEventingDocJson(body: unknown): body is EventingDocJson {
   return (
     typeof body === 'object' &&
@@ -121,12 +115,6 @@ export async function loadPreviousState(
     logger.info(`No state document at ${path}, starting from an empty map`)
     return { validators: new Map(), meta: undefined, etag: null }
   }
-
-  // A store that answers but holds nothing looks exactly like a genuine first
-  // run, and evaluating against it makes every validator first_seen - one
-  // notification each, fanned out to their subscribers, with no way to recall
-  // them. The same refusal the institutional run already makes on an empty
-  // bond list, from the other side.
 
   if (!isEventingDocJson(doc.body)) {
     throw new Error(`Directory document ${path} carries no validators map`)

@@ -2,8 +2,6 @@ use crate::repositories::collected_stake::{collected_stake, CollectedStakeSnapsh
 use chrono::{DateTime, TimeZone, Utc};
 use validator_bonds_common::dto::CollectedStakeRecord;
 
-// Fixed, not `Utc::now()`: two records of one run carry the very same stamp, and the check
-// under test is what rejects them when they do not.
 fn stamp(seconds: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(2026, 8, 10, 12, 0, seconds)
         .single()
@@ -44,7 +42,6 @@ fn stake_record(
     CollectedStakeRecord {
         vote_account: vote_account.to_owned(),
         label: label.to_owned(),
-        // Records are unique on (epoch, stake_authority, vote_account); label and authority are 1:1.
         stake_authority: format!("{label}-authority"),
         effective,
         activating,
@@ -66,9 +63,9 @@ fn activating_stake_counts_towards_the_amount_to_cover() {
     assert_eq!(to_cover.get("voteActivating"), Some(&101_000));
 }
 
+// Deactivating stake is still effective for the epoch -> only effective + activating is covered.
 #[test]
 fn deactivating_stake_is_not_added_on_top_of_effective() {
-    // Agave keeps deactivating stake effective for that epoch, so it is a subset, never an addend.
     let to_cover = snapshot(vec![stake_record(
         "voteDeactivating",
         "native",

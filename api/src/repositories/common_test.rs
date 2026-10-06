@@ -25,7 +25,7 @@ fn a_refused_request_is_critical() {
     }
 }
 
-// The pipeline's serialization gate, not a retry, is what keeps two writers apart.
+// A 412 conflict -> critical, never retried: the serialization gate keeps writers apart.
 #[test]
 fn a_conflict_is_critical() {
     let conflict = DirectoryError::Conflict {

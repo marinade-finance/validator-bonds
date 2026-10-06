@@ -14,11 +14,8 @@ const UNAUTHORIZED: &str =
     "HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 const FAULT: &str =
     "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 7\r\nConnection: close\r\n\r\nno luck";
-// The header spelling the store emits, which is what the client has to match.
 const DOCUMENT: &str = "HTTP/1.1 200 OK\r\nEtag: \"v2\"\r\nContent-Type: application/json\r\nContent-Length: 13\r\nConnection: close\r\n\r\n{\"epoch\":750}";
 
-/// Long enough for a local client to read an answer it already has, short enough that a
-/// client that never closes fails the test instead of hanging it.
 const DRAIN: std::time::Duration = std::time::Duration::from_secs(5);
 
 struct Stub {
@@ -35,8 +32,6 @@ impl Stub {
     }
 }
 
-/// Answers connections with the canned responses in order. Each response closes
-/// its connection, so one request lands on one response.
 async fn stub(responses: Vec<&'static str>) -> Stub {
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
@@ -65,8 +60,7 @@ async fn serve(
             .await
             .expect("the stub answers");
         socket.shutdown().await.expect("the stub closes");
-        // Closing with the request body still unread would RST the answer away before the
-        // client reads it, so wait for the client's own close.
+        // Closing with the request unread would RST the answer away; wait for the client.
         let mut rest = Vec::new();
         let drained = tokio::time::timeout(DRAIN, socket.read_to_end(&mut rest)).await;
         if drained.is_err() {

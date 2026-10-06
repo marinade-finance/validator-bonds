@@ -33,11 +33,6 @@ export async function runEventingPipeline<V>(opts: {
   try {
     const previous = await loadPreviousState(dir, bondType, logger)
 
-    // An empty state against a non-empty input makes every validator
-    // first_seen: one notification each, fanned out to their subscribers, and
-    // nothing recalls them. A store pointed somewhere fresh, or a state
-    // document deleted, looks identical to a genuine first run from here - so
-    // the genuine one says so.
     if (previous.validators.size === 0 && validators.length > 0) {
       if (!config.allowEmptyState) {
         throw new Error(
@@ -69,8 +64,6 @@ export async function runEventingPipeline<V>(opts: {
         )
       }
 
-      // A validator whose events all posted takes its new state; one with a
-      // failed event keeps the entry the previous run left.
       const currentVoteAccounts = new Set<string>()
       for (const validator of validators) {
         const voteAccount = opts.voteAccountOf(validator)
@@ -80,7 +73,6 @@ export async function runEventingPipeline<V>(opts: {
         }
       }
 
-      // A delisted validator leaves the document once its delist event posted.
       for (const voteAccount of previous.validators.keys()) {
         if (
           !currentVoteAccounts.has(voteAccount) &&
@@ -90,9 +82,8 @@ export async function runEventingPipeline<V>(opts: {
         }
       }
 
-      // A 412 here means a second run wrote the document while this one was
-      // emitting; it propagates, because its events are already POSTed and
-      // re-evaluating against the winner's state would emit them again.
+      // A 412 propagates: the events are already POSTed, and re-evaluating against the
+      // winner's state would emit them again.
       await saveState(
         dir,
         bondType,
@@ -105,10 +96,8 @@ export async function runEventingPipeline<V>(opts: {
         logger,
       )
 
-      // After the state, not before it. These are N independent writes, and a
-      // failure among them used to leave the state unwritten - so the next run
-      // re-evaluated against it and re-POSTed every event of this one, which
-      // have already gone out. A missing audit document is the cheaper loss.
+      // After the state: a failure among these N writes must not leave the state unwritten,
+      // or the next run re-POSTs this run's events.
       await persistEvents(dir, results, logger)
     }
 
