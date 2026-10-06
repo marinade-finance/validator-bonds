@@ -1,9 +1,10 @@
-use crate::repositories::common::{http_transient, CommonStoreOptions};
+use crate::repositories::common::{http_transient, read_yaml_input, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::directory::Directory;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
@@ -107,9 +108,8 @@ async fn get_bonds_at(
 }
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
-    let input = std::fs::File::open(&options.input_path)?;
-    let bonds: Vec<ValidatorBondRecord> = serde_yaml::from_reader(input)?;
-    let (path, document) = collected_bonds(bonds)?;
+    let bonds: Vec<ValidatorBondRecord> = read_yaml_input(&options.input_path)?;
+    let (path, document) = collected_bonds(bonds).map_err(CliError::critical)?;
 
     let directory = Directory::new(&options.directory_url, &options.directory_token);
     directory

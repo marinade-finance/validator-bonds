@@ -1,4 +1,6 @@
-use crate::repositories::collected_stake::{collected_stake, CollectedStakeSnapshot};
+use crate::repositories::collected_stake::{
+    collected_stake, filter_snapshots, CollectedStakeQuery, CollectedStakeSnapshot,
+};
 use chrono::{DateTime, TimeZone, Utc};
 use validator_bonds_common::dto::CollectedStakeRecord;
 
@@ -48,6 +50,32 @@ fn stake_record(
         deactivating,
         ..record(1014)
     }
+}
+
+fn query(labels: &[&str], vote_accounts: &[&str]) -> CollectedStakeQuery {
+    CollectedStakeQuery {
+        labels: labels.iter().map(|label| label.to_string()).collect(),
+        vote_accounts: vote_accounts
+            .iter()
+            .map(|vote_account| vote_account.to_string())
+            .collect(),
+    }
+}
+
+fn labelled(snapshots: &[CollectedStakeSnapshot]) -> Vec<(u64, Vec<(String, String)>)> {
+    snapshots
+        .iter()
+        .map(|snapshot| {
+            (
+                snapshot.epoch,
+                snapshot
+                    .records
+                    .iter()
+                    .map(|record| (record.label.clone(), record.vote_account.clone()))
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 #[test]
@@ -122,4 +150,66 @@ fn mixed_timestamps_are_rejected() {
     second.updated_at = stamp(1);
     let err = collected_stake(vec![record(1014), second]).expect_err("two timestamps");
     assert!(err.to_string().contains("multiple timestamps"));
+}
+
+fn window() -> Vec<CollectedStakeSnapshot> {
+    let mut older = snapshot(vec![
+        stake_record("voteDirect", "direct", 10, 0, 0),
+        stake_record("voteDirect", "direct-exit", 20, 0, 0),
+        stake_record("voteNative", "native", 30, 0, 0),
+    ]);
+    older.epoch = 1013;
+    vec![
+        snapshot(vec![stake_record("voteNative", "native", 30, 0, 0)]),
+        older,
+    ]
+}
+
+#[test]
+fn no_filter_keeps_every_record_of_every_epoch() {
+    let kept = filter_snapshots(window(), &query(&[], &[]));
+    assert_eq!(
+        kept.iter()
+            .map(|snapshot| (snapshot.epoch, snapshot.records.len()))
+            .collect::<Vec<_>>(),
+        vec![(1014, 1), (1013, 3)]
+    );
+}
+
+#[test]
+fn a_label_filter_keeps_its_rows_and_drops_an_epoch_without_any() {
+    let kept = filter_snapshots(window(), &query(&["direct", "direct-exit"], &[]));
+    assert_eq!(
+        labelled(&kept),
+        vec![(
+            1013,
+            vec![
+                ("direct".to_owned(), "voteDirect".to_owned()),
+                ("direct-exit".to_owned(), "voteDirect".to_owned()),
+            ]
+        )]
+    );
+}
+
+#[test]
+fn a_vote_account_filter_keeps_that_validator_in_every_epoch() {
+    let kept = filter_snapshots(window(), &query(&[], &["voteNative"]));
+    assert_eq!(
+        labelled(&kept),
+        vec![
+            (1014, vec![("native".to_owned(), "voteNative".to_owned())]),
+            (1013, vec![("native".to_owned(), "voteNative".to_owned())]),
+        ]
+    );
+}
+
+// The two filters intersect, they do not union.
+#[test]
+fn the_filters_intersect() {
+    assert!(filter_snapshots(window(), &query(&["direct"], &["voteNative"])).is_empty());
+}
+
+#[test]
+fn a_label_no_epoch_carries_matches_nothing() {
+    assert!(filter_snapshots(window(), &query(&["dyrect"], &[])).is_empty());
 }

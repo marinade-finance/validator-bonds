@@ -185,6 +185,14 @@ pub fn write_yaml<T: serde::Serialize>(name: &str, value: &T) -> String {
     path
 }
 
+pub fn write_json<T: serde::Serialize>(name: &str, value: &T) -> String {
+    std::fs::create_dir_all("./tmp").expect("./tmp is writable");
+    let path = format!("./tmp/{name}.json");
+    let file = std::fs::File::create(&path).expect("the input file is written");
+    serde_json::to_writer(file, value).expect("the input file is JSON");
+    path
+}
+
 pub async fn get_json(url: &str) -> serde_json::Value {
     let response = reqwest::get(url).await.expect("the API answers");
     assert!(

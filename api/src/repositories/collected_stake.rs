@@ -1,8 +1,9 @@
-use crate::repositories::common::{http_transient, CommonStoreOptions};
+use crate::repositories::common::{http_transient, read_yaml_input, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::directory::Directory;
 use validator_bonds_common::dto::CollectedStakeRecord;
 
@@ -33,6 +34,35 @@ impl CollectedStakeSnapshot {
     }
 }
 
+/// Optional filters over a window. Empty filter vectors mean "no filter", not "match nothing".
+pub struct CollectedStakeQuery {
+    pub labels: Vec<String>,
+    pub vote_accounts: Vec<String>,
+}
+
+impl CollectedStakeQuery {
+    fn matches(&self, record: &CollectedStakeRecord) -> bool {
+        (self.labels.is_empty() || self.labels.contains(&record.label))
+            && (self.vote_accounts.is_empty() || self.vote_accounts.contains(&record.vote_account))
+    }
+}
+
+/// The records both filters keep, epoch by epoch. An epoch none of whose records match is left
+/// out altogether, the same as one that was never collected.
+pub fn filter_snapshots(
+    snapshots: Vec<CollectedStakeSnapshot>,
+    query: &CollectedStakeQuery,
+) -> Vec<CollectedStakeSnapshot> {
+    let mut kept = Vec::with_capacity(snapshots.len());
+    for mut snapshot in snapshots {
+        snapshot.records.retain(|record| query.matches(record));
+        if !snapshot.records.is_empty() {
+            kept.push(snapshot);
+        }
+    }
+    kept
+}
+
 /// `None` when nothing has ever been collected. Callers must fail loudly rather than treat that as
 /// "no validator has stake", which reduces `/protected` to its bond floor for everyone.
 pub async fn get_collected_stake(
@@ -44,10 +74,33 @@ pub async fn get_collected_stake(
         .map(|document| document.body))
 }
 
+/// The epoch `@last` resolves to; `None` when nothing has ever been collected.
+pub async fn get_latest_collected_epoch(directory: &Directory) -> anyhow::Result<Option<u64>> {
+    Ok(get_collected_stake(directory)
+        .await?
+        .map(|snapshot| snapshot.epoch))
+}
+
+/// The epochs of `from_epoch..=to_epoch` the store holds, newest first — one read per epoch, so
+/// the caller bounds the window. An epoch the store does not hold is skipped, never interpolated.
+pub async fn get_collected_stake_window(
+    directory: &Directory,
+    from_epoch: u64,
+    to_epoch: u64,
+) -> anyhow::Result<Vec<CollectedStakeSnapshot>> {
+    let mut snapshots = Vec::new();
+    for epoch in (from_epoch..=to_epoch).rev() {
+        let path = format!("/bonds/stake/{epoch}");
+        if let Some(document) = directory.get::<CollectedStakeSnapshot>(&path).await? {
+            snapshots.push(document.body);
+        }
+    }
+    Ok(snapshots)
+}
+
 pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Result<()> {
-    let input = std::fs::File::open(&options.input_path)?;
-    let records: Vec<CollectedStakeRecord> = serde_yaml::from_reader(input)?;
-    let snapshot = collected_stake(records)?;
+    let records: Vec<CollectedStakeRecord> = read_yaml_input(&options.input_path)?;
+    let snapshot = collected_stake(records).map_err(CliError::critical)?;
     let path = format!("/bonds/stake/{}", snapshot.epoch);
 
     let directory = Directory::new(&options.directory_url, &options.directory_token);

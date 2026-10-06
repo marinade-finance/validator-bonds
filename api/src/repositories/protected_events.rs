@@ -1,7 +1,7 @@
 use anyhow::Context;
 use gcp_bigquery_client::model::get_query_results_parameters::GetQueryResultsParameters;
 use gcp_bigquery_client::model::query_request::QueryRequest;
-use gcp_bigquery_client::model::query_response::ResultSet;
+use gcp_bigquery_client::model::query_response::{QueryResponse, ResultSet};
 use solana_sdk::pubkey::Pubkey;
 use std::{str::FromStr, time::Duration};
 use tokio::time::sleep;
@@ -46,7 +46,7 @@ async fn get_protected_events(
     log::info!("Fetching protected events from epoch {from_epoch}...");
     let client = gcp_bigquery_client::Client::from_service_account_key_file(gcp_sa_key).await?;
 
-    let mut rs = client
+    let mut response = client
         .job()
         .query(
             project_id,
@@ -63,11 +63,12 @@ async fn get_protected_events(
     let mut protected_events = vec![];
     let mut polls = 0;
     loop {
+        let mut rs = ResultSet::new_from_query_response(response.clone());
         // Fail the whole fetch, never a row: a dropped row reads as "this validator owes nothing".
         while rs.next_row() {
             protected_events.push(parse_row(&rs)?);
         }
-        let Some((job_id, parameters)) = next_page(&rs)? else {
+        let Some((job_id, parameters)) = next_page(&response)? else {
             break;
         };
         if parameters.page_token.is_none() {
@@ -81,17 +82,18 @@ async fn get_protected_events(
             .job()
             .get_query_results(project_id, &job_id, parameters)
             .await?;
-        rs = ResultSet::new(results.into());
+        response = results.into();
     }
-    ensure_all_rows_loaded(&rs, protected_events.len())?;
+    ensure_all_rows_loaded(&response, protected_events.len())?;
 
     Ok(protected_events)
 }
 
 // A query outrunning its request timeout answers `job_complete: false` with no page token, and its
 // rows are then reachable only by re-asking for the job itself.
-fn next_page(rs: &ResultSet) -> anyhow::Result<Option<(String, GetQueryResultsParameters)>> {
-    let response = rs.query_response();
+fn next_page(
+    response: &QueryResponse,
+) -> anyhow::Result<Option<(String, GetQueryResultsParameters)>> {
     let page_token = response.page_token.clone();
     if response.job_complete.unwrap_or(false) && page_token.is_none() {
         return Ok(None);
@@ -116,8 +118,7 @@ fn next_page(rs: &ResultSet) -> anyhow::Result<Option<(String, GetQueryResultsPa
 }
 
 // `jobs.query` answers with one page and stops; a short read reads as "no validator owes anything".
-fn ensure_all_rows_loaded(rs: &ResultSet, loaded: usize) -> anyhow::Result<()> {
-    let response = rs.query_response();
+fn ensure_all_rows_loaded(response: &QueryResponse, loaded: usize) -> anyhow::Result<()> {
     anyhow::ensure!(
         response.job_complete.unwrap_or(false),
         "BigQuery job has not completed, {loaded} rows read so far"
@@ -338,7 +339,7 @@ mod tests {
             cell.1 = value.map(str::to_string);
         }
 
-        let mut rs = ResultSet::new(QueryResponse {
+        let mut rs = ResultSet::new_from_query_response(QueryResponse {
             job_complete: Some(true),
             total_rows: Some(cells.len().to_string()),
             schema: Some(TableSchema::new(
@@ -384,14 +385,14 @@ mod tests {
         assert!(err.to_string().contains("Unknown bond type"));
     }
 
-    fn last_page(job_complete: Option<bool>, total_rows: Option<&str>) -> ResultSet {
-        ResultSet::new(QueryResponse {
+    fn last_page(job_complete: Option<bool>, total_rows: Option<&str>) -> QueryResponse {
+        QueryResponse {
             job_complete,
             total_rows: total_rows.map(str::to_string),
             schema: Some(TableSchema::new(vec![TableFieldSchema::string("epoch")])),
             rows: Some(vec![]),
             ..Default::default()
-        })
+        }
     }
 
     #[test]
@@ -469,8 +470,12 @@ mod tests {
         );
     }
 
-    fn page(job_complete: bool, page_token: Option<&str>, job: Option<JobReference>) -> ResultSet {
-        ResultSet::new(QueryResponse {
+    fn page(
+        job_complete: bool,
+        page_token: Option<&str>,
+        job: Option<JobReference>,
+    ) -> QueryResponse {
+        QueryResponse {
             job_complete: Some(job_complete),
             page_token: page_token.map(str::to_string),
             job_reference: job,
@@ -478,7 +483,7 @@ mod tests {
             schema: Some(TableSchema::new(vec![TableFieldSchema::string("epoch")])),
             rows: Some(vec![]),
             ..Default::default()
-        })
+        }
     }
 
     fn job() -> JobReference {

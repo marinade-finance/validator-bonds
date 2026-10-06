@@ -20,7 +20,8 @@ use tower_http::normalize_path::NormalizePath;
 use crate::api_docs::ApiDoc;
 use crate::context::WrappedContext;
 use crate::handlers::{
-    bonds, collected_stake, docs, protected_events, protected_validators, verified_validators,
+    bonds, collected_stake, direct_staking_allocation, docs, protected_events,
+    protected_validators, verified_validators,
 };
 use crate::metrics::{healthz, metrics_handler, readyz, track_metrics};
 use crate::rate_limit::CfConnectingIpKeyExtractor;
@@ -58,6 +59,10 @@ pub fn public_data_routes(context: WrappedContext) -> Router {
         .route("/bonds/institutional", get(bonds::handler_institutional))
         .route("/protected-events", get(protected_events::handler))
         .route("/v1/protected-events", get(protected_events::handler_v1))
+        .route(
+            "/v1/protected-events/allocation",
+            get(direct_staking_allocation::handler),
+        )
         // The /validators family is versioned; the unversioned paths were removed, not aliased.
         .route("/v1/validators/verified", get(verified_validators::handler))
         .route(
