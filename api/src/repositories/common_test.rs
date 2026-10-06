@@ -26,7 +26,6 @@ fn a_refused_request_is_critical() {
     }
 }
 
-// A 412 conflict -> critical, never retried: the serialization gate keeps writers apart.
 #[test]
 fn a_conflict_is_critical() {
     let conflict = DirectoryError::Conflict {
@@ -85,7 +84,6 @@ fn malformed_json_is_reported_as_critical() {
     assert_logged_and_not_retried(&error);
 }
 
-// A file that parses as the wrong shape is the same class of operator error as a syntax slip.
 #[test]
 fn input_of_the_wrong_shape_is_reported_as_critical() {
     let path = temp_file("wrong-shape.yaml", b"epoch: 1030\n");

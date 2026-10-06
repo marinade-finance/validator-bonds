@@ -147,8 +147,6 @@ async fn ready_is_probed_with_the_token_this_service_reads_with() {
     );
 }
 
-/// A store that does not hold the path is still ready: a fresh deployment is
-/// ready before its first write.
 #[tokio::test]
 async fn ready_accepts_a_path_the_store_does_not_hold() {
     let stub = stub(vec![MISSING]).await;

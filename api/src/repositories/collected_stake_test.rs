@@ -203,7 +203,6 @@ fn a_vote_account_filter_keeps_that_validator_in_every_epoch() {
     );
 }
 
-// The two filters intersect, they do not union.
 #[test]
 fn the_filters_intersect() {
     assert!(filter_snapshots(window(), &query(&["direct"], &["voteNative"])).is_empty());
