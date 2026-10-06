@@ -166,10 +166,11 @@ async function run(
   validators: TestValidator[],
   previousVoteAccounts: string[],
   meta?: AuctionMeta,
+  overrides: Partial<EventingConfig> = {},
 ): Promise<void> {
   await runEventingPipeline<TestValidator>({
     bondType: 'bidding',
-    config,
+    config: { ...config, ...overrides },
     dir,
     logger,
     validators,
@@ -291,15 +292,35 @@ describe('runEventingPipeline state merge', () => {
   })
 
   /**
-   * A run against a store with no document creates it. Assumes an empty store,
-   * which makes every validator first seen. Verifies the document appears with
-   * the run's validators and that each emitted event is recorded.
+   * A run against a store with no document is refused, since every validator
+   * would be notified as first_seen. Assumes an empty store and no
+   * allowEmptyState. Verifies the run throws before posting or writing.
    */
-  it('creates the document when the store has none', async () => {
+  it('refuses an empty store unless told it is the first run', async () => {
+    const dir = fakeDirectory()
+    const notify = mockNotifications()
+    global.fetch = notify as unknown as typeof fetch
+
+    await expect(
+      run(dir, [{ voteAccount: 'vote1', funded: 100n }], []),
+    ).rejects.toThrow('--allow-empty-state')
+
+    expect(notify).not.toHaveBeenCalled()
+    expect(dir.docs.size).toBe(0)
+  })
+
+  /**
+   * allowEmptyState lets a first run create the document. Assumes an empty
+   * store. Verifies the document appears with the run's validators and that
+   * each emitted event is recorded.
+   */
+  it('creates the document on a first run that is allowed', async () => {
     const dir = fakeDirectory()
     global.fetch = mockNotifications() as unknown as typeof fetch
 
-    await run(dir, [{ voteAccount: 'vote1', funded: 100n }], [])
+    await run(dir, [{ voteAccount: 'vote1', funded: 100n }], [], undefined, {
+      allowEmptyState: true,
+    })
 
     expect(Object.keys(savedDoc(dir).validators)).toEqual(['vote1'])
     const eventPaths = [...dir.docs.keys()].filter(p =>
@@ -316,7 +337,6 @@ describe('runEventingPipeline state merge', () => {
   it('propagates a conflict on the state save', async () => {
     const dir = fakeDirectory()
     await seed(dir, [state('vote1', 100n)])
-    global.fetch = mockNotifications() as unknown as typeof fetch
     const notify = mockNotifications()
     let raced = false
     global.fetch = jest.fn(async (url: string, init?: RequestInit) => {
