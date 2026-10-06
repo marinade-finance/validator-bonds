@@ -6,6 +6,7 @@ import {
   evaluateDeltas,
   validatorToState,
   configAddressForBondType,
+  solToLamports,
 } from '../src/evaluate-deltas'
 
 import type { ValidatorState } from '../src/types'
@@ -96,6 +97,7 @@ function makePrevState(
     effective_amount_lamports: 10_000_000_000n,
     auction_stake_lamports: 1_000_000_000_000n,
     deficit_lamports: 175_000_000_000n, // requiredSol(185) - bondBalance(10) = 175 SOL
+    settlement_claims_lamports: null,
     sam_eligible: true,
     updated_at: '2025-01-01T00:00:00.000Z',
     ...overrides,
@@ -358,6 +360,54 @@ describe('evaluateDeltas', () => {
     // Combined message must include both metrics with arrow + delta.
     expect(underfunded!.data.message).toMatch(/coverage 5 → 2 epochs \(Δ -3\)/)
     expect(underfunded!.data.message).toMatch(/top-up needed .* SOL \(Δ /)
+  })
+
+  it('carries required_epochs so the offset can be undone', () => {
+    const validators = [makeValidator({ bondGoodForNEpochs: -3.12 })]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({ bond_good_for_n_epochs: 5 }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+      5,
+    )
+
+    const underfunded = events.find(
+      e => e.inner_type === 'bond_underfunded_change',
+    )
+    const details = underfunded!.data.details as BondUnderfundedChangeDetails
+    expect(details.required_epochs).toBe(5)
+    expect(details.current_epochs).toBe(-3.12)
+  })
+
+  it('emits required_epochs null when the caller does not supply it', () => {
+    const validators = [makeValidator({ bondGoodForNEpochs: 2 })]
+    const previousState = new Map<string, ValidatorState>()
+    previousState.set(
+      TEST_VOTE_ACCOUNT,
+      makePrevState({ bond_good_for_n_epochs: 5 }),
+    )
+
+    const events = evaluateDeltas(
+      validators,
+      previousState,
+      930,
+      'bidding',
+      logger,
+    )
+
+    const underfunded = events.find(
+      e => e.inner_type === 'bond_underfunded_change',
+    )
+    const details = underfunded!.data.details as BondUnderfundedChangeDetails
+    expect(details.required_epochs).toBeNull()
   })
 
   it('emits bond_balance_change when funded amount changes', () => {
@@ -1043,6 +1093,44 @@ describe('validatorToState', () => {
     expect(state.cap_constraint).toBeNull()
     expect(state.funded_amount_lamports).toBe(10_000_000_000n)
     expect(state.deficit_lamports).toBe(175_000_000_000n) // requiredSol(185) - bondBalance(10) = 175
+    expect(state.settlement_claims_lamports).toBeNull()
     expect(state.sam_eligible).toBe(true)
+    expect(state.auction_validator).toBeDefined()
+    expect(
+      (state.auction_validator as Record<string, unknown>).voteAccount,
+    ).toBe(TEST_VOTE_ACCOUNT)
+  })
+})
+
+describe('solToLamports', () => {
+  it('converts whole and fractional SOL exactly', () => {
+    expect(solToLamports(0)).toBe(0n)
+    expect(solToLamports(1)).toBe(1_000_000_000n)
+    expect(solToLamports(1.5)).toBe(1_500_000_000n)
+    expect(solToLamports(0.000000001)).toBe(1n)
+    expect(solToLamports(123.456789123)).toBe(123_456_789_123n)
+  })
+
+  it('handles negative amounts', () => {
+    expect(solToLamports(-1.25)).toBe(-1_250_000_000n)
+  })
+
+  it('rounds sub-lamport fractions at lamport precision', () => {
+    expect(solToLamports(0.0000000014)).toBe(1n)
+    expect(solToLamports(0.0000000016)).toBe(2n)
+  })
+
+  it('returns 0 for null/undefined/non-finite', () => {
+    expect(solToLamports(null)).toBe(0n)
+    expect(solToLamports(undefined)).toBe(0n)
+    expect(solToLamports(Number.NaN)).toBe(0n)
+    expect(solToLamports(Number.POSITIVE_INFINITY)).toBe(0n)
+  })
+
+  it('matches printed decimal for values where float multiply drifts', () => {
+    // 8.316: 8.316 * 1e9 = 8316000000.000002 — Math.round is fine here, but
+    // the string path must agree with the double's printed representation.
+    expect(solToLamports(8.316)).toBe(8_316_000_000n)
+    expect(solToLamports(35.891)).toBe(35_891_000_000n)
   })
 })

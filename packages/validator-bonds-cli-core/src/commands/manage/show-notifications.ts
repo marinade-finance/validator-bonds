@@ -11,6 +11,7 @@ import {
 import { parsePubkey } from '@marinade.finance/web3js-1x'
 import { Option } from 'commander'
 
+import { withConfigOption } from './config-option'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
 
@@ -55,6 +56,42 @@ export function configureShowNotifications(program: Command): Command {
       'Maximum number of notifications to fetch',
       '50',
     )
+}
+
+export function installShowNotifications(
+  program: Command,
+  defaultConfigAddress: PublicKey,
+) {
+  withConfigOption(
+    configureShowNotifications(program),
+    defaultConfigAddress,
+  ).action(
+    async (
+      address: Promise<PublicKey> | undefined,
+      {
+        config,
+        format,
+        priority,
+        innerType,
+        limit,
+      }: {
+        config?: Promise<PublicKey>
+        format: FormatType
+        priority?: NotificationPriority
+        innerType?: BondsEventInnerType
+        limit: string
+      },
+    ) => {
+      await showNotifications({
+        address: address ? await address : undefined,
+        config: (await config) ?? defaultConfigAddress,
+        format,
+        priority,
+        innerType,
+        limit: parseInt(limit, 10),
+      })
+    },
+  )
 }
 
 export async function showNotifications({
@@ -109,7 +146,8 @@ export async function showNotifications({
     }
 
     if (data.length === 0) {
-      logger.info(
+      // the pino transport writes to stdout, where printData emits the --format payload
+      console.error(
         voteAccount
           ? `No notifications found for vote account ${voteAccount}`
           : 'No broadcast notifications found',

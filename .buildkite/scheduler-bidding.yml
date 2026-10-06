@@ -21,7 +21,7 @@ steps:
       - |
         set -o pipefail
         # Check for latest epoch with bid-distribution settlements (indicates prepare-bid-distribution ran)
-        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/bid-distribution-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+        max_processed_epoch_bid=$(gcloud storage ls "${gs_bucket}/**/bid-distribution-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 21) || exit 21
         max_processed_epoch_bid="$${max_processed_epoch_bid%%[^0-9]*}"
         max_processed_epoch_bid=$${max_processed_epoch_bid:-0}
 
@@ -53,6 +53,8 @@ steps:
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/validators.json" "$gs_bucket/$$epoch/"
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/stakes.json" "$gs_bucket/$$epoch/"
 
+            notify_feed=$${NOTIFY_FEED:-$${NOTIFY:-false}}
+
             cat <<EOF | buildkite-agent pipeline upload
               steps:
                 - trigger: "prepare-bid-distribution"
@@ -62,7 +64,7 @@ steps:
                     branch: $$BUILDKITE_BRANCH
                     env:
                       EPOCH: $$epoch
-                      NOTIFY_FEED: $NOTIFY_FEED
+                      NOTIFY_FEED: $$notify_feed
                       gs_bucket: $gs_bucket
         EOF
             echo "Scheduling BID DISTRIBUTION completed for epoch $$epoch"

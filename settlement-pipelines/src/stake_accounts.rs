@@ -3,11 +3,11 @@ use anchor_client::anchor_lang::solana_program::stake_history::StakeHistoryEntry
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use log::warn;
+use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::stake::program::ID as stake_program_id;
 use solana_sdk::stake::state::StakeStateV2;
-use solana_sdk::stake_history::StakeHistory;
 use solana_sdk::sysvar::{
     clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
 };
@@ -19,11 +19,19 @@ use validator_bonds::instructions::MergeStakeArgs;
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::stake_accounts::{
-    is_locked, CollectedStakeAccount, CollectedStakeAccounts,
+    is_locked, CollectedStakeAccount, CollectedStakeAccounts, StakeActivation,
 };
 
-// TODO: better to be loaded from chain
-pub const STAKE_ACCOUNT_RENT_EXEMPTION: u64 = 2282880;
+// The bonds program checks the stored Meta.rent_exempt_reserve, which the stake program still pins at this value (SIMD-0490) even though live rent is now lower (SIMD-0437); for live rent use fetch_stake_account_rent.
+pub const STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE: u64 = 2282880;
+
+// Live rent for a stake account, i.e. what Anchor's `init` pays for a `split_stake_account`.
+pub async fn fetch_stake_account_rent(rpc_client: Arc<RpcClient>) -> anyhow::Result<u64> {
+    rpc_client
+        .get_minimum_balance_for_rent_exemption(std::mem::size_of::<StakeStateV2>())
+        .await
+        .map_err(|e| anyhow!("Cannot fetch stake account rent exemption: {e:?}"))
+}
 
 pub const MARINADE_LIQUID_STAKER_AUTHORITY: &str = "4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk";
 pub const MARINADE_INSTITUTIONAL_STAKER_AUTHORITY: &str =
@@ -41,15 +49,14 @@ pub const IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST: [&str; 2] = [
 // - error if all are locked or no stake accounts
 pub fn prioritize_for_claiming(
     stake_accounts: &CollectedStakeAccounts,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> anyhow::Result<Pubkey> {
     let mut non_locked_stake_accounts = stake_accounts
         .iter()
-        .filter(|(_, _, stake)| !is_locked(stake, clock))
+        .filter(|(_, _, stake)| !is_locked(stake, &stake_activation.clock))
         .collect::<Vec<_>>();
     non_locked_stake_accounts.sort_by_cached_key(|(_, lamports, stake_account)| {
-        get_claiming_priority_key(stake_account, *lamports, clock, stake_history)
+        get_claiming_priority_key(stake_account, *lamports, stake_activation)
     });
     if let Some((pubkey, _, _)) = non_locked_stake_accounts.first() {
         Ok(*pubkey)
@@ -76,8 +83,7 @@ pub enum StakeAccountStateType {
 
 pub fn get_stake_state_type(
     stake_account_state: &StakeStateV2,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> StakeAccountStateType {
     if let StakeStateV2::Initialized(_) = stake_account_state {
         // stake account is initialized and not delegated, it can be delegated just now
@@ -88,7 +94,7 @@ pub fn get_stake_state_type(
             effective,
             deactivating,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
+        } = stake_activation.status(&delegation);
         if effective == 0 && activating == 0 {
             // all available for immediate delegation
             StakeAccountStateType::DelegatedAndDeactivated
@@ -109,19 +115,33 @@ pub fn get_stake_state_type(
 
 pub fn get_delegated_amount(
     stake_account_state: &StakeStateV2,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> u64 {
     if let Some(delegation) = stake_account_state.delegation() {
         let StakeHistoryEntry {
             effective,
-            deactivating,
+            deactivating: _,
             activating,
-        } = delegation.stake_activating_and_deactivating(clock.epoch, stake_history, None);
-        effective + deactivating + activating
+        } = stake_activation.status(&delegation);
+        // Not an addend: Agave's `with_deactivating` sets `effective` to that same amount.
+        effective + activating
     } else {
         0
     }
+}
+
+/// The stale nominal `delegation.stake` the on-chain fund_settlement split path would underflow on: `Some` only when the account is underwater (`amount_available` below it) AND the funding would actually split, since the no-split path never subtracts that field and is safe to fund.
+pub fn fund_settlement_split_underflow(
+    stake_account_state: &StakeStateV2,
+    amount_available: u64,
+    amount_needed: u64,
+    min_stake_lamports: u64,
+    split_rent_exempt: u64,
+) -> Option<u64> {
+    let delegation_stake = stake_account_state.delegation().map(|d| d.stake)?;
+    let underwater = amount_available < delegation_stake;
+    let splits = amount_available >= amount_needed + min_stake_lamports + split_rent_exempt;
+    (underwater && splits).then_some(delegation_stake)
 }
 
 /// Ordering key for define priority of stake accounts for claiming
@@ -172,8 +192,7 @@ impl Ord for ClaimingPriorityKey {
 fn get_claiming_priority_key(
     stake_account: &StakeStateV2,
     lamports: u64,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> ClaimingPriorityKey {
     let staker = if let Some(authorized) = stake_account.authorized() {
         authorized.staker
@@ -182,7 +201,7 @@ fn get_claiming_priority_key(
     };
     // Marinade liquid and institutional stake accounts need a different priority to other types
     if staker == Pubkey::from_str(MARINADE_LIQUID_STAKER_AUTHORITY).unwrap() {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::DelegatedAndActive => ClaimingPriorityKey::simple(0),
             StakeAccountStateType::DelegatedAndActivating => ClaimingPriorityKey::simple(1),
             StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
@@ -191,7 +210,7 @@ fn get_claiming_priority_key(
             StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::simple(255),
         }
     } else if staker == Pubkey::from_str(MARINADE_INSTITUTIONAL_STAKER_AUTHORITY).unwrap() {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::DelegatedAndDeactivated => {
                 ClaimingPriorityKey::full(0, lamports)
             }
@@ -204,7 +223,7 @@ fn get_claiming_priority_key(
             StakeAccountStateType::NonAuthorized => ClaimingPriorityKey::full(255, lamports),
         }
     } else {
-        match get_stake_state_type(stake_account, clock, stake_history) {
+        match get_stake_state_type(stake_account, stake_activation) {
             StakeAccountStateType::Initialized => ClaimingPriorityKey::simple(0),
             StakeAccountStateType::DelegatedAndDeactivated => ClaimingPriorityKey::simple(1),
             StakeAccountStateType::DelegatedAndDeactivating => ClaimingPriorityKey::simple(2),
@@ -232,9 +251,31 @@ pub fn filter_settlement_funded(
         .collect()
 }
 
+/// Sum of lamports held by the stake accounts funding a Settlement — those whose staker authority
+/// is `settlement_staker_authority` — with each account's retained `minimal_stake_lamports` buffer
+/// excluded so the result reflects the claim-covering amount. It is a balance check only and does
+/// not consider delegation or lockup state.
+///
+/// Used because Marinade-funded settlements are funded by creating such a stake account directly
+/// instead of via the `fund_settlement` instruction, so their `Settlement.lamports_funded` stays
+/// `0` and the stake accounts are the only on-chain record of how much was funded.
+pub fn settlement_funded_claimable_lamports(
+    settlement_staker_authority: &Pubkey,
+    stake_accounts: &CollectedStakeAccounts,
+    minimal_stake_lamports: u64,
+) -> u64 {
+    stake_accounts
+        .iter()
+        .filter(|(_, _, state)| {
+            matches!(state.authorized(), Some(authorized) if authorized.staker == *settlement_staker_authority)
+        })
+        .map(|(_, lamports, _)| lamports.saturating_sub(minimal_stake_lamports))
+        .sum()
+}
+
 /// Preparing instructions to merge stake accounts from stake_accounts_to_merge into destination_stake
 /// Returning list of stake accounts addresses that cannot be merged.
-/// Prepared transactions are passed from the function through mutable referecne of `transaction_builder`.
+/// Prepared transactions are passed from the function through mutable reference of `transaction_builder`.
 #[allow(clippy::too_many_arguments)]
 pub async fn prepare_merge_instructions(
     stake_accounts_to_merge: Vec<&CollectedStakeAccount>,
@@ -246,14 +287,13 @@ pub async fn prepare_merge_instructions(
     config_address: &Pubkey,
     staker_authority: &Pubkey,
     transaction_builder: &mut TransactionBuilder,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
 ) -> anyhow::Result<Vec<Pubkey>> {
     let mut non_mergeable_stake_accounts: Vec<Pubkey> = vec![];
     // can we merge stake accounts? (stake accounts can be merged only when both in the same state)
     for (stake_account_address, _, stake_account_state) in stake_accounts_to_merge {
         let stake_account_to_merge_state_type =
-            get_stake_state_type(stake_account_state, clock, stake_history);
+            get_stake_state_type(stake_account_state, stake_activation);
         if stake_account_to_merge_state_type != destination_stake_state_type {
             // will be funded each separately
             warn!(
@@ -292,4 +332,251 @@ pub async fn prepare_merge_instructions(
         }
     }
     Ok(non_mergeable_stake_accounts)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::stake::stake_flags::StakeFlags;
+    use solana_sdk::stake::state::{Authorized, Delegation, Lockup, Meta, Stake};
+
+    const SOL: u64 = 1_000_000_000;
+    // minimum delegation (1 SOL) + rent exemption, matching `minimal_stake_lamports` used by the
+    // funding pipeline.
+    const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
+
+    fn initialized_stake(staker: Pubkey, withdrawer: Pubkey) -> StakeStateV2 {
+        StakeStateV2::Initialized(Meta {
+            rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
+            authorized: Authorized { staker, withdrawer },
+            lockup: Lockup::default(),
+        })
+    }
+
+    #[test]
+    fn funded_claimable_sums_only_accounts_for_the_staker_authority() {
+        let staker = Pubkey::new_unique();
+        let other_staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![
+            // two accounts funded to `staker`: claimable is balance minus the min buffer each
+            (
+                Pubkey::new_unique(),
+                5 * SOL + MIN,
+                initialized_stake(staker, withdrawer),
+            ),
+            (
+                Pubkey::new_unique(),
+                3 * SOL + MIN,
+                initialized_stake(staker, withdrawer),
+            ),
+            // belongs to a different settlement -> must be ignored
+            (
+                Pubkey::new_unique(),
+                9 * SOL + MIN,
+                initialized_stake(other_staker, withdrawer),
+            ),
+        ];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            8 * SOL
+        );
+    }
+
+    #[test]
+    fn funded_claimable_is_zero_when_no_matching_stake_accounts() {
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![(
+            Pubkey::new_unique(),
+            10 * SOL,
+            initialized_stake(Pubkey::new_unique(), withdrawer),
+        )];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            0
+        );
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &vec![], MIN),
+            0
+        );
+    }
+
+    #[test]
+    fn funded_claimable_saturates_for_dust_below_the_min_buffer() {
+        // an account holding less than the min buffer contributes 0 (saturating_sub), never panics
+        let staker = Pubkey::new_unique();
+        let withdrawer = Pubkey::new_unique();
+        let accounts: CollectedStakeAccounts = vec![(
+            Pubkey::new_unique(),
+            MIN / 2,
+            initialized_stake(staker, withdrawer),
+        )];
+        assert_eq!(
+            settlement_funded_claimable_lamports(&staker, &accounts, MIN),
+            0
+        );
+    }
+
+    fn delegated_stake(stake: u64) -> StakeStateV2 {
+        StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    // Passing the pinned reserve as the split rent lifts the predicted threshold and hides a splitting underwater account.
+    #[test]
+    fn fund_settlement_split_underflow_uses_the_live_split_rent_not_the_pinned_reserve() {
+        const LIVE_RENT: u64 = 2_077_224;
+        const NEEDED: u64 = 3 * SOL;
+        let gap = STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE - LIVE_RENT;
+        assert_eq!(gap, 205_656);
+
+        let state = delegated_stake(100 * SOL);
+        // sits inside the band: the program splits, the pinned reserve would predict no split
+        let available = NEEDED + MIN + LIVE_RENT + gap - 1;
+        assert_eq!(
+            fund_settlement_split_underflow(&state, available, NEEDED, MIN, LIVE_RENT),
+            Some(100 * SOL)
+        );
+        assert_eq!(
+            fund_settlement_split_underflow(
+                &state,
+                available,
+                NEEDED,
+                MIN,
+                STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn stake_account_size_matches_what_the_program_allocates() {
+        assert_eq!(std::mem::size_of::<StakeStateV2>(), 200);
+    }
+
+    #[test]
+    fn fund_settlement_split_underflow_flags_only_underwater_accounts_that_split() {
+        const MIN: u64 = 2 * SOL;
+        const SPLIT_RENT: u64 = SOL;
+        const NEEDED: u64 = 3 * SOL;
+        // the program takes the splitting path once available >= needed + min + split_rent
+        const SPLIT_AT: u64 = NEEDED + MIN + SPLIT_RENT;
+
+        let cases: [(&str, StakeStateV2, u64, Option<u64>); 7] = [
+            (
+                "underwater, splits at threshold",
+                delegated_stake(10 * SOL),
+                SPLIT_AT,
+                Some(10 * SOL),
+            ),
+            (
+                "underwater, splits above threshold",
+                delegated_stake(10 * SOL),
+                8 * SOL,
+                Some(10 * SOL),
+            ),
+            (
+                "underwater, no split -> fundable whole-account",
+                delegated_stake(10 * SOL),
+                SPLIT_AT - 1,
+                None,
+            ),
+            (
+                "not underwater, splits",
+                delegated_stake(4 * SOL),
+                8 * SOL,
+                None,
+            ),
+            (
+                "not underwater, no split",
+                delegated_stake(4 * SOL),
+                5 * SOL,
+                None,
+            ),
+            (
+                "lamports equal nominal stake at threshold",
+                delegated_stake(SPLIT_AT),
+                SPLIT_AT,
+                None,
+            ),
+            (
+                "non-delegated",
+                initialized_stake(Pubkey::new_unique(), Pubkey::new_unique()),
+                8 * SOL,
+                None,
+            ),
+        ];
+        for (label, state, available, expected) in cases {
+            assert_eq!(
+                fund_settlement_split_underflow(&state, available, NEEDED, MIN, SPLIT_RENT),
+                expected,
+                "{label}"
+            );
+        }
+    }
+
+    const EPOCH: u64 = 1014;
+
+    fn delegated_between(activation_epoch: u64, deactivation_epoch: u64) -> StakeStateV2 {
+        StakeStateV2::Stake(
+            Meta::default(),
+            Stake {
+                delegation: Delegation {
+                    stake: 10 * SOL,
+                    activation_epoch,
+                    deactivation_epoch,
+                    ..Delegation::default()
+                },
+                ..Stake::default()
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    // An empty StakeHistory makes Agave report the delegation verbatim, so the epochs alone drive it.
+    fn at_epoch() -> StakeActivation {
+        StakeActivation {
+            clock: solana_sdk::clock::Clock {
+                epoch: EPOCH,
+                ..Default::default()
+            },
+            stake_history: solana_sdk::stake_history::StakeHistory::default(),
+            new_rate_activation_epoch: Some(EPOCH - 1),
+        }
+    }
+
+    #[test]
+    fn delegated_amount_of_an_active_account_is_the_delegation() {
+        let state = delegated_between(EPOCH - 1, u64::MAX);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    #[test]
+    fn delegated_amount_of_an_activating_account_is_the_delegation() {
+        let state = delegated_between(EPOCH, u64::MAX);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    // Adding `deactivating` reported 20 SOL for this 10 SOL account, hiding its free lamports.
+    #[test]
+    fn delegated_amount_of_a_cooling_account_is_not_doubled() {
+        let state = delegated_between(EPOCH - 1, EPOCH);
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 10 * SOL);
+    }
+
+    #[test]
+    fn delegated_amount_of_a_non_delegated_account_is_zero() {
+        let state = initialized_stake(Pubkey::new_unique(), Pubkey::new_unique());
+        assert_eq!(get_delegated_amount(&state, &at_epoch()), 0);
+    }
 }

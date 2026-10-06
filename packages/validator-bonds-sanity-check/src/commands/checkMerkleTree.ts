@@ -1,7 +1,8 @@
+import { readFileSync } from 'fs'
+
 import {
   CliCommandError,
   validateAndReturn,
-  readLargeJsonFile,
 } from '@marinade.finance/cli-common'
 import {
   CONSOLE_LOG,
@@ -10,6 +11,7 @@ import {
   calculateDescriptiveStats,
   detectAnomaly,
   getContext,
+  lamportsToSol,
   loadFileOrDirectory,
   resolveFilePaths,
 } from '@marinade.finance/ts-common'
@@ -17,8 +19,10 @@ import Decimal from 'decimal.js'
 import YAML from 'yaml'
 
 import { UnifiedMerkleTreesDto } from '../dtoMerkleTree'
-import { parseSettlements } from '../dtoSettlements'
+import { ClaimKind, parseSettlements } from '../dtoSettlements'
+import { readLargeJsonFileLossless } from '../losslessJson'
 
+import type { Settlement } from '../dtoSettlements'
 import type {
   AnomalyDetectionResult,
   DescriptiveStats,
@@ -71,6 +75,26 @@ export function installCheckMerkleTree(program: Command) {
       d => new Decimal(d),
       new Decimal(1.5),
     )
+    .option(
+      '--max-total-claims <count>',
+      'Hard ceiling on the total number of claims across all merkle trees. ' +
+        'Claim fan-out is driven by the distributor fee floor rather than by settlement value, ' +
+        'so it is reported but not scored statistically; this ceiling is the blocking gate. ' +
+        'Size it from what the claim pipeline can drain inside the on-chain claiming window.',
+      d => new Decimal(d),
+      new Decimal(150_000),
+    )
+    .option(
+      '--settlement-config <path>',
+      'Path to settlement-config.yaml. Its fee_config.min_sol_revenue gates how much of the distribution ' +
+        'the fee may take. Needs --settlement-sources; omit either to skip that check.',
+    )
+    .option(
+      '--fee-revenue-margin-sol <sol>',
+      'Added to min_sol_revenue to absorb fee optimizer rounding.',
+      d => new Decimal(d),
+      DECIMAL_ONE,
+    )
     .action(manageCheckMerkleTree)
 }
 
@@ -86,9 +110,19 @@ export interface MerkleTreeMetrics {
 export type StatsCalculation = AnomalyDetectionResult & {
   description?: string
   stats?: DescriptiveStats
+  advisory?: boolean
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   details: any
 }
+
+const SCORED_FIELDS: (keyof MerkleTreeMetrics)[] = [
+  'totalValidators',
+  'totalClaimAmount',
+  'avgClaimAmountPerValidator',
+]
+
+// Fan-out tracks the distributor fee floor, not settlement value, so its z-score is noise.
+const ADVISORY_FIELDS: (keyof MerkleTreeMetrics)[] = ['totalClaims']
 
 const FIELD_DESCRIPTIONS: Record<string, string> = {
   totalValidators:
@@ -133,7 +167,7 @@ async function loadAndValidateUnifiedMerkleTree(
   filePath: string,
 ): Promise<UnifiedMerkleTreesDto> {
   try {
-    const data = await readLargeJsonFile(filePath)
+    const data = await readLargeJsonFileLossless(filePath)
     return await validateAndReturn(data, UnifiedMerkleTreesDto)
   } catch (error) {
     throw CliCommandError.instance(
@@ -151,6 +185,9 @@ async function manageCheckMerkleTree({
   scoreThreshold,
   minAbsoluteDeviation,
   epochHopThreshold,
+  maxTotalClaims,
+  settlementConfig,
+  feeRevenueMarginSol,
 }: {
   merkleTrees: string
   settlementSources?: string[]
@@ -159,6 +196,9 @@ async function manageCheckMerkleTree({
   scoreThreshold: Decimal
   minAbsoluteDeviation: Decimal
   epochHopThreshold: Decimal
+  maxTotalClaims: Decimal
+  settlementConfig?: string
+  feeRevenueMarginSol: Decimal
 }) {
   const { logger } = getContext()
 
@@ -181,6 +221,12 @@ async function manageCheckMerkleTree({
   if (epochHopThreshold.lessThan(DECIMAL_ONE)) {
     throw CliCommandError.instance(
       `epochHopThreshold must be >= 1, got ${epochHopThreshold.toString()}`,
+    )
+  }
+  validateMaxTotalClaims(maxTotalClaims)
+  if (!feeRevenueMarginSol.isFinite() || feeRevenueMarginSol.lessThan(0)) {
+    throw CliCommandError.instance(
+      `feeRevenueMarginSol must be a finite number >= 0, got ${feeRevenueMarginSol.toString()}`,
     )
   }
 
@@ -249,6 +295,29 @@ async function manageCheckMerkleTree({
     )
   }
 
+  const claimsCeiling = checkTotalClaimsCeiling({
+    epoch: merkleTreesDto.epoch,
+    totalClaims: totalClaimsCount,
+    maxTotalClaims,
+  })
+  logger.info(claimsCeiling.report)
+  if (claimsCeiling.exceeded) {
+    throw CliCommandError.instance(
+      `Total claims ${totalClaimsCount} exceeds the ceiling of ${maxTotalClaims.toString()}. ` +
+        'The claim pipeline may not drain this within the claiming window.',
+    )
+  }
+
+  const maxFeeRevenueSol =
+    settlementConfig === undefined
+      ? undefined
+      : loadFeeRevenueCeiling({ settlementConfig, feeRevenueMarginSol })
+  if (settlementConfig !== undefined && maxFeeRevenueSol === undefined) {
+    logger.info(
+      `No fee_config.min_sol_revenue in ${settlementConfig}, skipping the fee revenue ceiling`,
+    )
+  }
+
   // Check 2: Cross-validate against settlement sources if provided
   if (settlementSources && settlementSources.length > 0) {
     logger.info(
@@ -266,6 +335,7 @@ async function manageCheckMerkleTree({
 
     let sourceSettlementsTotal = DECIMAL_ZERO
     let sourceClaimsCount = 0
+    const allSettlements: Settlement[] = []
 
     for (const { data, sourcePath } of settlementDataWithPaths) {
       if (!data) continue
@@ -297,6 +367,7 @@ async function manageCheckMerkleTree({
       )
       sourceSettlementsTotal = sourceSettlementsTotal.plus(sourceSum)
       sourceClaimsCount += sourceClaims
+      allSettlements.push(...settlements.settlements)
     }
 
     logger.info(
@@ -323,6 +394,25 @@ async function manageCheckMerkleTree({
         `Large difference in claim counts: sources (${sourceClaimsCount}) vs merkle trees (${totalClaimsCount}). This may be expected due to claim merging.`,
       )
     }
+
+    if (maxFeeRevenueSol !== undefined) {
+      const feeCeiling = checkFeeRevenueCeiling({
+        epoch: merkleTreesDto.epoch,
+        settlements: allSettlements,
+        maxFeeRevenueSol,
+      })
+      logger.info(feeCeiling.report)
+      if (feeCeiling.exceeded) {
+        throw CliCommandError.instance(
+          `Fee authority claims ${feeCeiling.feeRevenueSol.toString()} SOL exceed the ceiling of ${maxFeeRevenueSol.toString()} SOL, ` +
+            'so the fee optimizer collected more than min_sol_revenue and stakers were paid less.',
+        )
+      }
+    }
+  } else if (maxFeeRevenueSol !== undefined) {
+    logger.info(
+      'No settlement sources provided, skipping the fee revenue ceiling',
+    )
   }
 
   // Check 3: Historical comparison with heuristics
@@ -398,7 +488,7 @@ async function manageCheckMerkleTree({
   logger.info('\n=== Summary ===')
   logger.info(`Epoch: ${merkleTreesDto.epoch}`)
   logger.info(`Format: ${isUnifiedFormat ? 'Unified' : 'Standard'}`)
-  if (isUnifiedFormat && merkleTreesDto.sources) {
+  if (isUnifiedFormat) {
     logger.info(`Sources: ${merkleTreesDto.sources.join(', ')}`)
   }
   logger.info(`Total merkle trees: ${merkleTreesDto.merkle_trees.length}`)
@@ -428,16 +518,12 @@ export function reportMerkleTreeAnomalies({
     )
   }
 
-  const fieldsToCheck: (keyof MerkleTreeMetrics)[] = [
-    'totalValidators',
-    'totalClaims',
-    'totalClaimAmount',
-    'avgClaimAmountPerValidator',
-  ]
-
   const stats: StatsCalculation[] = []
 
-  for (const field of fieldsToCheck) {
+  for (const field of [...SCORED_FIELDS, ...ADVISORY_FIELDS]) {
+    // Deliberate bigint/Decimal -> double narrowing: the anomaly statistics
+    // work on ratios and deviations where ~1e-16 relative error is irrelevant.
+    // Exact-value comparisons elsewhere stay in bigint/Decimal.
     const currentValue = Number(String(currentMetrics[field]))
     const historicalValues = historicalMetrics.map(m =>
       Number(String(m[field])),
@@ -453,14 +539,14 @@ export function reportMerkleTreeAnomalies({
       minAbsoluteDeviationRatio,
       logger,
     })
-    stats.push(anomaly)
+    stats.push({ ...anomaly, advisory: ADVISORY_FIELDS.includes(field) })
   }
 
   const thresholdInfo =
     `(correlationThreshold: ${correlationThreshold.toString()}, ` +
     `scoreThreshold: ${scoreThreshold.toString()}, ` +
     `minAbsoluteDeviation: ${minAbsoluteDeviationRatio.mul(100).toString()}%)`
-  const anomalyDetected = stats.some(r => r.isAnomaly)
+  const anomalyDetected = stats.some(r => r.isAnomaly && !r.advisory)
 
   let report = `\n=== Epoch ${currentMetrics.epoch} Merkle Tree Anomaly Report (historical records: ${historicalMetrics.length}) ===\n`
   report +=
@@ -469,8 +555,8 @@ export function reportMerkleTreeAnomalies({
     ` ${thresholdInfo}\n\n`
 
   for (const stat of stats) {
-    const anomalyString = stat.isAnomaly ? '⛔' : '✅'
-    report += `[${anomalyString}] Field: ${stat.field}\n`
+    const anomalyString = stat.isAnomaly ? (stat.advisory ? '⚠️' : '⛔') : '✅'
+    report += `[${anomalyString}] Field: ${stat.field}${stat.advisory ? ' (advisory, not blocking)' : ''}\n`
     if (stat.description) {
       report += `  Description: ${stat.description}\n`
     }
@@ -484,6 +570,139 @@ export function reportMerkleTreeAnomalies({
   }
 
   return { anomalyDetected, stats, report }
+}
+
+// NaN/Infinity survive a bare lessThan, then silently make the ceiling comparison false.
+export function validateMaxTotalClaims(maxTotalClaims: Decimal): void {
+  if (
+    !maxTotalClaims.isFinite() ||
+    !maxTotalClaims.isInteger() ||
+    maxTotalClaims.lessThan(DECIMAL_ONE)
+  ) {
+    throw CliCommandError.instance(
+      `maxTotalClaims must be a finite integer >= 1, got ${maxTotalClaims.toString()}`,
+    )
+  }
+}
+
+export function checkTotalClaimsCeiling({
+  epoch,
+  totalClaims,
+  maxTotalClaims,
+}: {
+  epoch: number
+  totalClaims: number
+  maxTotalClaims: Decimal
+}): { exceeded: boolean; report: string } {
+  const current = new Decimal(totalClaims)
+  const exceeded = current.greaterThan(maxTotalClaims)
+
+  const report = [
+    `\n=== Epoch ${epoch} Total Claims Ceiling (max: ${maxTotalClaims.toString()}) ===`,
+    `[${exceeded ? '⛔' : '✅'}] totalClaims: ${current.toString()}`,
+    'Status: ' + (exceeded ? '⛔ CEILING EXCEEDED' : '✅ WITHIN CEILING'),
+  ].join('\n')
+
+  return { exceeded, report }
+}
+
+interface SettlementConfigFile {
+  fee_config?: {
+    min_sol_revenue?: string | number | null
+  }
+}
+
+export function loadFeeRevenueCeiling({
+  settlementConfig,
+  feeRevenueMarginSol,
+}: {
+  settlementConfig: string
+  feeRevenueMarginSol: Decimal
+}): Decimal | undefined {
+  let parsed: SettlementConfigFile | null
+  try {
+    parsed = YAML.parse(
+      readFileSync(settlementConfig, 'utf-8'),
+    ) as SettlementConfigFile | null
+  } catch (error) {
+    throw CliCommandError.instance(
+      `Failed to load settlement config from path: '${settlementConfig}'`,
+      error,
+    )
+  }
+  // an empty document parses to null, and a valueless `fee_config:` key to a null value
+  if (parsed?.fee_config == null) {
+    throw CliCommandError.instance(`No fee_config found in ${settlementConfig}`)
+  }
+
+  const minSolRevenue = parsed.fee_config.min_sol_revenue
+  if (minSolRevenue == null) {
+    return undefined
+  }
+
+  // the target is validated, not the sum: YAML .nan / .inf survive into Decimal and make
+  // greaterThan always false, and a negative target would hide behind a positive margin
+  let target: Decimal | undefined
+  try {
+    target = new Decimal(minSolRevenue)
+  } catch {
+    target = undefined
+  }
+  if (target === undefined || !target.isFinite() || target.lessThan(0)) {
+    throw CliCommandError.instance(
+      `fee_config.min_sol_revenue in ${settlementConfig} must be a finite number >= 0, got ${String(minSolRevenue)}`,
+    )
+  }
+  return target.plus(feeRevenueMarginSol)
+}
+
+// Penalty settlements deposit to the same authorities but sit outside the revenue target.
+const FEE_REVENUE_REASONS = ['Bidding', 'PriorityFee']
+
+export function checkFeeRevenueCeiling({
+  epoch,
+  settlements,
+  maxFeeRevenueSol,
+}: {
+  epoch: number
+  settlements: Settlement[]
+  maxFeeRevenueSol: Decimal
+}): { exceeded: boolean; feeRevenueSol: Decimal; report: string } {
+  const claimed = new Map<string, bigint>()
+  for (const settlement of settlements) {
+    if (!FEE_REVENUE_REASONS.includes(settlement.reason.getReasonType())) {
+      continue
+    }
+    for (const claim of settlement.claims) {
+      if (claim.kind !== ClaimKind.FeeDeposit) {
+        continue
+      }
+      const authority = claim.stake_authority.toBase58()
+      claimed.set(
+        authority,
+        (claimed.get(authority) ?? 0n) + claim.claim_amount,
+      )
+    }
+  }
+
+  const feeRevenueLamports = [...claimed.values()].reduce(
+    (sum, value) => sum + value,
+    0n,
+  )
+  const feeRevenueSol = lamportsToSol(feeRevenueLamports.toString())
+  const exceeded = feeRevenueSol.greaterThan(maxFeeRevenueSol)
+
+  const report = [
+    `\n=== Epoch ${epoch} Fee Revenue Ceiling (max: ${maxFeeRevenueSol.toString()} SOL) ===`,
+    ...[...claimed].map(
+      ([authority, lamports]) =>
+        `  ${authority}: ${lamportsToSol(lamports.toString()).toString()} SOL`,
+    ),
+    `[${exceeded ? '⛔' : '✅'}] feeRevenue: ${feeRevenueSol.toString()} SOL`,
+    'Status: ' + (exceeded ? '⛔ CEILING EXCEEDED' : '✅ WITHIN CEILING'),
+  ].join('\n')
+
+  return { exceeded, feeRevenueSol, report }
 }
 
 export type HopGuardedField = 'totalClaimAmount' | 'avgClaimAmountPerValidator'

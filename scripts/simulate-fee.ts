@@ -234,7 +234,7 @@ function runCli(cfgFile: string, inp: string): string {
     {
       env: {
         ...process.env,
-        RUST_LOG: 'warn,bid_distribution::generators::bidding=info',
+        RUST_LOG: 'warn,bid_distribution::generators::fee_optimizer=info',
       },
       stderr: 'pipe',
     },
@@ -307,7 +307,8 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
       adj_min_fee_bps?: number
     }
     const bidSettlements = settlements.filter(
-      (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settlement JSON is external; epochs before ~890 omit `details` on Bidding entries
+      (s): s is BidSettlement => s.reason === 'Bidding' && s.details != null,
     )
     const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {

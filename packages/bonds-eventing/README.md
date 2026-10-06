@@ -4,6 +4,28 @@ This module gets data from the API and works with DS SAM processing to find chan
 and emit events that can later be notified by the
 [Marinade Notification Service](https://github.com/marinade-finance/marinade-notifications).
 
+## Bond types
+
+One subcommand per bond product:
+
+- `bidding` — runs the DS-SAM auction simulation (bonds, validators, scoring and TVL APIs)
+  and derives events from auction state. Everything below this section describes this flow.
+- `institutional` — no auction; loads institutional (Select) bonds from the bonds API
+  (`/bonds/institutional`) and institutional stake from the institutional staking API
+  (`/v1/validators/latest`). Bond adequacy uses the flat collateral rule — 1 SOL of bond
+  per 2000 SOL of institutional stake, `deficit = required - effective balance` — mirroring
+  `check-bonds` in the institutional-staking repo. Fails the run when either API returns an
+  empty list (evaluating against empty data would delist every tracked validator).
+
+Institutional runs emit only `first_seen`, `bond_underfunded_change`, `bond_balance_change`,
+`settlement_applied` and `validator_delisted`; the auction events (`auction_entered`,
+`auction_exited`, `cap_changed`, `sam_eligible_change`, `penalty_expected`) never fire.
+Coverage epochs (`bond_good_for_n_epochs`) stay null — the flat rule has no per-epoch burn —
+and the underfunded events carry `deficit_sol`/`required_sol` instead. Institutional
+`settlement_applied` compares the bonds API `remainining_settlement_claim_amount` directly,
+so a pending withdraw request does not read as a settlement; for bidding it remains
+`funded - effective` because ds-sam exposes no settlement/withdraw split.
+
 ## Design details
 
 The system is stateful — it keeps a snapshot of each validator's state in `bond_event_state`

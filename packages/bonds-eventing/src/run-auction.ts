@@ -7,6 +7,7 @@ import {
   loadSamConfig,
 } from '@marinade.finance/ds-sam-sdk'
 
+import type { AuctionMeta } from './calc-relay'
 import type { EventingConfig } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -16,7 +17,7 @@ export async function runAuction(
 ): Promise<{
   validators: AuctionValidator[]
   epoch: number
-  winningTotalPmpe: number
+  meta: AuctionMeta
 }> {
   const productionConfig = await loadSamConfig()
 
@@ -48,6 +49,12 @@ export async function runAuction(
   return {
     validators,
     epoch,
-    winningTotalPmpe: result.winningTotalPmpe,
+    meta: {
+      ...sdkConfig,
+      epoch,
+      winningTotalPmpe: result.winningTotalPmpe,
+      marinadeSamTvlSol: result.auctionData.stakeAmounts.marinadeSamTvlSol,
+      blacklist: [...result.auctionData.blacklist],
+    },
   }
 }

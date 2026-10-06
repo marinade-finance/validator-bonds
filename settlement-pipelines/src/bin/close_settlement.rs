@@ -20,8 +20,8 @@ use settlement_pipelines::settlements::{
     load_expired_settlements, obtain_settlement_closing_refunds, SettlementRefundPubkeys,
 };
 use settlement_pipelines::stake_accounts::{
-    filter_settlement_funded, IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST,
-    STAKE_ACCOUNT_RENT_EXEMPTION,
+    fetch_stake_account_rent, filter_settlement_funded,
+    IGNORE_DANGLING_NOT_CLOSABLE_STAKE_ACCOUNTS_LIST, STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -164,6 +164,7 @@ async fn real_main(
         expired_settlements,
         &listed_settlements,
         &config_address,
+        &config,
         &operator_authority_keypair,
         &marinade_wallet,
         &priority_fee_policy,
@@ -186,6 +187,18 @@ async fn close_settlements(
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
+    // unused by settlements without a split rent collector, so an empty or split-free batch must not fail on the lookup
+    let stake_account_rent = if expired_settlements
+        .iter()
+        .any(|(_, settlement, _)| settlement.split_rent_collector.is_some())
+    {
+        fetch_stake_account_rent(rpc_client.clone())
+            .await
+            .map_err(CliError::retry_able)?
+    } else {
+        0
+    };
+    let mut closed_settlements: Vec<(Pubkey, Settlement)> = vec![];
     for (settlement_address, settlement, _) in expired_settlements.iter() {
         let (split_rent_collector, split_rent_refund_account) =
             match obtain_settlement_closing_refunds(
@@ -193,6 +206,7 @@ async fn close_settlements(
                 settlement_address,
                 settlement,
                 &bonds_withdrawer_authority,
+                stake_account_rent,
             )
             .await
             {
@@ -231,6 +245,7 @@ async fn close_settlements(
                 "Close Settlement {settlement_address}, refunding split rent from stake account {split_rent_refund_account}"
             ),
         )?;
+        closed_settlements.push((*settlement_address, settlement.clone()));
     }
 
     let execution_result = execute_parallel(
@@ -242,7 +257,7 @@ async fn close_settlements(
     .await;
     reporting
         .reportable
-        .set_closed_settlements(expired_settlements);
+        .set_closed_settlements(closed_settlements);
 
     reporting.add_tx_execution_result(execution_result, "CloseSettlements");
 
@@ -259,6 +274,7 @@ async fn reset_stake_accounts(
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
     listed_settlements: &[BondSettlement],
     config_address: &Pubkey,
+    config: &Config,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
     priority_fee_policy: &PriorityFeePolicy,
@@ -292,6 +308,8 @@ async fn reset_stake_accounts(
             .map_err(CliError::retry_able)?;
     let settlement_funded_stake_accounts =
         filter_settlement_funded(all_bonds_stake_accounts, &clock);
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
     for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
@@ -316,6 +334,15 @@ async fn reset_stake_accounts(
                 {
                     debug!(
                         "Stake account {stake_pubkey} is dangling but it is in the list of known problematic stake accounts, skipping it."
+                    );
+                } else if lamports < minimal_stake_lamports {
+                    // sub-minimal dangling dust can neither be re-delegated (DelegateStake rejects
+                    // below the network minimum) nor withdrawn by the current program, so it is
+                    // unrecoverable here; log instead of failing the pipeline
+                    info!(
+                        "Stake account {stake_pubkey} is dangling and below the minimum stake size {} (balance {}); cannot be cleaned up by the pipeline, skipping.",
+                        build_balance_message(minimal_stake_lamports, false, false),
+                        build_balance_message(lamports, false, false),
                     );
                 } else {
                     reporting.error().with_msg(format!(
@@ -360,7 +387,18 @@ async fn reset_stake_accounts(
                 lamports,
             );
         } else if let Some(settlement_vote_account) = reset_data.vote_account {
-            // Delegated stake account can be reset to a bond
+            // Delegated stake account can be reset to a bond.
+            // ResetStake re-delegates the stake; the on-chain DelegateStake CPI rejects a stake
+            // whose delegatable amount is below the network minimum delegation (custom error 0xc).
+            if lamports < minimal_stake_lamports {
+                reporting.warning().with_msg(format!(
+                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate. Manual intervention needed.",
+                    reset_data.settlement,
+                    build_balance_message(lamports, false, false),
+                    build_balance_message(minimal_stake_lamports, false, false),
+                )).add();
+                continue;
+            }
             let req = program
                 .request()
                 .accounts(validator_bonds::accounts::ResetStake {
@@ -528,7 +566,7 @@ impl PrintReportable for CloseSettlementReport {
                 return vec!["No report available, not initialized yet.".to_string()];
             };
             let minimal_stake_account_lamports =
-                config.minimum_stake_lamports + STAKE_ACCOUNT_RENT_EXEMPTION;
+                config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
             let (reset_stake_number, reset_stake_lamports) = self.reset_stake_total();
             let (withdrawn_stake_number, withdrawn_stake_lamports) = self.withdrawn_stake_total();
@@ -542,8 +580,8 @@ impl PrintReportable for CloseSettlementReport {
                     "Number of reset stake accounts (returned to validators): {}, sum of reset SOL: {} (with rent: {})",
                     reset_stake_number,
                     build_balance_message(
-                        reset_stake_lamports -
-                            (reset_stake_number * minimal_stake_account_lamports), false, false
+                        reset_stake_lamports
+                            .saturating_sub(reset_stake_number * minimal_stake_account_lamports), false, false
                     ),
                     build_balance_message(reset_stake_lamports, false, false),
                 ),
@@ -552,8 +590,8 @@ impl PrintReportable for CloseSettlementReport {
                     self.withdraw_wallet,
                     withdrawn_stake_number,
                     build_balance_message(
-                        withdrawn_stake_lamports -
-                            (withdrawn_stake_number * minimal_stake_account_lamports), false, false
+                        withdrawn_stake_lamports
+                            .saturating_sub(withdrawn_stake_number * minimal_stake_account_lamports), false, false
                     ),
                     build_balance_message(withdrawn_stake_lamports, false, false),
                 ),
@@ -641,11 +679,8 @@ impl CloseSettlementReport {
         self.withdraw_wallet = withdraw_wallet;
     }
 
-    fn set_closed_settlements(&mut self, settlements: &[(Pubkey, Settlement, Option<Bond>)]) {
-        self.closed_settlements = settlements
-            .iter()
-            .map(|(p, s, _)| (*p, s.clone()))
-            .collect::<Vec<(Pubkey, Settlement)>>();
+    fn set_closed_settlements(&mut self, settlements: Vec<(Pubkey, Settlement)>) {
+        self.closed_settlements = settlements;
     }
 
     fn add_reset_stake(

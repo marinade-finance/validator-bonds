@@ -2,6 +2,7 @@ import {
   computeUnitLimitOption,
   executeTxHandleErrors,
   getCliContext,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { INIT_CONFIG_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
@@ -167,6 +168,9 @@ async function manageInitConfig({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Config account ${address.publicKey.toBase58()} successfully created`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Config account ${address.publicKey.toBase58()} successfully created`,
+    ),
   )
 }

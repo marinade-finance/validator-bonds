@@ -20,6 +20,7 @@ import {
   executeTxHandleErrors,
   getBondFromAddress,
   getWithdrawRequestFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -129,18 +130,22 @@ export async function manageCancelWithdrawRequest({
     authority = authority.publicKey
   }
 
-  const { instruction, withdrawRequestAccount } =
-    await cancelWithdrawRequestInstruction({
-      program,
-      withdrawRequestAccount: withdrawRequestAddress,
-      bondAccount,
-      configAccount: config,
-      voteAccount,
-      authority,
-      rentCollector,
-      logger,
-    })
+  const {
+    instruction,
+    withdrawRequestAccount,
+    bondAccount: bondAcc,
+  } = await cancelWithdrawRequestInstruction({
+    program,
+    withdrawRequestAccount: withdrawRequestAddress,
+    bondAccount,
+    configAccount: config,
+    voteAccount,
+    authority,
+    rentCollector,
+    logger,
+  })
   tx.add(instruction)
+  bondAccount = bondAcc
   recordResolvedAccounts({
     bondAccount,
     voteAccount,
@@ -150,7 +155,7 @@ export async function manageCancelWithdrawRequest({
 
   logger.info(
     `Cancelling withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()}`,
+      `for bond account ${bondAccount.toBase58()}`,
   )
   await executeTxHandleErrors({
     connection: provider.connection,
@@ -167,7 +172,10 @@ export async function manageCancelWithdrawRequest({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-      `for bond account ${bondAccount?.toBase58()} successfully cancelled`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+        `for bond account ${bondAccount.toBase58()} successfully cancelled`,
+    ),
   )
 }

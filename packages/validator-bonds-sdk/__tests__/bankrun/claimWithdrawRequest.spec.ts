@@ -183,7 +183,7 @@ describe('Validator Bonds claim withdraw request', () => {
       program.programId,
     )
     const splitStakeAccountData = deserializeStakeState(
-      splitStakeAccountInfo?.data,
+      splitStakeAccountInfo.data,
     )
     expect(splitStakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(
       bondsAuthority,

@@ -9,7 +9,10 @@ import {
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import {
+  createVoteAccount,
+  retryOnEpochRewardsPeriod,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
   createTempFileKeypair,
@@ -75,24 +78,26 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
       lamports: baseLamports,
     })
     await waitForNextEpoch(program.provider, 15)
-    await expect([
-      'pnpm',
-      [
-        'cli:institutional',
-        '-u',
-        provider.connection.rpcEndpoint,
-        'fund-bond-sol',
-        bondAccount.toBase58(),
-        '--amount',
-        fundBondSols,
-        '--from',
-        fromPath,
-        '--verbose',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      stdout: /successfully funded with amount/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli:institutional',
+          '-u',
+          provider.connection.rpcEndpoint,
+          'fund-bond-sol',
+          bondAccount.toBase58(),
+          '--amount',
+          fundBondSols,
+          '--from',
+          fromPath,
+          '--verbose',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        stdout: /successfully funded with amount/,
+      }),
+    )
 
     const userAccount = await provider.connection.getAccountInfo(
       fromKeypair.publicKey,

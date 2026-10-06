@@ -1,5 +1,3 @@
-use anchor_client::anchor_lang::prelude::StakeHistory;
-
 use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 
 use anchor_client::{DynSigner, Program};
@@ -23,7 +21,6 @@ use settlement_pipelines::stake_accounts::{
     get_stake_state_type, prepare_merge_instructions, StakeAccountStateType,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 
@@ -41,7 +38,7 @@ use validator_bonds::state::config::find_bonds_withdrawer_authority;
 use validator_bonds_common::config::get_config;
 
 use validator_bonds_common::stake_accounts::{
-    collect_stake_accounts, get_clock, get_stake_history, CollectedStakeAccount,
+    collect_stake_accounts, CollectedStakeAccount, StakeActivation,
 };
 
 #[derive(Parser, Debug)]
@@ -98,18 +95,14 @@ async fn real_main(
 
     reporting.reportable.init(&config_address).await;
 
-    let clock = get_clock(rpc_client.clone())
-        .await
-        .map_err(CliError::retry_able)?;
-    let stake_history = get_stake_history(rpc_client.clone())
+    let stake_activation = StakeActivation::fetch(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
 
     let loaded_stake = get_merge_stake_accounts(
         rpc_client.clone(),
         &config_address,
-        &clock,
-        &stake_history,
+        &stake_activation,
         reporting,
     )
     .await?;
@@ -122,8 +115,7 @@ async fn real_main(
         &config_address,
         fee_payer.clone(),
         &priority_fee_policy,
-        &clock,
-        &stake_history,
+        &stake_activation,
         reporting,
     )
     .await?;
@@ -146,8 +138,7 @@ fn is_transient_stake(inner_stake: &Stake, state_type: StakeAccountStateType) ->
 async fn get_merge_stake_accounts(
     rpc_client: Arc<RpcClient>,
     config_address: &Pubkey,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
     report_handler: &mut ReportHandler<MergeConfigReport>,
 ) -> anyhow::Result<GetMergeType> {
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
@@ -163,7 +154,7 @@ async fn get_merge_stake_accounts(
     let mut delegation_stake_accounts: GetMergeType = HashMap::new();
     for stake in non_funded_stake_accounts.into_iter() {
         if let StakeStateV2::Stake(_, inner_stake, _) = stake.2 {
-            let state_type = get_stake_state_type(&stake.2, clock, stake_history);
+            let state_type = get_stake_state_type(&stake.2, stake_activation);
             let key = (inner_stake.delegation.voter_pubkey, state_type);
 
             if is_transient_stake(&inner_stake, state_type) {
@@ -198,8 +189,7 @@ async fn merge_stake(
     config_address: &Pubkey,
     fee_payer: Arc<Keypair>,
     priority_fee_policy: &PriorityFeePolicy,
-    clock: &Clock,
-    stake_history: &StakeHistory,
+    stake_activation: &StakeActivation,
     reporting: &mut ReportHandler<MergeConfigReport>,
 ) -> anyhow::Result<()> {
     let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
@@ -228,8 +218,7 @@ async fn merge_stake(
             config_address,
             &withdrawer_authority,
             &mut transaction_builder,
-            clock,
-            stake_history,
+            stake_activation,
         )
         .await?;
         if !non_mergeable.is_empty() {

@@ -199,6 +199,8 @@ pub fn check_stake_exist_and_activating_or_activated(
             deactivating,
         } = stake
             .delegation
+            // `None` selects the legacy 25% rate, but the verdict below is the same under either:
+            // warmup keeps `effective + activating` whole, cooldown rejects on one clause or the other.
             .stake_activating_and_deactivating(epoch, stake_history, None);
         if (effective == 0 && activating == 0) || deactivating > 0 {
             msg!(

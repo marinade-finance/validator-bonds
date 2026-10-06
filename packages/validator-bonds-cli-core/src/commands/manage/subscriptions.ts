@@ -14,6 +14,7 @@ import {
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
 
+import { withConfigOption } from './config-option'
 import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
@@ -46,6 +47,36 @@ export function configureSubscriptions(program: Command): Command {
       'Format of output',
       'text',
     )
+}
+
+export function installSubscriptions(
+  program: Command,
+  defaultConfigAddress: PublicKey,
+) {
+  withConfigOption(
+    configureSubscriptions(program),
+    defaultConfigAddress,
+  ).action(
+    async (
+      address: Promise<PublicKey>,
+      {
+        config,
+        authority,
+        format,
+      }: {
+        config?: Promise<PublicKey>
+        authority?: Promise<WalletInterface | PublicKey>
+        format: FormatType
+      },
+    ) => {
+      await showSubscriptions({
+        address: await address,
+        config: (await config) ?? defaultConfigAddress,
+        authority: await authority,
+        format,
+      })
+    },
+  )
 }
 
 export async function showSubscriptions({
@@ -118,7 +149,8 @@ export async function showSubscriptions({
     )
 
     if (data.length === 0) {
-      logger.info(
+      // the pino transport writes to stdout, where printData emits the --format payload
+      console.error(
         `No notification subscriptions found for vote account ${voteAccount.toBase58()}`,
       )
       return
@@ -131,6 +163,19 @@ export async function showSubscriptions({
       },
       format,
     )
+
+    if (
+      data.some(
+        s => s.channel === 'telegram' && s.telegram_status === 'pending',
+      )
+    ) {
+      console.error(
+        "Telegram status 'pending' means no notification has been delivered yet." +
+          " It turns to 'active' after the first delivery." +
+          ' If you already pressed Start in the Telegram bot' +
+          ' the subscription is activated and delivery works.',
+      )
+    }
   } catch (e) {
     const httpMsg = formatHttpError(e, notificationsApiUrl)
     if (httpMsg) {

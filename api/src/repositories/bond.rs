@@ -1,41 +1,56 @@
-use super::common::CommonStoreOptions;
+use super::common::{pg_transient, read_yaml_input, CommonStoreOptions};
 use crate::dto::SqlSerializableBondType;
 
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
 use rust_decimal::Decimal;
+use serde_json::Value;
 use std::collections::HashMap;
 use tokio_postgres::{types::ToSql, Client};
-use validator_bonds_common::cli_result::CliError;
 use validator_bonds_common::dto::{BondType, ValidatorBondRecord};
 
-fn pg_transient(err: tokio_postgres::Error) -> CliError {
-    let is_transient = err.is_closed()
-        || std::error::Error::source(&err)
-            .and_then(|s| s.downcast_ref::<std::io::Error>())
-            .map(is_transient_io_kind)
-            .unwrap_or(false);
-
-    if is_transient {
-        CliError::retry_able(err)
-    } else {
-        CliError::critical(err)
-    }
+/// ds-sam-calc relay from bonds-eventing: per-validator calc blobs (keyed by vote
+/// account) + the per-epoch meta. Untyped — the CLI's ds-sam-calc owns the shape.
+#[derive(Default)]
+pub struct AuctionContext {
+    pub meta: Option<Value>,
+    pub validators: HashMap<String, Value>,
 }
 
-fn is_transient_io_kind(io: &std::io::Error) -> bool {
-    use std::io::ErrorKind::*;
-    matches!(
-        io.kind(),
-        ConnectionRefused
-            | ConnectionReset
-            | ConnectionAborted
-            | NotConnected
-            | TimedOut
-            | UnexpectedEof
-            | Interrupted
-            | WouldBlock
-    )
+pub async fn get_auction_context(
+    psql_client: &Client,
+    bond_type: BondType,
+) -> anyhow::Result<AuctionContext> {
+    let sql_bond_type: SqlSerializableBondType = bond_type.into();
+
+    // One statement → one snapshot: meta and the per-validator blobs can't come from two
+    // different auctions, and validators are pinned to the meta epoch so a partially-saved
+    // (failed-event) validator's stale-epoch blob is excluded from the reconstructed result.
+    let rows = psql_client
+        .query(
+            "SELECT
+               (SELECT data FROM bond_event_meta WHERE bond_type = $1) AS meta,
+               (SELECT json_object_agg(vote_account, auction_validator)
+                  FROM bond_event_state
+                  WHERE bond_type = $1
+                    AND auction_validator IS NOT NULL
+                    AND epoch = (SELECT epoch FROM bond_event_meta WHERE bond_type = $1)
+               ) AS validators",
+            &[&sql_bond_type],
+        )
+        .await?;
+
+    let Some(row) = rows.first() else {
+        return Ok(AuctionContext::default());
+    };
+
+    let meta = row.get::<_, Option<Value>>("meta");
+    let validators = match row.get::<_, Option<Value>>("validators") {
+        Some(Value::Object(map)) => map.into_iter().collect(),
+        _ => HashMap::new(),
+    };
+
+    Ok(AuctionContext { meta, validators })
 }
 
 pub async fn get_bonds_by_type(
@@ -77,32 +92,54 @@ async fn get_bonds_query(
     };
 
     let rows = psql_client.query(&query_string, &params).await?;
+    rows.into_iter().map(map_bond_row).collect()
+}
 
-    let mut bonds: Vec<ValidatorBondRecord> = vec![];
-    for row in rows {
-        let bond_type: SqlSerializableBondType = row.get("bond_type");
-        bonds.push(ValidatorBondRecord {
-            pubkey: row.get("pubkey"),
-            vote_account: row.get("vote_account"),
-            authority: row.get("authority"),
-            epoch: row.get::<_, i32>("epoch").try_into()?,
-            cpmpe: row.get::<_, Decimal>("cpmpe"),
-            max_stake_wanted: row.get::<_, Decimal>("max_stake_wanted"),
-            updated_at: row.get("updated_at"),
-            funded_amount: row.get::<_, Decimal>("funded_amount"),
-            effective_amount: row.get::<_, Decimal>("effective_amount"),
-            remaining_witdraw_request_amount: row
-                .get::<_, Decimal>("remaining_witdraw_request_amount"),
-            remainining_settlement_claim_amount: row
-                .get::<_, Decimal>("remainining_settlement_claim_amount"),
-            bond_type: bond_type.into(),
-            inflation_commission_bps: row.get("inflation_commission_bps"),
-            mev_commission_bps: row.get("mev_commission_bps"),
-            block_commission_bps: row.get("block_commission_bps"),
-        })
-    }
+/// Both configs at one epoch. `/v1/validators/protected` sums their collateral, and each type is
+/// stored by its own pipeline run, so a per-type `MAX(epoch)` could sum two different epochs.
+pub async fn get_summable_bonds(psql_client: &Client) -> anyhow::Result<Vec<ValidatorBondRecord>> {
+    let bidding: SqlSerializableBondType = BondType::Bidding.into();
+    let institutional: SqlSerializableBondType = BondType::Institutional.into();
 
-    Ok(bonds)
+    let rows = psql_client
+        .query(
+            "SELECT *
+             FROM bonds
+             WHERE bond_type IN ($1, $2)
+               AND epoch = (
+                   SELECT MIN(newest) FROM (
+                       SELECT MAX(epoch) AS newest
+                       FROM bonds
+                       WHERE bond_type IN ($1, $2)
+                       GROUP BY bond_type
+                   ) newest_per_type
+               )",
+            &[&bidding, &institutional],
+        )
+        .await?;
+    rows.into_iter().map(map_bond_row).collect()
+}
+
+fn map_bond_row(row: tokio_postgres::Row) -> anyhow::Result<ValidatorBondRecord> {
+    let bond_type: SqlSerializableBondType = row.get("bond_type");
+    Ok(ValidatorBondRecord {
+        pubkey: row.get("pubkey"),
+        vote_account: row.get("vote_account"),
+        authority: row.get("authority"),
+        epoch: row.get::<_, i32>("epoch").try_into()?,
+        cpmpe: row.get::<_, Decimal>("cpmpe"),
+        max_stake_wanted: row.get::<_, Decimal>("max_stake_wanted"),
+        updated_at: row.get("updated_at"),
+        funded_amount: row.get::<_, Decimal>("funded_amount"),
+        effective_amount: row.get::<_, Decimal>("effective_amount"),
+        remaining_witdraw_request_amount: row.get::<_, Decimal>("remaining_witdraw_request_amount"),
+        remainining_settlement_claim_amount: row
+            .get::<_, Decimal>("remainining_settlement_claim_amount"),
+        bond_type: bond_type.into(),
+        inflation_commission_bps: row.get("inflation_commission_bps"),
+        mev_commission_bps: row.get("mev_commission_bps"),
+        block_commission_bps: row.get("block_commission_bps"),
+    })
 }
 
 pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
@@ -113,7 +150,7 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
     builder.set_ca_file(&options.postgres_ssl_root_cert)?;
     let connector = MakeTlsConnector::new(builder.build());
 
-    let (psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
+    let (mut psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
         .await
         .map_err(pg_transient)?;
 
@@ -123,13 +160,15 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
         }
     });
 
-    let input = std::fs::File::open(options.input_path)?;
-    let bonds: Vec<ValidatorBondRecord> = serde_yaml::from_reader(input)?;
+    let bonds: Vec<ValidatorBondRecord> = read_yaml_input(&options.input_path)?;
     let bonds_records: HashMap<_, _> = bonds
         .iter()
         .map(|record| (record.pubkey.clone(), record))
         .collect();
     let epoch = bonds[0].epoch as i32;
+
+    // Readers pin epoch = MAX(epoch), so a half-written epoch hides the previous complete one.
+    let tx = psql_client.transaction().await.map_err(pg_transient)?;
 
     for chunk in bonds_records
         .into_iter()
@@ -194,11 +233,10 @@ pub async fn store_bonds(options: CommonStoreOptions) -> anyhow::Result<()> {
             .iter()
             .map(|param| param.as_ref() as &(dyn ToSql + Sync))
             .collect::<Vec<_>>();
-        psql_client
-            .query(&query, &params)
-            .await
-            .map_err(pg_transient)?;
+        tx.query(&query, &params).await.map_err(pg_transient)?;
     }
+
+    tx.commit().await.map_err(pg_transient)?;
 
     Ok(())
 }

@@ -3,6 +3,10 @@ agents:
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
   past_epochs_to_check: 10
+  max_total_claims: 150000
+  settlement_config: ./settlement-config.yaml
+  fee_revenue_margin_sol: 1
+  SETTLEMENTS_FILES: $SETTLEMENTS_FILES
   PIPELINES_AUTO_APPROVAL: $PIPELINES_AUTO_APPROVAL
 
 steps:
@@ -31,17 +35,24 @@ steps:
     key: "download-files"
     commands:
     - epoch=$(buildkite-agent meta-data get epoch)
-    - claim_type=$(buildkite-agent meta-data get claim_type)
     - |
       # Download unified merkle trees
       gcloud storage cp "$gs_bucket/$$epoch/unified-merkle-trees.json" "./unified-merkle-trees.json"
     - |
-      # Download settlement source files for cross-validation (optional)
-      # Unified CLI produces single file with all settlements (SAM + PSR)
-      if [[ "$$claim_type" == "bid-distribution" ]]; then
-        gcloud storage cp "$gs_bucket/$$epoch/bid-distribution-settlements.json" "./bid-distribution-settlements.json" || true
+      # cross-validation compares the summed sources against the tree, so a partial set fails by construction: an incomplete download drops all of them and leaves the check disabled
+      if [[ -z "$$SETTLEMENTS_FILES" ]]; then
+        echo "SETTLEMENTS_FILES is empty, so the source list the merkle trees were built from is unknown"
+        exit 1
       fi
-      # Future: add institutional settlement sources when available
+      all_sources_available=true
+      IFS=',' read -ra settlement_files_entries <<< "$$SETTLEMENTS_FILES"
+      for entry in "$${settlement_files_entries[@]}"; do
+        gcloud storage cp "$gs_bucket/$$epoch/$$entry" "./$$entry" || all_sources_available=false
+      done
+      if [[ "$$all_sources_available" != "true" ]]; then
+        echo "Not every settlement source is available, skipping the cross-validation"
+        rm -f ./*-settlements.json
+      fi
     artifact_paths:
       - "./unified-merkle-trees.json"
       - "./*-settlements.json"
@@ -80,10 +91,16 @@ steps:
         if [[ -n "$$settlement_sources" ]]; then
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
+            --max-total-claims $max_total_claims \
+            --settlement-config $settlement_config \
+            --fee-revenue-margin-sol $fee_revenue_margin_sol \
             --settlement-sources $$settlement_sources
         else
           pnpm cli:check check-merkle-tree \
-            --merkle-trees ./unified-merkle-trees.json
+            --merkle-trees ./unified-merkle-trees.json \
+            --max-total-claims $max_total_claims \
+            --settlement-config $settlement_config \
+            --fee-revenue-margin-sol $fee_revenue_margin_sol
         fi
     soft_fail:
       - exit_status: "*"
@@ -116,7 +133,8 @@ steps:
           --correlation-threshold 0.15 \
           --score-threshold 2.0 \
           --min-absolute-deviation 0.05 \
-          --epoch-hop-threshold 1.5
+          --epoch-hop-threshold 1.5 \
+          --max-total-claims $max_total_claims
     soft_fail:
       - exit_status: "*"
 
@@ -127,7 +145,9 @@ steps:
       outcome1=$$(buildkite-agent step get "outcome" --step "sanity-check-1")
       outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
 
+      sanity_failed=false
       if [[ "$$outcome1 $$outcome2" =~ soft_failed ]]; then
+         sanity_failed=true
          cat <<- YAML | buildkite-agent pipeline upload
          steps:
            - block: ":interrobang: Sanity check failed"
@@ -135,6 +155,10 @@ steps:
              if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
              blocked_state: running
       YAML
+      fi
+      # mirrors the two conditional block steps: the sanity-failure one above and the confirm one below
+      if [[ "$$NOTIFY_FEED" == "true" && ( "$$PIPELINES_AUTO_APPROVAL" != "true" || "$$sanity_failed" == "true" ) ]]; then
+        curl "$$SLACK_API" -X POST -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -H 'Content-type: application/json; charset=utf-8' -d "{\"channel\":\"$$(buildkite-agent meta-data get slack_feed)\",\"text\":\":interrobang: Confirm Settlements Initialization for Validator Bonds ($$(buildkite-agent meta-data get epoch))/($$(buildkite-agent meta-data get claim_type)), review and *Unblock* if ready to proceed: $$BUILDKITE_BUILD_URL\"}"
       fi
     depends_on:
       - "sanity-check-1"

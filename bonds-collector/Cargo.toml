@@ -18,7 +18,7 @@ solana-sdk = { workspace = true }
 tokio = { workspace = true }
 chrono = { workspace = true }
 solana-client = { workspace = true }
-rust_decimal = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-float"] }
 validator-bonds = { workspace = true }
 validator-bonds-common = { workspace = true }
 tracing = { workspace = true }

@@ -33,6 +33,8 @@ export class ValidatorBondsCliContext extends CLIContext {
   readonly verbose: boolean
   readonly notificationsApiUrl: string
   readonly notificationType: string
+  readonly bondsApiUrl: string
+  readonly bondsApiEnabled: boolean
 
   constructor({
     provider,
@@ -48,6 +50,8 @@ export class ValidatorBondsCliContext extends CLIContext {
     commandName,
     notificationsApiUrl,
     notificationType,
+    bondsApiUrl,
+    bondsApiEnabled,
   }: {
     provider: Provider
     wallet: WalletInterface
@@ -62,6 +66,8 @@ export class ValidatorBondsCliContext extends CLIContext {
     commandName: string
     notificationsApiUrl: string
     notificationType: string
+    bondsApiUrl: string
+    bondsApiEnabled: boolean
   }) {
     super({
       logger,
@@ -79,6 +85,8 @@ export class ValidatorBondsCliContext extends CLIContext {
     this.verbose = verbose
     this.notificationsApiUrl = notificationsApiUrl
     this.notificationType = notificationType
+    this.bondsApiUrl = bondsApiUrl
+    this.bondsApiEnabled = bondsApiEnabled
   }
 
   get program(): ValidatorBondsProgram {
@@ -102,6 +110,8 @@ export function setValidatorBondsCliContext({
   command,
   notificationsApiUrl,
   notificationType,
+  bondsApiUrl,
+  bondsApiEnabled,
 }: {
   cluster: string
   wallet: WalletInterface
@@ -116,6 +126,8 @@ export function setValidatorBondsCliContext({
   command: string
   notificationsApiUrl: string
   notificationType: string
+  bondsApiUrl: string
+  bondsApiEnabled: boolean
 }) {
   try {
     const parsedCommitment = parseCommitment(commitment)
@@ -142,6 +154,8 @@ export function setValidatorBondsCliContext({
         commandName: command,
         notificationsApiUrl,
         notificationType,
+        bondsApiUrl,
+        bondsApiEnabled,
       }),
     )
     logger.debug(

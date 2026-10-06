@@ -1,5 +1,5 @@
 use {
-    crate::serde_serialize::pubkey_string_conversion,
+    crate::serde_serialize::{pubkey_string_conversion, u64_number_or_string},
     serde::{Deserialize, Serialize},
     solana_program::hash::{Hash, Hasher},
     solana_program::pubkey::Pubkey,
@@ -11,6 +11,7 @@ pub struct TreeNode {
     pub stake_authority: Pubkey,
     #[serde(with = "pubkey_string_conversion")]
     pub withdraw_authority: Pubkey,
+    #[serde(with = "u64_number_or_string")]
     pub claim: u64,
     pub index: u64,
     pub proof: Option<Vec<[u8; 32]>>,

@@ -282,7 +282,7 @@ pub fn parse_settlements_from_json(
                     tree_nodes: merkle_tree.tree_nodes.clone(),
                     max_total_claim_sum: merkle_tree.max_total_claim_sum,
                     max_total_claim: merkle_tree.max_total_claims as u64,
-                    funder: SettlementFunderType::new(&settlement.meta.funder),
+                    funder: SettlementFunderType::new(&settlement.funder),
                     reason: Some(settlement.reason.clone()),
                     funding_sources: merkle_tree.funding_sources.clone(),
                     bond_account: None,
@@ -292,7 +292,7 @@ pub fn parse_settlements_from_json(
             } else {
                 Err(anyhow!(
                     "Cannot get settlement for vote account {} (reason: {:?}, funder: {:?}), epoch {} without a merkle root",
-                    merkle_tree.vote_account, settlement.reason, settlement.meta.funder, epoch
+                    merkle_tree.vote_account, settlement.reason, settlement.funder, epoch
                 ))
             }
         )

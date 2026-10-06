@@ -1,6 +1,7 @@
 agents:
   queue: "snapshots"
 env:
+  gs_bucket: gs://marinade-validator-bonds-mainnet
   gs_bucket_institutional: gs://marinade-institutional-staking-mainnet
   institutional_staking_api: "https://institutional-staking.marinade.finance/v1/validators"
   past_epochs_to_check: 10
@@ -85,16 +86,19 @@ steps:
           exit 10
         fi
       - |
-        INSTITUTIONAL_PAYOUT_SUM=$$(jq '[.validatorPayoutInfo[] | (.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)] | add' ./institutional-payouts.json)
-        SETTLEMENTS_SUM=$$(jq '[.settlements[].claims[].claim_amount] | add' ./settlements.json)
-        # the difference may come from rounding and from loading stake account data at different times, so we allow a small delta
+        # Sum in bc (arbitrary precision) — jq arithmetic runs in IEEE doubles and
+        # would silently round once the totals grow past 2^53-1 lamports.
+        INSTITUTIONAL_PAYOUT_SUM=$$(jq -r '.validatorPayoutInfo[] | .distributorFeeLamports, .distributeToStakersLamports' ./institutional-payouts.json | paste -sd+ - | bc)
+        INSTITUTIONAL_PAYOUT_SUM=$${INSTITUTIONAL_PAYOUT_SUM:-0}
+        SETTLEMENTS_SUM=$$(jq -r '.settlements[].claims[].claim_amount' ./settlements.json | paste -sd+ - | bc)
+        SETTLEMENTS_SUM=$${SETTLEMENTS_SUM:-0}
+        # institutional-staking floors each staker share, losing under 1 lamport per claim
         DIFF=$$((INSTITUTIONAL_PAYOUT_SUM - SETTLEMENTS_SUM))
-        DIFF_ABS=$$(($${DIFF#-}))
-        DIFF_PERMITTED_ABS=2500
-        if [[ $${DIFF_ABS} -gt $${DIFF_PERMITTED_ABS} ]]; then
-          DIFF_ABS_SOLS=$$(echo "scale=2; $${DIFF_ABS}/1e9" | bc -l)
+        DIFF_PERMITTED_ABS=$$(jq '[.settlements[].claims | length] | add // 0' ./settlements.json)
+        if [[ $${DIFF} -lt 0 || $${DIFF} -gt $${DIFF_PERMITTED_ABS} ]]; then
+          DIFF_SOLS=$$(echo "scale=9; $${DIFF}/1000000000" | bc -l)
           echo "Mismatch in total institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_SUM) vs Settlements($$SETTLEMENTS_SUM)"
-          echo "Difference $${DIFF_ABS} lamports ($${DIFF_ABS_SOLS} SOLs) between payout sum and settlement claims sum is more than permitted $${DIFF_PERMITTED_ABS}"
+          echo "Difference $${DIFF} lamports ($${DIFF_SOLS} SOLs) between payout sum and settlement claims sum is outside permitted 0..$${DIFF_PERMITTED_ABS}"
           exit 11
         fi
     soft_fail:
@@ -103,15 +107,26 @@ steps:
   - label: ":broom: :three: Sanity Check - Merkle Tree & Settlement"
     key: "sanity-check-3"
     commands:
+      - epoch=$(buildkite-agent meta-data get epoch)
       - buildkite-agent artifact download --include-retried-jobs settlements.json .
       - buildkite-agent artifact download --include-retried-jobs settlement-merkle-trees.json .
+      - |
+        gcloud storage cp "$gs_bucket/$$epoch/institutional-direct-staking-settlements.json" "./institutional-direct-staking-settlements.json" || true
       - |
         pnpm install
         pnpm -r build
       - |
-        pnpm cli:check check-merkle-tree \
-          --merkle-trees ./settlement-merkle-trees.json \
-          --settlement-sources ./settlements.json
+        # the trees are generated from the payouts settlements plus the direct-staking split, so both
+        # have to be summed here; a partial source set fails the equality check by construction
+        if [[ -f ./institutional-direct-staking-settlements.json ]]; then
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./settlement-merkle-trees.json \
+            --settlement-sources ./settlements.json ./institutional-direct-staking-settlements.json
+        else
+          pnpm cli:check check-merkle-tree \
+            --merkle-trees ./settlement-merkle-trees.json \
+            --settlement-sources ./settlements.json
+        fi
     soft_fail:
       - exit_status: "*"
 
@@ -128,7 +143,9 @@ steps:
       outcome2=$$(buildkite-agent step get "outcome" --step "sanity-check-2")
       outcome3=$$(buildkite-agent step get "outcome" --step "sanity-check-3")
 
+      sanity_failed=false
       if [[ "$$outcome1 $$outcome2 $$outcome3" =~ soft_failed ]]; then
+         sanity_failed=true
          cat <<- YAML | buildkite-agent pipeline upload
          steps:
            - block: ":interrobang: Sanity check failed"
@@ -136,6 +153,10 @@ steps:
              if: build.env('PIPELINES_AUTO_APPROVAL') == 'true'
              blocked_state: running
       YAML
+      fi
+      # mirrors the two conditional block steps: the sanity-failure one above and the confirm one below
+      if [[ "$$NOTIFY_FEED" == "true" && ( "$$PIPELINES_AUTO_APPROVAL" != "true" || "$$sanity_failed" == "true" ) ]]; then
+        curl "$$SLACK_API" -X POST -H "Authorization: Bearer $$SLACK_BEARER_TOKEN" -H 'Content-type: application/json; charset=utf-8' -d "{\"channel\":\"$$(buildkite-agent meta-data get slack_feed)\",\"text\":\":interrobang: Confirm Settlements Initialization for Validator Bonds ($$(buildkite-agent meta-data get epoch))/($$(buildkite-agent meta-data get claim_type)), review and *Unblock* if ready to proceed: $$BUILDKITE_BUILD_URL\"}"
       fi
     depends_on: 
       - "sanity-check-1"

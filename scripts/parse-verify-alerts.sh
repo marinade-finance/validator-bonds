@@ -4,8 +4,9 @@ set -euo pipefail
 # Parse settlement verification alerts from JSON report of 'verify-settlement' command.
 # Non-funded settlements are classified per epoch; any epoch crossing a threshold
 # raises an alert that is posted to Slack and fails the build:
-#   * count >= -x   --> alert (Slack + build fail)
-#   * sol   >= -s   --> alert (Slack + build fail)
+#   * count >= -x   --> alert (Slack + build fail), settlements below the -d dust floor do not count
+#   * sol   >= -s   --> alert (Slack + build fail), dust included so it can never hide an amount
+#   * count + dust >= 10x -x --> alert (Slack + build fail), dust floor ignored at this volume
 # Unknown/non-verified settlements always alert; non-existing uses -e threshold.
 
 # Detect if being sourced
@@ -19,10 +20,11 @@ fi
 REPORT_FILE=""
 NON_FUNDED_PER_EPOCH=30
 NON_FUNDED_SOL_PER_EPOCH=10
+NON_FUNDED_DUST_SOL=0.0001
 NON_EXISTING_TO_REPORT=0
 MAX_DISPLAY=20
 
-while getopts "f:x:s:e:m:h" opt; do
+while getopts "f:x:s:d:e:m:h" opt; do
     case $opt in
         f)
             REPORT_FILE="$OPTARG"
@@ -36,6 +38,10 @@ while getopts "f:x:s:e:m:h" opt; do
             [[ "$OPTARG" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "Error: -s must be a non-negative number" >&2; $_EXIT_CMD 1; }
             NON_FUNDED_SOL_PER_EPOCH="$OPTARG"
             ;;
+        d)
+            [[ "$OPTARG" =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "Error: -d must be a non-negative number" >&2; $_EXIT_CMD 1; }
+            NON_FUNDED_DUST_SOL="$OPTARG"
+            ;;
         e)
             [[ "$OPTARG" =~ ^[0-9]+$ ]] && [ "$OPTARG" -ge 0 ] || { echo "Error: -e must be a non-negative integer" >&2; $_EXIT_CMD 1; }
             NON_EXISTING_TO_REPORT="$OPTARG"
@@ -46,12 +52,14 @@ while getopts "f:x:s:e:m:h" opt; do
             ;;
         h)
             cat >&2 <<EOF
-Usage: $0 -f <report-file> [-x <count-threshold>] [-s <sol-threshold>] [-e <non-existing-min>] [-m <max-display>]
+Usage: $0 -f <report-file> [-x <count-threshold>] [-s <sol-threshold>] [-d <dust-floor>] [-e <non-existing-min>] [-m <max-display>]
 
 Options:
   -f <file>          Path to the verify-report.json file (required)
   -x <int>           Non-funded count threshold per epoch (default: 30) - Slack + fail
   -s <number>        Non-funded SOL threshold per epoch  (default: 10) - Slack + fail
+  -d <number>        Non-funded settlements below this SOL amount do not count towards -x (default: 0.0001)
+                     The floor is ignored once count + dust reaches 10x the -x threshold
   -e <int>           Non-existing settlements threshold to alert on (default: 0)
   -m <int>           Max items to display in unknown/non-existing sections (default: 20)
   -h                 Show this help message
@@ -71,10 +79,16 @@ done
 
 # SOL threshold in lamports (integer math is easier in bash)
 sol_threshold_lamports=$(awk -v sol="$NON_FUNDED_SOL_PER_EPOCH" 'BEGIN { printf "%.0f", sol * 1e9 }')
+dust_floor_lamports=$(awk -v sol="$NON_FUNDED_DUST_SOL" 'BEGIN { printf "%.0f", sol * 1e9 }')
+# Bounds the dust floor: a whole epoch failing to fund in dust amounts stays far below -s.
+non_funded_ceiling=$((NON_FUNDED_PER_EPOCH * 10))
 
 echo "Parsing report: $REPORT_FILE" >&2
 echo "  non-funded thresholds (per epoch): count >= $NON_FUNDED_PER_EPOCH or SOL >= ${NON_FUNDED_SOL_PER_EPOCH}" >&2
+echo "  non-funded dust floor: ${NON_FUNDED_DUST_SOL} SOL (${dust_floor_lamports} lamports), excluded from the count only, ignored at count + dust >= ${non_funded_ceiling}" >&2
 echo "  non-existing threshold: $NON_EXISTING_TO_REPORT, max display: $MAX_DISPLAY" >&2
+
+[ "$dust_floor_lamports" -lt "$sol_threshold_lamports" ] || echo "⚠️  Warning: dust floor (-d ${NON_FUNDED_DUST_SOL} SOL) is not below the SOL threshold (-s ${NON_FUNDED_SOL_PER_EPOCH} SOL); a single non-dust settlement already crosses -s, so the -x count threshold can never fire on its own." >&2
 
 unknown_count=$(jq '.summary.unknown_settlements | length' "$REPORT_FILE")
 non_verified_count=$(jq '.summary.non_verified_epochs | length' "$REPORT_FILE")
@@ -151,38 +165,42 @@ fi
 # Non-funded settlements: aggregate per epoch, alert when any epoch crosses
 non_funded_epochs_total=0
 non_funded_epochs_alert=0
+non_funded_dust_count=0
 non_funded_summary=""
 if [ "$non_funded_count" -gt 0 ]; then
     echo " => $non_funded_count non-funded settlements found; classifying per epoch" >&2
 
-    # Per-epoch aggregation: "<epoch> <count> <lamports>" lines, sorted by epoch
-    per_epoch=$(jq -r '
+    # Per-epoch aggregation: "<epoch> <count> <dust> <lamports>" lines, sorted by epoch
+    # A settlement without claims_lamports is never dust - its amount is unknown, not small.
+    per_epoch=$(jq -r --argjson floor "$dust_floor_lamports" '
         .summary.non_funded_settlements
         | group_by(.epoch)
         | map({
             epoch: .[0].epoch,
-            count: length,
+            count: (map(select(.claims_lamports == null or .claims_lamports >= $floor)) | length),
+            dust: (map(select(.claims_lamports != null and .claims_lamports < $floor)) | length),
             lamports: (map(.claims_lamports // 0) | add)
         })
         | sort_by(.epoch)
         | .[]
-        | "\(.epoch) \(.count) \(.lamports)"
+        | "\(.epoch) \(.count) \(.dust) \(.lamports)"
     ' "$REPORT_FILE")
 
-    while IFS=' ' read -r epoch count lamports; do
+    while IFS=' ' read -r epoch count dust lamports; do
         [ -z "$epoch" ] && continue
         non_funded_epochs_total=$((non_funded_epochs_total + 1))
+        non_funded_dust_count=$((non_funded_dust_count + dust))
 
         sol=$(awk -v l="$lamports" 'BEGIN { printf "%.4f", l / 1e9 }')
 
-        if [ "$count" -ge "$NON_FUNDED_PER_EPOCH" ] || [ "$lamports" -ge "$sol_threshold_lamports" ]; then
+        if [ "$count" -ge "$NON_FUNDED_PER_EPOCH" ] || [ "$lamports" -ge "$sol_threshold_lamports" ] || [ "$((count + dust))" -ge "$non_funded_ceiling" ]; then
             non_funded_epochs_alert=$((non_funded_epochs_alert + 1))
-            non_funded_settlements_alerting=$((non_funded_settlements_alerting + count))
+            non_funded_settlements_alerting=$((non_funded_settlements_alerting + count + dust))
             is_to_alert=true
-            echo "    epoch=$epoch count=$count sol=$sol ALERT" >&2
-            non_funded_summary="${non_funded_summary}Epoch ${epoch}: ${count} settlements / ${sol} SOL"$'\n'
+            echo "    epoch=$epoch count=$count dust=$dust sol=$sol ALERT" >&2
+            non_funded_summary="${non_funded_summary}Epoch ${epoch}: ${count} settlements (+${dust} dust) / ${sol} SOL"$'\n'
         else
-            echo "    epoch=$epoch count=$count sol=$sol (below threshold)" >&2
+            echo "    epoch=$epoch count=$count dust=$dust sol=$sol (below threshold)" >&2
         fi
     done <<< "$per_epoch"
 
@@ -193,20 +211,21 @@ if [ "$non_funded_count" -gt 0 ]; then
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*🟠 Non-Funded Settlements per Epoch:*\n_thresholds: ≥ '"$NON_FUNDED_PER_EPOCH"'/epoch or ≥ '"$NON_FUNDED_SOL_PER_EPOCH"' SOL/epoch_\n```'"$non_funded_summary"'```"
+                    "text": "*🟠 Non-Funded Settlements per Epoch:*\n_thresholds: ≥ '"$NON_FUNDED_PER_EPOCH"'/epoch or ≥ '"$NON_FUNDED_SOL_PER_EPOCH"' SOL/epoch; dust < '"$NON_FUNDED_DUST_SOL"' SOL not counted below '"$non_funded_ceiling"' total_\n```'"$non_funded_summary"'```"
                   }
                 },'
     fi
 fi
 
 total_alerts=$((unknown_count + non_verified_count + non_existing_in_alert + non_funded_settlements_alerting))
-echo "Totals: unknown=$unknown_count non-verified=$non_verified_count non-existing=$non_existing_count (in-alert=$non_existing_in_alert) non-funded=$non_funded_count (alerting=$non_funded_settlements_alerting across $non_funded_epochs_alert of $non_funded_epochs_total epoch(s))" >&2
+echo "Totals: unknown=$unknown_count non-verified=$non_verified_count non-existing=$non_existing_count (in-alert=$non_existing_in_alert) non-funded=$non_funded_count (dust=$non_funded_dust_count, alerting=$non_funded_settlements_alerting across $non_funded_epochs_alert of $non_funded_epochs_total epoch(s))" >&2
 
 export unknown_count
 export non_verified_count
 export non_existing_count
 export non_existing_in_alert
 export non_funded_count
+export non_funded_dust_count
 export non_funded_epochs_alert
 export non_funded_settlements_alerting
 export total_alerts

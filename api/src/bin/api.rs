@@ -1,19 +1,24 @@
-use api::api_docs::ApiDoc;
+use anyhow::Context as _;
 use api::context::{Context, WrappedContext};
-use api::handlers::{bonds, docs, protected_events};
-use api::rate_limit::{
-    public_routes_limiter, recover_rate_limited, spawn_limiter_gc, with_rate_limit,
-};
 use api::repositories::protected_events::spawn_protected_events_cache;
+use api::repositories::verified_validators as verified_validators_repo;
+use api::routes::{build_app, internal_router};
+use axum::extract::Request;
+use axum::ServiceExt;
 use clap::Parser;
 use env_logger::Env;
-use log::{error, info};
+use log::{error, info, warn};
 use openssl::ssl::{SslConnector, SslMethod};
 use postgres_openssl::MakeTlsConnector;
-use std::convert::Infallible;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::net::TcpListener;
 use tokio::sync::RwLock;
-use warp::Filter;
+
+/// Internal port for Prometheus metrics + health, scraped via a dedicated
+/// metrics `Service` annotated `prometheus.io/port: "9000"`. Kept off the
+/// public port.
+const INTERNAL_PORT: u16 = 9000;
 
 #[derive(Debug, Parser)]
 pub struct Params {
@@ -31,6 +36,9 @@ pub struct Params {
 
     #[arg(long = "port", default_value = "8000")]
     pub port: u16,
+
+    #[arg(long = "verified-validators-config")]
+    pub verified_validators_config: Option<String>,
 }
 
 #[tokio::main]
@@ -52,10 +60,20 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    let protected_event_records = Arc::new(RwLock::new(vec![]));
-    let context = Arc::new(RwLock::new(Context::new(
+    let verified_validators = match &params.verified_validators_config {
+        Some(path) => verified_validators_repo::load_verified_validators(path)
+            .with_context(|| format!("Failed to load verified validators config from {path}"))?,
+        None => {
+            warn!("Verified validators config not provided, will serve an empty list.");
+            vec![]
+        }
+    };
+
+    let protected_event_records = Arc::new(RwLock::new(None));
+    let context: WrappedContext = Arc::new(RwLock::new(Context::new(
         psql_client,
         protected_event_records.clone(),
+        verified_validators,
     )?));
 
     match (params.gcp_project_id, params.gcp_sa_key) {
@@ -64,115 +82,43 @@ async fn main() -> anyhow::Result<()> {
             spawn_protected_events_cache(gcp_sa_key, gcp_project_id, protected_event_records).await;
         }
         (None, None) => {
-            error!("GCP parameters not provided, will not populate the protected events.")
+            error!("GCP parameters not provided, /protected-events will answer 500.")
         }
         _ => anyhow::bail!("All GCP parameters must be used together."),
     };
 
-    // Only GET is CORS-allowed: every browser-facing endpoint is GET. If a future
-    // endpoint adds POST, replace `allow_any_origin()` with an explicit allowlist.
-    let cors = warp::cors()
-        .allow_any_origin()
-        .allow_headers(vec![
-            "User-Agent",
-            "Sec-Fetch-Mode",
-            "Referer",
-            "Content-Type",
-            "Origin",
-            "Access-Control-Request-Method",
-            "Access-Control-Request-Headers",
-        ])
-        .allow_methods(vec!["GET"]);
+    if params.port == INTERNAL_PORT {
+        anyhow::bail!("Public port must differ from internal port {INTERNAL_PORT}");
+    }
 
-    let public_limiter = public_routes_limiter();
-    spawn_limiter_gc(public_limiter.clone());
+    let public_addr = SocketAddr::from(([0, 0, 0, 0], params.port));
+    let internal_addr = SocketAddr::from(([0, 0, 0, 0], INTERNAL_PORT));
 
-    let top_level = warp::path::end()
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .map(|| "API for Validator Bonds 2.0");
+    let public_listener = TcpListener::bind(public_addr).await?;
+    let internal_listener = TcpListener::bind(internal_addr).await?;
 
-    let route_api_docs_oas = warp::path("docs.json")
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .map(|| warp::reply::json(&<ApiDoc as utoipa::OpenApi>::openapi()));
+    let app = build_app(context.clone());
+    let internal = internal_router(context);
 
-    let route_api_docs_html = warp::path("docs")
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .and_then(docs::handler);
+    info!("Serving public API on {public_addr}, metrics/health on {internal_addr}");
 
-    #[allow(deprecated)] // backwards compatibility
-    let route_bonds = warp::path!("bonds")
-        .and(warp::path::end())
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .and(warp::query::<bonds::QueryParams>())
-        .and(with_context(context.clone()))
-        .and_then(bonds::handler);
+    // ConnectInfo is required so the rate limiter can fall back to the peer IP
+    // when `cf-connecting-ip` is absent.
+    let public_server = tokio::spawn(async move {
+        axum::serve(
+            public_listener,
+            ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
+        )
+        .await
+    });
+    let internal_server =
+        tokio::spawn(
+            async move { axum::serve(internal_listener, internal.into_make_service()).await },
+        );
 
-    let route_bonds_bidding = warp::path!("bonds" / "bidding")
-        .and(warp::path::end())
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .and(warp::query::<bonds::QueryParams>())
-        .and(with_context(context.clone()))
-        .and_then(bonds::handler_bidding);
-
-    let route_bonds_institutional = warp::path!("bonds" / "institutional")
-        .and(warp::path::end())
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter.clone()))
-        .and(warp::query::<bonds::QueryParams>())
-        .and(with_context(context.clone()))
-        .and_then(bonds::handler_institutional);
-
-    let route_protected_events = warp::path!("protected-events")
-        .and(warp::path::end())
-        .and(warp::get())
-        .and(with_rate_limit(public_limiter))
-        .and(warp::query::<protected_events::QueryParams>())
-        .and(with_context(context.clone()))
-        .and_then(protected_events::handler);
-
-    let base_routes = top_level
-        .or(route_api_docs_oas)
-        .or(route_api_docs_html)
-        .or(route_bonds)
-        .or(route_bonds_bidding)
-        .or(route_bonds_institutional)
-        .or(route_protected_events);
-
-    // Serve compressed responses only when client requests it via Accept-Encoding: gzip header
-    let accepts_gzip = warp::header::optional::<String>("accept-encoding")
-        .and_then(|encoding: Option<String>| async move {
-            match encoding {
-                Some(enc) if enc.contains("gzip") => Ok(()),
-                _ => Err(warp::reject::not_found()),
-            }
-        })
-        .untuple_one();
-
-    let routes_compressed = accepts_gzip
-        .and(base_routes.clone())
-        .with(warp::filters::compression::gzip());
-
-    // CORS is the outermost wrapper so the 429 produced by
-    // `recover_rate_limited` also carries the Access-Control-* headers —
-    // otherwise a browser that trips the limiter on a GET endpoint sees a
-    // CORS error instead of a readable 429.
-    let routes = routes_compressed
-        .or(base_routes)
-        .recover(recover_rate_limited)
-        .with(cors);
-
-    warp::serve(routes).run(([0, 0, 0, 0], params.port)).await;
-
-    Ok(())
-}
-
-fn with_context(
-    context: WrappedContext,
-) -> impl Filter<Extract = (WrappedContext,), Error = Infallible> + Clone {
-    warp::any().map(move || context.clone())
+    // If either server exits (always an error in practice), surface it and exit non-zero.
+    tokio::select! {
+        res = public_server => anyhow::bail!("Public API server stopped: {res:?}"),
+        res = internal_server => anyhow::bail!("Internal server stopped: {res:?}"),
+    }
 }

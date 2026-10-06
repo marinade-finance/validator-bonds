@@ -12,6 +12,7 @@ steps:
     commands:
     - source "$HOME/.cargo/env"
     - cargo build --release --bin bonds-collector --bin validator-bonds-api-cli
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{bonds-collector,validator-bonds-api-cli}'
     artifact_paths:
       - target/release/bonds-collector
       - target/release/validator-bonds-api-cli
@@ -120,7 +121,7 @@ steps:
     - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
-        store-bonds --postgres-url "$$POSTGRES_URL" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
+        store-bonds --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
     retry:
       automatic:
         - exit_status: 100
@@ -132,11 +133,6 @@ steps:
     key: "emit-bond-events"
     commands:
     - bond_type=$(buildkite-agent meta-data get bond_type)
-    - |
-      if [ "$$bond_type" != "bidding" ]; then
-        echo "Skipping bond eventing for bond_type=$$bond_type (only bidding is supported)"
-        exit 0
-      fi
     - retry_max_attempts=$(buildkite-agent meta-data get retry_max_attempts)
     - retry_base_delay_ms=$(buildkite-agent meta-data get retry_base_delay_ms)
     - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
@@ -147,14 +143,65 @@ steps:
     - pnpm -r build
     - |
       pnpm ts-node packages/bonds-eventing/src/index.ts \
-        bidding \
+        "$$bond_type" \
         --retry-max-attempts "$$retry_max_attempts" \
         --retry-base-delay-ms "$$retry_base_delay_ms" \
         --emit-concurrency "$$emit_concurrency" \
         --notifications-api-url "$$notifications_api_url" \
+        --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" \
         --postgres-ssl-root-cert ./eu-west-1-bundle.pem
     soft_fail:
       - exit_status: "*"
+
+  - wait: ~
+
+  # Marinade stake per validator is the same for both bond configs, so it is collected on the bidding
+  # run only. `/v1/validators/protected` sizes each bond against it. Placed after bond eventing so a
+  # failure here cannot keep validator notifications from being emitted.
+  - label: ":coin: Collect Marinade Stake"
+    key: "collect-stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is collected on the bidding run only"
+        # placeholder so the declared artifact always exists; the store step exits before reading it
+        touch collected-stake.yaml
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/bonds-collector .
+    - chmod +x target/release/bonds-collector
+    - |
+      ./target/release/bonds-collector collect-stake \
+        --config ./collector-config.yaml > collected-stake.yaml
+    artifact_paths:
+      - collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
+
+  - wait: ~
+
+  - label: ":coin: Store Marinade Stake"
+    commands:
+    - bond_type=$(buildkite-agent meta-data get bond_type)
+    - |
+      if [ "$$bond_type" != "bidding" ]; then
+        echo "Bond type '$$bond_type': stake is stored on the bidding run only"
+        exit 0
+      fi
+    - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
+    - buildkite-agent artifact download collected-stake.yaml .
+    - chmod +x target/release/validator-bonds-api-cli
+    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
+    - |
+      ./target/release/validator-bonds-api-cli \
+        store-collected-stake --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
 
   - wait: ~
 

@@ -34,6 +34,7 @@ steps:
     commands:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin merge-stakes'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/merge-stakes'
     artifact_paths:
       - target/release/merge-stakes
 

@@ -17,6 +17,8 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair, PublicKey } from '@solana/web3.js'
@@ -121,7 +123,7 @@ describe('Cancel withdraw request using CLI', () => {
   })
 
   it('cancel withdraw request in print-only mode', async () => {
-    const toMatch = new RegExp(
+    const toMatch = dryRunOutput(
       `${withdrawRequestAccount.toBase58()}.*successfully cancelled`,
     )
     await expect([
@@ -151,5 +153,32 @@ describe('Cancel withdraw request using CLI', () => {
       withdrawRequestAccount,
     )
     expect(withdrawRequestData.requestedAmount).toEqual(stakeAccountLamports)
+  })
+
+  it('cancel withdraw request derived from config and vote account', async () => {
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'cancel-withdraw-request',
+        '--config',
+        configAccount.toBase58(),
+        '--vote-account',
+        voteAccount.toBase58(),
+        '--authority',
+        validatorIdentityKeypair.publicKey.toBase58(),
+        '--print-only',
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: dryRunOutput(
+        `${withdrawRequestAccount.toBase58()}.*for bond account ` +
+          `${bondAccount.toBase58()} successfully cancelled`,
+      ),
+    })
   })
 })

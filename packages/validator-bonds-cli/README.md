@@ -696,6 +696,9 @@ validator-bonds subscriptions <bond-or-vote-account> \
 
 Shows channel type, address, and status (e.g., `active`, `pending`, `inactive`) for each subscription.
 
+For Telegram, `pending` only means no notification has been delivered yet; it turns to `active` after the first delivery.
+Once you press "Start" in the bot the subscription is activated and delivery works, even while it still reads `pending`.
+
 ### View Notifications
 
 ```sh
@@ -776,6 +779,27 @@ validator-bonds -um show-bond <your-vote-account>
 - [Discord PSR feed channel](https://discord.com/channels/823564092379627520/1223330302890348754)
 
 **Note:** `show-bond` shows current state, which may differ from data used for a specific epoch's calculations.
+
+### Bond Guidance Banner
+
+After `show-bond`, `configure-bond`, `fund-bond`, `fund-bond-sol` and `init-withdraw-request`
+the CLI prints a next-step guidance banner for the validator to stderr — the same suggestion the
+[PSR dashboard](https://psr.marinade.finance/) shows (e.g. "raise `maxStakeWanted` to unlock more
+stake", "top up the bond to keep your stake", or how many epochs the bond still covers):
+
+```text
+╔════════════ Marinade Stake Auction · Bond Guidance ════════════╗
+║ Raise maxStakeWanted to unlock up to 70,000 SOL more stake.     ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+The banner is best-effort and never blocks the command: it computes the tip from the latest Stake
+Auction Marketplace snapshot served by the [validator bonds API](https://validator-bonds-api.marinade.finance),
+using the same logic as the PSR dashboard. Since the auction runs once per epoch, the figures reflect
+that epoch's snapshot; the banner notes when the snapshot lags further behind. stdout stays clean
+(JSON/YAML output is unaffected and pipeable).
+
+Pass `--no-advice` to suppress it.
 
 ---
 
@@ -913,7 +937,7 @@ When installed globally
 # Get npm global installation folder
 npm list -g
 > /usr/lib
-> +-- @marinade.finance/validator-bonds-cli@2.4.8
+> +-- @marinade.finance/validator-bonds-cli@2.6.3
 > ...
 # In this case, the `bin` folder is located at /usr/bin
 ```
@@ -933,7 +957,7 @@ npm i -g @marinade.finance/validator-bonds-cli@latest
 # Verify installation
 npm list -g
 # Output: ~/.local/share/npm/lib
-#         └── @marinade.finance/validator-bonds-cli@2.4.8
+#         └── @marinade.finance/validator-bonds-cli@2.6.3
 ```
 
 To execute the installed packages from any location,
@@ -1128,7 +1152,7 @@ Commands:
   # Get npm global installation folder
   npm list -g
   > ~/.local/share/npm/lib
-  > `-- @marinade.finance/validator-bonds-cli@2.4.8
+  > `-- @marinade.finance/validator-bonds-cli@2.6.3
   # In this case, the 'bin' folder is located at ~/.local/share/npm/bin
 
   # Get validator-bonds binary folder

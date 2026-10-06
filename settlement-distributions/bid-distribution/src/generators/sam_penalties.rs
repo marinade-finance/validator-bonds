@@ -1,46 +1,19 @@
 use crate::sam_meta::ValidatorSamMeta;
 use crate::settlement_config::{FeeConfig, SettlementConfig};
-use anyhow::{anyhow, ensure, Context};
+use anyhow::{anyhow, ensure};
 use log::info;
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
+use settlement_common::settlement_details::{
+    BidTooLowPenaltyDetails, BlacklistPenaltyDetails, BondRiskFeeDetails, SettlementDetails,
+};
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 
-use super::{add_to_settlement_collection, get_fee_deposit_stake_accounts};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BidTooLowPenaltyDetails {
-    pub total_marinade_active_stake: u64,
-    pub effective_sam_marinade_active_stake: u64,
-    pub bid_too_low_penalty_pmpe: String,
-    pub bid_too_low_penalty_total_claim: String,
-    pub distributor_bid_too_low_penalty_claim: u64,
-    pub stakers_bid_too_low_penalty_claim: u64,
-    pub dao_bid_too_low_penalty_claim: u64,
-    pub marinade_bid_too_low_penalty_claim: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlacklistPenaltyDetails {
-    pub total_marinade_active_stake: u64,
-    pub effective_sam_marinade_active_stake: u64,
-    pub blacklist_penalty_pmpe: String,
-    pub blacklist_penalty_total_claim: String,
-    pub stakers_blacklist_penalty_claim: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BondRiskFeeDetails {
-    pub total_marinade_active_stake: u64,
-    pub effective_sam_marinade_active_stake: u64,
-    pub bond_risk_fee_sol: String,
-    pub stakers_bond_risk_fee_claim: u64,
-}
+use super::add_to_settlement_collection;
 
 /// Total lamports across all penalty settlements (includes the Marinade/DAO
 /// distributor cut for BidTooLowPenalty). Fed to the bid bisection so post-fee
@@ -74,7 +47,6 @@ pub fn generate_penalty_settlements(
     let bid_fee_percentages = fee_config.fee_percentages();
 
     let mut penalty_settlement_collection = vec![];
-    let fee_deposit = get_fee_deposit_stake_accounts(stake_meta_index, fee_config);
 
     for validator in sam_validator_metas {
         if let Some(grouped_stake_metas) =
@@ -170,36 +142,36 @@ pub fn generate_penalty_settlements(
                     })?;
 
                     if bid_penalty_claim_amount > 0 {
-                        bid_too_low_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts: stake_accounts.clone(),
-                            claim_amount: bid_penalty_claim_amount,
+                        bid_too_low_penalty_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            bid_penalty_claim_amount,
+                            stake_accounts.clone(),
+                        ));
                         claimed_bid_too_low_penalty_amount += bid_penalty_claim_amount;
                     }
                     if blacklist_penalty_claim_amount > 0 {
-                        blacklist_penalty_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts: stake_accounts.clone(),
-                            claim_amount: blacklist_penalty_claim_amount,
+                        blacklist_penalty_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            blacklist_penalty_claim_amount,
+                            stake_accounts.clone(),
+                        ));
                         claimed_blacklist_penalty_amount += blacklist_penalty_claim_amount;
                     }
                     if bond_risk_fee_claim_amount > 0 {
-                        bond_risk_fee_claims.push(SettlementClaim {
-                            withdraw_authority: *withdraw_authority,
-                            stake_authority: *stake_authority,
-                            stake_accounts,
-                            claim_amount: bond_risk_fee_claim_amount,
+                        bond_risk_fee_claims.push(SettlementClaim::staker_payout(
+                            *withdraw_authority,
+                            *stake_authority,
                             active_stake,
-                            activating_stake: 0,
-                        });
+                            0,
+                            bond_risk_fee_claim_amount,
+                            stake_accounts,
+                        ));
                         claimed_bond_risk_fee_amount += bond_risk_fee_claim_amount;
                     }
                 }
@@ -233,25 +205,19 @@ pub fn generate_penalty_settlements(
                     .ok_or_else(|| anyhow!("Failed to_u64 for bid_penalty_total_claim"))?;
                 let authorities = fee_config.fee_authorities();
                 if marinade_bid_too_low_penalty_claim > 0 {
-                    bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: authorities.marinade_withdraw,
-                        stake_authority: authorities.marinade_stake,
-                        stake_accounts: fee_deposit.marinade_active.clone(),
-                        claim_amount: marinade_bid_too_low_penalty_claim,
-                        active_stake: fee_deposit.marinade_active.values().sum(),
-                        activating_stake: 0,
-                    });
+                    bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
+                        authorities.marinade_withdraw,
+                        authorities.marinade_stake,
+                        marinade_bid_too_low_penalty_claim,
+                    ));
                     claimed_bid_too_low_penalty_amount += marinade_bid_too_low_penalty_claim;
                 }
                 if dao_bid_too_low_penalty_claim > 0 {
-                    bid_too_low_penalty_claims.push(SettlementClaim {
-                        withdraw_authority: authorities.dao_withdraw,
-                        stake_authority: authorities.dao_stake,
-                        stake_accounts: fee_deposit.dao_active.clone(),
-                        claim_amount: dao_bid_too_low_penalty_claim,
-                        active_stake: fee_deposit.dao_active.values().sum(),
-                        activating_stake: 0,
-                    });
+                    bid_too_low_penalty_claims.push(SettlementClaim::fee_deposit(
+                        authorities.dao_withdraw,
+                        authorities.dao_stake,
+                        dao_bid_too_low_penalty_claim,
+                    ));
                     claimed_bid_too_low_penalty_amount += dao_bid_too_low_penalty_claim;
                 }
                 ensure!(
@@ -275,16 +241,14 @@ pub fn generate_penalty_settlements(
                     dao_bid_too_low_penalty_claim,
                     marinade_bid_too_low_penalty_claim,
                 };
-                let details_json = serde_json::to_value(&bid_penalty_details)?;
-
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
                     bid_too_low_penalty_claims,
                     claimed_bid_too_low_penalty_amount,
                     SettlementReason::BidTooLowPenalty,
                     validator.vote_account,
-                    bid_too_low_penalty_config.meta(),
-                    Some(details_json),
+                    bid_too_low_penalty_config.meta().funder.clone(),
+                    Some(SettlementDetails::BidTooLowPenalty(bid_penalty_details)),
                 );
             }
 
@@ -297,16 +261,16 @@ pub fn generate_penalty_settlements(
                     blacklist_penalty_total_claim: blacklist_penalty_total_claim.to_string(),
                     stakers_blacklist_penalty_claim,
                 };
-                let details_json = serde_json::to_value(&blacklist_penalty_details)?;
-
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
                     blacklist_penalty_claims,
                     claimed_blacklist_penalty_amount,
                     SettlementReason::BlacklistPenalty,
                     validator.vote_account,
-                    blacklist_penalty_config.meta(),
-                    Some(details_json),
+                    blacklist_penalty_config.meta().funder.clone(),
+                    Some(SettlementDetails::BlacklistPenalty(
+                        blacklist_penalty_details,
+                    )),
                 );
             }
 
@@ -322,17 +286,14 @@ pub fn generate_penalty_settlements(
                         .unwrap_or_default(),
                     stakers_bond_risk_fee_claim,
                 };
-                let details_json = serde_json::to_value(&bond_risk_fee_details)
-                    .context("Failed to serialize BondRiskFeeDetails")?;
-
                 add_to_settlement_collection(
                     &mut penalty_settlement_collection,
                     bond_risk_fee_claims,
                     claimed_bond_risk_fee_amount,
                     SettlementReason::BondRiskFee,
                     validator.vote_account,
-                    bond_risk_fee_config.meta(),
-                    Some(details_json),
+                    bond_risk_fee_config.meta().funder.clone(),
+                    Some(SettlementDetails::BondRiskFee(bond_risk_fee_details)),
                 );
             }
         }

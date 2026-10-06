@@ -24,7 +24,15 @@ steps:
       max_processed_epoch="$${max_processed_epoch:-0}"
       max_available_epoch=$(gcloud storage ls "${gs_bucket_institutional}" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 23) || exit 23
       max_available_epoch="$${max_available_epoch:-0}"
-      echo "institutional:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch"
+      # the merkle input list now includes the direct-staking split, so this run must not start
+      # before that file exists — the download below is fatal on absence by design
+      direct_staking_epoch=$(gcloud storage ls "${gs_bucket_bonds}/**/institutional-direct-staking-settlements.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || echo "0")
+      direct_staking_epoch="$${direct_staking_epoch%%[^0-9]*}"
+      direct_staking_epoch=$${direct_staking_epoch:-0}
+      if (( $$direct_staking_epoch < $$max_available_epoch )); then
+        max_available_epoch=$$direct_staking_epoch
+      fi
+      echo "institutional:: max_processed_epoch: $$max_processed_epoch, max_available_epoch: $$max_available_epoch (direct staking available: $$direct_staking_epoch)"
       (( $$max_processed_epoch < $$max_available_epoch )) && cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "prepare-institutional-distribution"

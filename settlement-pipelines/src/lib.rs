@@ -2,6 +2,7 @@ use std::time::Duration;
 
 pub mod anchor;
 pub mod arguments;
+pub mod bond_allocator;
 pub mod executor;
 pub mod init;
 pub mod institutional_validators;

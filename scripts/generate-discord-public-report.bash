@@ -2,6 +2,11 @@
 
 set -e
 
+# Deterministic decimal-point formatting regardless of the caller's locale
+# (an inherited LC_ALL would override LC_NUMERIC)
+unset LC_ALL
+export LC_NUMERIC=C
+
 settlement_collection_file="$1"
 settlement_type="$2"
 if [[ -z $settlement_collection_file ]]
@@ -10,36 +15,20 @@ then
     exit 1
 fi
 
-# Fee authority addresses: env vars override, otherwise read from settlement-config.yaml
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SETTLEMENT_CONFIG="${SCRIPT_DIR}/../settlement-config.yaml"
-if [[ -z "${MARINADE_FEE_STAKE_AUTHORITY:-}${MARINADE_FEE_WITHDRAW_AUTHORITY:-}${DAO_FEE_STAKE_AUTHORITY:-}${DAO_FEE_WITHDRAW_AUTHORITY:-}" ]] \
-   && [[ -f "$SETTLEMENT_CONFIG" ]]; then
-  MARINADE_FEE_STAKE_AUTHORITY=$(yq -r '.fee_config.marinade.stake_authority' "$SETTLEMENT_CONFIG")
-  MARINADE_FEE_WITHDRAW_AUTHORITY=$(yq -r '.fee_config.marinade.withdraw_authority' "$SETTLEMENT_CONFIG")
-  DAO_FEE_STAKE_AUTHORITY=$(yq -r '.fee_config.dao.stake_authority' "$SETTLEMENT_CONFIG")
-  DAO_FEE_WITHDRAW_AUTHORITY=$(yq -r '.fee_config.dao.withdraw_authority' "$SETTLEMENT_CONFIG")
-fi
-marinade_fee_stake_authority="${MARINADE_FEE_STAKE_AUTHORITY:-}"
-marinade_fee_withdraw_authority="${MARINADE_FEE_WITHDRAW_AUTHORITY:-}"
-dao_fee_stake_authority="${DAO_FEE_STAKE_AUTHORITY:-}"
-dao_fee_withdraw_authority="${DAO_FEE_WITHDRAW_AUTHORITY:-}"
-
-# Fail fast if no fee authority addresses could be resolved from env or config
-if [[ -z "$marinade_fee_stake_authority" ]] \
-   && [[ -z "$marinade_fee_withdraw_authority" ]] \
-   && [[ -z "$dao_fee_stake_authority" ]] \
-   && [[ -z "$dao_fee_withdraw_authority" ]]; then
-  echo "Error: fee authority addresses are not configured. Set MARINADE_FEE_STAKE_AUTHORITY, MARINADE_FEE_WITHDRAW_AUTHORITY, DAO_FEE_STAKE_AUTHORITY and/or DAO_FEE_WITHDRAW_AUTHORITY, or provide settlement-config.yaml with fee_config.marinade/dao authorities." >&2
-  exit 1
-fi
-
 epoch="$(<"$settlement_collection_file" jq '.epoch' -r)"
 settlements_count=$(<"$settlement_collection_file" jq '.settlements | length' -r)
 if (( settlements_count == 0 ))
 then
     echo "No settlements in epoch '$epoch'."
     exit
+fi
+
+# Stake sums below rely on the claim 'kind' tag; legacy (pre-kind) JSON would silently report 0
+untagged_claims=$(<"$settlement_collection_file" jq '[.settlements[].claims[] | select(has("kind") | not)] | length' -r)
+if (( untagged_claims > 0 ))
+then
+    echo "Error: $untagged_claims claims without 'kind' field — '$settlement_collection_file' is a legacy (pre-kind) settlement collection; regenerate it or use the pre-refactor script version." >&2
+    exit 1
 fi
 
 decimal_format="%0.9f"
@@ -59,7 +48,7 @@ echo "Settlements${label} in epoch $epoch: $settlements_count total, ☉$total_a
 
 # Per-reason breakdown: count and total amount
 while IFS=$'\t' read -r reason_key count amount; do
-  echo "  $reason_key: $count settlements, ☉$(LC_NUMERIC=C printf $decimal_format "$amount")"
+  echo "  $reason_key: $count settlements, ☉$(printf $decimal_format "$amount")"
 done < <(<"$settlement_collection_file" jq -r '
   [.settlements[] | {
     reason_key: (
@@ -87,22 +76,18 @@ do
     vote_account=$(<<<"$settlement" jq '.vote_account' -r)
     claims_amount=$(<<<"$settlement" jq '.claims_amount / 1e9' -r | xargs printf $decimal_format)
 
-    # the pipeline processing places the whole stake amount into the amount acclaimed to fee accounts
-    # when there is some user stake accounts to distribute to the stake sum is doubled
-    protected_stake_filtered=$(<<<"$settlement" jq "[.claims[] | select(.withdraw_authority != \"$marinade_fee_withdraw_authority\" and .withdraw_authority != \"$dao_fee_withdraw_authority\" and .stake_authority != \"$marinade_fee_stake_authority\" and .stake_authority != \"$dao_fee_stake_authority\") | .active_stake] | add // 0 | . / 1e9" -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    protected_stake_raw=$(<<<"$settlement" jq '[.claims[].active_stake] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    activating_stake_raw=$(<<<"$settlement" jq '[.claims[].activating_stake // 0] | add / 1e9' -r | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
-    if [ "$activating_stake_raw" != "0" ]; then
+    # Marinade stake the settlement charges the validator for, read from settlement details.
+    # Claim-level active_stake is 0 when the whole bid is captured as fee; ProtectedEvent has no
+    # details, so fall back to summing staker claims (FeeDeposit claims carry neither field by design).
+    active_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_active_stake // 0) as $a | (if $a > 0 then $a else ([.claims[] | select(.kind == "StakerPayout") | .active_stake] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    activating_basis=$(<<<"$settlement" jq -r '(.details // {}) as $d | ($d.total_marinade_activating_stake // 0) as $g | (if $g > 0 then $g else ([.claims[] | select(.kind == "StakerPayout") | .activating_stake // 0] | add // 0) end) / 1e9' | xargs -I{} bash -c 'fmt_human_number "$@"' _ {})
+    if [ "$activating_basis" != "0" ]; then
         # Activating-stake settlement (PriorityFee): "+" sign before ☉ marks activating
         stake_sign="+"
-        stake_value="$activating_stake_raw"
+        stake_value="$activating_basis"
     else
         stake_sign=" "
-        if [ "$protected_stake_filtered" != "0" ] && [ "$protected_stake_filtered" != "$protected_stake_raw" ]; then
-            stake_value="$protected_stake_filtered"
-        else
-            stake_value="$protected_stake_raw"
-        fi
+        stake_value="$active_basis"
     fi
     # Right-align integer part of value, left-align trailing (decimal/unit) so
     # units digits line up under each other regardless of suffix or fraction.
@@ -189,7 +174,7 @@ do
       continue
     fi
 
-    funder=$(<<<"$settlement" jq '.meta.funder' -r)
+    funder=$(<<<"$settlement" jq '.funder' -r)
     case $funder in
         Marinade)
           funder_info="Marinade DAO"

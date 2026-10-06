@@ -1,12 +1,42 @@
+use anyhow::Context;
+use gcp_bigquery_client::model::get_query_results_parameters::GetQueryResultsParameters;
 use gcp_bigquery_client::model::query_request::QueryRequest;
+use gcp_bigquery_client::model::query_response::{QueryResponse, ResultSet};
 use solana_sdk::pubkey::Pubkey;
-use std::{str::FromStr, sync::Arc, time::Duration};
-use tokio::{sync::RwLock, time::sleep};
+use std::{str::FromStr, time::Duration};
+use tokio::time::sleep;
+use validator_bonds_common::dto::BondType;
 
+use crate::context::{ProtectedEvents, ProtectedEventsCache};
 use crate::dto::ProtectedEventRecord;
 
 const CACHE_UPDATE_INTERVAL: Duration = Duration::from_secs(3600);
 const CACHE_PURGE_INTERVAL: Duration = Duration::from_secs(24 * 3600);
+// Until the first fetch lands both endpoints answer 500, so a failure must not wait out a refresh.
+// Doubled per consecutive failure so an unhealthy BigQuery is not hammered for the whole outage.
+const CACHE_RETRY_INTERVAL: Duration = Duration::from_secs(60);
+const COMPLETION_POLL_TIMEOUT_MS: i32 = 30_000;
+const MAX_COMPLETION_POLLS: u32 = 10;
+// The paging loop bounds token-less polls only; a page token that never advances would spin here
+// forever and silently stop the refresh, so the whole read is bounded in wall-clock terms too.
+const FETCH_TIMEOUT: Duration = Duration::from_secs(900);
+
+async fn fetch_protected_events(
+    gcp_sa_key: &str,
+    project_id: &str,
+    from_epoch: u64,
+) -> anyhow::Result<Vec<ProtectedEventRecord>> {
+    tokio::time::timeout(
+        FETCH_TIMEOUT,
+        get_protected_events(gcp_sa_key, project_id, from_epoch),
+    )
+    .await
+    .map_err(|_| {
+        anyhow::anyhow!(
+            "Reading the protected events from epoch {from_epoch} timed out after {FETCH_TIMEOUT:?}"
+        )
+    })?
+}
 
 async fn get_protected_events(
     gcp_sa_key: &str,
@@ -16,37 +46,98 @@ async fn get_protected_events(
     log::info!("Fetching protected events from epoch {from_epoch}...");
     let client = gcp_bigquery_client::Client::from_service_account_key_file(gcp_sa_key).await?;
 
-    let mut rs = client
+    let mut response = client
         .job()
         .query(
             project_id,
             QueryRequest::new(format!(
-                "select epoch, vote_account, sum(amount) amount, meta, reason from `mainnet_beta_stakes.psr_settlements` where epoch >= {from_epoch} group by epoch, vote_account, meta, reason order by epoch desc;"
+                "select epoch, vote_account, sum(amount) amount, meta, reason, bond_type, product from ( \
+                   select epoch, vote_account, amount, meta, reason, 'bidding' bond_type, product from `mainnet_beta_stakes.psr_settlements` where epoch >= {from_epoch} \
+                   union all \
+                   select epoch, vote_account, amount, meta, reason, 'institutional' bond_type, product from `mainnet_beta_stakes.institutional_settlements` where epoch >= {from_epoch} \
+                 ) group by epoch, vote_account, meta, reason, bond_type, product order by epoch desc;"
             )),
         )
         .await?;
 
     let mut protected_events = vec![];
-    let mut skipped = 0usize;
-    while rs.next_row() {
-        match parse_row(&rs) {
-            Ok(record) => protected_events.push(record),
-            Err(err) => {
-                skipped += 1;
-                log::error!("Skipping unparseable protected_events row: {err}");
-            }
+    let mut polls = 0;
+    loop {
+        let mut rs = ResultSet::new_from_query_response(response.clone());
+        // Fail the whole fetch, never a row: a dropped row reads as "this validator owes nothing".
+        while rs.next_row() {
+            protected_events.push(parse_row(&rs)?);
         }
+        let Some((job_id, parameters)) = next_page(&response)? else {
+            break;
+        };
+        if parameters.page_token.is_none() {
+            polls += 1;
+            anyhow::ensure!(
+                polls <= MAX_COMPLETION_POLLS,
+                "BigQuery job {job_id} has not completed after {MAX_COMPLETION_POLLS} polls"
+            );
+        }
+        let results = client
+            .job()
+            .get_query_results(project_id, &job_id, parameters)
+            .await?;
+        response = results.into();
     }
-    if skipped > 0 {
-        log::warn!("Skipped {skipped} unparseable protected_events row(s)");
-    }
+    ensure_all_rows_loaded(&response, protected_events.len())?;
 
     Ok(protected_events)
 }
 
-fn parse_row(
-    rs: &gcp_bigquery_client::model::query_response::ResultSet,
-) -> anyhow::Result<ProtectedEventRecord> {
+// A query outrunning its request timeout answers `job_complete: false` with no page token, and its
+// rows are then reachable only by re-asking for the job itself.
+fn next_page(
+    response: &QueryResponse,
+) -> anyhow::Result<Option<(String, GetQueryResultsParameters)>> {
+    let page_token = response.page_token.clone();
+    if response.job_complete.unwrap_or(false) && page_token.is_none() {
+        return Ok(None);
+    }
+    let job = response
+        .job_reference
+        .clone()
+        .ok_or_else(|| anyhow::anyhow!("BigQuery has more results to give but named no job"))?;
+    let job_id = job
+        .job_id
+        .ok_or_else(|| anyhow::anyhow!("BigQuery job reference carries no job id"))?;
+    Ok(Some((
+        job_id,
+        GetQueryResultsParameters {
+            page_token,
+            // mandatory outside US and EU, and the queried dataset is europe-central2
+            location: job.location,
+            timeout_ms: Some(COMPLETION_POLL_TIMEOUT_MS),
+            ..Default::default()
+        },
+    )))
+}
+
+// `jobs.query` answers with one page and stops; a short read reads as "no validator owes anything".
+fn ensure_all_rows_loaded(response: &QueryResponse, loaded: usize) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        response.job_complete.unwrap_or(false),
+        "BigQuery job has not completed, {loaded} rows read so far"
+    );
+    let reported_rows = response
+        .total_rows
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("BigQuery reported no total row count"))?;
+    let total_rows: usize = reported_rows.parse().with_context(|| {
+        format!("BigQuery reported an unparsable total row count: {reported_rows}")
+    })?;
+    anyhow::ensure!(
+        loaded == total_rows,
+        "Read {loaded} of {total_rows} rows BigQuery reports"
+    );
+    Ok(())
+}
+
+fn parse_row(rs: &ResultSet) -> anyhow::Result<ProtectedEventRecord> {
     Ok(ProtectedEventRecord {
         epoch: rs
             .get_i64_by_name("epoch")?
@@ -68,13 +159,40 @@ fn parse_row(
             &rs.get_string_by_name("reason")?
                 .ok_or_else(|| anyhow::anyhow!("missing reason"))?,
         )?,
+        bond_type: BondType::parse_from_str(
+            &rs.get_string_by_name("bond_type")?
+                .ok_or_else(|| anyhow::anyhow!("missing bond_type"))?,
+        )?,
+        // Hard requirement, not a default: stakes-etl stamps every loaded row, so a null here means
+        // the column was never backfilled and guessing one would misattribute the settlement.
+        product: rs
+            .get_string_by_name("product")?
+            .ok_or_else(|| anyhow::anyhow!("missing product"))?,
     })
+}
+
+async fn store(
+    cache: &ProtectedEventsCache,
+    records: Vec<ProtectedEventRecord>,
+    stored: &str,
+) -> bool {
+    match ProtectedEvents::new(records) {
+        Ok(events) => {
+            *cache.write().await = Some(events);
+            log::info!("{stored}");
+            true
+        }
+        Err(err) => {
+            log::error!("{stored} failed, the protected events did not render: {err}");
+            false
+        }
+    }
 }
 
 pub async fn spawn_protected_events_cache(
     gcp_sa_key: String,
     project_id: String,
-    protected_events: Arc<RwLock<Vec<ProtectedEventRecord>>>,
+    protected_events: ProtectedEventsCache,
 ) {
     spawn_protected_events_cache_purger(
         gcp_sa_key.clone(),
@@ -90,23 +208,24 @@ pub async fn spawn_protected_events_cache(
 pub fn spawn_protected_events_cache_purger(
     gcp_sa_key: String,
     project_id: String,
-    protected_events: Arc<RwLock<Vec<ProtectedEventRecord>>>,
+    protected_events: ProtectedEventsCache,
 ) {
     tokio::spawn(async move {
         loop {
             sleep(CACHE_PURGE_INTERVAL).await;
 
-            match get_protected_events(&gcp_sa_key, &project_id, 0).await {
+            match fetch_protected_events(&gcp_sa_key, &project_id, 0).await {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({})",
                         updated_protected_events.len()
                     );
-                    protected_events
-                        .write()
-                        .await
-                        .clone_from(&updated_protected_events);
-                    log::info!("Protected Events completely updated");
+                    store(
+                        &protected_events,
+                        updated_protected_events,
+                        "Protected Events completely updated",
+                    )
+                    .await;
                 }
                 Err(err) => log::error!("Failed to get the protected events: {err}"),
             };
@@ -116,19 +235,22 @@ pub fn spawn_protected_events_cache_purger(
 pub fn spawn_protected_events_cache_updater(
     gcp_sa_key: String,
     project_id: String,
-    protected_events: Arc<RwLock<Vec<ProtectedEventRecord>>>,
+    protected_events: ProtectedEventsCache,
 ) {
     tokio::spawn(async move {
+        let mut retry_in = CACHE_RETRY_INTERVAL;
         loop {
             let max_loaded_epoch = protected_events
                 .read()
                 .await
                 .iter()
+                .flat_map(|events| &events.records)
                 .fold(0, |max_loaded_epoch, protected_event| {
                     protected_event.epoch.max(max_loaded_epoch)
                 });
 
-            match get_protected_events(&gcp_sa_key, &project_id, max_loaded_epoch).await {
+            let fetched = fetch_protected_events(&gcp_sa_key, &project_id, max_loaded_epoch).await;
+            let updated = match fetched {
                 Ok(updated_protected_events) => {
                     log::info!(
                         "Successfully fetched the protected events ({}) from epoch: {max_loaded_epoch}",
@@ -139,22 +261,280 @@ pub fn spawn_protected_events_cache_updater(
                         .read()
                         .await
                         .iter()
+                        .flat_map(|events| &events.records)
                         .filter(|protected_event| protected_event.epoch < max_loaded_epoch)
                         .chain(updated_protected_events.iter())
                         .cloned()
                         .collect();
 
-                    protected_events
-                        .write()
-                        .await
-                        .clone_from(&merged_protected_events);
-
-                    log::info!("Successfully extended the protected events");
+                    store(
+                        &protected_events,
+                        merged_protected_events,
+                        "Successfully extended the protected events",
+                    )
+                    .await
                 }
-                Err(err) => log::error!("Failed to get the protected events: {err}"),
+                Err(err) => {
+                    log::error!("Failed to get the protected events: {err}");
+                    false
+                }
             };
 
-            sleep(CACHE_UPDATE_INTERVAL).await;
+            let next_attempt = if updated {
+                retry_in = CACHE_RETRY_INTERVAL;
+                CACHE_UPDATE_INTERVAL
+            } else {
+                let waiting = retry_in;
+                retry_in = next_retry(retry_in);
+                waiting
+            };
+
+            sleep(next_attempt).await;
         }
     });
+}
+
+fn next_retry(retry_in: Duration) -> Duration {
+    retry_in.saturating_mul(2).min(CACHE_UPDATE_INTERVAL)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use gcp_bigquery_client::model::{
+        job_reference::JobReference,
+        query_response::{QueryResponse, ResultSet},
+        table_cell::TableCell,
+        table_field_schema::TableFieldSchema,
+        table_row::TableRow,
+        table_schema::TableSchema,
+    };
+    use settlement_common::settlement_collection::{
+        SettlementFunder, SettlementMeta, SettlementReason,
+    };
+
+    const VOTE_ACCOUNT: &str = "We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb";
+
+    // BigQuery hands every cell over as a JSON string, nulls included, so the fixture does too.
+    fn result_set(overrides: &[(&str, Option<&str>)]) -> ResultSet {
+        let meta = serde_json::to_string(&SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        })
+        .unwrap();
+        let reason = serde_json::to_string(&SettlementReason::Bidding).unwrap();
+        let mut cells: Vec<(&str, Option<String>)> = vec![
+            ("epoch", Some("1013".to_string())),
+            ("vote_account", Some(VOTE_ACCOUNT.to_string())),
+            ("amount", Some("37316490".to_string())),
+            ("meta", Some(meta)),
+            ("reason", Some(reason)),
+            ("bond_type", Some("bidding".to_string())),
+            ("product", Some("single-validator".to_string())),
+        ];
+        for (name, value) in overrides {
+            let cell = cells
+                .iter_mut()
+                .find(|(cell_name, _)| cell_name == name)
+                .unwrap_or_else(|| panic!("{name} is not a column of the fixture"));
+            cell.1 = value.map(str::to_string);
+        }
+
+        let mut rs = ResultSet::new_from_query_response(QueryResponse {
+            job_complete: Some(true),
+            total_rows: Some(cells.len().to_string()),
+            schema: Some(TableSchema::new(
+                cells
+                    .iter()
+                    .map(|(name, _)| TableFieldSchema::string(name))
+                    .collect(),
+            )),
+            rows: Some(vec![TableRow {
+                columns: Some(
+                    cells
+                        .iter()
+                        .map(|(_, value)| TableCell {
+                            value: value.as_ref().map(|v| serde_json::Value::String(v.clone())),
+                        })
+                        .collect(),
+                ),
+            }]),
+            ..Default::default()
+        });
+        assert!(rs.next_row(), "fixture must hold exactly one row");
+        rs
+    }
+
+    #[test]
+    fn a_complete_row_carries_both_settlement_dimensions() {
+        let record = parse_row(&result_set(&[])).unwrap();
+        assert_eq!(record.epoch, 1013);
+        assert_eq!(record.amount, 37316490);
+        assert_eq!(record.bond_type.as_str(), "bidding");
+        assert_eq!(record.product, "single-validator");
+    }
+
+    #[test]
+    fn a_row_without_a_product_is_rejected() {
+        let err = parse_row(&result_set(&[("product", None)])).unwrap_err();
+        assert!(err.to_string().contains("missing product"));
+    }
+
+    #[test]
+    fn a_row_with_an_unknown_bond_type_is_rejected() {
+        let err = parse_row(&result_set(&[("bond_type", Some("direct"))])).unwrap_err();
+        assert!(err.to_string().contains("Unknown bond type"));
+    }
+
+    fn last_page(job_complete: Option<bool>, total_rows: Option<&str>) -> QueryResponse {
+        QueryResponse {
+            job_complete,
+            total_rows: total_rows.map(str::to_string),
+            schema: Some(TableSchema::new(vec![TableFieldSchema::string("epoch")])),
+            rows: Some(vec![]),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn reading_every_row_bigquery_reports_is_accepted() {
+        ensure_all_rows_loaded(&last_page(Some(true), Some("63917")), 63917).unwrap();
+    }
+
+    #[test]
+    fn an_empty_result_is_accepted() {
+        ensure_all_rows_loaded(&last_page(Some(true), Some("0")), 0).unwrap();
+    }
+
+    #[test]
+    fn a_truncated_read_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(true), Some("63917")), 50000).unwrap_err();
+        assert_eq!(err.to_string(), "Read 50000 of 63917 rows BigQuery reports");
+    }
+
+    #[test]
+    fn an_unfinished_job_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(false), None), 0).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery job has not completed, 0 rows read so far"
+        );
+    }
+
+    #[test]
+    fn a_result_without_a_completion_flag_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(None, Some("1")), 1).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery job has not completed, 1 rows read so far"
+        );
+    }
+
+    #[test]
+    fn a_result_without_a_total_row_count_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(true), None), 10).unwrap_err();
+        assert_eq!(err.to_string(), "BigQuery reported no total row count");
+    }
+
+    #[test]
+    fn a_failed_fetch_is_retried_sooner_than_the_next_refresh() {
+        assert!(CACHE_RETRY_INTERVAL < CACHE_UPDATE_INTERVAL);
+    }
+
+    #[test]
+    fn consecutive_failures_back_off_no_further_than_the_refresh_interval() {
+        let mut retry_in = CACHE_RETRY_INTERVAL;
+        for _ in 0..64 {
+            retry_in = next_retry(retry_in);
+            assert!(retry_in <= CACHE_UPDATE_INTERVAL, "{retry_in:?}");
+        }
+        assert_eq!(retry_in, CACHE_UPDATE_INTERVAL);
+        assert_eq!(next_retry(CACHE_RETRY_INTERVAL), CACHE_RETRY_INTERVAL * 2);
+    }
+
+    #[test]
+    fn a_read_is_bounded_beyond_the_polls_it_may_spend() {
+        assert!(
+            FETCH_TIMEOUT
+                > Duration::from_millis(
+                    MAX_COMPLETION_POLLS as u64 * COMPLETION_POLL_TIMEOUT_MS as u64
+                )
+        );
+    }
+
+    #[test]
+    fn a_result_with_an_unparsable_total_row_count_is_rejected() {
+        let err = ensure_all_rows_loaded(&last_page(Some(true), Some("many")), 10).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery reported an unparsable total row count: many"
+        );
+    }
+
+    fn page(
+        job_complete: bool,
+        page_token: Option<&str>,
+        job: Option<JobReference>,
+    ) -> QueryResponse {
+        QueryResponse {
+            job_complete: Some(job_complete),
+            page_token: page_token.map(str::to_string),
+            job_reference: job,
+            total_rows: Some("0".to_string()),
+            schema: Some(TableSchema::new(vec![TableFieldSchema::string("epoch")])),
+            rows: Some(vec![]),
+            ..Default::default()
+        }
+    }
+
+    fn job() -> JobReference {
+        JobReference {
+            job_id: Some("job_abc".to_string()),
+            location: Some("europe-central2".to_string()),
+            project_id: Some("marinade".to_string()),
+        }
+    }
+
+    #[test]
+    fn a_completed_result_without_a_page_token_ends_the_read() {
+        assert!(next_page(&page(true, None, Some(job()))).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_page_token_is_carried_into_the_next_request() {
+        let (job_id, parameters) = next_page(&page(true, Some("token_2"), Some(job())))
+            .unwrap()
+            .unwrap();
+        assert_eq!(job_id, "job_abc");
+        assert_eq!(parameters.page_token.as_deref(), Some("token_2"));
+        assert_eq!(parameters.location.as_deref(), Some("europe-central2"));
+    }
+
+    // The regression the paging guard exists for: no rows, no token, and the job still running.
+    #[test]
+    fn an_unfinished_job_is_polled_rather_than_reported_as_read() {
+        let (job_id, parameters) = next_page(&page(false, None, Some(job()))).unwrap().unwrap();
+        assert_eq!(job_id, "job_abc");
+        assert_eq!(parameters.page_token, None);
+        assert_eq!(parameters.location.as_deref(), Some("europe-central2"));
+        assert_eq!(parameters.timeout_ms, Some(COMPLETION_POLL_TIMEOUT_MS));
+    }
+
+    #[test]
+    fn more_results_without_a_job_reference_are_rejected() {
+        let err = next_page(&page(false, None, None)).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "BigQuery has more results to give but named no job"
+        );
+    }
+
+    #[test]
+    fn a_job_reference_without_an_id_is_rejected() {
+        let job = JobReference {
+            job_id: None,
+            ..job()
+        };
+        let err = next_page(&page(true, Some("token_2"), Some(job))).unwrap_err();
+        assert_eq!(err.to_string(), "BigQuery job reference carries no job id");
+    }
 }

@@ -16,6 +16,7 @@ use {
     std::collections::HashMap,
 };
 
+// serde-float makes these Decimals serialize as JSON numbers, not utoipa's default string.
 #[derive(Clone, Deserialize, Serialize, Debug, utoipa::ToSchema)]
 pub enum ProtectedEvent {
     DowntimeRevenueImpact {
@@ -24,7 +25,9 @@ pub enum ProtectedEvent {
         actual_credits: u64,
         expected_credits: u64,
         /// how many lamports per 1 staked lamport was expected to be paid by validator
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
@@ -32,14 +35,23 @@ pub enum ProtectedEvent {
     CommissionSamIncrease {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
+        #[schema(value_type = f64)]
         expected_inflation_commission: Decimal,
+        #[schema(value_type = f64)]
         actual_inflation_commission: Decimal,
+        #[schema(value_type = f64)]
         past_inflation_commission: Decimal,
+        #[schema(value_type = Option<f64>)]
         expected_mev_commission: Option<Decimal>,
+        #[schema(value_type = Option<f64>)]
         actual_mev_commission: Option<Decimal>,
+        #[schema(value_type = Option<f64>)]
         past_mev_commission: Option<Decimal>,
+        #[schema(value_type = f64)]
         before_sam_commission_increase_pmpe: Decimal,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
@@ -51,9 +63,12 @@ pub enum ProtectedEvent {
         vote_account: Pubkey,
         previous_commission: u8,
         current_commission: u8,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
+        #[schema(value_type = f64)]
         stake: Decimal,
     },
     LowCredits {
@@ -62,9 +77,12 @@ pub enum ProtectedEvent {
         expected_credits: u64,
         actual_credits: u64,
         commission: u8,
+        #[schema(value_type = f64)]
         expected_epr: Decimal,
+        #[schema(value_type = f64)]
         actual_epr: Decimal,
         epr_loss_bps: u64,
+        #[schema(value_type = f64)]
         stake: Decimal,
     },
 }
@@ -133,6 +151,9 @@ pub struct ProtectedEventCollection {
     pub events: Vec<ProtectedEvent>,
 }
 
+// ds-sam hands over float sums, so a shortfall below this is rounding noise, not a commission increase.
+const COMMISSION_INCREASE_TOLERANCE_PMPE: Decimal = dec!(0.000000000001);
+
 pub fn collect_commission_increase_events(
     validator_meta_collection: &ValidatorMetaCollection,
     revenue_expectation_map: &HashMap<Pubkey, RevenueExpectationMeta>,
@@ -148,7 +169,7 @@ pub fn collect_commission_increase_events(
 
             if let Some(revenue_expectation) = revenue_expectation {
                 let expected_commission_pmpe = revenue_expectation.expected_non_bid_pmpe + revenue_expectation.before_sam_commission_increase_pmpe;
-                if revenue_expectation.actual_non_bid_pmpe < expected_commission_pmpe {
+                if expected_commission_pmpe - revenue_expectation.actual_non_bid_pmpe > COMMISSION_INCREASE_TOLERANCE_PMPE {
                     debug!(
                         "Validator {vote_account} increased commission, expected non bid: {}, actual non bid: {}, no bid commission increase: {}",
                         revenue_expectation.expected_non_bid_pmpe,
@@ -270,5 +291,67 @@ pub fn generate_protected_event_collection(
         epoch: validator_meta_collection.epoch,
         slot: validator_meta_collection.slot,
         events,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn validator_metas(vote_account: Pubkey) -> ValidatorMetaCollection {
+        ValidatorMetaCollection {
+            validator_metas: vec![ValidatorMeta {
+                vote_account,
+                commission: 3,
+                mev_commission: None,
+                jito_priority_fee_commission: None,
+                jito_priority_fee_lamports: 0,
+                stake: 1_000_000_000_000,
+                credits: 0,
+            }],
+            ..Default::default()
+        }
+    }
+
+    // Parsed from the float JSON ds-sam writes, the same way bid-distribution-cli reads it.
+    fn revenue_expectation(
+        vote_account: Pubkey,
+        actual: &str,
+        expected: &str,
+        before_sam: &str,
+    ) -> RevenueExpectationMeta {
+        serde_json::from_str(&format!(
+            r#"{{"voteAccount":"{vote_account}","expectedInflationCommission":0.08,"actualInflationCommission":0.03,
+            "pastInflationCommission":0.03,"expectedMevCommission":0.1,"actualMevCommission":0.1,"pastMevCommission":0.1,
+            "expectedNonBidPmpe":{expected},"actualNonBidPmpe":{actual},"expectedSamPmpe":{expected},"maxSamStake":null,
+            "samStakeShare":1,"lossPerStake":0,"beforeSamCommissionIncreasePmpe":{before_sam}}}"#
+        ))
+        .unwrap()
+    }
+
+    fn events_for(actual: &str, expected: &str, before_sam: &str) -> usize {
+        let vote_account = Pubkey::new_unique();
+        let expectations = HashMap::from([(
+            vote_account,
+            revenue_expectation(vote_account, actual, expected, before_sam),
+        )]);
+        collect_commission_increase_events(&validator_metas(vote_account), &expectations).len()
+    }
+
+    #[test]
+    fn float_noise_at_the_boundary_is_not_a_commission_increase() {
+        // ds-sam's actual equals expected + beforeSam algebraically; the floats differ by about 3e-18
+        assert_eq!(
+            events_for("0.33626577999999996", "0.32125208", "0.015013699999999963"),
+            0
+        );
+    }
+
+    #[test]
+    fn a_real_shortfall_is_still_a_commission_increase() {
+        assert_eq!(
+            events_for("0.3362", "0.32125208", "0.015013699999999963"),
+            1
+        );
     }
 }

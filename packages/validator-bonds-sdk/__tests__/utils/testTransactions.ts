@@ -391,7 +391,7 @@ export async function executeInitWithdrawRequestInstruction({
   }
   assert(bondAccount)
   let authority = validatorIdentity
-  if (!authority && bondAuthority && bondAuthority instanceof Keypair) {
+  if (!authority && bondAuthority instanceof Keypair) {
     authority = bondAuthority
   }
   if (authority === undefined) {

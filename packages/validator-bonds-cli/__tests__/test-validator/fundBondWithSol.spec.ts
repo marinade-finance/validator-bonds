@@ -8,7 +8,10 @@ import {
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
-import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
+import {
+  createVoteAccount,
+  retryOnEpochRewardsPeriod,
+} from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -79,26 +82,28 @@ describe('Fund bond account with SOL using CLI', () => {
       user: fromKeypair.publicKey,
       lamports: baseLamports,
     })
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'fund-bond-sol',
-        bondAccount.toBase58(),
-        '--amount',
-        fundBondSols,
-        '--from',
-        fromPath,
-        '--verbose',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      stdout: /successfully funded with amount/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'fund-bond-sol',
+          bondAccount.toBase58(),
+          '--amount',
+          fundBondSols,
+          '--from',
+          fromPath,
+          '--verbose',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        stdout: /successfully funded with amount/,
+      }),
+    )
     const userAccount = await provider.connection.getAccountInfo(
       fromKeypair.publicKey,
     )
@@ -135,28 +140,30 @@ describe('Fund bond account with SOL using CLI', () => {
     await waitForNextEpoch(program.provider, 15)
 
     const fundBondSolsSecond = 2.22
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'fund-bond-sol',
-        bondAccountData.voteAccount.toBase58(),
-        '--config',
-        configAccount.toBase58(),
-        '--amount',
-        fundBondSolsSecond,
-        '--from',
-        fromPath,
-        '--verbose',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      stdout: /successfully funded with amount/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'fund-bond-sol',
+          bondAccountData.voteAccount.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--amount',
+          fundBondSolsSecond,
+          '--from',
+          fromPath,
+          '--verbose',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        stdout: /successfully funded with amount/,
+      }),
+    )
 
     const userAccountAfter = await provider.connection.getAccountInfo(
       fromKeypair.publicKey,

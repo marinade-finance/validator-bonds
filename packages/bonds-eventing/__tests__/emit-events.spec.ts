@@ -31,6 +31,7 @@ function makeConfig(overrides: Partial<EventingConfig> = {}): EventingConfig {
     validatorsApiUrl: 'https://validators-api.marinade.finance',
     scoringApiUrl: 'https://scoring.marinade.finance',
     tvlApiUrl: 'https://api.marinade.finance',
+    institutionalApiUrl: 'https://institutional-staking.marinade.finance',
     notificationsApiUrl: undefined,
     notificationsJwt: undefined,
     postgresUrl: undefined,

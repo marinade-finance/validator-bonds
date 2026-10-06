@@ -3,6 +3,7 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::signature::Keypair;
 use std::{str::FromStr, sync::Arc};
 
+pub mod allocation;
 pub mod bond_products;
 pub mod bonds;
 pub mod cli_result;
@@ -24,6 +25,8 @@ pub fn get_validator_bonds_program(
     rpc_client: Arc<RpcClient>,
     payer: Option<Arc<DynSigner>>,
 ) -> anyhow::Result<Program<Arc<DynSigner>>> {
+    // anchor's DynSigner wraps Arc<dyn Signer> (!Send+!Sync); Arc<DynSigner> is the Program<C> API pattern
+    #[allow(clippy::arc_with_non_send_sync)]
     let payer = payer.unwrap_or(Arc::new(DynSigner(Arc::new(Keypair::new()))));
 
     Ok(Client::new_with_options(

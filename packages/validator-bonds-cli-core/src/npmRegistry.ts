@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+import { fetchWithRetry } from '@marinade.finance/ts-common'
+
 import type { Logger } from 'pino'
 
 export type NpmPackageData = {
@@ -7,9 +9,28 @@ export type NpmPackageData = {
 }
 
 const NPM_REGISTRY_FETCH_TIMEOUT_MS = 1000
+const NPM_REGISTRY_RETRY_DELAY_MS = 50
 const FALLBACK_PACKAGE: NpmPackageData = {
   name: '@marinade.finance/validator-bonds-cli',
   version: '0.0.0',
+}
+
+function latestVersionInPackument(fetchedJson: any): NpmPackageData {
+  const versionsData: unknown = fetchedJson?.versions
+  if (typeof versionsData !== 'object' || versionsData === null) {
+    throw new Error('registry response contains no versions')
+  }
+  const name: string =
+    typeof fetchedJson.name === 'string'
+      ? fetchedJson.name
+      : FALLBACK_PACKAGE.name
+  const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
+  const stableVersions = versions.filter(v => !v.includes('-'))
+  const sortedVersions = (
+    stableVersions.length > 0 ? stableVersions : versions
+  ).sort(compareVersions)
+  const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
+  return { name, version: latestVersion }
 }
 
 export async function fetchLatestVersionInNpmRegistry(
@@ -21,29 +42,45 @@ export async function fetchLatestVersionInNpmRegistry(
     () => controller.abort(),
     NPM_REGISTRY_FETCH_TIMEOUT_MS,
   )
+  let transportError: TypeError | undefined
   try {
-    const fetched = await fetch(npmRegistryUrl, {
-      method: 'GET',
-      signal: controller.signal,
-    })
-    const fetchedJson = await fetched.json()
-    const name: string = fetchedJson.name
-    const versionsData: any[] = fetchedJson.versions
-    const versions = Object.keys(versionsData) // ['1.0.0', 1.0.1', '1.0.2']
-    const stableVersions = versions.filter(v => !v.includes('-'))
-    const sortedVersions = (
-      stableVersions.length > 0 ? stableVersions : versions
-    ).sort(compareVersions)
-    const latestVersion = sortedVersions[sortedVersions.length - 1] || '0.0.0'
-    return { name, version: latestVersion }
+    const fetched = await fetchWithRetry(
+      npmRegistryUrl,
+      { method: 'GET', signal: controller.signal },
+      {
+        retries: 1,
+        baseDelayMs: NPM_REGISTRY_RETRY_DELAY_MS,
+        // retrying a 429 would only make registry throttling worse
+        shouldRetryResponse: () => false,
+        shouldRetryError: err => {
+          // fetch reports transport failures as TypeError; an elapsed shared deadline leaves the retry nothing to spend
+          if (!(err instanceof TypeError)) {
+            return false
+          }
+          transportError = err
+          return !controller.signal.aborted
+        },
+      },
+    )
+    if (!fetched.ok) {
+      throw new Error(`HTTP ${fetched.status} ${fetched.statusText}`)
+    }
+    return latestVersionInPackument(await fetched.json())
   } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') {
+    // once the deadline elapses the abort says nothing; the transport error that triggered the retry does
+    if (controller.signal.aborted && transportError === undefined) {
       logger.debug(
         `NPM registry fetch timed out after ${NPM_REGISTRY_FETCH_TIMEOUT_MS}ms`,
       )
     } else {
+      const failure = controller.signal.aborted ? transportError : err
+      // undici reports transport errors as a bare "fetch failed"; the cause names the real one
+      const cause =
+        failure instanceof Error && failure.cause instanceof Error
+          ? ` (cause: ${failure.cause.name}: ${failure.cause.message})`
+          : ''
       logger.debug(
-        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(err)}`,
+        `Failed to fetch latest version from NPM registry ${npmRegistryUrl}: ${String(failure)}${cause}`,
       )
     }
     return FALLBACK_PACKAGE
@@ -52,24 +89,42 @@ export async function fetchLatestVersionInNpmRegistry(
   }
 }
 
+// patch releases keep the commands compatible, so scripted runs are not stopped by them
+function isMandatoryUpgrade(current: string, latest: string): boolean {
+  const majorMinor = (version: string) =>
+    (version.split('-')[0] as string).split('.').slice(0, 2).join('.')
+  return compareVersions(majorMinor(current), majorMinor(latest)) < 0
+}
+
 /**
  * Checks that the CLI is up to date before executing the command.
  * If the registry is unreachable or times out, the CLI is allowed to proceed.
- * If the CLI version is outdated, throws an error to block execution.
+ * A newer major or minor release blocks execution, a newer patch release only warns.
  */
-export async function requireLatestCliVersion(
+export async function checkCliVersion(
   logger: Logger,
   npmRegistryUrl: string,
   currentVersion: string,
 ): Promise<void> {
   const npmData = await fetchLatestVersionInNpmRegistry(logger, npmRegistryUrl)
-  if (compareVersions(currentVersion, npmData.version) < 0) {
+  if (compareVersions(currentVersion, npmData.version) >= 0) {
+    return
+  }
+  // @latest resolves through the dist-tag, which can lag the version this gate compares against
+  const installCommand = `npm install -g ${npmData.name}@${npmData.version}`
+  if (isMandatoryUpgrade(currentVersion, npmData.version)) {
     throw new Error(
       `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
         '  Please update before proceeding:\n' +
-        `  npm install -g ${npmData.name}@latest`,
+        `  ${installCommand}`,
     )
   }
+  // the pino transport writes to stdout, where printData emits the --format payload
+  console.error(
+    `CLI version ${currentVersion} is outdated. The latest available version is ${npmData.version}.\n` +
+      '  This is a patch release, the command continues. To update:\n' +
+      `  ${installCommand}`,
+  )
 }
 
 export function compareVersions(a: string, b: string): number {

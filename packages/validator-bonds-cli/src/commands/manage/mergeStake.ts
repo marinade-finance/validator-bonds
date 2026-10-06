@@ -2,6 +2,7 @@ import {
   computeUnitLimitOption,
   executeTxHandleErrors,
   getCliContext,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { MERGE_STAKE_LIMIT_UNITS } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -124,6 +125,9 @@ async function manageMerge({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Stake account ${source.toBase58()} successfully merged to ${destination.toBase58()}`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Stake account ${source.toBase58()} successfully merged to ${destination.toBase58()}`,
+    ),
   )
 }

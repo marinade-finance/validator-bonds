@@ -15,7 +15,11 @@ import {
   computeUnitLimitOption,
 } from '../../computeUnits'
 import { getCliContext } from '../../context'
-import { executeTxHandleErrors, getBondFromAddress } from '../../utils'
+import {
+  executeTxHandleErrors,
+  getBondFromAddress,
+  txOutcomeMessage,
+} from '../../utils'
 
 import type {
   Wallet as WalletInterface,
@@ -127,6 +131,9 @@ export async function manageMintBond({
     sendOpts: { skipPreflight },
   })
   logger.info(
-    `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`,
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Bond ${bondAccount.toBase58()} token ${bondMint.toBase58()} was minted successfully`,
+    ),
   )
 }
