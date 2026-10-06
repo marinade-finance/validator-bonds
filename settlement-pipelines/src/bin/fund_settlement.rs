@@ -1,4 +1,3 @@
-use anchor_client::anchor_lang::solana_program::stake::state::{Authorized, Lockup, StakeStateV2};
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
@@ -34,14 +33,13 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::{Keypair, Signer};
-use solana_sdk::stake::config::ID as stake_config_id;
-use solana_sdk::stake::instruction::create_account as create_stake_account_instructions;
-use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::sysvar::{
-    clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id,
-    stake_history::ID as stake_history_sysvar_id,
-};
+use solana_sdk::sysvar::{clock::ID as clock_sysvar_id, rent::ID as rent_sysvar_id};
 use solana_sdk_ids::system_program;
+use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
+use solana_stake_interface::config::ID as stake_config_id;
+use solana_stake_interface::instruction::create_account as create_stake_account_instructions;
+use solana_stake_interface::program::ID as stake_program_id;
+use solana_stake_interface::state::{Authorized, Lockup, StakeStateV2};
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::cmp::Ordering;
@@ -692,7 +690,7 @@ async fn fund_settlements(
     //       Funding works with ordered stake accounts where one stake account can be used for multiple settlements
     //       and number of available SOLs needs to be reduced one by one in the planned order
 
-    for settlement_record in settlement_records.iter().flat_map(|(_, r)| r.iter()) {
+    for settlement_record in settlement_records.values().flat_map(|r| r.iter()) {
         if !is_for_funding(settlement_record) {
             debug!(
                 "Settlement {} (vote account {}, bond {}, epoch {}, reason: {}, funder {:?}) is not planned for funding",
@@ -1256,8 +1254,8 @@ impl ReportSerializable for FundSettlementsReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::stake::stake_flags::StakeFlags;
-    use solana_sdk::stake::state::{Delegation, Meta, Stake};
+    use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::state::{Delegation, Meta, Stake};
     use validator_bonds::state::settlement::Settlement;
 
     const SOL: u64 = 1_000_000_000;

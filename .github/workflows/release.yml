@@ -21,17 +21,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
-      image: tchambard/solana-test-validator:solana_2.3.7-anchor_0.31.1-light_0.27.0
+      image: ochaloup/solana-test-validator:solana_3.1.12-anchor_1.2.1@sha256:36c73b293d577b12ff66cd99da6317aa4cc36db34abc5dcd4c7cdf2ca28abe8c
       options: --user root
 
     steps:
       - name: ⚓ Info + Setup on Anchor
         run: |
           anchor --version
-          mkdir -p "$HOME/.config/solana/"
-          cp -r /home/ubuntu/.config/solana/install "$HOME/.config/solana/"
-          find "$HOME/.config/"
-          ls -la "$HOME/.config/solana/install"
+          solana --version
 
       - name: 🏃‍♂️‍➡️ Checkout project
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

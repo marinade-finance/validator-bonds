@@ -5,11 +5,9 @@ use crate::events::stake::MergeStakeEvent;
 use crate::state::config::{find_bonds_withdrawer_authority, Config};
 use crate::state::settlement::find_settlement_staker_authority;
 
-use anchor_lang::{
-    prelude::*,
-    solana_program::{program::invoke_signed, stake::instruction::merge, sysvar::stake_history},
-};
+use anchor_lang::{prelude::*, solana_program::program::invoke_signed};
 use anchor_spl::stake::{Stake, StakeAccount};
+use solana_stake_interface::{instruction::merge, sysvar::stake_history};
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct MergeStakeArgs {

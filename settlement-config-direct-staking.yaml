@@ -18,11 +18,17 @@ whitelist_stake_authorities:
   - ExPsrC88dVCUozsuHFXYYpVGytsvwB9vWhwicuaFiypb
 
 settlements:
-  # Downtime only. Adding a CommissionSamIncreaseSettlement entry here would turn commission
-  # protection on, but its expectation is defined against a SAM auction direct stake never entered.
+  # Validator-side delivery failures only (downtime and VAT), no commission protection: its
+  # expectation is defined against a SAM auction direct stake never entered.
   - type: DowntimeRevenueImpactSettlement
     meta:
       funder: ValidatorBond
     min_settlement_lamports: 10000000 # 0.01 SOL
     grace_downtime_bps: 100 # 1 %
+    covered_range_bps: [0, 10000] # 0 % - 100 %, the validator pays the whole loss
+
+  - type: VatUnadmittedSettlement
+    meta:
+      funder: ValidatorBond
+    min_settlement_lamports: 10000000 # 0.01 SOL
     covered_range_bps: [0, 10000] # 0 % - 100 %, the validator pays the whole loss

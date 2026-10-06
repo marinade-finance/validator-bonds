@@ -30,7 +30,7 @@ pub struct InitSettlement<'info> {
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -41,7 +41,7 @@ pub struct InitSettlement<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     #[account(
         init,
@@ -55,7 +55,7 @@ pub struct InitSettlement<'info> {
         ],
         bump,
     )]
-    pub settlement: Account<'info, Settlement>,
+    pub settlement: Box<Account<'info, Settlement>>,
 
     // Solana maximum allocation size in one instruction is 10KB (~80K records)
     #[account(

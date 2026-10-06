@@ -252,7 +252,7 @@ mod tests {
         "remainining_settlement_claim_amount",
     ];
 
-    const PROTECTED_EVENT_DECIMAL_FIELDS: [(&str, &[&str]); 4] = [
+    const PROTECTED_EVENT_DECIMAL_FIELDS: [(&str, &[&str]); 5] = [
         ("DowntimeRevenueImpact", &["expected_epr", "actual_epr"]),
         (
             "CommissionSamIncrease",
@@ -273,6 +273,7 @@ mod tests {
             &["expected_epr", "actual_epr", "stake"],
         ),
         ("LowCredits", &["expected_epr", "actual_epr", "stake"]),
+        ("VatUnadmitted", &["expected_epr", "actual_epr"]),
     ];
 
     // Bonds without a BondProduct serialize the commission fields as `null` — 96% of production
@@ -677,6 +678,15 @@ mod tests {
                 actual_epr: Decimal::new(23, 4),
                 epr_loss_bps: 24,
                 stake: Decimal::new(25, 0),
+            },
+            ProtectedEvent::VatUnadmitted {
+                vote_account,
+                actual_credits: 27,
+                expected_epr: Decimal::new(28, 4),
+                actual_epr: Decimal::ZERO,
+                epr_loss_bps: 10000,
+                stake: 29,
+                inflation_rewards_admitted: None,
             },
         ]
     }

@@ -115,7 +115,7 @@ pub async fn get_settlement_claims_for_settlement_pubkeys(
         >>()?;
     let result = settlement_pubkeys
         .iter()
-        .zip(settlement_claims.into_iter())
+        .zip(settlement_claims)
         .map(
             |(settlement_pubkey, (settlement_claims_pubkey, settlement_claims_bitmap))| {
                 (

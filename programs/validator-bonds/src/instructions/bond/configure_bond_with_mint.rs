@@ -5,9 +5,9 @@ use crate::instructions::{configure_bond, ConfigureBondArgs, ConfigureBondChange
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::token::Mint;
 use anchor_spl::token::{burn, Burn, Token, TokenAccount};
+use solana_sdk_ids::vote::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureBondWithMintArgs {
@@ -105,7 +105,7 @@ impl ConfigureBondWithMint<'_> {
 
         burn(
             CpiContext::new(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 Burn {
                     mint: ctx.accounts.mint.to_account_info(),
                     from: ctx.accounts.token_account.to_account_info(),

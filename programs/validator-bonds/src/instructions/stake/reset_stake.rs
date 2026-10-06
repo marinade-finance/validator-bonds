@@ -9,10 +9,10 @@ use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{stake, stake::state::StakeAuthorize, sysvar::stake_history};
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
 use solana_sdk_ids::system_program::ID as system_program_id;
+use solana_sdk_ids::vote::ID as vote_program_id;
+use solana_stake_interface::{self as stake, state::StakeAuthorize, sysvar::stake_history};
 
 /// Resetting the stake authority of a funded stake account belonging to a removed settlement.
 /// I.e., for the provided stake account, it changes the stake authority from the settlement stake authority to the bonds withdrawer authority.
@@ -106,7 +106,7 @@ impl ResetStake<'_> {
         // https://github.com/solana-labs/solana/blob/v1.17.10/sdk/program/src/stake/state.rs#L312
         authorize(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),

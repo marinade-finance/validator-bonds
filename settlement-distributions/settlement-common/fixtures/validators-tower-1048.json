@@ -1,0 +1,98 @@
+{
+ "epoch": 1048,
+ "slot": 453167999,
+ "capitalization": 635149842309099197,
+ "epoch_duration_in_years": 0.0034223865791695143,
+ "validator_rate": 0.03619760524066269,
+ "validator_rewards": 78683758761972,
+ "validator_metas": [
+  {
+   "vote_account": "1Dadio3JRvpEjY6iSmXmhbGy9RiU8Nxh2GmoVbNusbE",
+   "commission": 0,
+   "mev_commission": 0,
+   "jito_priority_fee_commission": null,
+   "jito_priority_fee_lamports": 0,
+   "stake": 358072967449938,
+   "credits": 6907756,
+   "inflation_rewards_collector": "1Dadio3JRvpEjY6iSmXmhbGy9RiU8Nxh2GmoVbNusbE",
+   "inflation_rewards_commission_bps": 0,
+   "inflation_rewards_commission_bps_is_v4": true,
+   "block_revenue_collector": "FyrwfMaomErzqrFUXMjCJ7mA4u81DsiDdrzC3MJD6d4j",
+   "block_revenue_commission_bps": 10000,
+   "pending_delegator_rewards": 0,
+   "inflation_rewards_admitted": true,
+   "inflation_rewards_points": "2473480689340113919128"
+  },
+  {
+   "vote_account": "1KXz4xKV2viJCGpxqnQqdf2J45vQr5USdmtcJLTaHkm",
+   "commission": 5,
+   "mev_commission": 1000,
+   "jito_priority_fee_commission": null,
+   "jito_priority_fee_lamports": 0,
+   "stake": 187967448554093,
+   "credits": 6907280,
+   "inflation_rewards_collector": "1KXz4xKV2viJCGpxqnQqdf2J45vQr5USdmtcJLTaHkm",
+   "inflation_rewards_commission_bps": 500,
+   "inflation_rewards_commission_bps_is_v4": true,
+   "block_revenue_collector": "1KXvrkPXwkGF6NK1zyzVuJqbXfpenPVPP6hoiK9bsK3",
+   "block_revenue_commission_bps": 10000,
+   "pending_delegator_rewards": 0,
+   "inflation_rewards_admitted": true,
+   "inflation_rewards_points": "1298343799242838612274"
+  },
+  {
+   "vote_account": "13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7",
+   "commission": 100,
+   "mev_commission": null,
+   "jito_priority_fee_commission": null,
+   "jito_priority_fee_lamports": 0,
+   "stake": 1008333760,
+   "credits": 0,
+   "inflation_rewards_collector": "13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7",
+   "inflation_rewards_commission_bps": 10000,
+   "inflation_rewards_commission_bps_is_v4": true,
+   "block_revenue_collector": null,
+   "block_revenue_commission_bps": null,
+   "pending_delegator_rewards": 0,
+   "inflation_rewards_admitted": false,
+   "inflation_rewards_points": "0"
+  },
+  {
+   "vote_account": "3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk",
+   "commission": 0,
+   "mev_commission": 500,
+   "jito_priority_fee_commission": null,
+   "jito_priority_fee_lamports": 0,
+   "stake": 65261168528583,
+   "credits": 2965104,
+   "inflation_rewards_collector": "3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk",
+   "inflation_rewards_commission_bps": 0,
+   "inflation_rewards_commission_bps_is_v4": true,
+   "block_revenue_collector": "GK2YYwmQk58xA2k2SeugY3i334SJVViqTT8sT5wim3Dk",
+   "block_revenue_commission_bps": 10000,
+   "pending_delegator_rewards": 0,
+   "inflation_rewards_admitted": true,
+   "inflation_rewards_points": "193506151849205495938"
+  }
+ ],
+ "commission_vintage": {
+  "epoch_stakes_key": 1048,
+  "captured_at_epoch": 1047
+ },
+ "collector_vintage": {
+  "epoch_stakes_key": null,
+  "captured_at_epoch": 1049
+ },
+ "commission_vintage_next_snapshot_fallbacks": 1,
+ "commission_vintage_live_state_fallbacks": 4,
+ "leader_schedule_vote_accounts_absent_at_slot": 0,
+ "inflation_rewards_unadmitted_at_slot": 4,
+ "features": {
+  "block_revenue_custom_collector_active": true,
+  "block_revenue_sharing_active": false,
+  "inflation_rewards_custom_collector_active": true,
+  "inflation_rewards_delay_commission_updates_active": true,
+  "inflation_rewards_commission_rate_in_basis_points_active": true,
+  "inflation_rewards_validator_admission_ticket_active": true
+ }
+}

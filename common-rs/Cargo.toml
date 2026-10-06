@@ -19,6 +19,7 @@ solana-client = { workspace = true }
 solana-account-decoder = { workspace = true }
 solana-feature-gate-interface = { workspace = true }
 solana-program = { workspace = true }
+solana-sdk-ids = { workspace = true }
 tokio = { workspace = true }
 validator-bonds = { workspace = true }
 

@@ -37,13 +37,13 @@
     "class-validator": "0.14.2",
     "commander": "14.0.1",
     "decimal.js": "10.6.0",
-    "@marinade.finance/ts-common": "5.1.2",
-    "@marinade.finance/cli-common": "5.1.2",
-    "@marinade.finance/web3js-1x": "5.1.2",
+    "@marinade.finance/ts-common": "5.10.0",
+    "@marinade.finance/cli-common": "5.10.0",
+    "@marinade.finance/web3js-1x": "5.10.0",
     "pino": "9.9.5",
     "pino-pretty": "13.1.1",
     "reflect-metadata": "0.2.2",
-    "@solana/web3.js": "1.98.4",
+    "@solana/web3.js": "1.99.0",
     "yaml": "2.9.0"
   },
   "engines": {

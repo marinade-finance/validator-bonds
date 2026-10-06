@@ -27,6 +27,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"
 
 [dev-dependencies]
 bincode = { workspace = true }
+solana-vote-interface = { workspace = true, features = ["serde"] }
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed", "event-cpi"] }
@@ -36,5 +37,7 @@ anchor-spl = { workspace = true, features = ["stake", "mint", "token", "associat
 solana-program = { workspace = true }
 solana-security-txt = { workspace = true }
 solana-sdk-ids = { workspace = true }
+solana-stake-interface = { workspace = true }
+solana-system-interface = { workspace = true }
 merkle-tree = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

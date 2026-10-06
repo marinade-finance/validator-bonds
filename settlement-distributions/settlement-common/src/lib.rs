@@ -1,3 +1,4 @@
+pub mod leader_schedule;
 pub mod merkle_tree_collection;
 pub mod protected_events;
 pub mod revenue_expectation_meta;

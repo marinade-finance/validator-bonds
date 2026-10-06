@@ -8,19 +8,26 @@ use bid_distribution::generators::psr_events::{
 use bid_distribution::generators::sam_penalties::{
     calculate_total_penalties, generate_penalty_settlements,
 };
-use bid_distribution::rewards::load_rewards_from_directory;
+use bid_distribution::rewards::{
+    check_rewards_dir, has_sam_configs, has_vat_unadmitted_config, load_rewards_from_directory,
+    unpaid_vote_accounts,
+};
 use bid_distribution::sam_meta::{SamAuctionResult, ValidatorSamMeta};
 use bid_distribution::settlement_config::BidDistributionConfig;
 use env_logger::{Builder, Env};
 use rust_decimal::Decimal;
-use settlement_common::protected_events::generate_protected_event_collection;
+use settlement_common::leader_schedule::load_leader_slot_counts;
+use settlement_common::protected_events::{
+    applied_commission_bps, generate_protected_event_collection,
+};
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
 use settlement_common::settlement_collection::SettlementCollection;
 use settlement_common::stake_meta_index::StakeMetaIndex;
 use settlement_common::utils::{
     file_error, read_from_json_file, read_from_yaml_file, write_to_json_file,
 };
-use snapshot_parser_validator_cli::stake_meta::StakeMetaCollection;
+use snapshot_parser::stake_meta::StakeMetaCollection;
+use snapshot_parser_validator_cli::inflation_rewards_points::AlpenglowEpochType;
 use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::collections::HashSet;
@@ -64,6 +71,10 @@ struct Args {
     /// Revenue expectation collection JSON file (for PSR)
     #[arg(long, env)]
     revenue_expectation_collection: Option<String>,
+
+    /// Leader schedule JSON file of the snapshot parser (for PSR in Alpenglow epochs)
+    #[arg(long, env)]
+    leader_schedule: Option<PathBuf>,
 
     // ===== Outputs =====
     /// Output path for combined settlement collection JSON
@@ -115,6 +126,43 @@ fn main() -> anyhow::Result<()> {
     let stake_authority_filter = bid_distribution_config.whitelist_stake_authorities_filter();
     let exiting_stake_authority_filter = bid_distribution_config.exiting_stake_authorities_filter();
 
+    let validator_meta_collection: Option<ValidatorMetaCollection> = match &args
+        .validator_meta_collection
+    {
+        Some(path) => {
+            info!("Loading validator meta collection...");
+            Some(read_from_json_file(path).map_err(file_error("validator-meta-collection", path))?)
+        }
+        None => None,
+    };
+
+    check_rewards_dir(&bid_distribution_config, args.rewards_dir.is_some())?;
+    let rewards_collection = match &args.rewards_dir {
+        Some(rewards_dir) => {
+            info!("Loading rewards from directory: {rewards_dir:?}");
+            let mut rewards_collection =
+                load_rewards_from_directory(rewards_dir, &stake_meta_collection)?;
+            let rewards_epoch = rewards_collection.epoch;
+            anyhow::ensure!(
+                rewards_epoch == stake_meta_epoch,
+                "Epoch mismatch between rewards collection ({rewards_epoch}) and stake meta collection ({stake_meta_epoch})",
+            );
+            let applied_bps = validator_meta_collection
+                .iter()
+                .flat_map(|c| &c.validator_metas)
+                .map(|m| (m.vote_account, applied_commission_bps(m)))
+                .collect();
+            rewards_collection.set_applied_inflation_commission(&applied_bps);
+            info!(
+                "Loaded rewards for {} vote accounts, total rewards: {}",
+                rewards_collection.rewards_by_vote_account.len(),
+                rewards_collection.total_rewards()
+            );
+            Some(rewards_collection)
+        }
+        None => None,
+    };
+
     let mut all_settlements = vec![];
     let mut adj_max_fee_bps: Option<u64> = None;
     let mut adj_min_fee_bps: Option<u64> = None;
@@ -127,7 +175,7 @@ fn main() -> anyhow::Result<()> {
     if !psr_configs.is_empty() {
         info!("Generating PSR settlements...");
 
-        let validator_meta_path = args.validator_meta_collection.as_ref().ok_or_else(|| {
+        let validator_meta_collection = validator_meta_collection.ok_or_else(|| {
             anyhow::anyhow!(
                 "--validator-meta-collection is required when PSR settlement configs are present"
             )
@@ -136,21 +184,47 @@ fn main() -> anyhow::Result<()> {
             anyhow::anyhow!("--revenue-expectation-collection is required when PSR settlement configs are present")
         })?;
 
-        info!("Loading validator meta collection...");
-        let validator_meta_collection: ValidatorMetaCollection =
-            read_from_json_file(validator_meta_path)
-                .map_err(file_error("validator-meta-collection", validator_meta_path))?;
-
         info!("Loading revenue expectation meta collection...");
         let revenue_expectation_meta_collection: RevenueExpectationMetaCollection =
             read_from_json_file(revenue_path)
                 .map_err(file_error("revenue-expectation-collection", revenue_path))?;
 
+        let leader_slots = match &args.leader_schedule {
+            Some(path)
+                if validator_meta_collection.alpenglow_epoch_type
+                    == Some(AlpenglowEpochType::Alpenglow) =>
+            {
+                info!("Loading leader schedule {path:?}...");
+                Some(load_leader_slot_counts(
+                    path,
+                    validator_meta_collection.epoch,
+                )?)
+            }
+            Some(path) => {
+                info!("Not an Alpenglow epoch, leader schedule {path:?} is not used");
+                None
+            }
+            None => None,
+        };
+        let unpaid = if has_vat_unadmitted_config(&bid_distribution_config) {
+            let rewards_collection = rewards_collection
+                .as_ref()
+                .expect("check_rewards_dir requires --rewards-dir for VatUnadmittedSettlement");
+            Some(unpaid_vote_accounts(
+                &stake_meta_collection,
+                rewards_collection,
+            ))
+        } else {
+            None
+        };
+
         info!("Generating protected event collection...");
         let protected_event_collection = generate_protected_event_collection(
             validator_meta_collection,
             revenue_expectation_meta_collection,
-        );
+            leader_slots.as_ref(),
+            unpaid.as_ref(),
+        )?;
 
         // Output protected events if requested
         if let Some(output_path) = &args.output_protected_event_collection {
@@ -179,17 +253,10 @@ fn main() -> anyhow::Result<()> {
     }
 
     // ===== SAM Settlements (Bidding + Penalties) =====
-    let has_sam_configs = bid_distribution_config.bidding_config().is_some()
-        || bid_distribution_config
-            .bid_too_low_penalty_config()
-            .is_some()
-        || bid_distribution_config.blacklist_penalty_config().is_some()
-        || bid_distribution_config.bond_risk_fee_config().is_some();
-
-    if has_sam_configs {
+    if has_sam_configs(&bid_distribution_config) {
         info!("Generating SAM settlements...");
 
-        let rewards_dir = args.rewards_dir.as_ref().ok_or_else(|| {
+        let rewards_collection = rewards_collection.as_ref().ok_or_else(|| {
             anyhow::anyhow!("--rewards-dir is required when SAM settlement configs are present")
         })?;
         let bidding_config = bid_distribution_config.bidding_config().ok_or_else(|| {
@@ -255,14 +322,6 @@ fn main() -> anyhow::Result<()> {
             "SAM input contains duplicate vote accounts: {duplicate_votes:?}"
         );
 
-        info!("Loading rewards from directory: {rewards_dir:?}");
-        let rewards_collection = load_rewards_from_directory(rewards_dir, &stake_meta_collection)?;
-        info!(
-            "Loaded rewards for {} vote accounts, total rewards: {}",
-            rewards_collection.rewards_by_vote_account.len(),
-            rewards_collection.total_rewards()
-        );
-
         let bisect_mode = if bid_distribution_config.fee_config.min_sol_revenue.is_some() {
             BisectMode::TargetSolRevenue
         } else {
@@ -270,11 +329,6 @@ fn main() -> anyhow::Result<()> {
         };
 
         // Epoch consistency verification
-        let rewards_epoch = rewards_collection.epoch;
-        anyhow::ensure!(
-            rewards_epoch == stake_meta_epoch,
-            "Epoch mismatch between rewards collection ({rewards_epoch}) and stake meta collection ({stake_meta_epoch})",
-        );
         let metas_epochs: HashSet<u64> = sam_validator_metas
             .iter()
             .map(|meta| meta.epoch as u64)
@@ -311,7 +365,7 @@ fn main() -> anyhow::Result<()> {
             let probe = generate_bid_settlements(
                 &stake_meta_index,
                 &sam_validator_metas,
-                &rewards_collection,
+                rewards_collection,
                 bidding_config,
                 &bid_distribution_config.fee_config,
                 &*stake_authority_filter,
@@ -347,7 +401,7 @@ fn main() -> anyhow::Result<()> {
         let bid = generate_bid_settlements(
             &stake_meta_index,
             &sam_validator_metas,
-            &rewards_collection,
+            rewards_collection,
             bidding_config,
             &bid_distribution_config.fee_config,
             &*stake_authority_filter,
@@ -363,10 +417,8 @@ fn main() -> anyhow::Result<()> {
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
         anyhow::ensure!(
-            args.sam_meta_collection.is_none()
-                && args.sam_results_collection.is_none()
-                && args.rewards_dir.is_none(),
-            "SAM inputs (--sam-meta-collection, --sam-results-collection, --rewards-dir) provided but no SAM settlement configs found in config file"
+            args.sam_meta_collection.is_none() && args.sam_results_collection.is_none(),
+            "SAM inputs (--sam-meta-collection, --sam-results-collection) provided but no SAM settlement configs found in config file"
         );
     }
 
@@ -391,7 +443,7 @@ fn main() -> anyhow::Result<()> {
     // Write outputs
     info!(
         "Writing settlement collection to {}",
-        &args.output_settlement_collection
+        args.output_settlement_collection
     );
     write_to_json_file(&settlement_collection, &args.output_settlement_collection).map_err(
         file_error(

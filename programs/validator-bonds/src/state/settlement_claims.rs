@@ -3,7 +3,7 @@ use crate::utils::BitmapProjection;
 use anchor_lang::prelude::Pubkey;
 use anchor_lang::prelude::*;
 pub use anchor_lang::solana_program::entrypoint::MAX_PERMITTED_DATA_INCREASE;
-use anchor_lang::solana_program::system_instruction::MAX_PERMITTED_DATA_LENGTH;
+use solana_system_interface::MAX_PERMITTED_DATA_LENGTH;
 use std::fmt::Debug;
 
 /// Account serving to deduplicate claiming, consists of anchor data as metadata header and bitmap in the remaining space.

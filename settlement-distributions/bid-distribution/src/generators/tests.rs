@@ -3,7 +3,10 @@ use crate::generators::fee_optimizer::{
 };
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
-use crate::rewards::{RewardsCollection, VoteAccountRewards};
+use crate::rewards::{
+    check_rewards_dir, has_sam_configs, has_vat_unadmitted_config, RewardsCollection,
+    VoteAccountRewards,
+};
 use crate::sam_meta::{
     AuctionValidatorValues, CommissionDetails, RevShare, SamMetadata, ValidatorSamMeta,
 };
@@ -25,7 +28,7 @@ use settlement_common::settlement_details::{
     PriorityFeeSettlementDetails, SettlementDetails,
 };
 use settlement_common::stake_meta_index::StakeMetaIndex;
-use snapshot_parser_validator_cli::stake_meta::{StakeMeta, StakeMetaCollection};
+use snapshot_parser::stake_meta::{StakeMeta, StakeMetaCollection};
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::{HashMap, HashSet};
@@ -116,7 +119,7 @@ fn test_generate_bid_settlements_basic_single_validator() {
     // -- TEST
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -222,7 +225,7 @@ fn test_generate_bid_settlements_positive_commission() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -366,7 +369,7 @@ fn test_generate_bid_settlements_negative_commission() {
     // -- TEST
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta, sam_meta_3],
+        &[sam_meta, sam_meta_3],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -557,7 +560,7 @@ fn test_generate_bid_settlements_varying_rewards() {
 
     let settlements1 = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta1],
+        &[sam_meta1],
         &rewards_collection1,
         &settlement_config,
         &fee_config,
@@ -572,7 +575,7 @@ fn test_generate_bid_settlements_varying_rewards() {
 
     let settlements2 = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta2],
+        &[sam_meta2],
         &rewards_collection2,
         &settlement_config,
         &fee_config,
@@ -587,7 +590,7 @@ fn test_generate_bid_settlements_varying_rewards() {
 
     let settlements3 = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta3],
+        &[sam_meta3],
         &rewards_collection3,
         &settlement_config,
         &fee_config,
@@ -664,7 +667,7 @@ fn test_generate_penalty_settlements() {
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &bid_too_low_config,
         &blacklist_config,
         &bond_risk_fee_config,
@@ -741,7 +744,7 @@ fn test_generate_bond_risk_fee_settlements() {
             .build();
         generate_penalty_settlements(
             &stake_meta_index,
-            &vec![sam],
+            &[sam],
             &bid_cfg,
             &bl_cfg,
             &brf_cfg,
@@ -791,7 +794,7 @@ fn test_generate_bond_risk_fee_settlements() {
     let sam_no_values = SamMetaParams::new(vote_account, epoch as u32).build();
     let s = generate_penalty_settlements(
         &stake_meta_index,
-        &vec![sam_no_values],
+        &[sam_no_values],
         &bid_cfg,
         &bl_cfg,
         &brf_cfg,
@@ -853,7 +856,7 @@ fn test_zero_rewards() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -1083,7 +1086,7 @@ fn test_activating_bid_charge_basic() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1150,7 +1153,7 @@ fn test_activating_bid_charge_with_active_stake() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1212,7 +1215,7 @@ fn test_activating_bid_charge_non_marinade_excluded() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1263,7 +1266,7 @@ fn test_activating_bid_charge_absent_when_no_field() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1318,7 +1321,7 @@ fn test_activating_bid_charge_skipped_for_multi_epoch_warmup() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1387,7 +1390,7 @@ fn test_activating_bid_charge_distributed_to_activating_stakers() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1652,7 +1655,7 @@ fn test_bid_too_low_penalty_fee_claims_split_between_marinade_and_dao() {
 
     let settlements = generate_penalty_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &bid_too_low_config,
         &blacklist_config,
         &bond_risk_fee_config,
@@ -1745,7 +1748,7 @@ fn test_golden_snapshot_bid_settlements() {
 
     let mut settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1823,7 +1826,7 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_active() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -1902,7 +1905,7 @@ fn test_activating_fee_fraction_falls_back_when_distributor_takes_all_activating
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -2297,6 +2300,7 @@ impl RewardsParams {
             stakers_total_amount: stakers_inflation_rewards
                 + stakers_mev_rewards
                 + self.jito_priority_fee_rewards,
+            ..Default::default()
         }
     }
 }
@@ -2629,6 +2633,69 @@ fn test_generate_psr_downtime_basic() {
                 && c.claim_amount == 0),
         "ValidatorBond funder should not have null claim"
     );
+}
+
+#[test]
+fn test_generate_psr_vat_unadmitted() {
+    let epoch = 100;
+    let slot = 1000;
+    let vote_account = test_vote_account(1);
+    let stake_lamports = 100 * LAMPORTS_PER_SOL;
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot,
+        stake_metas: vec![create_stake_meta(
+            test_stake_account(1),
+            vote_account,
+            test_withdraw_authority(1),
+            test_stake_authority(1),
+            stake_lamports,
+        )],
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let protected_event_collection = ProtectedEventCollection {
+        epoch,
+        slot,
+        events: vec![ProtectedEvent::VatUnadmitted {
+            vote_account,
+            actual_credits: 5000,
+            expected_epr: Decimal::from_str("0.0009").unwrap(),
+            actual_epr: Decimal::ZERO,
+            epr_loss_bps: 10000,
+            stake: stake_lamports,
+            inflation_rewards_admitted: None,
+        }],
+    };
+
+    let settlement_config = PsrSettlementConfig {
+        meta: SettlementMeta {
+            funder: SettlementFunder::ValidatorBond,
+        },
+        kind: PsrSettlementConfigKind::VatUnadmittedSettlement {
+            min_settlement_lamports: 0,
+            covered_range_bps: [0, 10000],
+        },
+    };
+
+    let settlements = generate_psr_settlements(
+        &stake_meta_index,
+        &protected_event_collection,
+        &accept_all,
+        &[settlement_config],
+    )
+    .unwrap();
+
+    assert_eq!(settlements.len(), 1, "Should generate 1 settlement");
+    let settlement = &settlements[0];
+    assert_eq!(settlement.vote_account, vote_account);
+    assert!(matches!(
+        settlement.reason,
+        SettlementReason::ProtectedEvent(ref e) if matches!(**e, ProtectedEvent::VatUnadmitted { .. })
+    ));
+    // the whole expected EPR is lost: 100 SOL * 0.0009
+    assert_eq!(settlement.claims_amount, 90_000_000);
 }
 
 #[test]
@@ -3134,6 +3201,36 @@ fn test_settlement_config_yaml_deserialization() {
         } => assert_eq!(covered_range_bps, [0, 10_000]),
         ref other => panic!("expected a downtime settlement config, got {other:?}"),
     }
+    assert_vat_unadmitted_config(&config, 100_000_000);
+}
+
+fn assert_vat_unadmitted_config(
+    config: &crate::settlement_config::BidDistributionConfig,
+    expected_min_settlement_lamports: u64,
+) {
+    let vat: Vec<_> = config
+        .psr_settlements()
+        .into_iter()
+        .filter(|c| {
+            matches!(
+                c.kind,
+                PsrSettlementConfigKind::VatUnadmittedSettlement { .. }
+            )
+        })
+        .collect();
+    assert_eq!(vat.len(), 1, "a single VatUnadmitted entry");
+    assert_eq!(vat[0].meta.funder, SettlementFunder::ValidatorBond);
+    match vat[0].kind {
+        PsrSettlementConfigKind::VatUnadmittedSettlement {
+            min_settlement_lamports,
+            covered_range_bps,
+        } => {
+            assert_eq!(min_settlement_lamports, expected_min_settlement_lamports);
+            assert_eq!(covered_range_bps, [0, 10_000]);
+        }
+        ref other => panic!("expected a VatUnadmitted settlement config, got {other:?}"),
+    }
+    assert!(has_vat_unadmitted_config(config));
 }
 
 // ===== Direct-staking PSR profile (settlement-config-direct-staking.yaml) =====
@@ -3220,8 +3317,8 @@ fn test_direct_staking_config_yaml_deserialization() {
     let psr_configs = config.psr_settlements();
     assert_eq!(
         psr_configs.len(),
-        1,
-        "downtime-only coverage is a single entry"
+        2,
+        "validator-side delivery failures: one downtime and one VAT entry"
     );
     assert_eq!(
         psr_configs[0].meta.funder,
@@ -3238,8 +3335,56 @@ fn test_direct_staking_config_yaml_deserialization() {
             assert_eq!(grace_downtime_bps, Some(100));
             assert_eq!(covered_range_bps, [0, 10_000]);
         }
-        ref other => panic!("expected a downtime-only settlement config, got {other:?}"),
+        ref other => panic!("expected a downtime settlement config, got {other:?}"),
     }
+    assert_vat_unadmitted_config(&config, 10_000_000);
+}
+
+fn bid_distribution_config(yaml: &str) -> crate::settlement_config::BidDistributionConfig {
+    serde_yaml::from_str(yaml).unwrap()
+}
+
+const PSR_ONLY_FEE_CONFIG: &str = "fee_config:
+  max_fee_bps: 0
+  min_fee_bps: 0
+  marinade:
+    stake_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+    withdraw_authority: BBaQsiRo744NAYaqL3nKRfgeJayoqVicEQsEnLpfsJ6x
+  dao:
+    fee_split_share_bps: 9000
+    stake_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+    withdraw_authority: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
+";
+
+#[test]
+fn test_rewards_dir_is_required_by_a_vat_config() {
+    let vat_psr_only = direct_staking_config();
+    assert!(!has_sam_configs(&vat_psr_only));
+    let err = check_rewards_dir(&vat_psr_only, false).unwrap_err();
+    assert!(
+        err.to_string().contains("--rewards-dir is required"),
+        "{err}"
+    );
+    check_rewards_dir(&vat_psr_only, true).unwrap();
+
+    let downtime_only = bid_distribution_config(&format!(
+        "{PSR_ONLY_FEE_CONFIG}settlements:
+  - type: DowntimeRevenueImpactSettlement
+    meta:
+      funder: ValidatorBond
+    min_settlement_lamports: 0
+    grace_downtime_bps: 100
+    covered_range_bps: [0, 10000]
+"
+    ));
+    assert!(!has_vat_unadmitted_config(&downtime_only));
+    let err = check_rewards_dir(&downtime_only, true).unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("neither SAM nor VatUnadmittedSettlement"),
+        "{err}"
+    );
+    check_rewards_dir(&downtime_only, false).unwrap();
 }
 
 #[test]
@@ -3543,7 +3688,7 @@ fn run_ssr_test(ssr_pmpe: f64, fee_config: FeeConfig) -> Vec<Settlement> {
             .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch: 100,
             rewards_by_vote_account: HashMap::new(),
@@ -3570,7 +3715,7 @@ fn run_ssr_adj(ssr_pmpe: f64, fee_config: FeeConfig) -> (u64, u64) {
             .unwrap_or(Decimal::ZERO);
     let result = generate_bid_settlements(
         &index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch: 100,
             rewards_by_vote_account: HashMap::new(),
@@ -3664,7 +3809,7 @@ fn test_bid_both_active_and_activating_stakers() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -3757,7 +3902,7 @@ fn test_bid_only_activating_no_active_marinade_stake() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -3876,7 +4021,7 @@ fn run_ssr_test_with_pmpe(
             .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch: 100,
             rewards_by_vote_account: HashMap::new(),
@@ -4009,7 +4154,7 @@ fn test_ssr_mixed_active_and_activating_stake() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -4086,7 +4231,7 @@ fn test_ssr_activating_only_uses_min_fee() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch,
             rewards_by_vote_account: HashMap::new(),
@@ -4408,7 +4553,7 @@ fn test_redelegation_stake_included_in_settlement_details() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -4467,7 +4612,7 @@ fn test_exiting_authority_excluded_from_redelegation_stake() {
 
     let settlements = generate_bid_settlements(
         &stake_meta_index,
-        &vec![sam_meta],
+        &[sam_meta],
         &rewards_collection,
         &settlement_config,
         &fee_config,
@@ -4500,7 +4645,7 @@ fn run_ssr_test_with_penalties(
             .unwrap_or(Decimal::ZERO);
     generate_bid_settlements(
         &index,
-        &vec![sam_meta],
+        &[sam_meta],
         &RewardsCollection {
             epoch: 100,
             rewards_by_vote_account: HashMap::new(),

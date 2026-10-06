@@ -107,15 +107,15 @@ impl<T: PrintReportable> ReportHandler<T> {
         }
     }
 
-    pub fn warning(&mut self) -> ErrorHandlerBuilder {
+    pub fn warning(&mut self) -> ErrorHandlerBuilder<'_> {
         self.error_handler.warning()
     }
 
-    pub fn error(&mut self) -> ErrorHandlerBuilder {
+    pub fn error(&mut self) -> ErrorHandlerBuilder<'_> {
         self.error_handler.error()
     }
 
-    pub fn retryable(&mut self) -> ErrorHandlerBuilder {
+    pub fn retryable(&mut self) -> ErrorHandlerBuilder<'_> {
         self.error_handler.retryable()
     }
 
@@ -387,15 +387,15 @@ pub struct ErrorHandler {
 
 impl ErrorHandler {
     // Fluent API entry points
-    pub fn error(&mut self) -> ErrorHandlerBuilder {
+    pub fn error(&mut self) -> ErrorHandlerBuilder<'_> {
         ErrorHandlerBuilder::new(self, ErrorSeverity::Error)
     }
 
-    pub fn warning(&mut self) -> ErrorHandlerBuilder {
+    pub fn warning(&mut self) -> ErrorHandlerBuilder<'_> {
         ErrorHandlerBuilder::new(self, ErrorSeverity::Warning)
     }
 
-    pub fn retryable(&mut self) -> ErrorHandlerBuilder {
+    pub fn retryable(&mut self) -> ErrorHandlerBuilder<'_> {
         ErrorHandlerBuilder::new(self, ErrorSeverity::RetryableError)
     }
 
