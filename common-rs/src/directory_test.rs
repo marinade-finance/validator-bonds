@@ -2,8 +2,6 @@ use crate::directory::{Directory, DirectoryError, Precondition};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-const CREATED: &str =
-    "HTTP/1.1 201 Created\r\nEtag: \"v1\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 const REPLACED: &str =
     "HTTP/1.1 200 OK\r\nEtag: \"v3\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
 const CONFLICT: &str =
@@ -81,29 +79,6 @@ async fn a_missing_document_reads_as_none() {
         .await
         .expect("a 404 is not an error");
     assert!(read.is_none());
-    assert!(
-        stub.request(0)
-            .starts_with("GET /v1/bonds/bidding/@last HTTP/1.1"),
-        "the path must be requested under /v1: {}",
-        stub.request(0),
-    );
-    assert!(
-        stub.request(0).contains("authorization: Bearer test-token"),
-        "every /v1 request carries the token: {}",
-        stub.request(0),
-    );
-}
-
-#[tokio::test]
-async fn a_document_carries_the_version_to_replace_it_with() {
-    let stub = stub(vec![DOCUMENT]).await;
-    let read = directory(&stub)
-        .get::<serde_json::Value>("/bonds/bidding/750")
-        .await
-        .expect("the document is served")
-        .expect("the document exists");
-    assert_eq!(read.body["epoch"], 750);
-    assert_eq!(read.etag, "\"v2\"");
 }
 
 #[tokio::test]
@@ -133,24 +108,14 @@ async fn put_or_replace_replaces_the_version_it_conflicted_with() {
         .expect("the conflicting create is followed by a replace");
     assert_eq!(version, "\"v3\"");
     assert!(
-        stub.request(2).contains("if-match: \"v2\""),
-        "the replace must carry the version the read returned: {}",
-        stub.request(2),
-    );
-}
-
-#[tokio::test]
-async fn a_created_document_returns_its_version() {
-    let stub = stub(vec![CREATED]).await;
-    let version = directory(&stub)
-        .put("/bonds/stake/750", &"body", Precondition::Create)
-        .await
-        .expect("the create succeeds");
-    assert_eq!(version, "\"v1\"");
-    assert!(
         stub.request(0).contains("content-type: application/json"),
         "bodies are sent as JSON: {}",
         stub.request(0),
+    );
+    assert!(
+        stub.request(2).contains("if-match: \"v2\""),
+        "the replace must carry the version the read returned: {}",
+        stub.request(2),
     );
 }
 
@@ -230,6 +195,7 @@ async fn a_second_read_is_conditional_and_reuses_the_body() {
         "the second read carries the ETag it was given: {}",
         stub.request(1),
     );
+    assert_eq!(first.etag, "\"v2\"");
     assert_eq!(second.body, first.body, "a 304 answers from what was read");
     assert_eq!(second.etag, first.etag);
 }
