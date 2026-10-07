@@ -38,14 +38,15 @@ pnpm cli:check --help
 cargo build --release
 ./target/release/bonds-collector collect-bonds -u "$RPC_URL" > bonds.yaml
 
-# Store bonds YAML to Postgres
+# Store bonds YAML to the document store
 ./target/release/validator-bonds-api-cli \
-  store-bonds --postgres-url "$POSTGRES_URL" --input-file bonds.yaml
+  store-bonds --directory-url "$DIRECTORY_URL" --directory-token "$DIRECTORY_TOKEN" \
+  --input-file bonds.yaml
 
 # Run the bonds API server (port 8000)
 ./target/release/api \
-  --postgres-url "$POSTGRES_URL" \
-  --postgres-ssl-root-cert "$POSTGRES_SSL_ROOT_CERT"
+  --directory-url "$DIRECTORY_URL" \
+  --directory-token "$DIRECTORY_TOKEN"
 ```
 
 ## Build & Test

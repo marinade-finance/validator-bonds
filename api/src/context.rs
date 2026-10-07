@@ -2,7 +2,7 @@ use axum::body::Bytes;
 use serde::Serialize;
 use std::{cmp::Reverse, sync::Arc};
 use tokio::sync::RwLock;
-use tokio_postgres::Client;
+use validator_bonds_common::directory::Directory;
 
 use crate::dto::{legacy_projection, ProtectedEventRecord};
 
@@ -91,19 +91,19 @@ impl ProtectedEvents {
 }
 
 pub struct Context {
-    pub psql_client: Client,
+    pub directory: Directory,
     pub protected_events_records: ProtectedEventsCache,
     pub verified_validators: Vec<String>,
 }
 
 impl Context {
     pub fn new(
-        psql_client: Client,
+        directory: Directory,
         protected_events_records: ProtectedEventsCache,
         verified_validators: Vec<String>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
-            psql_client,
+            directory,
             protected_events_records,
             verified_validators,
         })

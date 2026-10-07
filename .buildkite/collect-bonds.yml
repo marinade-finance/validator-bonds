@@ -118,10 +118,9 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
     - buildkite-agent artifact download bonds.yaml .
     - chmod +x target/release/validator-bonds-api-cli
-    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
-        store-bonds --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file bonds.yaml
+        store-bonds --input-file bonds.yaml
     retry:
       automatic:
         - exit_status: 100
@@ -138,7 +137,6 @@ steps:
     - emit_concurrency=$(buildkite-agent meta-data get emit_concurrency)
     - notifications_api_url=$(buildkite-agent meta-data get notifications_api_url)
     - echo "--- Emitting bond events for $$bond_type"
-    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - pnpm install
     - pnpm -r build
     - |
@@ -147,9 +145,7 @@ steps:
         --retry-max-attempts "$$retry_max_attempts" \
         --retry-base-delay-ms "$$retry_base_delay_ms" \
         --emit-concurrency "$$emit_concurrency" \
-        --notifications-api-url "$$notifications_api_url" \
-        --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" \
-        --postgres-ssl-root-cert ./eu-west-1-bundle.pem
+        --notifications-api-url "$$notifications_api_url"
     soft_fail:
       - exit_status: "*"
 
@@ -194,10 +190,9 @@ steps:
     - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
     - buildkite-agent artifact download collected-stake.yaml .
     - chmod +x target/release/validator-bonds-api-cli
-    - curl https://truststore.pki.rds.amazonaws.com/eu-west-1/eu-west-1-bundle.pem -o ./eu-west-1-bundle.pem
     - |
       ./target/release/validator-bonds-api-cli \
-        store-collected-stake --postgres-url "$${VALIDATOR_BONDS_POSTGRES_URL:?not set}" --postgres-ssl-root-cert ./eu-west-1-bundle.pem --input-file collected-stake.yaml
+        store-collected-stake --input-file collected-stake.yaml
     retry:
       automatic:
         - exit_status: 100

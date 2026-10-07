@@ -1020,11 +1020,9 @@ describe('evaluateDeltas', () => {
   it('produces finite numbers when SDK aggregate fields are NaN', () => {
     // The DS SAM SDK initializes several aggregate fields to `NaN` in
     // `validatorAggDefaults()` and only fills them in for eligible
-    // validators. `value ?? 0` does NOT catch NaN, so any NaN that leaked
-    // into the event payload made slonik's `sql.jsonb` throw
-    // `JSON payload cannot be stringified.` (safe-stable-stringify strict).
-    // This test reproduces those NaN inputs and asserts every numeric leaf
-    // in every emitted event is finite.
+    // validators. `value ?? 0` does NOT catch NaN, and a NaN in the event
+    // payload serializes as a bare null. This test reproduces those NaN
+    // inputs and asserts every numeric leaf in every emitted event is finite.
     const validators = [
       makeValidator({
         // SDK ineligibleValidatorAggDefaults() leaves these as NaN

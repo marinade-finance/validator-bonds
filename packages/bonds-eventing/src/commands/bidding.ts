@@ -3,10 +3,10 @@ import { Option } from 'commander'
 
 import { addSharedEventingOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
+import { createDirectory } from '../directory'
 import { evaluateDeltas, validatorToState } from '../evaluate-deltas'
 import { runEventingPipeline } from '../pipeline'
 import { runAuction } from '../run-auction'
-import { saveAuctionMeta } from '../state'
 
 import type { Command } from 'commander'
 
@@ -47,11 +47,13 @@ async function manageBidding(opts: Record<string, unknown>) {
 
   logResolvedConfig(logger, config)
 
+  const dir = createDirectory(config.directoryUrl, config.directoryToken)
   const { validators, epoch, meta } = await runAuction(config, logger)
 
   await runEventingPipeline({
     bondType,
     config,
+    dir,
     logger,
     validators,
     epoch,
@@ -67,6 +69,6 @@ async function manageBidding(opts: Record<string, unknown>) {
         1 + meta.minBondEpochs,
       ),
     toState: (v, ep) => validatorToState(v, ep, bondType),
-    saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
+    meta,
   })
 }

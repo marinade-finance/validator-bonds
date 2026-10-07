@@ -22,15 +22,16 @@ export function addSharedEventingOptions(command: Command): Command {
       ).env('NOTIFICATIONS_JWT'),
     )
     .addOption(
-      new Option('--postgres-url <url>', 'PostgreSQL connection string').env(
-        'POSTGRES_URL',
-      ),
+      new Option(
+        '--directory-url <url>',
+        'marinade-directory base URL (required)',
+      ).env('DIRECTORY_URL'),
     )
     .addOption(
       new Option(
-        '--postgres-ssl-root-cert <path>',
-        'Path to SSL root cert',
-      ).env('POSTGRES_SSL_ROOT_CERT'),
+        '--directory-token <token>',
+        'Bearer token for marinade-directory, granted /bonds/eventing/**:rw and /bonds/events/**:rw (required)',
+      ).env('DIRECTORY_TOKEN'),
     )
     .addOption(
       new Option(

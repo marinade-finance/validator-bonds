@@ -27,11 +27,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 settlement-common = { workspace = true }
-openssl = { workspace = true }
-postgres-openssl = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
-tokio-postgres = { workspace = true }
 tower_governor = { version = "0.8.0", features = ["axum"] }
 tower-http = { version = "0.6.6", features = ["cors", "compression-gzip", "normalize-path"] }
 tracing = { workspace = true }
@@ -41,5 +38,8 @@ utoipa = { workspace = true }
 validator-bonds-common = { workspace = true }
 
 [dev-dependencies]
-reqwest = { workspace = true }
+base64 = "0.22"
+hmac = "0.12"
+reqwest = { workspace = true, features = ["json"] }
+sha2 = "0.10"
 tokio = { workspace = true }

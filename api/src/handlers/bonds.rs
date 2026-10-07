@@ -1,6 +1,6 @@
 use crate::context::WrappedContext;
 use crate::error::AppError;
-use crate::repositories::bond::{get_auction_context, get_bonds_by_type};
+use crate::repositories::bond::{get_bonds_by_type, get_eventing_state, EventingDocument};
 use axum::extract::{Query, State};
 use axum::Json;
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,7 @@ pub struct QueryParams {}
     path = "/bonds",
     responses(
         (status = 200, description = "DEPRECATED: Please use /bonds/bidding instead", body = BondsResponse),
-        (status = 500, description = "Bonds could not be read from the database."),
+        (status = 500, description = "Bonds could not be read from the store."),
     )
 )]
 #[deprecated]
@@ -51,14 +51,14 @@ pub async fn handler(
     path = "/bonds/institutional",
     responses(
         (status = 200, body = BondsResponse),
-        (status = 500, description = "Bonds could not be read from the database."),
+        (status = 500, description = "Bonds could not be read from the store."),
     )
 )]
 pub async fn handler_institutional(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
 ) -> Result<Json<BondsResponse>, AppError> {
-    match get_bonds_by_type(&context.read().await.psql_client, BondType::Institutional).await {
+    match get_bonds_by_type(&context.read().await.directory, BondType::Institutional).await {
         Ok(bonds) => Ok(Json(BondsResponse { bonds })),
         Err(error) => Err(AppError {
             message: format!("Failed to fetch bonds. Error: {error:?}"),
@@ -73,23 +73,40 @@ pub async fn handler_institutional(
     path = "/bonds/bidding/auction",
     responses(
         (status = 200, body = AuctionContextResponse),
+        (status = 500, description = "The auction context could not be read from the store."),
     )
 )]
 pub async fn handler_bidding_auction(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
 ) -> Result<Json<AuctionContextResponse>, AppError> {
-    // Best-effort: auxiliary CLI hints. Missing eventing tables (migration not yet
-    // applied) or empty → empty context, not a 500.
-    let auction = get_auction_context(&context.read().await.psql_client, BondType::Bidding)
+    let Some(state) = get_eventing_state(&context.read().await.directory, BondType::Bidding)
         .await
-        .unwrap_or_else(|error| {
-            tracing::warn!("Auction context unavailable: {error:?}");
-            Default::default()
-        });
+        .map_err(|error| AppError {
+            message: format!("Failed to fetch the auction context. Error: {error:?}"),
+        })?
+    else {
+        return Ok(Json(AuctionContextResponse {
+            auction_meta: None,
+            auction_validators: HashMap::new(),
+        }));
+    };
+
+    let EventingDocument {
+        epoch,
+        meta,
+        validators,
+    } = state;
+    // A validator whose events failed to post keeps an older run's entry; the pin drops it.
+    let auction_validators = validators
+        .into_iter()
+        .filter(|(_, validator)| validator.epoch == epoch)
+        .filter_map(|(vote_account, validator)| Some((vote_account, validator.auction_validator?)))
+        .collect();
+
     Ok(Json(AuctionContextResponse {
-        auction_meta: auction.meta,
-        auction_validators: auction.validators,
+        auction_meta: meta,
+        auction_validators,
     }))
 }
 
@@ -100,14 +117,14 @@ pub async fn handler_bidding_auction(
     path = "/bonds/bidding",
     responses(
         (status = 200, body = BondsResponse),
-        (status = 500, description = "Bonds could not be read from the database."),
+        (status = 500, description = "Bonds could not be read from the store."),
     )
 )]
 pub async fn handler_bidding(
     State(context): State<WrappedContext>,
     Query(_query_params): Query<QueryParams>,
 ) -> Result<Json<BondsResponse>, AppError> {
-    match get_bonds_by_type(&context.read().await.psql_client, BondType::Bidding).await {
+    match get_bonds_by_type(&context.read().await.directory, BondType::Bidding).await {
         Ok(bonds) => Ok(Json(BondsResponse { bonds })),
         Err(error) => Err(AppError {
             message: format!("Failed to fetch bonds. Error: {error:?}"),

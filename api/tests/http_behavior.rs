@@ -3,11 +3,10 @@
 //! These tests pin the framework-level behavior preserved across the
 //! warp→axum migration: routing, rate-limit 429s, CORS headers (incl. on
 //! 429), gzip negotiation, and the internal metrics/health endpoints. Only the
-//! no-DB routes (`/`, `/docs.json`, `/docs`) are exercised — they need no
-//! `Context`/Postgres, and the middleware stack they ride is shared (via the
-//! `api::routes` building blocks) with the DB-backed routes. DB-backed routes
-//! and `readyz`'s DB check are covered by the manual smoke test in
-//! `api/README.md`.
+//! storeless routes (`/`, `/docs.json`, `/docs`) are exercised — they need no
+//! `Context`, and the middleware stack they ride is shared (via the
+//! `api::routes` building blocks) with the store-backed routes, which
+//! `directory_store.rs` covers against a store of its own.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -30,11 +29,6 @@ async fn wait_until_accepting(addr: SocketAddr) {
     panic!("server at {addr} did not start accepting connections in time");
 }
 
-/// Build the no-DB routes with the same public-tier rate limit + global
-/// middleware as `routes::build_app`, bind an ephemeral port, spawn the
-/// server, and return its base URL. The DB-backed routes are excluded (they
-/// need a live Postgres `Context`); the middleware stack under test is shared
-/// with production via the `api::routes` building blocks.
 async fn spawn_test_server() -> String {
     let app = with_trailing_slash_tolerance(with_global_middleware(with_public_rate_limit(
         meta_routes(),
@@ -56,8 +50,6 @@ async fn spawn_test_server() -> String {
     format!("http://{addr}")
 }
 
-/// Spawn the state-free subset of the internal server (`/metrics`, `/healthz`).
-/// `readyz` needs a live DB `Context` and is exercised by the manual smoke test.
 async fn spawn_internal_server() -> String {
     let app = axum::Router::new()
         .route(

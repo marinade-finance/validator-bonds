@@ -3,6 +3,7 @@ import { Option } from 'commander'
 
 import { addSharedEventingOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
+import { createDirectory } from '../directory'
 import {
   evaluateInstitutionalDeltas,
   institutionalValidatorToState,
@@ -36,11 +37,13 @@ async function manageInstitutional(opts: Record<string, unknown>) {
 
   logResolvedConfig(logger, config)
 
+  const dir = createDirectory(config.directoryUrl, config.directoryToken)
   const { validators, epoch } = await runInstitutional(config, logger)
 
   await runEventingPipeline({
     bondType,
     config,
+    dir,
     logger,
     validators,
     epoch,

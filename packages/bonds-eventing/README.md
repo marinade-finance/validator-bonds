@@ -28,14 +28,23 @@ so a pending withdraw request does not read as a settlement; for bidding it rema
 
 ## Design details
 
-The system is stateful — it keeps a snapshot of each validator's state in `bond_event_state`
-DB table and only emits events when something changes between runs.
+The system is stateful — it keeps a snapshot of each validator's state in one
+marinade-directory document per bond type (`/bonds/eventing/{bond_type}`) and only emits
+events when something changes between runs. The run loads that document, emits, records each
+emitted event under `/bonds/events/{bond_type}/{epoch}/{message_id}`, then writes the document
+back with `If-Match` on the version it loaded. A `412` there means a concurrent run wrote it
+first: the run fails, without retrying, because its events are already POSTed.
+
+`--directory-url` / `DIRECTORY_URL` and `--directory-token` / `DIRECTORY_TOKEN` are required;
+the token needs the `/bonds/eventing/**:rw` and `/bonds/events/**:rw` grants. The leading
+slash is load-bearing: the store matches a grant against a path that starts with one, so
+`bonds/**:rw` matches nothing and every write 403s.
 
 ### Design notes
 
 - A single validator can trigger several events simultaneously (e.g., auction_exited + cap_changed + bond_balance_change in one run). They're not mutually exclusive.
 - If a validator has no previous state, only first_seen fires.
-- State is saved per validator. If a validator's event fails to POST, only that validator's state save is skipped (so its delta is retried on next run). Other validators whose events succeeded get their state saved normally.
+- State is saved per validator. If a validator's event fails to POST, that validator's entry is left as the previous run wrote it (so its delta is retried on next run). Other validators whose events succeeded get their entry overwritten normally.
 - The state snapshot stored per validator is always the same shape (balance, auction status, bondGoodForNEpochs, cap constraint, SAM eligibility) regardless of which event fires. Events are derived from comparing the previous and current snapshots — the event type is orthogonal to the stored state.
 
 #### Engineering Todo
@@ -55,7 +64,7 @@ DB table and only emits events when something changes between runs.
 
 - When: A validator exists in previous state but is NOT in the current auction data, AND it had a funded bond (`funded_amount_lamports > 0`) or was in the auction (`in_auction = true`)
 - Not emitted: If the validator is still present, or if the previous state had zero balance and was not in auction (phantom entries from SAM data)
-- Note: After successful emission + state save, the delisted validator is deleted from bond_event_state, so this fires only once
+- Note: After successful emission + state save, the delisted validator is dropped from the state document, so this fires only once
 - Details include `last_known_sam_eligible` as a hint for the probable cause of delisting
 
 3. auction_entered — Validator joined the auction
