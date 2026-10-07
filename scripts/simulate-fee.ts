@@ -209,6 +209,7 @@ function fetchInputs(epoch: number): void {
 
 function runCli(cfgFile: string, inp: string): string {
   const out = tmpFile()
+  const leaderSchedule = join(inp, 'leader-schedule.json')
   const proc = Bun.spawnSync(
     [
       ...cli,
@@ -230,6 +231,9 @@ function runCli(cfgFile: string, inp: string): string {
       '/dev/null',
       '--apy-api-url',
       apyUrl,
+      ...(existsSync(leaderSchedule)
+        ? ['--leader-schedule', leaderSchedule]
+        : []),
     ],
     {
       env: {

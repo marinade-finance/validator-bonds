@@ -88,6 +88,7 @@ pub struct ClaimSettlementV2<'info> {
     /// a stake account that will receive the funds
     #[account(
         mut,
+        dup,
         constraint = stake_account_from.key() != stake_account_to.key() @ ErrorCode::MergeMismatchSameSourceDestination
     )]
     pub stake_account_to: Box<Account<'info, StakeAccount>>,

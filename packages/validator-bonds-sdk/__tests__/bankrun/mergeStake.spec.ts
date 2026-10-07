@@ -128,10 +128,7 @@ describe('Staking merge verification/investigation', () => {
       await provider.sendIx([], ixSameAccounts)
       throw new Error('failure expected; trying to merge the same accounts')
     } catch (e) {
-      // Error Code: ConstraintDuplicateMutableAccount. Error Number: 2040.
-      if (!(e as Error).message.includes('custom program error: 0x7f8')) {
-        throw e
-      }
+      verifyError(e, Errors, 6056, 'Source and destination cannot be the same')
     }
 
     const { instruction: ixNonBondStaker } = await mergeStakeInstruction({

@@ -22,6 +22,7 @@ pub struct MergeStake<'info> {
 
     #[account(
         mut,
+        dup,
         constraint = source_stake.key() != destination_stake.key() @ ErrorCode::MergeMismatchSameSourceDestination
     )]
     pub source_stake: Account<'info, StakeAccount>,

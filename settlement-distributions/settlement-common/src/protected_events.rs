@@ -7,7 +7,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-const MAX_VAT_UNADMITTED_STAKE_BPS: u128 = 100;
+pub const DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS: u64 = 100;
 
 use {
     crate::utils::{bps, bps_to_fraction},
@@ -424,6 +424,7 @@ pub fn collect_downtime_revenue_impact_events(
 pub fn collect_vat_unadmitted_events(
     validator_meta_collection: &ValidatorMetaCollection,
     unpaid: &HashSet<Pubkey>,
+    max_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<Vec<ProtectedEvent>> {
     if validator_meta_collection
         .features
@@ -486,8 +487,8 @@ pub fn collect_vat_unadmitted_events(
         .collect();
     // real refusals are a handful of validators; a larger share means rows are missing from the input
     ensure!(
-        unadmitted_stake * 10_000 <= total_stake as u128 * MAX_VAT_UNADMITTED_STAKE_BPS,
-        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {MAX_VAT_UNADMITTED_STAKE_BPS} bps limit; the inflation rewards input looks incomplete",
+        unadmitted_stake * 10_000 <= total_stake as u128 * max_unadmitted_stake_bps as u128,
+        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {max_unadmitted_stake_bps} bps limit; the inflation rewards input looks incomplete, or raise --max-vat-unadmitted-stake-bps for a real refusal wave",
         events.len(),
         validator_meta_collection.epoch
     );
@@ -518,6 +519,7 @@ pub fn generate_protected_event_collection(
     revenue_expectation_meta_collection: RevenueExpectationMetaCollection,
     leader_slots: Option<&LeaderSlots>,
     unpaid: Option<&HashSet<Pubkey>>,
+    max_vat_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<ProtectedEventCollection> {
     assert_eq!(
         validator_meta_collection.epoch, revenue_expectation_meta_collection.epoch,
@@ -545,7 +547,13 @@ pub fn generate_protected_event_collection(
     let commission_increase_events =
         collect_commission_increase_events(&validator_meta_collection, &revenue_expectation_map);
     let vat_unadmitted_events: Vec<_> = unpaid
-        .map(|unpaid| collect_vat_unadmitted_events(&validator_meta_collection, unpaid))
+        .map(|unpaid| {
+            collect_vat_unadmitted_events(
+                &validator_meta_collection,
+                unpaid,
+                max_vat_unadmitted_stake_bps,
+            )
+        })
         .transpose()?
         .unwrap_or_default()
         .into_iter()
@@ -858,22 +866,37 @@ mod tests {
         // Σstake = 100,000: 10,000 lamports of validator rewards is 0.1 per lamport, 95% to stakers
         let unpaid = HashSet::from([pk(A), pk(D)]);
         assert_eq!(
-            vat_event(&collect_vat_unadmitted_events(&collection, &unpaid).unwrap()),
+            vat_event(
+                &collect_vat_unadmitted_events(
+                    &collection,
+                    &unpaid,
+                    DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+                )
+                .unwrap()
+            ),
             vec![(pk(A), dec!(0.095))]
         );
 
         // voted zero
         collection.validator_metas[0].alpenglow_credits = Some(0);
-        assert!(collect_vat_unadmitted_events(&collection, &unpaid)
-            .unwrap()
-            .is_empty());
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
 
         // 100% commission
         collection.validator_metas[0].alpenglow_credits = Some(1000);
         collection.validator_metas[0].inflation_rewards_commission_bps = Some(10000);
-        assert!(collect_vat_unadmitted_events(&collection, &unpaid)
-            .unwrap()
-            .is_empty());
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
     }
 
     #[test]
@@ -884,19 +907,29 @@ mod tests {
         let low = pk("3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk");
         // the 100% commission and zero-credit row is left out
         let unpaid = HashSet::from([low, pk("13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7")]);
-        let vote_accounts: Vec<Pubkey> =
-            vat_event(&collect_vat_unadmitted_events(&collection, &unpaid).unwrap())
-                .into_iter()
-                .map(|(vote_account, _)| vote_account)
-                .collect();
+        let vote_accounts: Vec<Pubkey> = vat_event(
+            &collect_vat_unadmitted_events(
+                &collection,
+                &unpaid,
+                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+            )
+            .unwrap(),
+        )
+        .into_iter()
+        .map(|(vote_account, _)| vote_account)
+        .collect();
         assert_eq!(vote_accounts, vec![low]);
 
         collection
             .features
             .inflation_rewards_validator_admission_ticket_active = None;
-        assert!(collect_vat_unadmitted_events(&collection, &unpaid)
-            .unwrap()
-            .is_empty());
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
     }
 
     #[test]
@@ -907,17 +940,41 @@ mod tests {
             .iter()
             .map(|m| m.vote_account)
             .collect();
-        let err = collect_vat_unadmitted_events(&collection, &unpaid).unwrap_err();
+        let err = collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("over the 100 bps limit"), "{err}");
+    }
+
+    #[test]
+    fn vat_unadmitted_stake_limit_can_be_raised_by_the_operator() {
+        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
+        let unpaid: HashSet<Pubkey> = collection
+            .validator_metas
+            .iter()
+            .map(|m| m.vote_account)
+            .collect();
+        let events = collect_vat_unadmitted_events(&collection, &unpaid, 10_000).unwrap();
+        assert!(!events.is_empty());
+        assert!(events
+            .iter()
+            .all(|e| matches!(e, ProtectedEvent::VatUnadmitted { .. })));
     }
 
     #[test]
     fn vat_unadmitted_never_fires_in_the_migration_epoch() {
         let collection = alpenglow_collection("migration");
         let unpaid = HashSet::from([pk(A), pk(B), pk(C)]);
-        assert!(collect_vat_unadmitted_events(&collection, &unpaid)
-            .unwrap()
-            .is_empty());
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
     }
 
     #[test]
@@ -934,6 +991,7 @@ mod tests {
             revenue,
             Some(&leader_slots()),
             Some(&unpaid),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
         .events;
@@ -958,6 +1016,7 @@ mod tests {
             revenue,
             Some(&leader_slots()),
             Some(&unpaid),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
         .events;

@@ -19,6 +19,7 @@ use rust_decimal::Decimal;
 use settlement_common::leader_schedule::load_leader_slot_counts;
 use settlement_common::protected_events::{
     applied_commission_bps, generate_protected_event_collection,
+    DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
 };
 use settlement_common::revenue_expectation_meta::RevenueExpectationMetaCollection;
 use settlement_common::settlement_collection::SettlementCollection;
@@ -75,6 +76,10 @@ struct Args {
     /// Leader schedule JSON file of the snapshot parser (for PSR in Alpenglow epochs)
     #[arg(long, env)]
     leader_schedule: Option<PathBuf>,
+
+    /// Max stake share (bps) of VAT-unadmitted validators; raise it for a real refusal wave
+    #[arg(long, env, default_value_t = DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS)]
+    max_vat_unadmitted_stake_bps: u64,
 
     // ===== Outputs =====
     /// Output path for combined settlement collection JSON
@@ -224,6 +229,7 @@ fn main() -> anyhow::Result<()> {
             revenue_expectation_meta_collection,
             leader_slots.as_ref(),
             unpaid.as_ref(),
+            args.max_vat_unadmitted_stake_bps,
         )?;
 
         // Output protected events if requested
