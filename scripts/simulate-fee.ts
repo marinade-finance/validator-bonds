@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
-import { existsSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -185,9 +185,23 @@ function fetchProductionSettlement(epoch: number): string {
   return path
 }
 
+function inputsComplete(inp: string): boolean {
+  const validators = join(inp, 'validators.json')
+  const alpenglow =
+    existsSync(validators) &&
+    (
+      JSON.parse(readFileSync(validators, 'utf8')) as {
+        alpenglow_epoch_type?: string
+      }
+    ).alpenglow_epoch_type === 'alpenglow'
+  return [...INPUTS, ...(alpenglow ? ['leader-schedule.json'] : [])].every(f =>
+    existsSync(join(inp, f)),
+  )
+}
+
 function fetchInputs(epoch: number): void {
   const inp = join(dataDir, String(epoch), 'inputs')
-  if (INPUTS.every(f => existsSync(join(inp, f)))) return
+  if (inputsComplete(inp)) return
   process.stderr.write(`  # fetching ${epoch}...\n`)
   Bun.spawnSync(
     [
@@ -201,7 +215,7 @@ function fetchInputs(epoch: number): void {
     ],
     { stderr: 'pipe' },
   )
-  if (!INPUTS.every(f => existsSync(join(inp, f)))) {
+  if (!inputsComplete(inp)) {
     process.stderr.write(`Failed: fetch failed for epoch ${epoch}\n`)
     process.exit(1)
   }
@@ -245,7 +259,11 @@ function runCli(cfgFile: string, inp: string): string {
   )
   const stderr = Buffer.from(proc.stderr).toString()
   for (const line of stderr.split('\n')) {
-    if (line.includes(' ERROR ') || line.includes('Adjusted '))
+    if (
+      line.includes(' ERROR ') ||
+      line.includes('Adjusted ') ||
+      line.startsWith('Error: ')
+    )
       process.stderr.write(line + '\n')
     else if (values.v && line.includes('SSR cap'))
       process.stderr.write(line + '\n')
