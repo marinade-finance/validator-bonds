@@ -62,7 +62,7 @@ pub enum ProtectedEvent {
         epr_loss_bps: u64,
         stake: u64,
     },
-    /// SIMD-0357: the validator voted, but its stakers got no inflation rewards
+    /// SIMD-0357: the validator voted, but the snapshot refused it and its stakers got no inflation rewards
     VatUnadmitted {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
@@ -73,7 +73,6 @@ pub enum ProtectedEvent {
         actual_epr: Decimal,
         epr_loss_bps: u64,
         stake: u64,
-        inflation_rewards_admitted: Option<bool>,
     },
 
     // V1 events (before SAM was introduced) for backward compatibility to parse JSONs
@@ -466,11 +465,12 @@ pub fn collect_vat_unadmitted_events(
             {
                 return None;
             }
-            if meta.inflation_rewards_admitted == Some(true) {
+            if meta.inflation_rewards_admitted != Some(false) {
                 warn!(
-                    "Validator {} stakers got no inflation rewards though the snapshot admitted it",
-                    meta.vote_account
+                    "Validator {} stakers got no inflation rewards but the snapshot admission is {:?}, treated as a missing rewards row, no VAT-unadmitted event",
+                    meta.vote_account, meta.inflation_rewards_admitted
                 );
+                return None;
             }
             unadmitted_stake += meta.stake as u128;
             Some(ProtectedEvent::VatUnadmitted {
@@ -481,14 +481,13 @@ pub fn collect_vat_unadmitted_events(
                 actual_epr: Decimal::ZERO,
                 epr_loss_bps: 10000,
                 stake: meta.stake,
-                inflation_rewards_admitted: meta.inflation_rewards_admitted,
             })
         })
         .collect();
-    // real refusals are a handful of validators; a larger share means rows are missing from the input
+    // real refusals are a handful of validators; a larger share means broken inputs
     ensure!(
         unadmitted_stake * 10_000 <= total_stake as u128 * max_unadmitted_stake_bps as u128,
-        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {max_unadmitted_stake_bps} bps limit; the inflation rewards input looks incomplete, or raise --max-vat-unadmitted-stake-bps for a real refusal wave",
+        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {max_unadmitted_stake_bps} bps limit; the snapshot or the inflation rewards input looks broken, or raise --max-vat-unadmitted-stake-bps for a real refusal wave",
         events.len(),
         validator_meta_collection.epoch
     );
@@ -703,6 +702,7 @@ mod tests {
             "inflation_rewards_commission_bps": commission_bps,
             "alpenglow_credits": alpenglow_credits,
             "epoch_stake": epoch_stake,
+            "inflation_rewards_admitted": false,
         })
     }
 
@@ -905,6 +905,12 @@ mod tests {
         // the paid validator's stake keeps the unadmitted one under the stake share limit
         collection.validator_metas[0].stake *= 1000;
         let low = pk("3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk");
+        collection
+            .validator_metas
+            .iter_mut()
+            .find(|m| m.vote_account == low)
+            .unwrap()
+            .inflation_rewards_admitted = Some(false);
         // the 100% commission and zero-credit row is left out
         let unpaid = HashSet::from([low, pk("13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7")]);
         let vote_accounts: Vec<Pubkey> = vat_event(
@@ -932,9 +938,44 @@ mod tests {
         .is_empty());
     }
 
+    fn all_unadmitted(mut collection: ValidatorMetaCollection) -> ValidatorMetaCollection {
+        for meta in &mut collection.validator_metas {
+            meta.inflation_rewards_admitted = Some(false);
+        }
+        collection
+    }
+
     #[test]
-    fn vat_unadmitted_over_one_percent_of_stake_means_incomplete_inflation_input() {
-        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
+    fn vat_unadmitted_needs_the_snapshot_to_refuse_the_validator() {
+        let mut collection = alpenglow_collection("alpenglow");
+        let unpaid = HashSet::from([pk(A)]);
+        for admitted in [Some(true), None] {
+            collection.validator_metas[0].inflation_rewards_admitted = admitted;
+            assert!(collect_vat_unadmitted_events(
+                &collection,
+                &unpaid,
+                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+            )
+            .unwrap()
+            .is_empty());
+        }
+        collection.validator_metas[0].inflation_rewards_admitted = Some(false);
+        assert_eq!(
+            vat_event(
+                &collect_vat_unadmitted_events(
+                    &collection,
+                    &unpaid,
+                    DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+                )
+                .unwrap()
+            ),
+            vec![(pk(A), dec!(0.095))]
+        );
+    }
+
+    #[test]
+    fn vat_unadmitted_over_one_percent_of_stake_means_broken_inputs() {
+        let collection = all_unadmitted(serde_json::from_str(TOWER_1048).unwrap());
         let unpaid: HashSet<Pubkey> = collection
             .validator_metas
             .iter()
@@ -951,7 +992,7 @@ mod tests {
 
     #[test]
     fn vat_unadmitted_stake_limit_can_be_raised_by_the_operator() {
-        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
+        let collection = all_unadmitted(serde_json::from_str(TOWER_1048).unwrap());
         let unpaid: HashSet<Pubkey> = collection
             .validator_metas
             .iter()
@@ -1034,7 +1075,6 @@ mod tests {
             actual_epr: Decimal::ZERO,
             epr_loss_bps: 10000,
             stake: 100,
-            inflation_rewards_admitted: None,
         };
         let config = |kind| SettlementConfig {
             meta: SettlementMeta {

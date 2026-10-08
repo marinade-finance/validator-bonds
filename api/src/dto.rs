@@ -686,7 +686,6 @@ mod tests {
                 actual_epr: Decimal::ZERO,
                 epr_loss_bps: 10000,
                 stake: 29,
-                inflation_rewards_admitted: None,
             },
         ]
     }

@@ -172,8 +172,17 @@ impl RewardsCollection {
             rewards.applied_inflation_commission_bps =
                 applied_bps.get(&rewards.vote_account).copied();
             if let Some(bps @ 1..10000) = rewards.applied_inflation_commission_bps {
-                rewards.inflation_rewards = (rewards.stakers_inflation_rewards as u128 * 10000
+                let gross = (rewards.stakers_inflation_rewards as u128 * 10000
                     / (10000 - bps) as u128) as u64;
+                rewards.total_amount = rewards
+                    .total_amount
+                    .saturating_add(gross)
+                    .saturating_sub(rewards.inflation_rewards);
+                rewards.validators_total_amount = rewards
+                    .validators_total_amount
+                    .saturating_add(gross)
+                    .saturating_sub(rewards.inflation_rewards);
+                rewards.inflation_rewards = gross;
             }
             match rewards.applied_inflation_commission_bps {
                 Some(0) => {}
@@ -1015,6 +1024,8 @@ mod tests {
         let rewards = rewards_collection.get(&vote_account).unwrap();
         // the stakers' 90 are 95% of the gross: floor(90 / 0.95)
         assert_eq!(rewards.inflation_rewards, 94);
+        assert_eq!(rewards.total_amount, 94);
+        assert_eq!(rewards.validators_total_amount, 4);
         assert_eq!(
             rewards.realized_inflation_commission_dec(),
             Some(Decimal::new(5, 2))

@@ -2665,7 +2665,6 @@ fn test_generate_psr_vat_unadmitted() {
             actual_epr: Decimal::ZERO,
             epr_loss_bps: 10000,
             stake: stake_lamports,
-            inflation_rewards_admitted: None,
         }],
     };
 
