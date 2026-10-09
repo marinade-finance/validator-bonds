@@ -84,7 +84,7 @@ pub async fn list_claimable_settlements(
     )
     .await
     .map_err(CliError::retry_able)?
-        .into_iter().zip(claimable_settlements.into_iter())
+        .into_iter().zip(claimable_settlements)
         .filter_map(|((settlement_pubkey, claims_pubkey, claims), (s_addr, settlement))|
         {
             assert_eq!(settlement_pubkey, s_addr);
@@ -178,7 +178,7 @@ pub async fn load_expired_settlements(
         all_settlements.len()
     );
 
-    let filtered_settlements: (Vec<_>, Vec<_>) = all_settlements.into_iter().zip(bonds_for_settlements.into_iter())
+    let filtered_settlements: (Vec<_>, Vec<_>) = all_settlements.into_iter().zip(bonds_for_settlements)
         .filter(|((settlement_address, settlement), (_, bond))| {
             let is_for_config = bond.as_ref().is_some_and(|b| b.config == *config_address);
             let is_expired = current_epoch > settlement.epoch_created_for + config.epochs_to_claim_settlement;

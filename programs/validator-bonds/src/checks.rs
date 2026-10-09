@@ -1,18 +1,15 @@
-#![allow(deprecated)]
-// allowing deprecation as anchor 0.29.0 works with old version of StakeState struct
-
 use crate::error::ErrorCode;
 use crate::state::bond::Bond;
 use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
 use anchor_lang::solana_program::clock::Epoch;
-use anchor_lang::solana_program::stake::program::ID as stake_program_id;
-use anchor_lang::solana_program::stake::state::{Delegation, Meta, Stake, StakeState};
-use anchor_lang::solana_program::stake_history::StakeHistoryEntry;
 use anchor_lang::solana_program::system_program::ID as system_program_id;
-use anchor_lang::solana_program::vote::program::id as vote_program_id;
 use anchor_spl::stake::StakeAccount;
+use solana_sdk_ids::vote::id as vote_program_id;
+use solana_stake_interface::program::ID as stake_program_id;
+use solana_stake_interface::stake_history::StakeHistoryEntry;
+use solana_stake_interface::state::{Delegation, Meta, Stake, StakeStateV2};
 use std::ops::Deref;
 
 /// Verification the account is owned by vote program + matching validator identity
@@ -144,8 +141,8 @@ pub fn check_stake_valid_delegation(
 pub fn get_delegation(stake_account: &StakeAccount) -> Result<Option<Delegation>> {
     let stake_state = stake_account.deref();
     match stake_state {
-        StakeState::Initialized(_meta) => Ok(None),
-        StakeState::Stake(_, stake) => Ok(Some(stake.delegation)),
+        StakeStateV2::Initialized(_meta) => Ok(None),
+        StakeStateV2::Stake(_, stake, _) => Ok(Some(stake.delegation)),
         _ => Err(error!(ErrorCode::WrongStakeAccountState)
             .with_values(("stake_account", format!("{stake_state:?}")))),
     }
@@ -248,9 +245,9 @@ pub fn is_closed(account: &UncheckedAccount) -> bool {
 mod tests {
     use super::*;
     use anchor_lang::prelude::{AccountInfo, Clock, Pubkey, UncheckedAccount};
-    use anchor_lang::solana_program::stake::stake_flags::StakeFlags;
-    use anchor_lang::solana_program::stake::state::{Authorized, Lockup, Stake, StakeStateV2};
-    use anchor_lang::solana_program::vote::state::{VoteInit, VoteState, VoteStateVersions};
+    use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::state::{Authorized, Lockup, Stake, StakeStateV2};
+    use solana_vote_interface::state::{VoteInit, VoteStateV3, VoteStateVersions};
     use std::ops::DerefMut;
 
     fn test_bond_with_authority(authority: Pubkey) -> Bond {
@@ -279,7 +276,6 @@ mod tests {
             serialized_data.deref_mut(),
             &wrong_owner,
             false,
-            3,
         );
         let wrong_owner_account = UncheckedAccount::try_from(&account);
         assert_eq!(
@@ -299,7 +295,6 @@ mod tests {
             serialized_data.deref_mut(),
             &owner,
             false,
-            3,
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
@@ -328,7 +323,6 @@ mod tests {
             serialized_data.deref_mut(),
             &owner,
             false,
-            3,
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
@@ -781,7 +775,7 @@ mod tests {
     }
 
     pub fn get_stake_account(stake_state: StakeStateV2) -> StakeAccount {
-        let stake_state_vec = stake_state.try_to_vec().unwrap();
+        let stake_state_vec = borsh::to_vec(&stake_state).unwrap();
         let mut stake_state_data = stake_state_vec.as_slice();
         StakeAccount::try_deserialize(&mut stake_state_data).unwrap()
     }
@@ -827,8 +821,8 @@ mod tests {
             authorized_withdrawer: Pubkey::new_unique(),
             commission: 0,
         };
-        let vote_state = VoteState::new(&vote_init, &clock);
-        let vote_state_versions = VoteStateVersions::Current(Box::new(vote_state));
+        let vote_state = VoteStateV3::new(&vote_init, &clock);
+        let vote_state_versions = VoteStateVersions::V3(Box::new(vote_state));
         let serialized_data = bincode::serialize(&vote_state_versions).unwrap();
         (vote_init, serialized_data)
     }
@@ -867,7 +861,6 @@ mod tests {
             serialized_data.deref_mut(),
             &owner,
             false,
-            3,
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 
@@ -899,7 +892,6 @@ mod tests {
             serialized_data.deref_mut(),
             &owner,
             false,
-            3,
         );
         let unchecked_account = UncheckedAccount::try_from(&account);
 

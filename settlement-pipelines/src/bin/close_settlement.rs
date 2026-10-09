@@ -1,4 +1,3 @@
-use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use clap::Parser;
@@ -28,11 +27,11 @@ use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
-use solana_sdk::stake::config::ID as stake_config_id;
-use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::sysvar::{
-    clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
-};
+use solana_sdk::sysvar::clock::ID as clock_sysvar_id;
+use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
+use solana_stake_interface::config::ID as stake_config_id;
+use solana_stake_interface::program::ID as stake_program_id;
+use solana_stake_interface::state::StakeStateV2;
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::collections::{HashMap, HashSet};

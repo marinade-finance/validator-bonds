@@ -1,5 +1,5 @@
-use anchor_lang::solana_program::hash::hashv;
 use merkle_tree::{hash_intermediate, INTERMEDIATE_PREFIX};
+use solana_program::hash::hashv;
 
 /// copy&paste from https://github.com/jito-foundation/jito-programs/blob/master/mev-programs/programs/tip-distribution/src/merkle_proof.rs
 /// This function deals with verification of Merkle trees (hash trees).
@@ -26,9 +26,10 @@ pub fn verify(proof: Vec<[u8; 32]>, root: [u8; 32], leaf: [u8; 32]) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::utils::verify;
-    use anchor_lang::solana_program::{hash::hashv, pubkey::Pubkey};
+    use anchor_lang::solana_program::pubkey::Pubkey;
     use merkle_tree::psr_claim::TreeNode;
     use merkle_tree::{hash_leaf, LEAF_PREFIX};
+    use solana_program::hash::hashv;
     use std::str::FromStr;
 
     // TODO: probably good to download test data from gcloud when available

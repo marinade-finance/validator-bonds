@@ -165,26 +165,21 @@ describe('Validator Bonds init settlement', () => {
     const merkleRoot = Buffer.from(
       Array.from({ length: 30 }, () => getRandomByte()),
     )
-    const { instruction, settlementAccount } = await initSettlementInstruction({
-      program,
-      bondAccount: bond.publicKey,
-      merkleRoot,
-      maxMerkleNodes: 1,
-      maxTotalClaim: 3,
-      voteAccount,
-      configAccount,
-      epoch: await currentEpoch(provider),
-    })
-    try {
-      await provider.sendIx([operatorAuthority], instruction)
-      throw new Error('failure; expected wrong seeds constraint')
-    } catch (e) {
-      // Error Code: ConstraintSeeds. Error Number: 2006. Error Message: A seeds constraint was violated.
-      if (!(e as Error).message.includes('custom program error: 0x7d6')) {
-        throw e
-      }
-    }
-    await assertNotExist(provider, settlementAccount)
+    const epoch = await currentEpoch(provider)
+    await expect(
+      initSettlementInstruction({
+        program,
+        bondAccount: bond.publicKey,
+        merkleRoot,
+        maxMerkleNodes: 1,
+        maxTotalClaim: 3,
+        voteAccount,
+        configAccount,
+        epoch,
+      }),
+    ).rejects.toThrow(
+      'Invalid array for "merkleRoot": expected 32 items, received 30',
+    )
   })
 
   it('init settlement with future epoch', async () => {

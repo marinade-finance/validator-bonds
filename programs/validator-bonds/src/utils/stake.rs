@@ -1,7 +1,7 @@
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::Meta;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
+use solana_stake_interface::state::Meta;
 
 /// This method serves to close/remove the stake account that has been just created
 /// and it's not initialized.
@@ -16,7 +16,7 @@ pub fn return_unused_split_stake_account_rent<'info>(
 ) -> Result<()> {
     withdraw(
         CpiContext::new(
-            stake_program.to_account_info(),
+            stake_program.key(),
             Withdraw {
                 stake: split_stake_account.to_account_info(),
                 // the withdrawer authority (owner) of an uninitialized stake account is the stake account itself

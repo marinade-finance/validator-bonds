@@ -1,5 +1,5 @@
 use clap::Args;
-use solana_sdk::commitment_config::CommitmentLevel;
+use solana_commitment_config::CommitmentLevel;
 use validator_bonds_common::dto::BondType;
 
 // BondType's FromStr error is anyhow::Error, which doesn't implement

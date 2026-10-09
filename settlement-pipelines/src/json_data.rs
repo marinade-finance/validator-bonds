@@ -177,23 +177,19 @@ fn resolve_combined_optional(
 ) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {
     let merkle_tree_collection = loaded_data.merkle_tree_collection;
     let settlement_collection = loaded_data.settlement_collection;
-    if merkle_tree_collection.is_none() && settlement_collection.is_none() {
-        Err(anyhow!("No merkle tree or settlement collection provided"))
-    } else if merkle_tree_collection.is_some() && settlement_collection.is_none() {
-        return Err(anyhow!(
+    match (merkle_tree_collection, settlement_collection) {
+        (None, None) => Err(anyhow!("No merkle tree or settlement collection provided")),
+        (Some(merkle_tree_collection), None) => Err(anyhow!(
             "No settlement collection provided for epoch {}",
-            merkle_tree_collection.unwrap().epoch
-        ));
-    } else if merkle_tree_collection.is_none() && settlement_collection.is_some() {
-        return Err(anyhow!(
+            merkle_tree_collection.epoch
+        )),
+        (None, Some(settlement_collection)) => Err(anyhow!(
             "No merkle tree collection provided for epoch {}",
-            settlement_collection.unwrap().epoch
-        ));
-    } else {
-        resolve_combined(
-            merkle_tree_collection.unwrap(),
-            settlement_collection.unwrap(),
-        )
+            settlement_collection.epoch
+        )),
+        (Some(merkle_tree_collection), Some(settlement_collection)) => {
+            resolve_combined(merkle_tree_collection, settlement_collection)
+        }
     }
 }
 
@@ -247,8 +243,8 @@ pub async fn load_json_with_on_chain(
 
     // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
-        .iter()
-        .flat_map(|(_epoch, collection)| {
+        .values()
+        .flat_map(|collection| {
             collection
                 .iter()
                 .map(|record| (record.settlement_address, record.bond_address))
@@ -340,8 +336,8 @@ pub async fn load_merkle_tree_with_on_chain(
 
     // Loading accounts from on-chain
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
-        .iter()
-        .flat_map(|(_epoch, collection)| {
+        .values()
+        .flat_map(|collection| {
             collection
                 .iter()
                 .map(|record| (record.settlement_address, record.bond_address))
@@ -385,7 +381,7 @@ pub async fn load_merkle_tree_with_on_chain(
 }
 
 fn pair_elements<T: Clone>(elements: &[T]) -> anyhow::Result<Vec<(T, T)>> {
-    if elements.len() % 2 != 0 {
+    if !elements.len().is_multiple_of(2) {
         return Err(anyhow!("The number of elements is not even"));
     }
     let pairs = elements
@@ -436,7 +432,7 @@ mod tests {
     fn config_override_contradicting_the_file_skips_it() {
         let path = write_collection("contradicting", Some(INSTITUTIONAL_CONFIG));
         let result = load_merkle_tree_collections(
-            &[path.clone()],
+            std::slice::from_ref(&path),
             Some(Pubkey::from_str(BIDDING_CONFIG).unwrap()),
         );
         std::fs::remove_file(&path).ok();
@@ -452,7 +448,7 @@ mod tests {
     fn config_override_fills_in_a_missing_config() {
         let path = write_collection("missing-config", None);
         let bidding = Pubkey::from_str(BIDDING_CONFIG).unwrap();
-        let result = load_merkle_tree_collections(&[path.clone()], Some(bidding));
+        let result = load_merkle_tree_collections(std::slice::from_ref(&path), Some(bidding));
         std::fs::remove_file(&path).ok();
 
         let collections = result.expect("a defaulted config is filled in by the override");
@@ -463,7 +459,7 @@ mod tests {
     fn config_override_matching_the_file_is_accepted() {
         let path = write_collection("matching", Some(INSTITUTIONAL_CONFIG));
         let institutional = Pubkey::from_str(INSTITUTIONAL_CONFIG).unwrap();
-        let result = load_merkle_tree_collections(&[path.clone()], Some(institutional));
+        let result = load_merkle_tree_collections(std::slice::from_ref(&path), Some(institutional));
         std::fs::remove_file(&path).ok();
 
         let collections = result.expect("the existing institutional runs must keep working");

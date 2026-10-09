@@ -109,7 +109,7 @@ In the event that the operator authority's hot wallet key is compromised, the ad
 ```sh
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 echo "Building version $VERSION"
-anchor build --verifiable \
+anchor build --verifiable --arch v0 \
   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
 
 # 1. DEPLOY

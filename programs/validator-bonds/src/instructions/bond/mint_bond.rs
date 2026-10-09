@@ -6,7 +6,6 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
 
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
 use anchor_spl::{
     associated_token::AssociatedToken,
     metadata::{
@@ -16,6 +15,7 @@ use anchor_spl::{
     },
     token::{mint_to, Mint, MintTo, Token, TokenAccount},
 };
+use solana_sdk_ids::vote::ID as vote_program_id;
 
 /// Minting a bond SPL token that can be used for configuring the bond account.
 // see configure_mint_bond.rs
@@ -111,7 +111,7 @@ impl MintBond<'_> {
         let mint_signer = [&mint_signer_seeds[..]];
         mint_to(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                ctx.accounts.token_program.key(),
                 MintTo {
                     authority: ctx.accounts.mint.to_account_info(),
                     to: ctx
@@ -128,7 +128,7 @@ impl MintBond<'_> {
         if ctx.accounts.metadata.get_lamports() == 0 {
             create_metadata_accounts_v3(
                 CpiContext::new_with_signer(
-                    ctx.accounts.metadata_program.to_account_info(),
+                    ctx.accounts.metadata_program.key(),
                     CreateMetadataAccountsV3 {
                         mint: ctx.accounts.mint.to_account_info(),
                         update_authority: ctx.accounts.mint.to_account_info(),

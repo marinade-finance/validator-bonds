@@ -6,8 +6,8 @@ use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::state::settlement_claims::SettlementClaims;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::Stake;
+use solana_stake_interface::sysvar::stake_history;
 
 /// Cancel Settlement by closing the settlement account.
 /// Whoever can close Settlement by 'close_settlement' when the epoch expires.
@@ -19,7 +19,7 @@ pub struct CancelSettlement<'info> {
         constraint = config.operator_authority == authority.key() ||
                      config.pause_authority == authority.key() @ ErrorCode::OperatorAndPauseAuthorityMismatch,
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,

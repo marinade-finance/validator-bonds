@@ -242,8 +242,7 @@ pub fn parse_settlements_from_json(
         .iter()
         .flat_map(|c| c.merkle_tree_settlements.iter().zip(std::iter::repeat(c.epoch)))
         .map(|(MerkleTreeMetaSettlement{merkle_tree, settlement}, epoch)|
-            if merkle_tree.merkle_root.is_some() {
-                let merkle_root = merkle_tree.merkle_root.unwrap();
+            if let Some(merkle_root) = merkle_tree.merkle_root {
                 let vote_account_address = merkle_tree.vote_account;
                 let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
                     config_address,

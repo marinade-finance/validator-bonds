@@ -378,7 +378,7 @@ impl ReportSerializable for VerifySettlementReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::stake::state::{Authorized, Lockup, Meta, StakeStateV2};
+    use solana_stake_interface::state::{Authorized, Lockup, Meta, StakeStateV2};
 
     const SOL: u64 = 1_000_000_000;
     const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
@@ -464,7 +464,7 @@ mod tests {
         let stake_accounts: CollectedStakeAccounts =
             vec![stake_funded_to(b_staker, 11 * SOL + MIN)];
 
-        let listed = vec![
+        let listed = [
             bond_settlement(a_addr, epoch, 15 * SOL),
             bond_settlement(b_addr, epoch, 11 * SOL),
             bond_settlement(c_addr, epoch, SOL / 4),

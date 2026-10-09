@@ -173,7 +173,8 @@ skip-tree = []
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# Agave's rocksdb fork, patched in Cargo.toml because solana-ledger needs its APIs.
+allow-git = ["https://github.com/anza-xyz/rust-rocksdb"]
 # First-party crates are routinely consumed as git dependencies pinned to a
 # tag/branch (e.g. solana-transaction-builder, solana-snapshot-parser) before
 # they're ever published to crates.io. Trust the whole marinade-finance org as
