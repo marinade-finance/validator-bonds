@@ -12,10 +12,7 @@ import 'reflect-metadata'
 
 import { installCommands } from './commands'
 
-export const logger = pino(
-  pinoConfiguration('info', { sync: true }),
-  pino.destination(),
-)
+export const logger = pino(pinoConfiguration('info', { sync: true }))
 logger.level = 'debug'
 const program = new Command()
 
