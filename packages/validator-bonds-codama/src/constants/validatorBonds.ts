@@ -25,8 +25,7 @@ export const BONDS_WITHDRAWER_AUTHORITY_SEED: ReadonlyUint8Array =
     98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121,
   ])
 
-export const PROGRAM_ID: string =
-  '"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"'
+export const PROGRAM_ID: string = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
 
 export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE: number = 56
 

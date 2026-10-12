@@ -1,8 +1,8 @@
 import { type AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 import {
-  LAMPORTS_PER_SOL,
   lamportsToSol,
   pmpeToSol,
+  solToLamports as decimalSolToLamports,
   type LoggerWrapper,
 } from '@marinade.finance/ts-common'
 import {
@@ -32,21 +32,7 @@ import type {
 
 export function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
-  // Convert via the decimal string rather than `sol * 1e9`: the float multiply
-  // introduces its own rounding on top of the double's, while toFixed(9) is
-  // exactly "the SOL amount as printed, at lamport precision". The source value
-  // is a JS double either way (ds-sam-sdk API), so ~9M SOL remains the ceiling
-  // for exactness — unreachable for bond balances.
-  const fixed = sol.toFixed(9)
-  if (fixed.includes('e')) {
-    // |sol| >= 1e21 — absurd for SOL amounts, but keep a defined behavior.
-    return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
-  }
-  const negative = fixed.startsWith('-')
-  const digits = negative ? fixed.slice(1) : fixed
-  const [whole, fraction] = digits.split('.') as [string, string]
-  const lamports = BigInt(whole) * BigInt(LAMPORTS_PER_SOL) + BigInt(fraction)
-  return negative ? -lamports : lamports
+  return decimalSolToLamports(sol)
 }
 
 /**

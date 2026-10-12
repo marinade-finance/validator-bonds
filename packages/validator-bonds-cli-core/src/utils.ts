@@ -366,11 +366,7 @@ export async function getWithdrawRequestFromAddress({
 }
 
 export function formatToSolWithAll(value: BN | number | bigint): string {
-  if (new BN(value.toString()).eq(U64_MAX)) {
-    return '<ALL>'
-  } else {
-    return `${formatLamportsAsSol(value.toString())} ${formatUnit(value, 'SOL')}`
-  }
+  return new BN(value.toString()).eq(U64_MAX) ? '<ALL>' : formatToSol(value)
 }
 
 export function formatToSol(value: BN | number | bigint): string {
