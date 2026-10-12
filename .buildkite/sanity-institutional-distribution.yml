@@ -72,7 +72,8 @@ steps:
         mv current-epoch/institutional-payouts.json .
       - buildkite-agent artifact download --include-retried-jobs settlements.json .
       - |
-        INSTITUTIONAL_VALIDATORS_COUNT_API=$$(curl -qs "$institutional_staking_api" | jq '.[] | length')
+        INSTITUTIONAL_VALIDATORS_API=$$(curl -fsS --retry 5 --retry-all-errors --retry-delay 10 --max-time 30 "$institutional_staking_api")
+        INSTITUTIONAL_VALIDATORS_COUNT_API=$$(jq '.[] | length' <<< "$$INSTITUTIONAL_VALIDATORS_API")
         INSTITUTIONAL_VALIDATORS_COUNT_JSON=$$(jq '.institutionalValidators.validators | length' ./institutional-payouts.json)
         if [[ "$$INSTITUTIONAL_VALIDATORS_COUNT_API" -ne "$$INSTITUTIONAL_VALIDATORS_COUNT_JSON" ]]; then
           echo "Mismatch in institutional validators count: API($$INSTITUTIONAL_VALIDATORS_COUNT_API) vs JSON($$INSTITUTIONAL_VALIDATORS_COUNT_JSON)"
