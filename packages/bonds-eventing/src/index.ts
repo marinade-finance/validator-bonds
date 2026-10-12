@@ -11,7 +11,10 @@ import pino from 'pino'
 
 import { installCommands } from './commands'
 
-export const logger = pino(pinoConfiguration('info'), pino.destination())
+export const logger = pino(
+  pinoConfiguration('info', { sync: true }),
+  pino.destination(),
+)
 logger.level = 'debug'
 const program = new Command()
 
