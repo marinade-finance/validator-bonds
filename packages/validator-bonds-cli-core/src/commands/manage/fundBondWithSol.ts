@@ -129,7 +129,7 @@ export async function manageFundBondWithSol({
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${formatToSol(minimalAmountToFund)} SOL. ` +
+        `${formatToSol(minimalAmountToFund)}. ` +
         'Please, use a bigger number of SOLs for funding.',
     )
   }

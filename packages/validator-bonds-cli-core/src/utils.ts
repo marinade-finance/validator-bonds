@@ -1,7 +1,11 @@
 import assert from 'assert'
 
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { logDebug, logInfo } from '@marinade.finance/ts-common'
+import {
+  formatLamportsAsSol,
+  logDebug,
+  logInfo,
+} from '@marinade.finance/ts-common'
 import {
   bondAddress,
   deserializeStakeState,
@@ -19,7 +23,6 @@ import {
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-1x'
 import {
-  LAMPORTS_PER_SOL,
   PublicKey,
   SendTransactionError,
   StakeProgram,
@@ -366,27 +369,12 @@ export function formatToSolWithAll(value: BN | number | bigint): string {
   if (new BN(value.toString()).eq(U64_MAX)) {
     return '<ALL>'
   } else {
-    return `${formatLamportsToSol(value)} ${formatUnit(value, 'SOL')}`
+    return `${formatLamportsAsSol(value.toString())} ${formatUnit(value, 'SOL')}`
   }
 }
 
 export function formatToSol(value: BN | number | bigint): string {
-  return `${formatLamportsToSol(value)} ${formatUnit(value, 'SOL')}`
-}
-
-function formatLamportsToSol(value: BN | number | bigint): string {
-  value = new BN(value.toString())
-  const { div, mod } = new BN(value).divmod(new BN(LAMPORTS_PER_SOL))
-  if (mod.isZero() && div.isZero()) {
-    return '0'
-  } else if (mod.isZero()) {
-    return div.toString()
-  } else {
-    return `${div.toString()}.${mod
-      .abs()
-      .toString()
-      .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
-  }
+  return `${formatLamportsAsSol(value.toString())} ${formatUnit(value, 'SOL')}`
 }
 
 export function formatUnit(value: BN | number | bigint, unit: string): string {
