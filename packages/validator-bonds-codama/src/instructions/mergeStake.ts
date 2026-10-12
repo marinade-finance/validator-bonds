@@ -14,7 +14,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -34,15 +33,19 @@ import {
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const MERGE_STAKE_DISCRIMINATOR = new Uint8Array([
+export const MERGE_STAKE_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   14, 3, 146, 23, 163, 105, 246, 99,
 ])
 
-export function getMergeStakeDiscriminatorBytes() {
+export function getMergeStakeDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(MERGE_STAKE_DISCRIMINATOR)
 }
 
@@ -131,40 +134,45 @@ export function getMergeStakeInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type MergeStakeAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountSourceStake extends string = string,
-  TAccountDestinationStake extends string = string,
-  TAccountStakerAuthority extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSourceStake extends InstructionAccountInput = InstructionAccountInput,
+  TAccountDestinationStake extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>
-  sourceStake: Address<TAccountSourceStake>
-  destinationStake: Address<TAccountDestinationStake>
+  config: TAccountConfig
+  sourceStake: TAccountSourceStake
+  destinationStake: TAccountDestinationStake
   /** bonds program authority PDA address: settlement staker or bonds withdrawer */
-  stakerAuthority: Address<TAccountStakerAuthority>
-  stakeHistory?: Address<TAccountStakeHistory>
-  clock?: Address<TAccountClock>
-  stakeProgram?: Address<TAccountStakeProgram>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  stakerAuthority: TAccountStakerAuthority
+  stakeHistory?: TAccountStakeHistory
+  clock?: TAccountClock
+  stakeProgram?: TAccountStakeProgram
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
   settlement: MergeStakeInstructionDataArgs['settlement']
 }
 
 export async function getMergeStakeInstructionAsync<
-  TAccountConfig extends string,
-  TAccountSourceStake extends string,
-  TAccountDestinationStake extends string,
-  TAccountStakerAuthority extends string,
-  TAccountStakeHistory extends string,
-  TAccountClock extends string,
-  TAccountStakeProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountSourceStake extends InstructionAccountInput,
+  TAccountDestinationStake extends InstructionAccountInput,
+  TAccountStakerAuthority extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: MergeStakeAsyncInput<
@@ -182,38 +190,90 @@ export async function getMergeStakeInstructionAsync<
 ): Promise<
   MergeStakeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountSourceStake,
-    TAccountDestinationStake,
-    TAccountStakerAuthority,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSourceStake,
+      InstructionAccountInputAddress<TAccountSourceStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountDestinationStake,
+      InstructionAccountInputAddress<TAccountDestinationStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakerAuthority,
+      InstructionAccountInputAddress<TAccountStakerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    sourceStake: { value: input.sourceStake ?? null, isWritable: true },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    sourceStake: {
+      value: input.sourceStake ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     destinationStake: {
       value: input.destinationStake ?? null,
+      isSigner: false,
       isWritable: true,
     },
     stakerAuthority: {
       value: input.stakerAuthority ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -237,20 +297,11 @@ export async function getMergeStakeInstructionAsync<
       'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -269,53 +320,85 @@ export async function getMergeStakeInstructionAsync<
     programAddress,
   } as MergeStakeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountSourceStake,
-    TAccountDestinationStake,
-    TAccountStakerAuthority,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSourceStake,
+      InstructionAccountInputAddress<TAccountSourceStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountDestinationStake,
+      InstructionAccountInputAddress<TAccountDestinationStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakerAuthority,
+      InstructionAccountInputAddress<TAccountStakerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type MergeStakeInput<
-  TAccountConfig extends string = string,
-  TAccountSourceStake extends string = string,
-  TAccountDestinationStake extends string = string,
-  TAccountStakerAuthority extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSourceStake extends InstructionAccountInput = InstructionAccountInput,
+  TAccountDestinationStake extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** the config account under which the bond was created */
-  config: Address<TAccountConfig>
-  sourceStake: Address<TAccountSourceStake>
-  destinationStake: Address<TAccountDestinationStake>
+  config: TAccountConfig
+  sourceStake: TAccountSourceStake
+  destinationStake: TAccountDestinationStake
   /** bonds program authority PDA address: settlement staker or bonds withdrawer */
-  stakerAuthority: Address<TAccountStakerAuthority>
-  stakeHistory?: Address<TAccountStakeHistory>
-  clock?: Address<TAccountClock>
-  stakeProgram?: Address<TAccountStakeProgram>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  stakerAuthority: TAccountStakerAuthority
+  stakeHistory?: TAccountStakeHistory
+  clock?: TAccountClock
+  stakeProgram?: TAccountStakeProgram
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
   settlement: MergeStakeInstructionDataArgs['settlement']
 }
 
 export function getMergeStakeInstruction<
-  TAccountConfig extends string,
-  TAccountSourceStake extends string,
-  TAccountDestinationStake extends string,
-  TAccountStakerAuthority extends string,
-  TAccountStakeHistory extends string,
-  TAccountClock extends string,
-  TAccountStakeProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountSourceStake extends InstructionAccountInput,
+  TAccountDestinationStake extends InstructionAccountInput,
+  TAccountStakerAuthority extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: MergeStakeInput<
@@ -332,37 +415,89 @@ export function getMergeStakeInstruction<
   config?: { programAddress?: TProgramAddress },
 ): MergeStakeInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountSourceStake,
-  TAccountDestinationStake,
-  TAccountStakerAuthority,
-  TAccountStakeHistory,
-  TAccountClock,
-  TAccountStakeProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSourceStake,
+    InstructionAccountInputAddress<TAccountSourceStake>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountDestinationStake,
+    InstructionAccountInputAddress<TAccountDestinationStake>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakerAuthority,
+    InstructionAccountInputAddress<TAccountStakerAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeHistory,
+    InstructionAccountInputAddress<TAccountStakeHistory>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountClock,
+    InstructionAccountInputAddress<TAccountClock>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeProgram,
+    InstructionAccountInputAddress<TAccountStakeProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    sourceStake: { value: input.sourceStake ?? null, isWritable: true },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    sourceStake: {
+      value: input.sourceStake ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     destinationStake: {
       value: input.destinationStake ?? null,
+      isSigner: false,
       isWritable: true,
     },
     stakerAuthority: {
       value: input.stakerAuthority ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -386,7 +521,6 @@ export function getMergeStakeInstruction<
       'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -405,15 +539,42 @@ export function getMergeStakeInstruction<
     programAddress,
   } as MergeStakeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountSourceStake,
-    TAccountDestinationStake,
-    TAccountStakerAuthority,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSourceStake,
+      InstructionAccountInputAddress<TAccountSourceStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountDestinationStake,
+      InstructionAccountInputAddress<TAccountDestinationStake>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakerAuthority,
+      InstructionAccountInputAddress<TAccountStakerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

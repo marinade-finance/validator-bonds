@@ -39,11 +39,10 @@ import {
   type ReadonlyUint8Array,
 } from '@solana/kit'
 
-export const WITHDRAW_REQUEST_DISCRIMINATOR = new Uint8Array([
-  186, 239, 174, 191, 189, 13, 47, 196,
-])
+export const WITHDRAW_REQUEST_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([186, 239, 174, 191, 189, 13, 47, 196])
 
-export function getWithdrawRequestDiscriminatorBytes() {
+export function getWithdrawRequestDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     WITHDRAW_REQUEST_DISCRIMINATOR,
   )

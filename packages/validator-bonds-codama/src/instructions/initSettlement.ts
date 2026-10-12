@@ -14,7 +14,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -34,22 +33,26 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findEventAuthorityPda, findSettlementClaimsPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const INIT_SETTLEMENT_DISCRIMINATOR = new Uint8Array([
-  152, 178, 0, 65, 52, 210, 247, 58,
-])
+export const INIT_SETTLEMENT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array(
+  [152, 178, 0, 65, 52, 210, 247, 58],
+)
 
-export function getInitSettlementDiscriminatorBytes() {
+export function getInitSettlementDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     INIT_SETTLEMENT_DISCRIMINATOR,
   )
@@ -174,27 +177,31 @@ export function getInitSettlementInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type InitSettlementAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountSettlement extends string = string,
-  TAccountSettlementClaims extends string = string,
-  TAccountOperatorAuthority extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountOperatorAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
-  settlement: Address<TAccountSettlement>
-  settlementClaims?: Address<TAccountSettlementClaims>
+  config: TAccountConfig
+  bond: TAccountBond
+  settlement: TAccountSettlement
+  settlementClaims?: TAccountSettlementClaims
   /** operator signer authority that is allowed to create the settlement account */
-  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>
+  operatorAuthority: TAccountOperatorAuthority
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
   merkleRoot: InitSettlementInstructionDataArgs['merkleRoot']
   maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim']
   maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes']
@@ -203,15 +210,15 @@ export type InitSettlementAsyncInput<
 }
 
 export async function getInitSettlementInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountSettlement extends string,
-  TAccountSettlementClaims extends string,
-  TAccountOperatorAuthority extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput,
+  TAccountOperatorAuthority extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitSettlementAsyncInput<
@@ -229,38 +236,90 @@ export async function getInitSettlementInstructionAsync<
 ): Promise<
   InitSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountOperatorAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOperatorAuthority,
+      InstructionAccountInputAddress<TAccountOperatorAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    settlement: { value: input.settlement ?? null, isWritable: true },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    settlement: {
+      value: input.settlement ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     settlementClaims: {
       value: input.settlementClaims ?? null,
+      isSigner: false,
       isWritable: true,
     },
     operatorAuthority: {
       value: input.operatorAuthority ?? null,
+      isSigner: true,
       isWritable: false,
     },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -272,42 +331,26 @@ export async function getInitSettlementInstructionAsync<
 
   // Resolve default values.
   if (!accounts.settlementClaims.value) {
-    accounts.settlementClaims.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116,
-          ]),
+    accounts.settlementClaims.value = await findSettlementClaimsPda(
+      {
+        settlement: getAddressFromResolvedInstructionAccount(
+          'settlement',
+          accounts.settlement.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'settlement',
-            accounts.settlement.value,
-          ),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -326,40 +369,71 @@ export async function getInitSettlementInstructionAsync<
     programAddress,
   } as InitSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountOperatorAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOperatorAuthority,
+      InstructionAccountInputAddress<TAccountOperatorAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type InitSettlementInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountSettlement extends string = string,
-  TAccountSettlementClaims extends string = string,
-  TAccountOperatorAuthority extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountOperatorAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
-  settlement: Address<TAccountSettlement>
-  settlementClaims: Address<TAccountSettlementClaims>
+  config: TAccountConfig
+  bond: TAccountBond
+  settlement: TAccountSettlement
+  settlementClaims: TAccountSettlementClaims
   /** operator signer authority that is allowed to create the settlement account */
-  operatorAuthority: TransactionSigner<TAccountOperatorAuthority>
+  operatorAuthority: TAccountOperatorAuthority
   /** rent exempt payer of account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
   merkleRoot: InitSettlementInstructionDataArgs['merkleRoot']
   maxTotalClaim: InitSettlementInstructionDataArgs['maxTotalClaim']
   maxMerkleNodes: InitSettlementInstructionDataArgs['maxMerkleNodes']
@@ -368,15 +442,15 @@ export type InitSettlementInput<
 }
 
 export function getInitSettlementInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountSettlement extends string,
-  TAccountSettlementClaims extends string,
-  TAccountOperatorAuthority extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput,
+  TAccountOperatorAuthority extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitSettlementInput<
@@ -393,37 +467,89 @@ export function getInitSettlementInstruction<
   config?: { programAddress?: TProgramAddress },
 ): InitSettlementInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountSettlement,
-  TAccountSettlementClaims,
-  TAccountOperatorAuthority,
-  TAccountRentPayer,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSettlement,
+    InstructionAccountInputAddress<TAccountSettlement>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSettlementClaims,
+    InstructionAccountInputAddress<TAccountSettlementClaims>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountOperatorAuthority,
+    InstructionAccountInputAddress<TAccountOperatorAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentPayer,
+    InstructionAccountInputAddress<TAccountRentPayer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    settlement: { value: input.settlement ?? null, isWritable: true },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    settlement: {
+      value: input.settlement ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     settlementClaims: {
       value: input.settlementClaims ?? null,
+      isSigner: false,
       isWritable: true,
     },
     operatorAuthority: {
       value: input.operatorAuthority ?? null,
+      isSigner: true,
       isWritable: false,
     },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -439,7 +565,6 @@ export function getInitSettlementInstruction<
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -458,15 +583,42 @@ export function getInitSettlementInstruction<
     programAddress,
   } as InitSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountOperatorAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountOperatorAuthority,
+      InstructionAccountInputAddress<TAccountOperatorAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

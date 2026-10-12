@@ -10,10 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -31,21 +29,28 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import {
+  findBondsWithdrawerAuthorityPda,
+  findEventAuthorityPda,
+  findSettlementClaimsPda,
+} from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const CANCEL_SETTLEMENT_DISCRIMINATOR = new Uint8Array([
-  33, 241, 96, 62, 228, 178, 1, 120,
-])
+export const CANCEL_SETTLEMENT_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([33, 241, 96, 62, 228, 178, 1, 120])
 
-export function getCancelSettlementDiscriminatorBytes() {
+export function getCancelSettlementDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     CANCEL_SETTLEMENT_DISCRIMINATOR,
   )
@@ -153,58 +158,66 @@ export function getCancelSettlementInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type CancelSettlementAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountSettlement extends string = string,
-  TAccountSettlementClaims extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountRentCollector extends string = string,
-  TAccountSplitRentCollector extends string = string,
-  TAccountSplitRentRefundAccount extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSplitRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSplitRentRefundAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
+  config: TAccountConfig
+  bond: TAccountBond
   /** settlement to close whenever the operator decides */
-  settlement: Address<TAccountSettlement>
-  settlementClaims?: Address<TAccountSettlementClaims>
+  settlement: TAccountSettlement
+  settlementClaims?: TAccountSettlementClaims
   /** Cancelling is permitted only to emergency or operator authority */
-  authority: TransactionSigner<TAccountAuthority>
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
-  rentCollector: Address<TAccountRentCollector>
-  splitRentCollector: Address<TAccountSplitRentCollector>
+  authority: TAccountAuthority
+  bondsWithdrawerAuthority?: TAccountBondsWithdrawerAuthority
+  rentCollector: TAccountRentCollector
+  splitRentCollector: TAccountSplitRentCollector
   /**
    * The stake account is funded to the settlement and credited to the bond's validator vote account.
    * The lamports are utilized to pay back the rent exemption of the split_stake_account
    */
-  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>
-  clock?: Address<TAccountClock>
-  stakeProgram?: Address<TAccountStakeProgram>
-  stakeHistory?: Address<TAccountStakeHistory>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  splitRentRefundAccount: TAccountSplitRentRefundAccount
+  clock?: TAccountClock
+  stakeProgram?: TAccountStakeProgram
+  stakeHistory?: TAccountStakeHistory
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export async function getCancelSettlementInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountSettlement extends string,
-  TAccountSettlementClaims extends string,
-  TAccountAuthority extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountRentCollector extends string,
-  TAccountSplitRentCollector extends string,
-  TAccountSplitRentRefundAccount extends string,
-  TAccountClock extends string,
-  TAccountStakeProgram extends string,
-  TAccountStakeHistory extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput,
+  TAccountSplitRentCollector extends InstructionAccountInput,
+  TAccountSplitRentRefundAccount extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: CancelSettlementAsyncInput<
@@ -227,54 +240,131 @@ export async function getCancelSettlementInstructionAsync<
 ): Promise<
   CancelSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountAuthority,
-    TAccountBondsWithdrawerAuthority,
-    TAccountRentCollector,
-    TAccountSplitRentCollector,
-    TAccountSplitRentRefundAccount,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountStakeHistory,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentCollector,
+      InstructionAccountInputAddress<TAccountSplitRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentRefundAccount,
+      InstructionAccountInputAddress<TAccountSplitRentRefundAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    bond: { value: input.bond ?? null, isWritable: false },
-    settlement: { value: input.settlement ?? null, isWritable: true },
-    settlementClaims: {
-      value: input.settlementClaims ?? null,
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    settlement: {
+      value: input.settlement ?? null,
+      isSigner: false,
       isWritable: true,
     },
-    authority: { value: input.authority ?? null, isWritable: false },
-    bondsWithdrawerAuthority: {
-      value: input.bondsWithdrawerAuthority ?? null,
+    settlementClaims: {
+      value: input.settlementClaims ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
       isWritable: false,
     },
-    rentCollector: { value: input.rentCollector ?? null, isWritable: true },
+    bondsWithdrawerAuthority: {
+      value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    rentCollector: {
+      value: input.rentCollector ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     splitRentCollector: {
       value: input.splitRentCollector ?? null,
+      isSigner: false,
       isWritable: true,
     },
     splitRentRefundAccount: {
       value: input.splitRentRefundAccount ?? null,
+      isSigner: false,
       isWritable: true,
     },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -283,41 +373,27 @@ export async function getCancelSettlementInstructionAsync<
 
   // Resolve default values.
   if (!accounts.settlementClaims.value) {
-    accounts.settlementClaims.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            99, 108, 97, 105, 109, 115, 95, 97, 99, 99, 111, 117, 110, 116,
-          ]),
+    accounts.settlementClaims.value = await findSettlementClaimsPda(
+      {
+        settlement: getAddressFromResolvedInstructionAccount(
+          'settlement',
+          accounts.settlement.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'settlement',
-            accounts.settlement.value,
-          ),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.bondsWithdrawerAuthority.value) {
-    accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
-            121,
-          ]),
-        ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
+    accounts.bondsWithdrawerAuthority.value =
+      await findBondsWithdrawerAuthorityPda(
+        {
+          config: getAddressFromResolvedInstructionAccount(
             'config',
             accounts.config.value,
           ),
-        ),
-      ],
-    })
+        },
+        { programAddress },
+      )
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
@@ -332,20 +408,11 @@ export async function getCancelSettlementInstructionAsync<
       'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -370,76 +437,126 @@ export async function getCancelSettlementInstructionAsync<
     programAddress,
   } as CancelSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountAuthority,
-    TAccountBondsWithdrawerAuthority,
-    TAccountRentCollector,
-    TAccountSplitRentCollector,
-    TAccountSplitRentRefundAccount,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountStakeHistory,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentCollector,
+      InstructionAccountInputAddress<TAccountSplitRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentRefundAccount,
+      InstructionAccountInputAddress<TAccountSplitRentRefundAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type CancelSettlementInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountSettlement extends string = string,
-  TAccountSettlementClaims extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountRentCollector extends string = string,
-  TAccountSplitRentCollector extends string = string,
-  TAccountSplitRentRefundAccount extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSplitRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSplitRentRefundAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
+  config: TAccountConfig
+  bond: TAccountBond
   /** settlement to close whenever the operator decides */
-  settlement: Address<TAccountSettlement>
-  settlementClaims: Address<TAccountSettlementClaims>
+  settlement: TAccountSettlement
+  settlementClaims: TAccountSettlementClaims
   /** Cancelling is permitted only to emergency or operator authority */
-  authority: TransactionSigner<TAccountAuthority>
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
-  rentCollector: Address<TAccountRentCollector>
-  splitRentCollector: Address<TAccountSplitRentCollector>
+  authority: TAccountAuthority
+  bondsWithdrawerAuthority: TAccountBondsWithdrawerAuthority
+  rentCollector: TAccountRentCollector
+  splitRentCollector: TAccountSplitRentCollector
   /**
    * The stake account is funded to the settlement and credited to the bond's validator vote account.
    * The lamports are utilized to pay back the rent exemption of the split_stake_account
    */
-  splitRentRefundAccount: Address<TAccountSplitRentRefundAccount>
-  clock?: Address<TAccountClock>
-  stakeProgram?: Address<TAccountStakeProgram>
-  stakeHistory?: Address<TAccountStakeHistory>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  splitRentRefundAccount: TAccountSplitRentRefundAccount
+  clock?: TAccountClock
+  stakeProgram?: TAccountStakeProgram
+  stakeHistory?: TAccountStakeHistory
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export function getCancelSettlementInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountSettlement extends string,
-  TAccountSettlementClaims extends string,
-  TAccountAuthority extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountRentCollector extends string,
-  TAccountSplitRentCollector extends string,
-  TAccountSplitRentRefundAccount extends string,
-  TAccountClock extends string,
-  TAccountStakeProgram extends string,
-  TAccountStakeHistory extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountSettlement extends InstructionAccountInput,
+  TAccountSettlementClaims extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput,
+  TAccountSplitRentCollector extends InstructionAccountInput,
+  TAccountSplitRentRefundAccount extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: CancelSettlementInput<
@@ -461,53 +578,130 @@ export function getCancelSettlementInstruction<
   config?: { programAddress?: TProgramAddress },
 ): CancelSettlementInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountSettlement,
-  TAccountSettlementClaims,
-  TAccountAuthority,
-  TAccountBondsWithdrawerAuthority,
-  TAccountRentCollector,
-  TAccountSplitRentCollector,
-  TAccountSplitRentRefundAccount,
-  TAccountClock,
-  TAccountStakeProgram,
-  TAccountStakeHistory,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSettlement,
+    InstructionAccountInputAddress<TAccountSettlement>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSettlementClaims,
+    InstructionAccountInputAddress<TAccountSettlementClaims>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountAuthority,
+    InstructionAccountInputAddress<TAccountAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBondsWithdrawerAuthority,
+    InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentCollector,
+    InstructionAccountInputAddress<TAccountRentCollector>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSplitRentCollector,
+    InstructionAccountInputAddress<TAccountSplitRentCollector>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSplitRentRefundAccount,
+    InstructionAccountInputAddress<TAccountSplitRentRefundAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountClock,
+    InstructionAccountInputAddress<TAccountClock>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeProgram,
+    InstructionAccountInputAddress<TAccountStakeProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeHistory,
+    InstructionAccountInputAddress<TAccountStakeHistory>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    bond: { value: input.bond ?? null, isWritable: false },
-    settlement: { value: input.settlement ?? null, isWritable: true },
-    settlementClaims: {
-      value: input.settlementClaims ?? null,
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    settlement: {
+      value: input.settlement ?? null,
+      isSigner: false,
       isWritable: true,
     },
-    authority: { value: input.authority ?? null, isWritable: false },
-    bondsWithdrawerAuthority: {
-      value: input.bondsWithdrawerAuthority ?? null,
+    settlementClaims: {
+      value: input.settlementClaims ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
       isWritable: false,
     },
-    rentCollector: { value: input.rentCollector ?? null, isWritable: true },
+    bondsWithdrawerAuthority: {
+      value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    rentCollector: {
+      value: input.rentCollector ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
     splitRentCollector: {
       value: input.splitRentCollector ?? null,
+      isSigner: false,
       isWritable: true,
     },
     splitRentRefundAccount: {
       value: input.splitRentRefundAccount ?? null,
+      isSigner: false,
       isWritable: true,
     },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -528,7 +722,6 @@ export function getCancelSettlementInstruction<
       'SysvarStakeHistory1111111111111111111111111' as Address<'SysvarStakeHistory1111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -553,20 +746,62 @@ export function getCancelSettlementInstruction<
     programAddress,
   } as CancelSettlementInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountSettlement,
-    TAccountSettlementClaims,
-    TAccountAuthority,
-    TAccountBondsWithdrawerAuthority,
-    TAccountRentCollector,
-    TAccountSplitRentCollector,
-    TAccountSplitRentRefundAccount,
-    TAccountClock,
-    TAccountStakeProgram,
-    TAccountStakeHistory,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlement,
+      InstructionAccountInputAddress<TAccountSettlement>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentCollector,
+      InstructionAccountInputAddress<TAccountSplitRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitRentRefundAccount,
+      InstructionAccountInputAddress<TAccountSplitRentRefundAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
