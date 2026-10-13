@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs'
 
+import { pmpeToApy } from '@marinade.finance/ts-common'
 import { parse } from 'yaml'
 
 import {
@@ -14,8 +15,6 @@ import {
 } from './settlement-utils'
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
-
-const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60
 
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
@@ -120,8 +119,6 @@ async function main() {
     )
     process.exit(1)
   }
-  const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
-
   const stakerExtras = sumStakerExtras(settlements)
   const psrToStakers = settlements.reduce(
     (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
@@ -136,7 +133,9 @@ async function main() {
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
-    (Math.pow(1 + p / 1000, epochsPerYear) - 1) * 100
+    pmpeToApy(p, cur.time - prev.time)
+      .times(100)
+      .toNumber()
   const apyGross = apyFor(pmpeGross)
   const apyAdj = apyFor(pmpeAdj)
   const apyMax = apyFor(pmpeMax)

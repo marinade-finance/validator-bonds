@@ -255,7 +255,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__WRONG_STAKE_ACCOUNT_WITHDRAWER
 
 let validatorBondsErrorMessages: Record<ValidatorBondsError, string> | undefined
-if (process.env.NODE_ENV !== 'production') {
+if (process.env['NODE_ENV'] !== 'production') {
   validatorBondsErrorMessages = {
     [VALIDATOR_BONDS_ERROR__ALREADY_PAUSED]: `Requested pause and already Paused`,
     [VALIDATOR_BONDS_ERROR__BITMAP_INDEX_OUT_OF_BONDS]: `Bitmap index out of bounds`,
@@ -342,7 +342,7 @@ if (process.env.NODE_ENV !== 'production') {
 export function getValidatorBondsErrorMessage(
   code: ValidatorBondsError,
 ): string {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env['NODE_ENV'] !== 'production') {
     return (validatorBondsErrorMessages as Record<ValidatorBondsError, string>)[
       code
     ]

@@ -10,10 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -31,21 +29,25 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findBondsWithdrawerAuthorityPda, findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const FUND_BOND_DISCRIMINATOR = new Uint8Array([
+export const FUND_BOND_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   58, 44, 212, 175, 30, 17, 68, 62,
 ])
 
-export function getFundBondDiscriminatorBytes() {
+export function getFundBondDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(FUND_BOND_DISCRIMINATOR)
 }
 
@@ -133,44 +135,50 @@ export function getFundBondInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type FundBondAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountStakeAccount extends string = string,
-  TAccountStakeAuthority extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
+  config: TAccountConfig
   /** bond account to be deposited to with the provided stake account */
-  bond: Address<TAccountBond>
+  bond: TAccountBond
   /** new owner of the stake_account, it's the bonds withdrawer authority */
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
+  bondsWithdrawerAuthority?: TAccountBondsWithdrawerAuthority
   /** stake account to be deposited */
-  stakeAccount: Address<TAccountStakeAccount>
+  stakeAccount: TAccountStakeAccount
   /** authority signature permitting to change the stake_account authorities */
-  stakeAuthority: TransactionSigner<TAccountStakeAuthority>
-  clock?: Address<TAccountClock>
-  stakeHistory?: Address<TAccountStakeHistory>
-  stakeProgram?: Address<TAccountStakeProgram>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  stakeAuthority: TAccountStakeAuthority
+  clock?: TAccountClock
+  stakeHistory?: TAccountStakeHistory
+  stakeProgram?: TAccountStakeProgram
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export async function getFundBondInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountStakeAccount extends string,
-  TAccountStakeAuthority extends string,
-  TAccountClock extends string,
-  TAccountStakeHistory extends string,
-  TAccountStakeProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput,
+  TAccountStakeAuthority extends InstructionSignerInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: FundBondAsyncInput<
@@ -189,37 +197,95 @@ export async function getFundBondInstructionAsync<
 ): Promise<
   FundBondInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountStakeAuthority,
-    TAccountClock,
-    TAccountStakeHistory,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAuthority,
+      InstructionAccountInputAddress<TAccountStakeAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
     bondsWithdrawerAuthority: {
       value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeAccount: { value: input.stakeAccount ?? null, isWritable: true },
-    stakeAuthority: { value: input.stakeAuthority ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeAccount: {
+      value: input.stakeAccount ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    stakeAuthority: {
+      value: input.stakeAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -228,23 +294,16 @@ export async function getFundBondInstructionAsync<
 
   // Resolve default values.
   if (!accounts.bondsWithdrawerAuthority.value) {
-    accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
-            121,
-          ]),
-        ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
+    accounts.bondsWithdrawerAuthority.value =
+      await findBondsWithdrawerAuthorityPda(
+        {
+          config: getAddressFromResolvedInstructionAccount(
             'config',
             accounts.config.value,
           ),
-        ),
-      ],
-    })
+        },
+        { programAddress },
+      )
   }
   if (!accounts.clock.value) {
     accounts.clock.value =
@@ -259,20 +318,11 @@ export async function getFundBondInstructionAsync<
       'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -293,58 +343,94 @@ export async function getFundBondInstructionAsync<
     programAddress,
   } as FundBondInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountStakeAuthority,
-    TAccountClock,
-    TAccountStakeHistory,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAuthority,
+      InstructionAccountInputAddress<TAccountStakeAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type FundBondInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountStakeAccount extends string = string,
-  TAccountStakeAuthority extends string = string,
-  TAccountClock extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
+  config: TAccountConfig
   /** bond account to be deposited to with the provided stake account */
-  bond: Address<TAccountBond>
+  bond: TAccountBond
   /** new owner of the stake_account, it's the bonds withdrawer authority */
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
+  bondsWithdrawerAuthority: TAccountBondsWithdrawerAuthority
   /** stake account to be deposited */
-  stakeAccount: Address<TAccountStakeAccount>
+  stakeAccount: TAccountStakeAccount
   /** authority signature permitting to change the stake_account authorities */
-  stakeAuthority: TransactionSigner<TAccountStakeAuthority>
-  clock?: Address<TAccountClock>
-  stakeHistory?: Address<TAccountStakeHistory>
-  stakeProgram?: Address<TAccountStakeProgram>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  stakeAuthority: TAccountStakeAuthority
+  clock?: TAccountClock
+  stakeHistory?: TAccountStakeHistory
+  stakeProgram?: TAccountStakeProgram
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export function getFundBondInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountStakeAccount extends string,
-  TAccountStakeAuthority extends string,
-  TAccountClock extends string,
-  TAccountStakeHistory extends string,
-  TAccountStakeProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput,
+  TAccountStakeAuthority extends InstructionSignerInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: FundBondInput<
@@ -362,36 +448,94 @@ export function getFundBondInstruction<
   config?: { programAddress?: TProgramAddress },
 ): FundBondInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountBondsWithdrawerAuthority,
-  TAccountStakeAccount,
-  TAccountStakeAuthority,
-  TAccountClock,
-  TAccountStakeHistory,
-  TAccountStakeProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBondsWithdrawerAuthority,
+    InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeAccount,
+    InstructionAccountInputAddress<TAccountStakeAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeAuthority,
+    InstructionAccountInputAddress<TAccountStakeAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountClock,
+    InstructionAccountInputAddress<TAccountClock>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeHistory,
+    InstructionAccountInputAddress<TAccountStakeHistory>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeProgram,
+    InstructionAccountInputAddress<TAccountStakeProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
     bondsWithdrawerAuthority: {
       value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeAccount: { value: input.stakeAccount ?? null, isWritable: true },
-    stakeAuthority: { value: input.stakeAuthority ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeAccount: {
+      value: input.stakeAccount ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    stakeAuthority: {
+      value: input.stakeAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -412,7 +556,6 @@ export function getFundBondInstruction<
       'Stake11111111111111111111111111111111111111' as Address<'Stake11111111111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -433,16 +576,46 @@ export function getFundBondInstruction<
     programAddress,
   } as FundBondInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountStakeAuthority,
-    TAccountClock,
-    TAccountStakeHistory,
-    TAccountStakeProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAuthority,
+      InstructionAccountInputAddress<TAccountStakeAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

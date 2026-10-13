@@ -10,10 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -31,22 +29,30 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import {
+  findBondPda,
+  findBondsWithdrawerAuthorityPda,
+  findEventAuthorityPda,
+  findWithdrawRequestPda,
+} from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const CLAIM_WITHDRAW_REQUEST_DISCRIMINATOR = new Uint8Array([
-  48, 232, 23, 52, 20, 134, 122, 118,
-])
+export const CLAIM_WITHDRAW_REQUEST_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([48, 232, 23, 52, 20, 134, 122, 118])
 
-export function getClaimWithdrawRequestDiscriminatorBytes() {
+export function getClaimWithdrawRequestDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     CLAIM_WITHDRAW_REQUEST_DISCRIMINATOR,
   )
@@ -168,73 +174,82 @@ export function getClaimWithdrawRequestInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type ClaimWithdrawRequestAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountWithdrawRequest extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountStakeAccount extends string = string,
-  TAccountWithdrawer extends string = string,
-  TAccountSplitStakeAccount extends string = string,
-  TAccountSplitStakeRentPayer extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountClock extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountWithdrawer extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSplitStakeAccount extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountSplitStakeRentPayer extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** the config root configuration account */
-  config: Address<TAccountConfig>
-  bond?: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond?: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** validator vote account node identity or bond authority may claim */
-  authority: TransactionSigner<TAccountAuthority>
-  withdrawRequest?: Address<TAccountWithdrawRequest>
-  bondsWithdrawerAuthority?: Address<TAccountBondsWithdrawerAuthority>
+  authority: TAccountAuthority
+  withdrawRequest?: TAccountWithdrawRequest
+  bondsWithdrawerAuthority?: TAccountBondsWithdrawerAuthority
   /**
    * stake account to be used to withdraw the funds
    * this stake account has to be delegated to the validator vote account associated to the bond
    */
-  stakeAccount: Address<TAccountStakeAccount>
+  stakeAccount: TAccountStakeAccount
   /** New owner of the stake account, it will be accounted to the withdrawer authority */
-  withdrawer: Address<TAccountWithdrawer>
+  withdrawer: TAccountWithdrawer
   /**
    * this is a whatever address that does not exist
    * when withdrawing needs to split the provided account this will be used as a new stake account
    */
-  splitStakeAccount: TransactionSigner<TAccountSplitStakeAccount>
+  splitStakeAccount: TAccountSplitStakeAccount
   /**
    * when the split_stake_account is created the rent for creation is taken from here
    * when the split_stake_account is not created then no rent is paid
    */
-  splitStakeRentPayer: TransactionSigner<TAccountSplitStakeRentPayer>
-  stakeProgram?: Address<TAccountStakeProgram>
-  systemProgram?: Address<TAccountSystemProgram>
-  stakeHistory?: Address<TAccountStakeHistory>
-  clock?: Address<TAccountClock>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  splitStakeRentPayer: TAccountSplitStakeRentPayer
+  stakeProgram?: TAccountStakeProgram
+  systemProgram?: TAccountSystemProgram
+  stakeHistory?: TAccountStakeHistory
+  clock?: TAccountClock
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export async function getClaimWithdrawRequestInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountAuthority extends string,
-  TAccountWithdrawRequest extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountStakeAccount extends string,
-  TAccountWithdrawer extends string,
-  TAccountSplitStakeAccount extends string,
-  TAccountSplitStakeRentPayer extends string,
-  TAccountStakeProgram extends string,
-  TAccountSystemProgram extends string,
-  TAccountStakeHistory extends string,
-  TAccountClock extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput,
+  TAccountWithdrawer extends InstructionAccountInput,
+  TAccountSplitStakeAccount extends InstructionSignerInput,
+  TAccountSplitStakeRentPayer extends InstructionSignerInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ClaimWithdrawRequestAsyncInput<
@@ -259,55 +274,149 @@ export async function getClaimWithdrawRequestInstructionAsync<
 ): Promise<
   ClaimWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountWithdrawer,
-    TAccountSplitStakeAccount,
-    TAccountSplitStakeRentPayer,
-    TAccountStakeProgram,
-    TAccountSystemProgram,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawer,
+      InstructionAccountInputAddress<TAccountWithdrawer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeAccount,
+      InstructionAccountInputAddress<TAccountSplitStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeRentPayer,
+      InstructionAccountInputAddress<TAccountSplitStakeRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    authority: { value: input.authority ?? null, isWritable: false },
-    withdrawRequest: { value: input.withdrawRequest ?? null, isWritable: true },
-    bondsWithdrawerAuthority: {
-      value: input.bondsWithdrawerAuthority ?? null,
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeAccount: { value: input.stakeAccount ?? null, isWritable: true },
-    withdrawer: { value: input.withdrawer ?? null, isWritable: false },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    withdrawRequest: {
+      value: input.withdrawRequest ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    bondsWithdrawerAuthority: {
+      value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeAccount: {
+      value: input.stakeAccount ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    withdrawer: {
+      value: input.withdrawer ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
     splitStakeAccount: {
       value: input.splitStakeAccount ?? null,
+      isSigner: true,
       isWritable: true,
     },
     splitStakeRentPayer: {
       value: input.splitStakeRentPayer ?? null,
+      isSigner: true,
       isWritable: true,
     },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -316,63 +425,42 @@ export async function getClaimWithdrawRequestInstructionAsync<
 
   // Resolve default values.
   if (!accounts.bond.value) {
-    accounts.bond.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ]),
+    accounts.bond.value = await findBondPda(
+      {
+        config: getAddressFromResolvedInstructionAccount(
+          'config',
+          accounts.config.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'config',
-            accounts.config.value,
-          ),
+        voteAccount: getAddressFromResolvedInstructionAccount(
+          'voteAccount',
+          accounts.voteAccount.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'voteAccount',
-            accounts.voteAccount.value,
-          ),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.withdrawRequest.value) {
-    accounts.withdrawRequest.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117,
-            110, 116,
-          ]),
+    accounts.withdrawRequest.value = await findWithdrawRequestPda(
+      {
+        bond: getAddressFromResolvedInstructionAccount(
+          'bond',
+          accounts.bond.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount('bond', accounts.bond.value),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.bondsWithdrawerAuthority.value) {
-    accounts.bondsWithdrawerAuthority.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116,
-            121,
-          ]),
-        ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
+    accounts.bondsWithdrawerAuthority.value =
+      await findBondsWithdrawerAuthorityPda(
+        {
+          config: getAddressFromResolvedInstructionAccount(
             'config',
             accounts.config.value,
           ),
-        ),
-      ],
-    })
+        },
+        { programAddress },
+      )
   }
   if (!accounts.stakeProgram.value) {
     accounts.stakeProgram.value =
@@ -391,20 +479,11 @@ export async function getClaimWithdrawRequestInstructionAsync<
       'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -431,93 +510,150 @@ export async function getClaimWithdrawRequestInstructionAsync<
     programAddress,
   } as ClaimWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountWithdrawer,
-    TAccountSplitStakeAccount,
-    TAccountSplitStakeRentPayer,
-    TAccountStakeProgram,
-    TAccountSystemProgram,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawer,
+      InstructionAccountInputAddress<TAccountWithdrawer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeAccount,
+      InstructionAccountInputAddress<TAccountSplitStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeRentPayer,
+      InstructionAccountInputAddress<TAccountSplitStakeRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type ClaimWithdrawRequestInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountWithdrawRequest extends string = string,
-  TAccountBondsWithdrawerAuthority extends string = string,
-  TAccountStakeAccount extends string = string,
-  TAccountWithdrawer extends string = string,
-  TAccountSplitStakeAccount extends string = string,
-  TAccountSplitStakeRentPayer extends string = string,
-  TAccountStakeProgram extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountStakeHistory extends string = string,
-  TAccountClock extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountWithdrawer extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSplitStakeAccount extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountSplitStakeRentPayer extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountStakeProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** the config root configuration account */
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** validator vote account node identity or bond authority may claim */
-  authority: TransactionSigner<TAccountAuthority>
-  withdrawRequest: Address<TAccountWithdrawRequest>
-  bondsWithdrawerAuthority: Address<TAccountBondsWithdrawerAuthority>
+  authority: TAccountAuthority
+  withdrawRequest: TAccountWithdrawRequest
+  bondsWithdrawerAuthority: TAccountBondsWithdrawerAuthority
   /**
    * stake account to be used to withdraw the funds
    * this stake account has to be delegated to the validator vote account associated to the bond
    */
-  stakeAccount: Address<TAccountStakeAccount>
+  stakeAccount: TAccountStakeAccount
   /** New owner of the stake account, it will be accounted to the withdrawer authority */
-  withdrawer: Address<TAccountWithdrawer>
+  withdrawer: TAccountWithdrawer
   /**
    * this is a whatever address that does not exist
    * when withdrawing needs to split the provided account this will be used as a new stake account
    */
-  splitStakeAccount: TransactionSigner<TAccountSplitStakeAccount>
+  splitStakeAccount: TAccountSplitStakeAccount
   /**
    * when the split_stake_account is created the rent for creation is taken from here
    * when the split_stake_account is not created then no rent is paid
    */
-  splitStakeRentPayer: TransactionSigner<TAccountSplitStakeRentPayer>
-  stakeProgram?: Address<TAccountStakeProgram>
-  systemProgram?: Address<TAccountSystemProgram>
-  stakeHistory?: Address<TAccountStakeHistory>
-  clock?: Address<TAccountClock>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  splitStakeRentPayer: TAccountSplitStakeRentPayer
+  stakeProgram?: TAccountStakeProgram
+  systemProgram?: TAccountSystemProgram
+  stakeHistory?: TAccountStakeHistory
+  clock?: TAccountClock
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export function getClaimWithdrawRequestInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountAuthority extends string,
-  TAccountWithdrawRequest extends string,
-  TAccountBondsWithdrawerAuthority extends string,
-  TAccountStakeAccount extends string,
-  TAccountWithdrawer extends string,
-  TAccountSplitStakeAccount extends string,
-  TAccountSplitStakeRentPayer extends string,
-  TAccountStakeProgram extends string,
-  TAccountSystemProgram extends string,
-  TAccountStakeHistory extends string,
-  TAccountClock extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput,
+  TAccountBondsWithdrawerAuthority extends InstructionAccountInput,
+  TAccountStakeAccount extends InstructionAccountInput,
+  TAccountWithdrawer extends InstructionAccountInput,
+  TAccountSplitStakeAccount extends InstructionSignerInput,
+  TAccountSplitStakeRentPayer extends InstructionSignerInput,
+  TAccountStakeProgram extends InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountStakeHistory extends InstructionAccountInput,
+  TAccountClock extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ClaimWithdrawRequestInput<
@@ -541,54 +677,148 @@ export function getClaimWithdrawRequestInstruction<
   config?: { programAddress?: TProgramAddress },
 ): ClaimWithdrawRequestInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountVoteAccount,
-  TAccountAuthority,
-  TAccountWithdrawRequest,
-  TAccountBondsWithdrawerAuthority,
-  TAccountStakeAccount,
-  TAccountWithdrawer,
-  TAccountSplitStakeAccount,
-  TAccountSplitStakeRentPayer,
-  TAccountStakeProgram,
-  TAccountSystemProgram,
-  TAccountStakeHistory,
-  TAccountClock,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountVoteAccount,
+    InstructionAccountInputAddress<TAccountVoteAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountAuthority,
+    InstructionAccountInputAddress<TAccountAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountWithdrawRequest,
+    InstructionAccountInputAddress<TAccountWithdrawRequest>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBondsWithdrawerAuthority,
+    InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeAccount,
+    InstructionAccountInputAddress<TAccountStakeAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountWithdrawer,
+    InstructionAccountInputAddress<TAccountWithdrawer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSplitStakeAccount,
+    InstructionAccountInputAddress<TAccountSplitStakeAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSplitStakeRentPayer,
+    InstructionAccountInputAddress<TAccountSplitStakeRentPayer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeProgram,
+    InstructionAccountInputAddress<TAccountStakeProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountStakeHistory,
+    InstructionAccountInputAddress<TAccountStakeHistory>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountClock,
+    InstructionAccountInputAddress<TAccountClock>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    authority: { value: input.authority ?? null, isWritable: false },
-    withdrawRequest: { value: input.withdrawRequest ?? null, isWritable: true },
-    bondsWithdrawerAuthority: {
-      value: input.bondsWithdrawerAuthority ?? null,
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
       isWritable: false,
     },
-    stakeAccount: { value: input.stakeAccount ?? null, isWritable: true },
-    withdrawer: { value: input.withdrawer ?? null, isWritable: false },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    withdrawRequest: {
+      value: input.withdrawRequest ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    bondsWithdrawerAuthority: {
+      value: input.bondsWithdrawerAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeAccount: {
+      value: input.stakeAccount ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    withdrawer: {
+      value: input.withdrawer ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
     splitStakeAccount: {
       value: input.splitStakeAccount ?? null,
+      isSigner: true,
       isWritable: true,
     },
     splitStakeRentPayer: {
       value: input.splitStakeRentPayer ?? null,
+      isSigner: true,
       isWritable: true,
     },
-    stakeProgram: { value: input.stakeProgram ?? null, isWritable: false },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    stakeHistory: { value: input.stakeHistory ?? null, isWritable: false },
-    clock: { value: input.clock ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    stakeProgram: {
+      value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    stakeHistory: {
+      value: input.stakeHistory ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -613,7 +843,6 @@ export function getClaimWithdrawRequestInstruction<
       'SysvarC1ock11111111111111111111111111111111' as Address<'SysvarC1ock11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -640,22 +869,70 @@ export function getClaimWithdrawRequestInstruction<
     programAddress,
   } as ClaimWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountBondsWithdrawerAuthority,
-    TAccountStakeAccount,
-    TAccountWithdrawer,
-    TAccountSplitStakeAccount,
-    TAccountSplitStakeRentPayer,
-    TAccountStakeProgram,
-    TAccountSystemProgram,
-    TAccountStakeHistory,
-    TAccountClock,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondsWithdrawerAuthority,
+      InstructionAccountInputAddress<TAccountBondsWithdrawerAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeAccount,
+      InstructionAccountInputAddress<TAccountStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawer,
+      InstructionAccountInputAddress<TAccountWithdrawer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeAccount,
+      InstructionAccountInputAddress<TAccountSplitStakeAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSplitStakeRentPayer,
+      InstructionAccountInputAddress<TAccountSplitStakeRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeProgram,
+      InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountStakeHistory,
+      InstructionAccountInputAddress<TAccountStakeHistory>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountClock,
+      InstructionAccountInputAddress<TAccountClock>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

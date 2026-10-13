@@ -7,6 +7,12 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 
 // eslint-disable-next-line import/no-extraneous-dependencies
+import {
+  SECONDS_PER_YEAR,
+  epochsPerYearFromDuration,
+  pmpeToApy,
+} from '@marinade.finance/ts-common'
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { parse as parseYaml } from 'yaml'
 
 import {
@@ -155,8 +161,8 @@ const cli = [
   'bid-distribution-cli',
   '--',
 ]
-const apy = (p: number, n: number) =>
-  ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
+const apy = (p: number, epochSeconds: number) =>
+  pmpeToApy(p, epochSeconds).times(100).toFixed(2) + '%'
 const sol = (v: number) => (Math.round((v / 1e9) * 1000) / 1000).toFixed(3)
 
 const GCS_BONDS = 'gs://marinade-validator-bonds-mainnet'
@@ -288,13 +294,17 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     continue
   }
   const prev = ssr.epochs.find(e => e.epoch === epoch - 1)
-  const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
+  const epochSeconds = prev
+    ? epochData.time - prev.time
+    : SECONDS_PER_YEAR / 182
 
   console.log(`- epoch: ${epoch}`)
   console.log(`  time: ${epochData.time}`)
   console.log(`  ssr_pmpe: ${epochData.pmpe}`)
-  console.log(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
-  console.log(`  epochs_per_year: ${Math.floor(epy)}`)
+  console.log(`  ssr_apy: ${apy(epochData.pmpe, epochSeconds)}`)
+  console.log(
+    `  epochs_per_year: ${Math.floor(epochsPerYearFromDuration(epochSeconds))}`,
+  )
   console.log('  simulations:')
 
   const inp = `${dataDir}/${epoch}/inputs`
@@ -405,9 +415,9 @@ for (let epoch = epochStart; epoch <= epochEnd; epoch++) {
     console.log(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
     console.log(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     console.log(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
-    console.log(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
-    console.log(`    apy_adj: ${apy(pmpeAdj, epy)}`)
-    console.log(`    apy_max: ${apy(pmpeMax, epy)}`)
+    console.log(`    apy_pre_fee: ${apy(pmpePreFee, epochSeconds)}`)
+    console.log(`    apy_adj: ${apy(pmpeAdj, epochSeconds)}`)
+    console.log(`    apy_max: ${apy(pmpeMax, epochSeconds)}`)
     console.log(`    fee_sol_adj: ${sol(feeAdj)}`)
     console.log(`    fee_sol_max: ${sol((totalRewards * maxFee) / 10000)}`)
     if (protectedEventClaims > 0)

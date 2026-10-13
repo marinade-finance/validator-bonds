@@ -1,6 +1,6 @@
 {
   "name": "@marinade.finance/validator-bonds-codama",
-  "version": "3.1.0",
+  "version": "4.0.1",
   "description": "Validator Bonds client generated with Codama",
   "repository": {
     "type": "git",
@@ -28,12 +28,12 @@
     "DeFi"
   ],
   "peerDependencies": {
-    "@solana/kit": "^6.1.0"
+    "@solana/kit": "^8.3.0"
   },
   "devDependencies": {
-    "@solana/kit": "^6.1.0"
+    "@solana/kit": "^8.3.0"
   },
   "dependencies": {
-    "@solana/program-client-core": "^6.1.0"
+    "@solana/program-client-core": "^8.3.0"
   }
 }

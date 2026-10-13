@@ -59,7 +59,7 @@ export function launchCliProgram({
   cliUsageConfig?: CliUsageConfig
   bondsApiConfig?: { enabled: boolean }
 }) {
-  const logger = pino(pinoConfiguration('info'), pino.destination())
+  const logger = pino(pinoConfiguration('info'))
   logger.level = 'debug'
   const program = new Command()
 
