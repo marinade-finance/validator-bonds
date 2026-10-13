@@ -10,10 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -31,15 +29,19 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findBondPda, findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 import {
   getProductTypeConfigDecoder,
@@ -52,11 +54,10 @@ import {
   type ProductTypeConfigArgs,
 } from '../types'
 
-export const INIT_BOND_PRODUCT_DISCRIMINATOR = new Uint8Array([
-  228, 35, 205, 119, 63, 209, 72, 56,
-])
+export const INIT_BOND_PRODUCT_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([228, 35, 205, 119, 63, 209, 72, 56])
 
-export function getInitBondProductDiscriminatorBytes() {
+export function getInitBondProductDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     INIT_BOND_PRODUCT_DISCRIMINATOR,
   )
@@ -153,46 +154,48 @@ export function getInitBondProductInstructionDataCodec(): Codec<
 }
 
 export type InitBondProductAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountBondProduct extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBondProduct extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** The config account that the bond belongs to */
-  config: Address<TAccountConfig>
-  bond?: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond?: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** The bond product account being created */
-  bondProduct: Address<TAccountBondProduct>
+  bondProduct: TAccountBondProduct
   /**
    * permission-ed: the validator identity or bond authority signs the instruction, InitBondProductArgs applied
    * permission-less: no signature, default configuration for the bond product
    */
-  authority?: TransactionSigner<TAccountAuthority>
+  authority?: TAccountAuthority
   /** Rent payer for the bond product account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
   productType: InitBondProductInstructionDataArgs['productType']
   configData: InitBondProductInstructionDataArgs['configData']
 }
 
 export async function getInitBondProductInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountBondProduct extends string,
-  TAccountAuthority extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountBondProduct extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitBondProductAsyncInput<
@@ -210,32 +213,90 @@ export async function getInitBondProductInstructionAsync<
 ): Promise<
   InitBondProductInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountBondProduct,
-    TAccountAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondProduct,
+      InstructionAccountInputAddress<TAccountBondProduct>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: true },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    bondProduct: { value: input.bondProduct ?? null, isWritable: true },
-    authority: { value: input.authority ?? null, isWritable: false },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: true },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    bondProduct: {
+      value: input.bondProduct ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -247,48 +308,30 @@ export async function getInitBondProductInstructionAsync<
 
   // Resolve default values.
   if (!accounts.bond.value) {
-    accounts.bond.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ]),
+    accounts.bond.value = await findBondPda(
+      {
+        config: getAddressFromResolvedInstructionAccount(
+          'config',
+          accounts.config.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'config',
-            accounts.config.value,
-          ),
+        voteAccount: getAddressFromResolvedInstructionAccount(
+          'voteAccount',
+          accounts.voteAccount.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'voteAccount',
-            accounts.voteAccount.value,
-          ),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -307,59 +350,88 @@ export async function getInitBondProductInstructionAsync<
     programAddress,
   } as InitBondProductInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountBondProduct,
-    TAccountAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondProduct,
+      InstructionAccountInputAddress<TAccountBondProduct>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type InitBondProductInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountBondProduct extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBondProduct extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** The config account that the bond belongs to */
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** The bond product account being created */
-  bondProduct: Address<TAccountBondProduct>
+  bondProduct: TAccountBondProduct
   /**
    * permission-ed: the validator identity or bond authority signs the instruction, InitBondProductArgs applied
    * permission-less: no signature, default configuration for the bond product
    */
-  authority?: TransactionSigner<TAccountAuthority>
+  authority?: TAccountAuthority
   /** Rent payer for the bond product account creation */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
   productType: InitBondProductInstructionDataArgs['productType']
   configData: InitBondProductInstructionDataArgs['configData']
 }
 
 export function getInitBondProductInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountBondProduct extends string,
-  TAccountAuthority extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountBondProduct extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitBondProductInput<
@@ -376,31 +448,89 @@ export function getInitBondProductInstruction<
   config?: { programAddress?: TProgramAddress },
 ): InitBondProductInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountVoteAccount,
-  TAccountBondProduct,
-  TAccountAuthority,
-  TAccountRentPayer,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountVoteAccount,
+    InstructionAccountInputAddress<TAccountVoteAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBondProduct,
+    InstructionAccountInputAddress<TAccountBondProduct>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountAuthority,
+    InstructionAccountInputAddress<TAccountAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentPayer,
+    InstructionAccountInputAddress<TAccountRentPayer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: true },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    bondProduct: { value: input.bondProduct ?? null, isWritable: true },
-    authority: { value: input.authority ?? null, isWritable: false },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: true },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    bondProduct: {
+      value: input.bondProduct ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -416,7 +546,6 @@ export function getInitBondProductInstruction<
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -435,15 +564,42 @@ export function getInitBondProductInstruction<
     programAddress,
   } as InitBondProductInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountBondProduct,
-    TAccountAuthority,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBondProduct,
+      InstructionAccountInputAddress<TAccountBondProduct>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

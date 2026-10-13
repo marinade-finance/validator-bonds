@@ -12,7 +12,6 @@ import {
   fixEncoderSize,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -30,20 +29,23 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const EMERGENCY_RESUME_DISCRIMINATOR = new Uint8Array([
-  0, 243, 48, 185, 6, 73, 190, 83,
-])
+export const EMERGENCY_RESUME_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([0, 243, 48, 185, 6, 73, 190, 83])
 
-export function getEmergencyResumeDiscriminatorBytes() {
+export function getEmergencyResumeDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     EMERGENCY_RESUME_DISCRIMINATOR,
   )
@@ -107,22 +109,24 @@ export function getEmergencyResumeInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type EmergencyResumeAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountPauseAuthority extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountPauseAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  pauseAuthority: TransactionSigner<TAccountPauseAuthority>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  config: TAccountConfig
+  pauseAuthority: TAccountPauseAuthority
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export async function getEmergencyResumeInstructionAsync<
-  TAccountConfig extends string,
-  TAccountPauseAuthority extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountPauseAuthority extends InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: EmergencyResumeAsyncInput<
@@ -135,22 +139,49 @@ export async function getEmergencyResumeInstructionAsync<
 ): Promise<
   EmergencyResumeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountPauseAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountPauseAuthority,
+      InstructionAccountInputAddress<TAccountPauseAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    pauseAuthority: { value: input.pauseAuthority ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    pauseAuthority: {
+      value: input.pauseAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -159,20 +190,11 @@ export async function getEmergencyResumeInstructionAsync<
 
   // Resolve default values.
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -184,30 +206,44 @@ export async function getEmergencyResumeInstructionAsync<
     programAddress,
   } as EmergencyResumeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountPauseAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountPauseAuthority,
+      InstructionAccountInputAddress<TAccountPauseAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type EmergencyResumeInput<
-  TAccountConfig extends string = string,
-  TAccountPauseAuthority extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountPauseAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  pauseAuthority: TransactionSigner<TAccountPauseAuthority>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  config: TAccountConfig
+  pauseAuthority: TAccountPauseAuthority
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export function getEmergencyResumeInstruction<
-  TAccountConfig extends string,
-  TAccountPauseAuthority extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountPauseAuthority extends InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: EmergencyResumeInput<
@@ -219,28 +255,54 @@ export function getEmergencyResumeInstruction<
   config?: { programAddress?: TProgramAddress },
 ): EmergencyResumeInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountPauseAuthority,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountPauseAuthority,
+    InstructionAccountInputAddress<TAccountPauseAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    pauseAuthority: { value: input.pauseAuthority ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    pauseAuthority: {
+      value: input.pauseAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedInstructionAccount
   >
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -252,10 +314,22 @@ export function getEmergencyResumeInstruction<
     programAddress,
   } as EmergencyResumeInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountPauseAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountPauseAuthority,
+      InstructionAccountInputAddress<TAccountPauseAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

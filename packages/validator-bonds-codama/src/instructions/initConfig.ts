@@ -14,7 +14,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -33,20 +32,24 @@ import {
   type InstructionWithData,
   type ReadonlyAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableSignerAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const INIT_CONFIG_DISCRIMINATOR = new Uint8Array([
+export const INIT_CONFIG_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   23, 235, 115, 232, 168, 96, 1, 231,
 ])
 
-export function getInitConfigDiscriminatorBytes() {
+export function getInitConfigDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(INIT_CONFIG_DISCRIMINATOR)
 }
 
@@ -137,18 +140,20 @@ export function getInitConfigInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type InitConfigAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionSignerInput = InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: TransactionSigner<TAccountConfig>
+  config: TAccountConfig
   /** rent exempt payer for the config account */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
   adminAuthority: InitConfigInstructionDataArgs['adminAuthority']
   operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority']
   epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement']
@@ -157,11 +162,11 @@ export type InitConfigAsyncInput<
 }
 
 export async function getInitConfigInstructionAsync<
-  TAccountConfig extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitConfigAsyncInput<
@@ -175,24 +180,58 @@ export async function getInitConfigInstructionAsync<
 ): Promise<
   InitConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: true, isWritable: true },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -208,20 +247,11 @@ export async function getInitConfigInstructionAsync<
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -236,27 +266,44 @@ export async function getInitConfigInstructionAsync<
     programAddress,
   } as InitConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type InitConfigInput<
-  TAccountConfig extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionSignerInput = InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: TransactionSigner<TAccountConfig>
+  config: TAccountConfig
   /** rent exempt payer for the config account */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
   adminAuthority: InitConfigInstructionDataArgs['adminAuthority']
   operatorAuthority: InitConfigInstructionDataArgs['operatorAuthority']
   epochsToClaimSettlement: InitConfigInstructionDataArgs['epochsToClaimSettlement']
@@ -265,11 +312,11 @@ export type InitConfigInput<
 }
 
 export function getInitConfigInstruction<
-  TAccountConfig extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionSignerInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: InitConfigInput<
@@ -282,23 +329,57 @@ export function getInitConfigInstruction<
   config?: { programAddress?: TProgramAddress },
 ): InitConfigInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountRentPayer,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentPayer,
+    InstructionAccountInputAddress<TAccountRentPayer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: true, isWritable: true },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -314,7 +395,6 @@ export function getInitConfigInstruction<
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -329,11 +409,26 @@ export function getInitConfigInstruction<
     programAddress,
   } as InitConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountRentPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

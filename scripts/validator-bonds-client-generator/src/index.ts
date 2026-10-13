@@ -14,6 +14,12 @@ import type { AnchorIdl } from '@codama/nodes-from-anchor'
 const idlPath = join(__dirname, '../../../resources/idl/validator_bonds.json')
 const idlContent: string = readFileSync(idlPath, 'utf-8')
 const anchorIdl: AnchorIdl = JSON.parse(idlContent)
+// Anchor stores &str constants JSON-quoted, codama would emit the quotes verbatim
+for (const constant of anchorIdl.constants ?? []) {
+  if (constant.type === 'string') {
+    constant.value = JSON.parse(constant.value)
+  }
+}
 
 interface ProgramOptions {
   output: string

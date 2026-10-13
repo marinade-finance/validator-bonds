@@ -1,5 +1,11 @@
 import { type AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 import {
+  lamportsToSol,
+  pmpeToSol,
+  solToLamports as decimalSolToLamports,
+  type LoggerWrapper,
+} from '@marinade.finance/ts-common'
+import {
   bondAddress,
   MARINADE_CONFIG_ADDRESS,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
@@ -23,31 +29,10 @@ import type {
   SettlementAppliedDetails,
   PenaltyExpectedDetails,
 } from './types'
-import type { LoggerWrapper } from '@marinade.finance/ts-common'
-
-const LAMPORTS_PER_SOL = 1_000_000_000
 
 export function solToLamports(sol: number | null | undefined): bigint {
   if (sol === null || sol === undefined || !isFinite(sol)) return 0n
-  // Convert via the decimal string rather than `sol * 1e9`: the float multiply
-  // introduces its own rounding on top of the double's, while toFixed(9) is
-  // exactly "the SOL amount as printed, at lamport precision". The source value
-  // is a JS double either way (ds-sam-sdk API), so ~9M SOL remains the ceiling
-  // for exactness — unreachable for bond balances.
-  const fixed = sol.toFixed(9)
-  if (fixed.includes('e')) {
-    // |sol| >= 1e21 — absurd for SOL amounts, but keep a defined behavior.
-    return BigInt(Math.round(sol * LAMPORTS_PER_SOL))
-  }
-  const negative = fixed.startsWith('-')
-  const digits = negative ? fixed.slice(1) : fixed
-  const [whole, fraction] = digits.split('.') as [string, string]
-  const lamports = BigInt(whole) * BigInt(LAMPORTS_PER_SOL) + BigInt(fraction)
-  return negative ? -lamports : lamports
-}
-
-export function lamportsToSol(lamports: bigint): number {
-  return Number(lamports) / LAMPORTS_PER_SOL
+  return decimalSolToLamports(sol)
 }
 
 /**
@@ -244,10 +229,14 @@ function computePenalties(v: AuctionValidator): {
   bondRiskFee: number
 } {
   const stake = finiteOr(v.marinadeActivatedStakeSol, 0)
-  const bidTooLow =
-    (finiteOr(v.revShare.bidTooLowPenaltyPmpe, 0) / 1000) * stake
-  const blacklist =
-    (finiteOr(v.revShare.blacklistPenaltyPmpe, 0) / 1000) * stake
+  const bidTooLow = pmpeToSol(
+    finiteOr(v.revShare.bidTooLowPenaltyPmpe, 0),
+    stake,
+  ).toNumber()
+  const blacklist = pmpeToSol(
+    finiteOr(v.revShare.blacklistPenaltyPmpe, 0),
+    stake,
+  ).toNumber()
   const bondRiskFee = finiteOr(v.values.bondRiskFeeSol, 0)
   return {
     total: bidTooLow + blacklist + bondRiskFee,
@@ -278,13 +267,13 @@ function computeDeficitMetrics(v: AuctionValidator): {
     }
   }
 
-  const epochCostSol = (pmpe / 1000) * stake
+  const epochCostSol = pmpeToSol(pmpe, stake).toNumber()
   const protectedStakeSol = Math.max(
     0,
     stake - finiteOr(v.unprotectedStakeSol, 0),
   )
   const onchainCostSol = isFinite(onchainPmpe)
-    ? (onchainPmpe / 1000) * protectedStakeSol
+    ? pmpeToSol(onchainPmpe, protectedStakeSol).toNumber()
     : 0
 
   // Required for 1 epoch of bid coverage + on-chain obligations
@@ -360,8 +349,8 @@ export function buildBondBalanceChangeEvent(
     epoch,
     bondType,
     `Validator ${voteAccount} bond balance changed by ` +
-      `${deltaLamports > 0n ? '+' : ''}${lamportsToSol(deltaLamports)} SOL ` +
-      `(${lamportsToSol(prev.funded_amount_lamports)} → ${lamportsToSol(currentFundedLamports)} SOL).`,
+      `${deltaLamports > 0n ? '+' : ''}${lamportsToSol(deltaLamports).toNumber()} SOL ` +
+      `(${lamportsToSol(prev.funded_amount_lamports).toNumber()} → ${lamportsToSol(currentFundedLamports).toNumber()} SOL).`,
     {
       previous_funded_lamports: prev.funded_amount_lamports.toString(),
       current_funded_lamports: currentFundedLamports.toString(),
@@ -394,9 +383,11 @@ export function buildSettlementAppliedEvent(
   ) {
     return null
   }
-  const totalSol = lamportsToSol(currentSettlementLamports)
+  const totalSol = lamportsToSol(currentSettlementLamports).toNumber()
   const prevSol =
-    prevSettlementLamports > 0n ? lamportsToSol(prevSettlementLamports) : null
+    prevSettlementLamports > 0n
+      ? lamportsToSol(prevSettlementLamports).toNumber()
+      : null
   return makeBaseEvent(
     'settlement_applied',
     voteAccount,
@@ -433,7 +424,7 @@ export function buildValidatorDelistedEvent(
     epoch,
     bondType,
     `${reason} ` +
-      `Last known balance: ${fmtSol(lamportsToSol(prev.funded_amount_lamports))} SOL, ` +
+      `Last known balance: ${fmtSol(lamportsToSol(prev.funded_amount_lamports).toNumber())} SOL, ` +
       `last seen epoch: ${prev.epoch}.`,
     {
       last_known_funded_lamports: prev.funded_amount_lamports.toString(),
@@ -536,7 +527,9 @@ export function evaluateDeltas(
     if (prev.cap_constraint !== currentCap) {
       const currentCapSol = getCapMarinadeStakeSol(v)
       const bondBalanceSol = v.bondBalanceSol ?? null
-      const prevBondBalanceSol = lamportsToSol(prev.funded_amount_lamports)
+      const prevBondBalanceSol = lamportsToSol(
+        prev.funded_amount_lamports,
+      ).toNumber()
       const bondBalanceDeltaSol =
         bondBalanceSol !== null ? bondBalanceSol - prevBondBalanceSol : null
       const coverageMetrics = computeDeficitMetrics(v)
@@ -575,7 +568,7 @@ export function evaluateDeltas(
     const deficitMetrics = computeDeficitMetrics(v)
     const currentDeficitSol = deficitMetrics.deficit_sol
     const currentDeficitLamports = solToLamports(currentDeficitSol)
-    const previousDeficitSol = lamportsToSol(prev.deficit_lamports)
+    const previousDeficitSol = lamportsToSol(prev.deficit_lamports).toNumber()
     const epochsChanged =
       prev.bond_good_for_n_epochs !== null &&
       currentEpochsRounded !== null &&
@@ -662,7 +655,10 @@ export function evaluateDeltas(
         finiteOr(v.marinadeActivatedStakeSol, 0),
     )
     const activatingStakePmpe = finiteOr(v.revShare.activatingStakePmpe, 0)
-    const activatingStakeFee = (activatingStakeSol * activatingStakePmpe) / 1000
+    const activatingStakeFee = pmpeToSol(
+      activatingStakePmpe,
+      activatingStakeSol,
+    ).toNumber()
     // Shared dust threshold: aligns the emit gate with displayed/emitted
     // values so a sub-dust fee never surfaces as "0.0000 SOL".
     const DUST_SOL_THRESHOLD = 0.001

@@ -16,7 +16,6 @@ import {
   getBytesEncoder,
   getOptionDecoder,
   getOptionEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -38,20 +37,23 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import { findEventAuthorityPda } from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const CONFIGURE_CONFIG_DISCRIMINATOR = new Uint8Array([
-  198, 98, 161, 165, 137, 200, 230, 203,
-])
+export const CONFIGURE_CONFIG_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([198, 98, 161, 165, 137, 200, 230, 203])
 
-export function getConfigureConfigDiscriminatorBytes() {
+export function getConfigureConfigDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     CONFIGURE_CONFIG_DISCRIMINATOR,
   )
@@ -150,16 +152,18 @@ export function getConfigureConfigInstructionDataCodec(): Codec<
 }
 
 export type ConfigureConfigAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountAdminAuthority extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAdminAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
+  config: TAccountConfig
   /** only the admin authority can change the config params */
-  adminAuthority: TransactionSigner<TAccountAdminAuthority>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  adminAuthority: TAccountAdminAuthority
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
   admin: ConfigureConfigInstructionDataArgs['admin']
   operator: ConfigureConfigInstructionDataArgs['operator']
   pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority']
@@ -171,10 +175,10 @@ export type ConfigureConfigAsyncInput<
 }
 
 export async function getConfigureConfigInstructionAsync<
-  TAccountConfig extends string,
-  TAccountAdminAuthority extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountAdminAuthority extends InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ConfigureConfigAsyncInput<
@@ -187,22 +191,49 @@ export async function getConfigureConfigInstructionAsync<
 ): Promise<
   ConfigureConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountAdminAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAdminAuthority,
+      InstructionAccountInputAddress<TAccountAdminAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    adminAuthority: { value: input.adminAuthority ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    adminAuthority: {
+      value: input.adminAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -214,20 +245,11 @@ export async function getConfigureConfigInstructionAsync<
 
   // Resolve default values.
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -241,24 +263,38 @@ export async function getConfigureConfigInstructionAsync<
     programAddress,
   } as ConfigureConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountAdminAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAdminAuthority,
+      InstructionAccountInputAddress<TAccountAdminAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type ConfigureConfigInput<
-  TAccountConfig extends string = string,
-  TAccountAdminAuthority extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAdminAuthority extends InstructionSignerInput =
+    InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
+  config: TAccountConfig
   /** only the admin authority can change the config params */
-  adminAuthority: TransactionSigner<TAccountAdminAuthority>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  adminAuthority: TAccountAdminAuthority
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
   admin: ConfigureConfigInstructionDataArgs['admin']
   operator: ConfigureConfigInstructionDataArgs['operator']
   pauseAuthority: ConfigureConfigInstructionDataArgs['pauseAuthority']
@@ -270,10 +306,10 @@ export type ConfigureConfigInput<
 }
 
 export function getConfigureConfigInstruction<
-  TAccountConfig extends string,
-  TAccountAdminAuthority extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountAdminAuthority extends InstructionSignerInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ConfigureConfigInput<
@@ -285,21 +321,48 @@ export function getConfigureConfigInstruction<
   config?: { programAddress?: TProgramAddress },
 ): ConfigureConfigInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountAdminAuthority,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountAdminAuthority,
+    InstructionAccountInputAddress<TAccountAdminAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: true },
-    adminAuthority: { value: input.adminAuthority ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: true },
+    adminAuthority: {
+      value: input.adminAuthority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -309,7 +372,6 @@ export function getConfigureConfigInstruction<
   // Original args.
   const args = { ...input }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -323,10 +385,22 @@ export function getConfigureConfigInstruction<
     programAddress,
   } as ConfigureConfigInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountAdminAuthority,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAdminAuthority,
+      InstructionAccountInputAddress<TAccountAdminAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

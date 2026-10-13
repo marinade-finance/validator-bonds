@@ -1115,9 +1115,10 @@ describe('solToLamports', () => {
     expect(solToLamports(-1.25)).toBe(-1_250_000_000n)
   })
 
-  it('rounds sub-lamport fractions at lamport precision', () => {
+  it('truncates sub-lamport fractions at lamport precision', () => {
     expect(solToLamports(0.0000000014)).toBe(1n)
-    expect(solToLamports(0.0000000016)).toBe(2n)
+    expect(solToLamports(0.0000000016)).toBe(1n)
+    expect(solToLamports(-0.0000000016)).toBe(-1n)
   })
 
   it('returns 0 for null/undefined/non-finite', () => {
