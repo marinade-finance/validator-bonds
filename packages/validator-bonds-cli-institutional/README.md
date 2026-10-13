@@ -180,6 +180,20 @@ validator-bonds-institutional fund-bond <bond-or-vote-account-address> \
   --stake-account "$STAKE_ACCOUNT"
 ```
 
+#### Recovering SOL sent directly to the bond address
+
+If SOL was mistakenly transferred directly to the bond account address (instead of using `fund-bond-sol`),
+it can be recovered with the `refund-bond-balance` command. The lamports above the bond account's rent-exempt
+minimum are moved onto an existing bond-funded stake account, becoming part of the bond funding.
+
+```sh
+validator-bonds-institutional refund-bond-balance <bond-or-vote-account-address>
+```
+
+The command picks the smallest bond-funded stake account as the target by default;
+use `--stake-account <pubkey>` to choose a specific one. The operation is permission-less.
+When the bond has no funded stake account yet, fund the bond first with `fund-bond-sol` and re-run.
+
 ### Withdrawing Bond Account
 
 Withdrawing funds from the Bond on-chain program consists of two steps:
@@ -421,6 +435,8 @@ Commands:
   fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
   fund-bond-sol [options] <bond-or-vote>                       Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and
                                                                delegates it to bond.
+  refund-bond-balance [options] <bond-or-vote>                 Refund SOL mistakenly transferred to the bond account address. Lamports above the rent-exempt minimum are moved
+                                                               onto an existing bond-funded stake account, becoming part of the bond funding.
   mint-bond [options] <bond-or-vote>                           Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct
                                                                signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a bond
                                                                token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize

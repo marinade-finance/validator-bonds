@@ -242,4 +242,7 @@ pub enum ErrorCode {
 
     #[msg("Fail to validate ProductConfig value")]
     ProductTypeConfigValidationFailure, // 6078 0x17be
+
+    #[msg("Bond account has no lamports above the rent-exempt minimum")]
+    RefundBondBalanceNoExcessLamports, // 6079 0x17bf
 }
