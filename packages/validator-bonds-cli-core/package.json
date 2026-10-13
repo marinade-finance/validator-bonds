@@ -52,7 +52,7 @@
     "pino-pretty": "13.0.0",
     "reflect-metadata": "0.2.2",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   },
   "peerDependencies": {
     "@coral-xyz/anchor": "^1.2.1",

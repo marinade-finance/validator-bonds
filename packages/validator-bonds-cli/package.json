@@ -57,7 +57,7 @@
     "reflect-metadata": "0.2.2",
     "rpc-websockets": "9.3.10",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11",
-    "yaml": "2.9.0"
+    "yaml": "2.9.1"
   },
   "devDependencies": {
     "@marinade.finance/jest-shell-matcher": "1.1.3",
