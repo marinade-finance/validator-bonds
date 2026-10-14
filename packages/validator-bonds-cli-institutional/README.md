@@ -361,7 +361,7 @@ During the period where Select stake is still delegated to the validator
 (`active` or `deactivating`), all the rewards are directed to the stakers and Marinade
 and the validator forfeits its share of the rewards. No additional settlements are created,
 and settlements stop once the stake is redelegated to other validators. PSR and the usual
-settlement for that stake still apply until the stake stops generating rewards and is being redelegated
+settlement for that stake still apply until the stake stops generating rewards and is being redelegated.
 
 ### Data endpoints of the Select Program
 
