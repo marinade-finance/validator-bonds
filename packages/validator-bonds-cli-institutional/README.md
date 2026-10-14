@@ -340,7 +340,7 @@ If the amount distributed to stakers by the Solana network is less than the calc
 > **MATHEMATICAL NOTE**:
 > Select promises to deliver 10 basis points (bps) of APY rewards to the validator.
 > This might be interpreted as receiving exactly 10 bps multiplied by the Marinade Select TVL in year, calculated as:
-> `((epoch 1 TVL + epoch 2 TVL + ... + last epoch of the year TVL) / number of epochs per year) * 0.005`.
+> `((epoch 1 TVL + epoch 2 TVL + ... + last epoch of the year TVL) / number of epochs per year) * 0.001`.
 > However, this is not entirely precise. A small discrepancy arises because rewards are paid out on an epoch-by-epoch basis,
 > which slightly reduces the compounding base compared to a theoretical full-year compounding calculation.
 
