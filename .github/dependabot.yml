@@ -10,3 +10,13 @@ updates:
           - '*'
     ignore:
       - dependency-name: 'dtolnay/rust-toolchain'
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    # security updates only
+    open-pull-requests-limit: 0
+    ignore:
+      # uuid 12+ is ESM-only while our packages are CommonJS; we use only v7 (unaffected by advisories)
+      - dependency-name: 'uuid'
+        update-types: ['version-update:semver-major']
