@@ -13,10 +13,12 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/'
     schedule:
-      interval: 'monthly'
-    # security updates only
-    open-pull-requests-limit: 0
+      interval: 'weekly'
+    groups:
+      npm:
+        patterns:
+          - '*'
     ignore:
-      # uuid 12+ is ESM-only while our packages are CommonJS; we use only v7 (unaffected by advisories)
-      - dependency-name: 'uuid'
+      # majors are migrated by hand: many are ESM-only now while our packages are CommonJS
+      - dependency-name: '*'
         update-types: ['version-update:semver-major']
