@@ -23,7 +23,9 @@ minimumReleaseAgeExclude:
   - '@marinade.finance/web3js-1x@5.11.0'
   - '@marinade.finance/notifications-bonds-event-v1@1.0.5'
 overrides:
-  uuid: ^11.1.0
+  jayson: ^5.0.0
+  tmp: ^0.2.6
+  toml: ^4.2.0
 peerDependencyRules:
   allowedVersions:
     jest: '29'
