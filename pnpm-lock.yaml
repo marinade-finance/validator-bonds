@@ -205,8 +205,8 @@ importers:
   packages/validator-bonds-cli-core:
     dependencies:
       '@marinade.finance/ds-sam-calc':
-        specifier: 0.4.0
-        version: 0.4.0
+        specifier: 0.6.0
+        version: 0.6.0
     devDependencies:
       '@coral-xyz/anchor':
         specifier: npm:@anchor-lang/core@^1.2.1
@@ -1112,6 +1112,9 @@ packages:
 
   '@marinade.finance/ds-sam-calc@0.4.0':
     resolution: {integrity: sha512-Z6+oiDLKQpmkhtdOLnYTWe+ysivAMHa+EXWB2kBeFvrzHcLbVHyxQrGftEH/y6MIHVCuRkv9vdC/OlkZYd/B5A==}
+
+  '@marinade.finance/ds-sam-calc@0.6.0':
+    resolution: {integrity: sha512-X1Ue6+d831v/hBouxPlc9TIzjKqunMzkRzSAsUUve4HJrGIIxiatGGqc7wNZ3a3KmPpUUQBfSZkV1iCNeVb6gw==}
 
   '@marinade.finance/ds-sam-sdk@0.4.0':
     resolution: {integrity: sha512-yAWPFRoihQNrZ5NjR0xG0rlKc7mJm0ykrVNQeqnq1cRscFNePM/WoUto4/wCmpj0ARulWrQSGP78ACo4UXsQ1w==}
@@ -5603,6 +5606,11 @@ snapshots:
       dotenv-expand: 13.0.0
 
   '@marinade.finance/ds-sam-calc@0.4.0':
+    dependencies:
+      '@marinade.finance/ts-common': 5.11.0
+      decimal.js: 10.6.0
+
+  '@marinade.finance/ds-sam-calc@0.6.0':
     dependencies:
       '@marinade.finance/ts-common': 5.11.0
       decimal.js: 10.6.0
