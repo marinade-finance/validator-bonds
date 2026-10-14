@@ -10,3 +10,15 @@ updates:
           - '*'
     ignore:
       - dependency-name: 'dtolnay/rust-toolchain'
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    groups:
+      npm:
+        patterns:
+          - '*'
+    ignore:
+      # majors are migrated by hand: many are ESM-only now while our packages are CommonJS
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
