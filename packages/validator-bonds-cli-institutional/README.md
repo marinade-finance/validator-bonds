@@ -354,15 +354,11 @@ If a validator experiences prolonged downtime, it must compensate for the lost r
 
 Exiting the Select set is **not** a permission-less action and must be coordinated with the Marinade team.
 
-When a validator exits the Select set, it is charged (from its bond) for one epoch of rewards
-it would have earned from delegated Select stake.
-The _effective stake_—that which yields rewards—is defined as the sum of stake in the `active` and `deactivating` states.
+There is **no exit charge**. Upon exiting, the system deactivates the validator’s Select stake
+so it can be re-delegated to other validators in the set.
 
-Upon exiting, the system initiates deactivation of the validator’s stake so it can be re-delegated to other validators in the set.
-The validator must pay rewards for the `deactivating` stake, calculated using that epoch’s APY.
-
-In the following epoch, the `deactivating` stake transitions to the `deactivated` state by the Solana network,
-at which point it can be re-delegated and re-activated. Note that stake in the `activating` state yields no rewards.
+While Select stake is still delegated to the validator (`active` or `deactivating`), the validator gets no 50bps share:
+all rewards from that stake go to stakers and Marinade, and the [PSR penalty](#protected-stake-rewards-psr-penalty) still applies.
 
 ### Data endpoints of the Select Program
 
