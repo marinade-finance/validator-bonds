@@ -19,10 +19,9 @@ minimumReleaseAgeExclude:
   - '@marinade.finance/ds-sam-calc'
   - '@marinade.finance/ds-sam-sdk'
   - '@marinade.finance/ts-common'
-  - '@marinade.finance/web3js-1x-testin'
+  - '@marinade.finance/web3js-1x-testing'
   - '@marinade.finance/web3js-1x'
   - '@marinade.finance/notifications-bonds-event-v1'
-  - '@marinade.finance/ds-sam-calc'
 overrides:
   jayson: ^5.0.0
   tmp: ^0.2.6
