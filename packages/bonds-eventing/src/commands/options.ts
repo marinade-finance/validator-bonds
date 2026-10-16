@@ -62,4 +62,12 @@ export function addSharedEventingOptions(command: Command): Command {
         .env('DRY_RUN')
         .default(false),
     )
+    .addOption(
+      new Option(
+        '--allow-empty-state',
+        'Allow a first run with no previous state; every validator is first seen',
+      )
+        .env('EVENTING_ALLOW_EMPTY_STATE')
+        .default(false),
+    )
 }

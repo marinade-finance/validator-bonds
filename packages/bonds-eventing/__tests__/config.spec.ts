@@ -1,3 +1,6 @@
+import { Command } from 'commander'
+
+import { addSharedEventingOptions } from '../src/commands/options'
 import { parseConfig } from '../src/config'
 
 const BASE_CONFIG = {
@@ -112,5 +115,18 @@ describe('parseConfig numeric fields', () => {
     })
     expect(config.emitConcurrency).toBe(10)
     expect(config.retryMaxAttempts).toBe(2)
+  })
+})
+
+describe('--allow-empty-state', () => {
+  /**
+   * The pipeline's empty-state error tells the operator to pass this flag, so
+   * the shared options must accept it and parseConfig must carry it through.
+   */
+  it('is accepted on the command line and reaches the config', () => {
+    const command = addSharedEventingOptions(new Command()).exitOverride()
+    command.parse(['--allow-empty-state'], { from: 'user' })
+    const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
+    expect(config.allowEmptyState).toBe(true)
   })
 })
