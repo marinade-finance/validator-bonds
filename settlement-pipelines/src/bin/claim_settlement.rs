@@ -422,7 +422,7 @@ async fn claim_settlement<'a>(
             )
             .await
             .unwrap_or_else(|e| {
-                reporting.error().with_err(e).add();
+                reporting.retryable().with_err(e).add();
                 &empty_stake_accounts
             });
         let stake_account_to = prioritize_for_claiming(
