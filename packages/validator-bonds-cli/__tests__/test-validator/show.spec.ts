@@ -1,5 +1,6 @@
 import assert from 'assert'
 
+import { formatYaml } from '@marinade.finance/cli-common'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { jsonStringify } from '@marinade.finance/ts-common'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
@@ -37,7 +38,6 @@ import {
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import YAML from 'yaml'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type {
@@ -101,7 +101,7 @@ describe('Show command using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         programId: program.programId,
         publicKey: configPubkey.toBase58(),
         account: {
@@ -146,7 +146,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([
+      stdout: formatYaml([
         {
           programId: program.programId,
           publicKey: configPubkey.toBase58(),
@@ -191,7 +191,7 @@ describe('Show command using CLI', () => {
       signal: '',
 
       // nothing to be found, not-defined admin taken
-      stdout: YAML.stringify([]),
+      stdout: formatYaml([]),
     })
 
     await expect([
@@ -214,7 +214,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([
+      stdout: formatYaml([
         {
           programId: program.programId,
           publicKey: configPubkey.toBase58(),
@@ -364,7 +364,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify(expectedDataFundingSingleItem),
+      stdout: formatYaml(expectedDataFundingSingleItem),
     })
     await expect([
       'pnpm',
@@ -388,10 +388,10 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify(expectedDataFundingSingleItem),
+      stdout: formatYaml(expectedDataFundingSingleItem),
     })
     const identityRegex = new RegExp(
-      YAML.stringify(expectedDataFundingSingleItem),
+      formatYaml(expectedDataFundingSingleItem),
       'g',
     )
     await expect([
@@ -439,7 +439,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([expectedDataNoFundingMultiple]),
+      stdout: formatYaml([expectedDataNoFundingMultiple]),
     })
 
     await expect([
@@ -463,7 +463,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([expectedDataFundingMultipleItems]),
+      stdout: formatYaml([expectedDataFundingMultipleItems]),
     })
 
     await expect([
@@ -486,7 +486,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([expectedDataNoFundingMultiple]),
+      stdout: formatYaml([expectedDataNoFundingMultiple]),
     })
 
     await expect([
@@ -512,7 +512,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify([expectedDataFundingMultipleItems]),
+      stdout: formatYaml([expectedDataFundingMultipleItems]),
     })
 
     await expect([
@@ -632,7 +632,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
         amountActive: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -702,7 +702,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
       }),
@@ -731,7 +731,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
       }),
@@ -757,7 +757,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedDataWithdrawRequestBefore,
         ...expectedDataWithdrawRequestAfter,
       }),
@@ -818,7 +818,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedData,
         amountOwned: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
         amountActive: `${sumLamports / LAMPORTS_PER_SOL} SOLs`,
@@ -883,7 +883,7 @@ describe('Show command using CLI', () => {
       code: 0,
       signal: '',
 
-      stdout: YAML.stringify({
+      stdout: formatYaml({
         ...expectedData,
         amountOwned: `${leftStakeAccountAmount} SOLs`,
         amountActive: `${activeDiv.toString()}.${activeMod

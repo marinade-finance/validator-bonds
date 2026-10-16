@@ -1,5 +1,6 @@
 import assert from 'assert'
 
+import { formatYaml } from '@marinade.finance/cli-common'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { loadTestingVoteAccount } from '@marinade.finance/validator-bonds-cli-core'
 import {
@@ -10,7 +11,6 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { Keypair, PublicKey } from '@solana/web3.js'
-import YAML from 'yaml'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -93,7 +93,7 @@ describe('Show command using CLI (institutional)', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       signal: '',
-      stdout: YAML.stringify(expectedDataFundingSingleItem),
+      stdout: formatYaml(expectedDataFundingSingleItem),
     })
   })
 })
