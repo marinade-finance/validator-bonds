@@ -129,4 +129,36 @@ describe('--allow-empty-state', () => {
     const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
     expect(config.allowEmptyState).toBe(true)
   })
+
+  /**
+   * Commander enables a plain boolean flag whenever its env var exists, so an
+   * operator who sets the variable to "false" must still get the refusal.
+   */
+  it.each([
+    ['false', false],
+    ['true', true],
+  ])('reads EVENTING_ALLOW_EMPTY_STATE=%s as %s', (value, expected) => {
+    process.env.EVENTING_ALLOW_EMPTY_STATE = value
+    try {
+      const command = addSharedEventingOptions(new Command()).exitOverride()
+      command.parse([], { from: 'user' })
+      expect(command.opts().allowEmptyState).toBe(expected)
+    } finally {
+      delete process.env.EVENTING_ALLOW_EMPTY_STATE
+    }
+  })
+
+  /** A value other than true or false is a typo, so the command refuses it. */
+  it('refuses EVENTING_ALLOW_EMPTY_STATE=0', () => {
+    process.env.EVENTING_ALLOW_EMPTY_STATE = '0'
+    try {
+      const command = addSharedEventingOptions(new Command()).exitOverride()
+      command.configureOutput({ writeErr: () => undefined })
+      expect(() => command.parse([], { from: 'user' })).toThrow(
+        "expected true or false, got '0'",
+      )
+    } finally {
+      delete process.env.EVENTING_ALLOW_EMPTY_STATE
+    }
+  })
 })
