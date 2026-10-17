@@ -1,3 +1,0 @@
-ALTER TABLE bonds ADD COLUMN inflation_commission_bps BIGINT DEFAULT NULL;
-ALTER TABLE bonds ADD COLUMN mev_commission_bps BIGINT DEFAULT NULL;
-ALTER TABLE bonds ADD COLUMN block_commission_bps BIGINT DEFAULT NULL;

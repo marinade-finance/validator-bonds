@@ -1,4 +1,4 @@
-import { Option } from 'commander'
+import { InvalidArgumentError, Option } from 'commander'
 
 import type { Command } from 'commander'
 
@@ -22,15 +22,16 @@ export function addSharedEventingOptions(command: Command): Command {
       ).env('NOTIFICATIONS_JWT'),
     )
     .addOption(
-      new Option('--postgres-url <url>', 'PostgreSQL connection string').env(
-        'POSTGRES_URL',
-      ),
+      new Option(
+        '--directory-url <url>',
+        'marinade-directory base URL (required)',
+      ).env('DIRECTORY_URL'),
     )
     .addOption(
       new Option(
-        '--postgres-ssl-root-cert <path>',
-        'Path to SSL root cert',
-      ).env('POSTGRES_SSL_ROOT_CERT'),
+        '--directory-token <token>',
+        'Bearer token for marinade-directory, granted /bonds/eventing/**:rw and /bonds/events/**:rw (required)',
+      ).env('DIRECTORY_TOKEN'),
     )
     .addOption(
       new Option(
@@ -57,8 +58,33 @@ export function addSharedEventingOptions(command: Command): Command {
         .default(20),
     )
     .addOption(
-      new Option('--dry-run', 'Skip POST and DB write, just log events')
-        .env('DRY_RUN')
-        .default(false),
+      booleanOption(
+        '--dry-run',
+        'Skip POST and DB write, just log events',
+        'DRY_RUN',
+      ),
     )
+    .addOption(
+      booleanOption(
+        '--allow-empty-state',
+        'Allow a first run with no previous state; every validator is first seen',
+        'EVENTING_ALLOW_EMPTY_STATE',
+      ),
+    )
+}
+
+// Commander turns a plain boolean flag on whenever its env var is set, even to
+// "false", so the flag takes an optional value parsed as true or false.
+function booleanOption(flag: string, description: string, envVar: string) {
+  return new Option(`${flag} [bool]`, description)
+    .env(envVar)
+    .preset('true')
+    .argParser(parseBoolean)
+    .default(false)
+}
+
+function parseBoolean(value: string): boolean {
+  if (value === 'true') return true
+  if (value === 'false') return false
+  throw new InvalidArgumentError(`expected true or false, got '${value}'`)
 }

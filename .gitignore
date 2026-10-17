@@ -60,3 +60,9 @@ plugins/validator-bonds/evals/report/
 *.cast
 *.gif
 .refs
+
+# Local working dirs
+/specs/
+/.ship/
+/tmp/
+/api/tmp/

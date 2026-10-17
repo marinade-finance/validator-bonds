@@ -101,29 +101,20 @@ pub async fn healthz() -> StatusCode {
     StatusCode::OK
 }
 
-/// Readiness: the process can serve traffic, gated on DB connectivity (a
-/// trivial `SELECT 1`). Returns 503 when the database is unreachable so the
-/// pod is pulled from the Service endpoints until Postgres recovers.
+/// Readiness: 503 while the document store's probe fails or takes over 2 s. The store caches
+/// its bucket probe for 20 s, so a recovery can show up to that late.
 pub async fn readyz(
     axum::extract::State(context): axum::extract::State<crate::context::WrappedContext>,
 ) -> StatusCode {
-    // Bounded so a stalled DB connection fails the probe fast instead of piling up handler tasks.
-    let query = async {
-        context
-            .read()
-            .await
-            .psql_client
-            .simple_query("SELECT 1")
-            .await
-    };
-    match tokio::time::timeout(std::time::Duration::from_secs(2), query).await {
-        Ok(Ok(_)) => StatusCode::OK,
+    let probe = async { context.read().await.directory.ready().await };
+    match tokio::time::timeout(std::time::Duration::from_secs(2), probe).await {
+        Ok(Ok(())) => StatusCode::OK,
         Ok(Err(err)) => {
-            log::warn!("readyz DB connectivity check failed: {err}");
+            log::warn!("readyz store connectivity check failed: {err}");
             StatusCode::SERVICE_UNAVAILABLE
         }
         Err(_) => {
-            log::warn!("readyz DB connectivity check timed out");
+            log::warn!("readyz store connectivity check timed out");
             StatusCode::SERVICE_UNAVAILABLE
         }
     }

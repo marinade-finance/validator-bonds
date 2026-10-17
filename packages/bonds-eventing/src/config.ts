@@ -35,6 +35,13 @@ function parsePositiveInt(
   return Math.floor(n)
 }
 
+function requireOption(name: string, env: string, value: unknown): string {
+  if (typeof value !== 'string' || value === '') {
+    throw new Error(`Missing required option ${name} (env ${env})`)
+  }
+  return value
+}
+
 export function parseConfig(opts: Record<string, unknown>): EventingConfig {
   return {
     bondsApiUrl: opts.bondsApiUrl as string,
@@ -44,8 +51,16 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
     institutionalApiUrl: opts.institutionalApiUrl as string,
     notificationsApiUrl: opts.notificationsApiUrl as string | undefined,
     notificationsJwt: opts.notificationsJwt as string | undefined,
-    postgresUrl: opts.postgresUrl as string | undefined,
-    postgresSslRootCert: opts.postgresSslRootCert as string | undefined,
+    directoryUrl: requireOption(
+      '--directory-url',
+      'DIRECTORY_URL',
+      opts.directoryUrl,
+    ),
+    directoryToken: requireOption(
+      '--directory-token',
+      'DIRECTORY_TOKEN',
+      opts.directoryToken,
+    ),
     retryMaxAttempts: parseNonNegativeInt(
       '--retry-max-attempts',
       opts.retryMaxAttempts,
@@ -62,6 +77,8 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
       20,
     ),
     dryRun: opts.dryRun === true || opts.dryRun === 'true',
+    allowEmptyState:
+      opts.allowEmptyState === true || opts.allowEmptyState === 'true',
     cacheInputs: opts.cacheInputs as string | undefined,
   }
 }
@@ -74,7 +91,7 @@ export function logResolvedConfig(
     {
       ...config,
       notificationsJwt: config.notificationsJwt ? '***' : undefined,
-      postgresUrl: config.postgresUrl ? '***' : undefined,
+      directoryToken: '***',
     },
     'Resolved configuration',
   )

@@ -1,3 +1,6 @@
+import { Command } from 'commander'
+
+import { addSharedEventingOptions } from '../src/commands/options'
 import { parseConfig } from '../src/config'
 
 const BASE_CONFIG = {
@@ -7,8 +10,8 @@ const BASE_CONFIG = {
   tvlApiUrl: 'https://example.com',
   notificationsApiUrl: undefined,
   notificationsJwt: undefined,
-  postgresUrl: undefined,
-  postgresSslRootCert: undefined,
+  directoryUrl: 'https://directory.test',
+  directoryToken: 'test-token',
   retryMaxAttempts: 4,
   retryBaseDelayMs: 30000,
   emitConcurrency: 20,
@@ -112,5 +115,59 @@ describe('parseConfig numeric fields', () => {
     })
     expect(config.emitConcurrency).toBe(10)
     expect(config.retryMaxAttempts).toBe(2)
+  })
+})
+
+describe('--allow-empty-state', () => {
+  /**
+   * The pipeline's empty-state error tells the operator to pass this flag, so
+   * the shared options must accept it and parseConfig must carry it through.
+   */
+  it('is accepted on the command line and reaches the config', () => {
+    const command = addSharedEventingOptions(new Command()).exitOverride()
+    command.parse(['--allow-empty-state'], { from: 'user' })
+    const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
+    expect(config.allowEmptyState).toBe(true)
+  })
+})
+
+describe.each([
+  ['EVENTING_ALLOW_EMPTY_STATE', 'allowEmptyState'],
+  ['DRY_RUN', 'dryRun'],
+] as const)('%s', (envVar, option) => {
+  /** Boolean environment values reach the parsed config unchanged. */
+  it.each([
+    ['false', false],
+    ['true', true],
+    [undefined, false],
+  ])('reads %s as %s', (value, expected) => {
+    const previous = process.env[envVar]
+    if (value === undefined) delete process.env[envVar]
+    else process.env[envVar] = value
+    try {
+      const command = addSharedEventingOptions(new Command()).exitOverride()
+      command.parse([], { from: 'user' })
+      const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
+      expect(config[option]).toBe(expected)
+    } finally {
+      if (previous === undefined) delete process.env[envVar]
+      else process.env[envVar] = previous
+    }
+  })
+
+  /** Invalid environment values stop the command. */
+  it('refuses 0', () => {
+    const previous = process.env[envVar]
+    process.env[envVar] = '0'
+    try {
+      const command = addSharedEventingOptions(new Command()).exitOverride()
+      command.configureOutput({ writeErr: () => undefined })
+      expect(() => command.parse([], { from: 'user' })).toThrow(
+        "expected true or false, got '0'",
+      )
+    } finally {
+      if (previous === undefined) delete process.env[envVar]
+      else process.env[envVar] = previous
+    }
   })
 })

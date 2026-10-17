@@ -1,19 +1,18 @@
-use super::common::{pg_transient, read_yaml_input, CommonStoreOptions};
+use crate::repositories::common::{http_transient, read_yaml_input, CommonStoreOptions};
 
 use chrono::{DateTime, Utc};
-use openssl::ssl::{SslConnector, SslMethod};
-use postgres_openssl::MakeTlsConnector;
-use std::collections::{BTreeMap, HashMap};
-use tokio_postgres::{types::ToSql, Client, Row};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use validator_bonds_common::cli_result::CliError;
+use validator_bonds_common::directory::Directory;
 use validator_bonds_common::dto::CollectedStakeRecord;
 
 /// Marinade stake in lamports, keyed by vote account.
 pub type MarinadeStakeByVoteAccount = HashMap<String, u64>;
 
-/// One collection run: every record shares the epoch, slot and timestamp the collector stamped, since
-/// the store replaces a whole epoch at once.
-#[derive(Debug)]
+/// One collection run, and the document at `/bonds/stake/{epoch}`: every record shares the epoch,
+/// slot and timestamp the collector stamped, since the store replaces a whole epoch at once.
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CollectedStakeSnapshot {
     pub epoch: u64,
     pub slot: u64,
@@ -35,439 +34,117 @@ impl CollectedStakeSnapshot {
     }
 }
 
-/// Epoch range plus optional filters. Empty filter vectors mean "no filter", not "match nothing".
+/// Optional filters over a window. Empty filter vectors mean "no filter", not "match nothing".
 pub struct CollectedStakeQuery {
-    pub from_epoch: u64,
-    pub to_epoch: u64,
     pub labels: Vec<String>,
     pub vote_accounts: Vec<String>,
 }
 
-const SELECT_COLUMNS: &str = "SELECT epoch, slot, label, stake_authority, vote_account, effective,
-                                     activating, deactivating, stake_accounts, updated_at
-                              FROM collected_stake";
-
-fn map_collected_stake_row(row: Row) -> anyhow::Result<CollectedStakeRecord> {
-    Ok(CollectedStakeRecord {
-        epoch: row.get::<_, i32>("epoch").try_into()?,
-        slot: row.get::<_, i64>("slot").try_into()?,
-        label: row.get("label"),
-        stake_authority: row.get("stake_authority"),
-        vote_account: row.get("vote_account"),
-        effective: row.get::<_, i64>("effective").try_into()?,
-        activating: row.get::<_, i64>("activating").try_into()?,
-        deactivating: row.get::<_, i64>("deactivating").try_into()?,
-        stake_accounts: row.get::<_, i32>("stake_accounts").try_into()?,
-        updated_at: row.get("updated_at"),
-    })
+impl CollectedStakeQuery {
+    fn matches(&self, record: &CollectedStakeRecord) -> bool {
+        (self.labels.is_empty() || self.labels.contains(&record.label))
+            && (self.vote_accounts.is_empty() || self.vote_accounts.contains(&record.vote_account))
+    }
 }
 
-/// Epoch-descending. The write side stamps one slot and one timestamp per epoch
-/// (see `collection_epoch`), so a group that disagrees is a corrupted table rather than a data
-/// state the readers may paper over.
-fn group_by_epoch(
-    records: Vec<CollectedStakeRecord>,
-) -> anyhow::Result<Vec<CollectedStakeSnapshot>> {
-    let mut by_epoch: BTreeMap<u64, Vec<CollectedStakeRecord>> = BTreeMap::new();
-    for record in records {
-        by_epoch.entry(record.epoch).or_default().push(record);
+/// The records both filters keep, epoch by epoch. An epoch none of whose records match is left
+/// out altogether, the same as one that was never collected.
+pub fn filter_snapshots(
+    snapshots: Vec<CollectedStakeSnapshot>,
+    query: &CollectedStakeQuery,
+) -> Vec<CollectedStakeSnapshot> {
+    let mut kept = Vec::with_capacity(snapshots.len());
+    for mut snapshot in snapshots {
+        snapshot.records.retain(|record| query.matches(record));
+        if !snapshot.records.is_empty() {
+            kept.push(snapshot);
+        }
     }
-
-    by_epoch
-        .into_values()
-        .rev()
-        .map(|records| {
-            let first = records
-                .first()
-                .expect("a group exists only because a record created it");
-            let (epoch, slot, updated_at) = (first.epoch, first.slot, first.updated_at);
-            anyhow::ensure!(
-                records.iter().all(|record| record.slot == slot),
-                "Collected stake of epoch {epoch} spans multiple slots, expected only {slot}"
-            );
-            anyhow::ensure!(
-                records.iter().all(|record| record.updated_at == updated_at),
-                "Collected stake of epoch {epoch} spans multiple timestamps, expected only {updated_at}"
-            );
-            Ok(CollectedStakeSnapshot {
-                epoch,
-                slot,
-                updated_at,
-                records,
-            })
-        })
-        .collect()
+    kept
 }
 
 /// `None` when nothing has ever been collected. Callers must fail loudly rather than treat that as
 /// "no validator has stake", which reduces `/protected` to its bond floor for everyone.
 pub async fn get_collected_stake(
-    psql_client: &Client,
+    directory: &Directory,
 ) -> anyhow::Result<Option<CollectedStakeSnapshot>> {
-    let rows = psql_client
-        .query(
-            &format!("{SELECT_COLUMNS} WHERE epoch = (SELECT MAX(epoch) FROM collected_stake)"),
-            &[],
-        )
-        .await?;
-
-    let records = rows
-        .into_iter()
-        .map(map_collected_stake_row)
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
-    Ok(group_by_epoch(records)?.pop())
+    Ok(directory
+        .get::<CollectedStakeSnapshot>("/bonds/stake/@last")
+        .await?
+        .map(|document| document.body))
 }
 
-pub async fn get_latest_collected_epoch(psql_client: &Client) -> anyhow::Result<Option<u64>> {
-    let row = psql_client
-        .query_one("SELECT MAX(epoch) AS epoch FROM collected_stake", &[])
-        .await?;
-    row.get::<_, Option<i32>>("epoch")
-        .map(|epoch| Ok(u64::try_from(epoch)?))
-        .transpose()
+/// The epoch `@last` resolves to; `None` when nothing has ever been collected.
+pub async fn get_latest_collected_epoch(directory: &Directory) -> anyhow::Result<Option<u64>> {
+    Ok(get_collected_stake(directory)
+        .await?
+        .map(|snapshot| snapshot.epoch))
 }
 
-/// Resolved before the range query so an oversized window is rejected without ever running it.
-pub async fn get_collected_stake_range(
-    psql_client: &Client,
-    query: &CollectedStakeQuery,
+/// The epochs of `from_epoch..=to_epoch` the store holds, newest first — one read per epoch, so
+/// the caller bounds the window. An epoch the store does not hold is skipped, never interpolated.
+pub async fn get_collected_stake_window(
+    directory: &Directory,
+    from_epoch: u64,
+    to_epoch: u64,
 ) -> anyhow::Result<Vec<CollectedStakeSnapshot>> {
-    let from_epoch = i32::try_from(query.from_epoch)?;
-    let to_epoch = i32::try_from(query.to_epoch)?;
-
-    let rows = psql_client
-        .query(
-            &format!(
-                "{SELECT_COLUMNS}
-                 WHERE epoch BETWEEN $1 AND $2
-                   AND (cardinality($3::text[]) = 0 OR label = ANY($3))
-                   AND (cardinality($4::text[]) = 0 OR vote_account = ANY($4))
-                 ORDER BY epoch DESC"
-            ),
-            &[&from_epoch, &to_epoch, &query.labels, &query.vote_accounts],
-        )
-        .await?;
-
-    let records = rows
-        .into_iter()
-        .map(map_collected_stake_row)
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
-    group_by_epoch(records)
-}
-
-/// Labels a collection has actually produced. Narrower than the configured set — an authority with
-/// no non-zero stake anywhere writes no rows at all.
-pub async fn get_distinct_labels(psql_client: &Client) -> anyhow::Result<Vec<String>> {
-    let rows = psql_client
-        .query("SELECT DISTINCT label FROM collected_stake", &[])
-        .await?;
-    Ok(rows.into_iter().map(|row| row.get("label")).collect())
-}
-
-/// One epoch per collection run: the collector stamps every record from a single `Clock`, and the
-/// store replaces that whole epoch. Mixed epochs would make the `DELETE` drop rows it never rewrites.
-/// `slot` and `updated_at` are checked too because `get_collected_stake` reads them off an arbitrary
-/// row of the epoch.
-fn collection_epoch(records: &[CollectedStakeRecord]) -> anyhow::Result<i32> {
-    let Some(first) = records.first() else {
-        // An empty file must not be allowed to empty the table — `/protected` would then judge every
-        // validator against its bond floor alone.
-        anyhow::bail!("No collected stake records to store");
-    };
-    anyhow::ensure!(
-        records.iter().all(|record| record.epoch == first.epoch),
-        "Collected stake records span multiple epochs, expected only {}",
-        first.epoch
-    );
-    anyhow::ensure!(
-        records.iter().all(|record| record.slot == first.slot),
-        "Collected stake records span multiple slots, expected only {}",
-        first.slot
-    );
-    anyhow::ensure!(
-        records
-            .iter()
-            .all(|record| record.updated_at == first.updated_at),
-        "Collected stake records span multiple timestamps, expected only {}",
-        first.updated_at
-    );
-    Ok(first.epoch.try_into()?)
+    let mut snapshots = Vec::new();
+    for epoch in (from_epoch..=to_epoch).rev() {
+        let path = format!("/bonds/stake/{epoch}");
+        if let Some(document) = directory.get::<CollectedStakeSnapshot>(&path).await? {
+            snapshots.push(document.body);
+        }
+    }
+    Ok(snapshots)
 }
 
 pub async fn store_collected_stake(options: CommonStoreOptions) -> anyhow::Result<()> {
-    const CHUNK_SIZE: usize = 512;
-    const PARAMS_PER_INSERT: usize = 10;
-
     let records: Vec<CollectedStakeRecord> = read_yaml_input(&options.input_path)?;
-    let epoch = collection_epoch(&records).map_err(CliError::critical)?;
+    let snapshot = collected_stake(records).map_err(CliError::critical)?;
+    let path = format!("/bonds/stake/{}", snapshot.epoch);
 
-    let mut builder = SslConnector::builder(SslMethod::tls())?;
-    builder.set_ca_file(&options.postgres_ssl_root_cert)?;
-    let connector = MakeTlsConnector::new(builder.build());
-
-    let (mut psql_client, psql_conn) = tokio_postgres::connect(&options.postgres_url, connector)
+    let directory = Directory::new(&options.directory_url, &options.directory_token);
+    directory
+        .put_or_replace(&path, &snapshot)
         .await
-        .map_err(pg_transient)?;
-    tokio::spawn(async move {
-        if let Err(err) = psql_conn.await {
-            log::error!("PSQL connection terminated: {err}");
-        }
-    });
+        .map_err(http_transient)?;
 
-    let tx = psql_client.transaction().await.map_err(pg_transient)?;
-
-    // Replace rather than upsert: a validator that fully unstaked has no record in this run, and a
-    // left-behind row would keep reporting stake it no longer has.
-    tx.execute("DELETE FROM collected_stake WHERE epoch = $1", &[&epoch])
-        .await
-        .map_err(pg_transient)?;
-
-    for chunk in records.chunks(CHUNK_SIZE) {
-        let mut param_index = 1;
-        let mut params: Vec<Box<dyn ToSql + Sync + Send>> = Vec::new();
-        let mut insert_values = String::new();
-
-        for record in chunk {
-            let placeholders = (param_index..param_index + PARAMS_PER_INSERT)
-                .map(|index| format!("${index}"))
-                .collect::<Vec<_>>()
-                .join(", ");
-            insert_values.push_str(&format!("({placeholders}),"));
-            param_index += PARAMS_PER_INSERT;
-
-            params.push(Box::new(epoch));
-            params.push(Box::new(i64::try_from(record.slot)?));
-            params.push(Box::new(record.label.clone()));
-            params.push(Box::new(record.stake_authority.clone()));
-            params.push(Box::new(record.vote_account.clone()));
-            params.push(Box::new(i64::try_from(record.effective)?));
-            params.push(Box::new(i64::try_from(record.activating)?));
-            params.push(Box::new(i64::try_from(record.deactivating)?));
-            params.push(Box::new(i32::try_from(record.stake_accounts)?));
-            params.push(Box::new(record.updated_at));
-        }
-
-        insert_values.pop();
-
-        let query = format!(
-            "
-            INSERT INTO collected_stake (epoch, slot, label, stake_authority, vote_account, effective, activating, deactivating, stake_accounts, updated_at)
-            VALUES {insert_values}
-            "
-        );
-
-        let params = params
-            .iter()
-            .map(|param| param.as_ref() as &(dyn ToSql + Sync))
-            .collect::<Vec<_>>();
-        tx.query(&query, &params).await.map_err(pg_transient)?;
-    }
-
-    tx.commit().await.map_err(pg_transient)?;
     log::info!(
-        "Stored {} collected stake records for epoch {epoch}",
-        records.len()
+        "Stored {} collected stake records at {path}",
+        snapshot.records.len()
     );
-
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::TimeZone;
+fn collected_stake(records: Vec<CollectedStakeRecord>) -> anyhow::Result<CollectedStakeSnapshot> {
+    let Some(first) = records.first() else {
+        anyhow::bail!("No collected stake records to store");
+    };
+    let epoch = first.epoch;
+    let slot = first.slot;
+    let updated_at = first.updated_at;
 
-    // Fixed, not `Utc::now()`: two records of one run carry the very same stamp, and the check
-    // under test is what rejects them when they do not.
-    fn stamp(seconds: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(2026, 8, 10, 12, 0, seconds).unwrap()
-    }
+    anyhow::ensure!(
+        records.iter().all(|record| record.epoch == epoch),
+        "Collected stake records span multiple epochs, expected only {epoch}",
+    );
+    anyhow::ensure!(
+        records.iter().all(|record| record.slot == slot),
+        "Collected stake records span multiple slots, expected only {slot}",
+    );
+    anyhow::ensure!(
+        records.iter().all(|record| record.updated_at == updated_at),
+        "Collected stake records span multiple timestamps, expected only {updated_at}",
+    );
 
-    fn record(epoch: u64) -> CollectedStakeRecord {
-        CollectedStakeRecord {
-            epoch,
-            slot: 438413520,
-            label: "native".to_string(),
-            stake_authority: "stWirqFCf2Uts1JBL1Jsd3r6VBWhgnpdPxCTe1MFjrq".to_string(),
-            vote_account: "We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb".to_string(),
-            effective: 1,
-            activating: 0,
-            deactivating: 0,
-            stake_accounts: 1,
-            updated_at: stamp(0),
-        }
-    }
-
-    fn snapshot(records: Vec<CollectedStakeRecord>) -> CollectedStakeSnapshot {
-        CollectedStakeSnapshot {
-            epoch: 1014,
-            slot: 438413520,
-            updated_at: stamp(0),
-            records,
-        }
-    }
-
-    fn stake_record(
-        vote_account: &str,
-        label: &str,
-        effective: u64,
-        activating: u64,
-        deactivating: u64,
-    ) -> CollectedStakeRecord {
-        CollectedStakeRecord {
-            vote_account: vote_account.to_string(),
-            label: label.to_string(),
-            // Rows are unique on (epoch, stake_authority, vote_account); label and authority are 1:1.
-            stake_authority: format!("{label}-authority"),
-            effective,
-            activating,
-            deactivating,
-            ..record(1014)
-        }
-    }
-
-    #[test]
-    fn activating_stake_counts_towards_the_amount_to_cover() {
-        let to_cover = snapshot(vec![stake_record(
-            "voteActivating",
-            "direct",
-            0,
-            101_000,
-            0,
-        )])
-        .stake_to_cover_by_vote_account();
-        assert_eq!(to_cover.get("voteActivating"), Some(&101_000));
-    }
-
-    #[test]
-    fn deactivating_stake_is_not_added_on_top_of_effective() {
-        // Agave keeps deactivating stake effective for that epoch, so it is a subset, never an addend.
-        let to_cover = snapshot(vec![stake_record(
-            "voteDeactivating",
-            "native",
-            500,
-            0,
-            500,
-        )])
-        .stake_to_cover_by_vote_account();
-        assert_eq!(to_cover.get("voteDeactivating"), Some(&500));
-    }
-
-    #[test]
-    fn every_authority_of_a_vote_account_is_summed() {
-        let to_cover = snapshot(vec![
-            stake_record("voteMulti", "native", 10, 1, 0),
-            stake_record("voteMulti", "select", 20, 2, 0),
-            stake_record("voteMulti", "direct", 0, 4, 0),
-            stake_record("voteOther", "native", 7, 0, 0),
-        ])
-        .stake_to_cover_by_vote_account();
-        assert_eq!(to_cover.get("voteMulti"), Some(&37));
-        assert_eq!(to_cover.get("voteOther"), Some(&7));
-    }
-
-    #[test]
-    fn one_epoch_is_accepted() {
-        assert_eq!(
-            collection_epoch(&[record(1014), record(1014)]).unwrap(),
-            1014
-        );
-    }
-
-    #[test]
-    fn an_empty_collection_is_rejected() {
-        collection_epoch(&[]).unwrap_err();
-    }
-
-    #[test]
-    fn mixed_epochs_are_rejected() {
-        let err = collection_epoch(&[record(1014), record(1013)]).unwrap_err();
-        assert!(err.to_string().contains("multiple epochs"));
-    }
-
-    #[test]
-    fn mixed_slots_are_rejected() {
-        let mut second = record(1014);
-        second.slot += 1;
-        let err = collection_epoch(&[record(1014), second]).unwrap_err();
-        assert!(err.to_string().contains("multiple slots"));
-    }
-
-    #[test]
-    fn mixed_timestamps_are_rejected() {
-        let mut second = record(1014);
-        second.updated_at = stamp(1);
-        let err = collection_epoch(&[record(1014), second]).unwrap_err();
-        assert!(err.to_string().contains("multiple timestamps"));
-    }
-
-    fn epoch_record(epoch: u64, slot: u64) -> CollectedStakeRecord {
-        CollectedStakeRecord {
-            epoch,
-            slot,
-            ..record(epoch)
-        }
-    }
-
-    #[test]
-    fn nothing_collected_yields_no_snapshot() {
-        assert!(group_by_epoch(vec![]).unwrap().is_empty());
-    }
-
-    #[test]
-    fn epochs_are_grouped_newest_first() {
-        let grouped = group_by_epoch(vec![
-            epoch_record(1013, 100),
-            epoch_record(1014, 200),
-            epoch_record(1013, 100),
-        ])
-        .unwrap();
-        assert_eq!(
-            grouped
-                .iter()
-                .map(|snapshot| (snapshot.epoch, snapshot.slot, snapshot.records.len()))
-                .collect::<Vec<_>>(),
-            vec![(1014, 200, 1), (1013, 100, 2)]
-        );
-    }
-
-    #[test]
-    fn a_missing_epoch_stays_missing() {
-        let grouped =
-            group_by_epoch(vec![epoch_record(1012, 100), epoch_record(1014, 200)]).unwrap();
-        assert_eq!(
-            grouped
-                .iter()
-                .map(|snapshot| snapshot.epoch)
-                .collect::<Vec<_>>(),
-            vec![1014, 1012]
-        );
-    }
-
-    #[test]
-    fn one_epoch_spanning_two_slots_is_rejected() {
-        let err = group_by_epoch(vec![epoch_record(1014, 100), epoch_record(1014, 101)])
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("multiple slots"), "{err}");
-        assert!(err.contains("1014"), "{err}");
-    }
-
-    #[test]
-    fn one_epoch_spanning_two_timestamps_is_rejected() {
-        let mut second = epoch_record(1014, 100);
-        second.updated_at = stamp(1);
-        let err = group_by_epoch(vec![epoch_record(1014, 100), second])
-            .unwrap_err()
-            .to_string();
-        assert!(err.contains("multiple timestamps"), "{err}");
-    }
-
-    // The same slot in two different epochs is normal data, not the corruption above.
-    #[test]
-    fn slots_may_repeat_across_epochs() {
-        group_by_epoch(vec![epoch_record(1013, 100), epoch_record(1014, 100)]).unwrap();
-    }
+    Ok(CollectedStakeSnapshot {
+        epoch,
+        slot,
+        updated_at,
+        records,
+    })
 }
+
+#[cfg(test)]
+#[path = "collected_stake_test.rs"]
+mod collected_stake_test;

@@ -34,12 +34,13 @@ function makeConfig(overrides: Partial<EventingConfig> = {}): EventingConfig {
     institutionalApiUrl: 'https://institutional-staking.marinade.finance',
     notificationsApiUrl: undefined,
     notificationsJwt: undefined,
-    postgresUrl: undefined,
-    postgresSslRootCert: undefined,
+    directoryUrl: 'https://directory.test',
+    directoryToken: 'test-token',
     retryMaxAttempts: 2,
     retryBaseDelayMs: 10, // fast for tests
     emitConcurrency: 20,
     dryRun: false,
+    allowEmptyState: false,
     cacheInputs: undefined,
     ...overrides,
   }

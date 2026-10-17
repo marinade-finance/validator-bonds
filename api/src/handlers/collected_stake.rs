@@ -1,8 +1,8 @@
 use crate::context::WrappedContext;
 use crate::error::{ApiError, AppError, BadRequest};
 use crate::repositories::collected_stake::{
-    get_collected_stake_range, get_distinct_labels, get_latest_collected_epoch,
-    CollectedStakeQuery, CollectedStakeSnapshot,
+    filter_snapshots, get_collected_stake_window, get_latest_collected_epoch, CollectedStakeQuery,
+    CollectedStakeSnapshot,
 };
 use axum::extract::{Query, State};
 use axum::Json;
@@ -14,8 +14,9 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 /// Wide enough that `from_epoch` alone behaves like it does on `/v1/protected-events` for any
-/// realistic history, while still bounding the response: one epoch is ~270 rows, so the cap is
-/// roughly half of what `/v1/protected-events` already serves unfiltered.
+/// realistic history, while still bounding the response and the reads behind it, one per epoch:
+/// one epoch is ~270 rows, so the cap is roughly half of what `/v1/protected-events` already
+/// serves unfiltered.
 const MAX_EPOCH_WINDOW: u64 = 100;
 
 /// Per-authority amounts, named rather than a `authority -> lamports` map, so a further amount stays
@@ -102,8 +103,8 @@ struct CollectorAuthority {
 }
 
 /// The configured labels, not the stored ones: an authority with no non-zero stake anywhere writes
-/// no rows at all, so `direct-exit` and `select-exit` are routinely absent from the table while
-/// staying perfectly valid filters.
+/// no rows at all, so `direct-exit` and `select-exit` are routinely absent from the stored
+/// documents while staying perfectly valid filters.
 static CONFIGURED_LABELS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let config: CollectorConfig =
         serde_yaml::from_str(include_str!("../../../collector-config.yaml"))
@@ -146,6 +147,16 @@ fn unknown_labels(requested: &[String], known: &[String]) -> Vec<String> {
         .collect()
 }
 
+/// A label dropped from the config keeps its historical rows, and those stay queryable: whatever
+/// the window's documents carry is known.
+fn stored_labels(snapshots: &[CollectedStakeSnapshot]) -> Vec<String> {
+    snapshots
+        .iter()
+        .flat_map(|snapshot| &snapshot.records)
+        .map(|record| record.label.clone())
+        .collect()
+}
+
 fn resolve_window(
     from_epoch: Option<u64>,
     to_epoch: Option<u64>,
@@ -159,17 +170,12 @@ fn resolve_window(
             message: format!("from_epoch {from_epoch} is after to_epoch {to_epoch}"),
         });
     }
-    // The column is INTEGER; rejecting here keeps an absurd epoch a 400 rather than a 500 downstream.
-    if to_epoch > i32::MAX as u64 {
-        return Err(BadRequest {
-            message: format!("to_epoch {to_epoch} is out of range"),
-        });
-    }
-    let window = to_epoch - from_epoch + 1;
-    if window > MAX_EPOCH_WINDOW {
+    let width = to_epoch - from_epoch;
+    if width >= MAX_EPOCH_WINDOW {
         return Err(BadRequest {
             message: format!(
-                "epoch window of {window} epochs exceeds the maximum of {MAX_EPOCH_WINDOW}"
+                "epoch window of {} epochs exceeds the maximum of {MAX_EPOCH_WINDOW}",
+                width.saturating_add(1)
             ),
         });
     }
@@ -234,8 +240,8 @@ fn build_response(snapshot: CollectedStakeSnapshot) -> CollectedStakeResponse {
     path = "/v1/validators/stake",
     params(QueryParams),
     responses(
-        (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, one element per epoch, newest first. With no parameters that is the latest collected epoch alone. An epoch absent from the range was never collected — it does not mean no validator had stake, and nothing is interpolated. `totals` aggregate only the rows the filters returned, so a filtered call carries filtered totals.\n\nOut-flow is read from the `-exit` labels (`label=direct,direct-exit` pairs a product with its exit), and only for the epoch a position is cooling down in: one snapshot per epoch means a missed collection loses that event permanently. Two things are never reported, because neither can be attributed to a validator: stake a staker authority holds without delegating it, and a position that has finished cooling down.", body = CollectedStakeHistoryResponse),
-        (status = 400, description = "`from_epoch` is after `to_epoch`, the window is wider than 100 epochs, `vote_account` is not a valid pubkey, or `label` is not a configured staker label."),
+        (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, one element per epoch, newest first. With no parameters that is the latest collected epoch alone. An epoch absent from the range was never collected, or none of its rows passed the filters — it does not mean no validator had stake, and nothing is interpolated. `totals` aggregate only the rows the filters returned, so a filtered call carries filtered totals.\n\nOut-flow is read from the `-exit` labels (`label=direct,direct-exit` pairs a product with its exit), and only for the epoch a position is cooling down in: one snapshot per epoch means a missed collection loses that event permanently. Two things are never reported, because neither can be attributed to a validator: stake a staker authority holds without delegating it, and a position that has finished cooling down.", body = CollectedStakeHistoryResponse),
+        (status = 400, description = "`from_epoch` is after `to_epoch`, the window is wider than 100 epochs, `vote_account` is not a valid pubkey, or `label` is neither a configured staker label nor one the window's epochs carry."),
         (status = 500, description = "No stake has been collected yet, or it could not be read. Deliberately not an empty list, which would read as 'no validator has stake'."),
     )
 )]
@@ -244,9 +250,8 @@ pub async fn handler(
     Query(query_params): Query<QueryParams>,
 ) -> Result<Json<CollectedStakeHistoryResponse>, ApiError> {
     let context = context.read().await;
-    let psql_client = &context.psql_client;
 
-    let latest = get_latest_collected_epoch(psql_client)
+    let latest = get_latest_collected_epoch(&context.directory)
         .await
         .map_err(|error| AppError {
             message: format!("Failed to fetch the latest collected epoch. Error: {error:?}"),
@@ -257,16 +262,18 @@ pub async fn handler(
 
     let labels = parse_csv(query_params.label.as_deref());
     let vote_accounts = parse_vote_accounts(&parse_csv(query_params.vote_account.as_deref()))?;
+    let (from_epoch, to_epoch) =
+        resolve_window(query_params.from_epoch, query_params.to_epoch, latest)?;
+
+    let snapshots = get_collected_stake_window(&context.directory, from_epoch, to_epoch)
+        .await
+        .map_err(|error| AppError {
+            message: format!("Failed to fetch collected stake. Error: {error:?}"),
+        })?;
 
     let unconfigured = unknown_labels(&labels, &CONFIGURED_LABELS);
     if !unconfigured.is_empty() {
-        // A label dropped from the config keeps its historical rows, and those stay queryable.
-        let stored = get_distinct_labels(psql_client)
-            .await
-            .map_err(|error| AppError {
-                message: format!("Failed to fetch collected stake labels. Error: {error:?}"),
-            })?;
-        let unknown = unknown_labels(&unconfigured, &stored);
+        let unknown = unknown_labels(&unconfigured, &stored_labels(&snapshots));
         if !unknown.is_empty() {
             return Err(BadRequest {
                 message: format!(
@@ -279,25 +286,15 @@ pub async fn handler(
         }
     }
 
-    let (from_epoch, to_epoch) =
-        resolve_window(query_params.from_epoch, query_params.to_epoch, latest)?;
-
-    let snapshots = get_collected_stake_range(
-        psql_client,
-        &CollectedStakeQuery {
-            from_epoch,
-            to_epoch,
-            labels,
-            vote_accounts,
-        },
-    )
-    .await
-    .map_err(|error| AppError {
-        message: format!("Failed to fetch collected stake. Error: {error:?}"),
-    })?;
-
+    let query = CollectedStakeQuery {
+        labels,
+        vote_accounts,
+    };
     Ok(Json(CollectedStakeHistoryResponse {
-        epochs: snapshots.into_iter().map(build_response).collect(),
+        epochs: filter_snapshots(snapshots, &query)
+            .into_iter()
+            .map(build_response)
+            .collect(),
     }))
 }
 
@@ -321,13 +318,17 @@ mod tests {
         }
     }
 
-    fn response(records: Vec<CollectedStakeRecord>) -> CollectedStakeResponse {
-        build_response(CollectedStakeSnapshot {
+    fn snapshot(records: Vec<CollectedStakeRecord>) -> CollectedStakeSnapshot {
+        CollectedStakeSnapshot {
             epoch: 1014,
             slot: 438413520,
             updated_at: Utc::now(),
             records,
-        })
+        }
+    }
+
+    fn response(records: Vec<CollectedStakeRecord>) -> CollectedStakeResponse {
+        build_response(snapshot(records))
     }
 
     #[test]
@@ -442,10 +443,24 @@ mod tests {
         );
     }
 
+    // An epoch past the latest is a window the store has nothing for, not an error.
     #[test]
-    fn an_epoch_beyond_the_column_is_rejected() {
-        let error = resolve_window(None, Some(u64::MAX), 1030).unwrap_err();
-        assert!(error.message.contains("out of range"), "{}", error.message);
+    fn a_window_past_the_latest_epoch_is_accepted() {
+        assert_eq!(
+            resolve_window(None, Some(u64::MAX), 1030).unwrap(),
+            (u64::MAX, u64::MAX)
+        );
+    }
+
+    // The widest window there is: its size does not fit a u64, and it must be a 400, not a panic.
+    #[test]
+    fn the_whole_epoch_range_is_rejected_not_overflowed() {
+        let error = resolve_window(Some(0), Some(u64::MAX), 1030).unwrap_err();
+        assert!(
+            error.message.contains("exceeds the maximum"),
+            "{}",
+            error.message
+        );
     }
 
     // The seven authorities of collector-config.yaml, so a config edit that the API must learn
@@ -488,5 +503,12 @@ mod tests {
             ),
             vec!["dyrect".to_string()]
         );
+    }
+
+    #[test]
+    fn a_label_the_window_carries_is_known_though_unconfigured() {
+        let window = vec![snapshot(vec![record("retired", "voteA", 1)])];
+        assert_eq!(stored_labels(&window), vec!["retired".to_string()]);
+        assert!(unknown_labels(&["retired".to_string()], &stored_labels(&window)).is_empty());
     }
 }

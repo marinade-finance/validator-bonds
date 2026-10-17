@@ -45,7 +45,7 @@ Top-level `SettlementReason` variants — enum in [`settlement-common/src/settle
 5. **Claiming window** (`config.epochs_to_claim_settlement`, configurable; ~4 epochs in practice): stakers prove merkle membership, claim rewards (`claim-settlement`). A settlement becomes closable once `settlement.epoch_created_for + config.epochs_to_claim_settlement < clock.epoch` (`close_settlement.rs`).
 6. Expired settlements closed (`close-settlement`), unclaimed funds return to bond
 
-**Bond data collection:** `bonds-collector/` (`collect-bonds` Buildkite pipeline) scrapes all `ValidatorBond` on-chain accounts via RPC after each epoch using `collect_validator_bonds_with_funds` (`common-rs/`), stores to PostgreSQL, and serves via the bonds API (`validator-bonds-api`). Runs for both `bidding` and `institutional` bond types. Source: `bonds-collector/src/commands/bonds.rs`.
+**Bond data collection:** `bonds-collector/` (`collect-bonds` Buildkite pipeline) scrapes all `ValidatorBond` on-chain accounts via RPC after each epoch using `collect_validator_bonds_with_funds` (`common-rs/`), stores one document per epoch in marinade-directory, and serves via the bonds API (`validator-bonds-api`). Runs for both `bidding` and `institutional` bond types. Source: `bonds-collector/src/commands/bonds.rs`.
 
 ## Key Concepts
 

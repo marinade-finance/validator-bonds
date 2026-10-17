@@ -73,8 +73,7 @@ pub struct CollectedStakeRecord {
 
 /// Which bond paid a validator's direct-staking claims, or that none could. Modelled as an enum so
 /// a routed record cannot be built without the bond it routed to, and a dropped one cannot claim a
-/// bond it never had — the same invariant `direct_staking_allocation`'s CHECK constraints enforce
-/// from the database side.
+/// bond it never had.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "outcome", rename_all = "lowercase")]
 pub enum AllocationOutcome {

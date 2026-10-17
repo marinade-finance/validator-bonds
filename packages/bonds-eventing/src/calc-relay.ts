@@ -14,8 +14,8 @@ export interface AuctionMeta extends DsSamConfig {
   blacklist: string[]
 }
 
-// Coerce NaN/±Infinity (SDK leaves these on ineligible validators) to null: slonik
-// sql.jsonb throws on non-finite, and calc reads them back through its own finite() guards.
+// Coerce NaN/±Infinity (SDK leaves these on ineligible validators) to null: they are
+// not JSON, and calc reads them back through its own finite() guards.
 export function jsonSafe<T>(value: T): T {
   if (typeof value === 'number') {
     return (Number.isFinite(value) ? value : null) as T

@@ -8,12 +8,11 @@ use axum::ServiceExt;
 use clap::Parser;
 use env_logger::Env;
 use log::{error, info, warn};
-use openssl::ssl::{SslConnector, SslMethod};
-use postgres_openssl::MakeTlsConnector;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::RwLock;
+use validator_bonds_common::directory::Directory;
 
 /// Internal port for Prometheus metrics + health, scraped via a dedicated
 /// metrics `Service` annotated `prometheus.io/port: "9000"`. Kept off the
@@ -22,11 +21,11 @@ const INTERNAL_PORT: u16 = 9000;
 
 #[derive(Debug, Parser)]
 pub struct Params {
-    #[arg(long = "postgres-url")]
-    pub postgres_url: String,
+    #[arg(long = "directory-url", env = "DIRECTORY_URL")]
+    pub directory_url: String,
 
-    #[arg(long = "postgres-ssl-root-cert", env = "PG_SSLROOTCERT")]
-    pub postgres_ssl_root_cert: String,
+    #[arg(long = "directory-token", env = "DIRECTORY_TOKEN")]
+    pub directory_token: String,
 
     #[arg(long = "gcp-project-id")]
     pub gcp_project_id: Option<String>,
@@ -48,17 +47,7 @@ async fn main() -> anyhow::Result<()> {
 
     let params = Params::parse();
 
-    let mut builder = SslConnector::builder(SslMethod::tls())?;
-    builder.set_ca_file(&params.postgres_ssl_root_cert)?;
-    let connector = MakeTlsConnector::new(builder.build());
-
-    let (psql_client, psql_conn) = tokio_postgres::connect(&params.postgres_url, connector).await?;
-    tokio::spawn(async move {
-        if let Err(err) = psql_conn.await {
-            error!("PSQL Connection error: {err}");
-            std::process::exit(1);
-        }
-    });
+    let directory = Directory::new(&params.directory_url, &params.directory_token);
 
     let verified_validators = match &params.verified_validators_config {
         Some(path) => verified_validators_repo::load_verified_validators(path)
@@ -71,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
 
     let protected_event_records = Arc::new(RwLock::new(None));
     let context: WrappedContext = Arc::new(RwLock::new(Context::new(
-        psql_client,
+        directory,
         protected_event_records.clone(),
         verified_validators,
     )?));
