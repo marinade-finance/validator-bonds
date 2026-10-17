@@ -47,7 +47,7 @@ fn main() -> anyhow::Result<()> {
 
     info!(
         "DAO fee split share bps {:?} loaded",
-        &args.dao_fee_split_share_bps
+        args.dao_fee_split_share_bps
     );
 
     info!("Loading Institutional Payout collection...");
@@ -76,7 +76,7 @@ fn main() -> anyhow::Result<()> {
         ),
     )?;
 
-    info!("Writing settlement config to {}", &args.output_config);
+    info!("Writing settlement config to {}", args.output_config);
     write_to_json_file(&config, &args.output_config)
         .map_err(file_error("output-config", &args.output_config))?;
 

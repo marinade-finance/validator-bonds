@@ -1,16 +1,15 @@
 use crate::anchor::add_instruction_to_builder;
-use anchor_client::anchor_lang::solana_program::stake_history::StakeHistoryEntry;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use log::warn;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::stake::state::StakeStateV2;
-use solana_sdk::sysvar::{
-    clock::ID as clock_sysvar_id, stake_history::ID as stake_history_sysvar_id,
-};
+use solana_sdk::sysvar::clock::ID as clock_sysvar_id;
+use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
+use solana_stake_interface::program::ID as stake_program_id;
+use solana_stake_interface::stake_history::StakeHistoryEntry;
+use solana_stake_interface::state::StakeStateV2;
 use solana_transaction_builder::TransactionBuilder;
 use std::cmp::Ordering;
 use std::str::FromStr;
@@ -337,8 +336,8 @@ pub async fn prepare_merge_instructions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::stake::stake_flags::StakeFlags;
-    use solana_sdk::stake::state::{Authorized, Delegation, Lockup, Meta, Stake};
+    use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::state::{Authorized, Delegation, Lockup, Meta, Stake};
 
     const SOL: u64 = 1_000_000_000;
     // minimum delegation (1 SOL) + rent exemption, matching `minimal_stake_lamports` used by the
@@ -550,7 +549,7 @@ mod tests {
                 epoch: EPOCH,
                 ..Default::default()
             },
-            stake_history: solana_sdk::stake_history::StakeHistory::default(),
+            stake_history: solana_stake_interface::stake_history::StakeHistory::default(),
             new_rate_activation_epoch: Some(EPOCH - 1),
         }
     }

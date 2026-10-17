@@ -39,11 +39,11 @@ import {
   type ReadonlyUint8Array,
 } from '@solana/kit'
 
-export const BOND_DISCRIMINATOR = new Uint8Array([
+export const BOND_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   224, 128, 48, 251, 182, 246, 111, 196,
 ])
 
-export function getBondDiscriminatorBytes() {
+export function getBondDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(BOND_DISCRIMINATOR)
 }
 

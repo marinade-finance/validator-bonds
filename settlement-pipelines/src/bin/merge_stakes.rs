@@ -1,4 +1,4 @@
-use anchor_client::anchor_lang::solana_program::stake::state::StakeStateV2;
+use solana_stake_interface::state::StakeStateV2;
 
 use anchor_client::{DynSigner, Program};
 use clap::Parser;
@@ -30,7 +30,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::future::Future;
 
-use solana_sdk::stake::state::Stake;
+use solana_stake_interface::state::Stake;
 use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;

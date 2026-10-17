@@ -12,15 +12,15 @@ use crate::state::settlement::Settlement;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::{invoke, invoke_signed};
-use anchor_lang::solana_program::sysvar::stake_history;
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{
-    stake,
-    stake::state::{StakeAuthorize, StakeStateV2},
-};
 use anchor_spl::stake::{
     authorize, deactivate_stake, withdraw, Authorize, DeactivateStake, Stake, StakeAccount,
     Withdraw,
+};
+use solana_sdk_ids::vote::ID as vote_program_id;
+use solana_stake_interface::sysvar::stake_history;
+use solana_stake_interface::{
+    self as stake,
+    state::{StakeAuthorize, StakeStateV2},
 };
 
 /// Funding the settlement by providing a stake account delegated to a particular validator vote account based on the Merkle proof.
@@ -32,7 +32,7 @@ pub struct FundSettlement<'info> {
     #[account(
         has_one = operator_authority @ ErrorCode::InvalidOperatorAuthority,
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -71,7 +71,7 @@ pub struct FundSettlement<'info> {
 
     /// stake account to be funded into the settlement
     #[account(mut)]
-    pub stake_account: Account<'info, StakeAccount>,
+    pub stake_account: Box<Account<'info, StakeAccount>>,
 
     /// CHECK: PDA
     /// the settlement stake authority differentiates between deposited and funded stake accounts
@@ -249,7 +249,7 @@ impl FundSettlement<'_> {
                     );
                     withdraw(
                         CpiContext::new_with_signer(
-                            ctx.accounts.stake_program.to_account_info(),
+                            ctx.accounts.stake_program.key(),
                             Withdraw {
                                 stake: ctx.accounts.stake_account.to_account_info(),
                                 withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
@@ -359,7 +359,7 @@ impl FundSettlement<'_> {
         // NOTE: do not deactivate when already deactivated (deactivated: deactivation_epoch != u64::MAX)
         if stake_delegation.deactivation_epoch == u64::MAX {
             deactivate_stake(CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 DeactivateStake {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     staker: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
@@ -380,7 +380,7 @@ impl FundSettlement<'_> {
         // funding, i.e., moving stake account from bond authority to settlement authority
         authorize(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),

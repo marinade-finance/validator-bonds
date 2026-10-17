@@ -37,9 +37,9 @@ jobs:
           sudo apt-get -y install libudev-dev libclang-dev llvm-dev
 
       - name: 👨‍🔧 Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 22
 
       - name: 👩‍🔧 Install pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -47,7 +47,7 @@ jobs:
           version: 10
 
       - name: 🦿 Install Rust tookchain
-        uses: dtolnay/rust-toolchain@e814c742d4444ce2f3f6abddea7faf00161ed941 # 1.88.0
+        uses: dtolnay/rust-toolchain@9ca9f0b320e19763058bc9531663c225d20db487 # 1.97.1
         with:
           components: rustfmt, clippy
 
@@ -73,6 +73,9 @@ jobs:
       - name: 🧭 Run lint
         run: |
           pnpm check
+
+      - name: 🧪 Run TS unit tests
+        run: pnpm test:unit
 
       # The store-backed suites start fake-gcs-server and marinade-directory
       # themselves and fail, not skip, when the image is missing. marinade-directory

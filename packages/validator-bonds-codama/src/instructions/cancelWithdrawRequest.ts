@@ -10,10 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
@@ -31,21 +29,28 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
   getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
+import {
+  findBondPda,
+  findEventAuthorityPda,
+  findWithdrawRequestPda,
+} from '../pdas'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const CANCEL_WITHDRAW_REQUEST_DISCRIMINATOR = new Uint8Array([
-  167, 100, 110, 128, 113, 154, 224, 77,
-])
+export const CANCEL_WITHDRAW_REQUEST_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([167, 100, 110, 128, 113, 154, 224, 77])
 
-export function getCancelWithdrawRequestDiscriminatorBytes() {
+export function getCancelWithdrawRequestDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     CANCEL_WITHDRAW_REQUEST_DISCRIMINATOR,
   )
@@ -128,35 +133,38 @@ export function getCancelWithdrawRequestInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type CancelWithdrawRequestAsyncInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountWithdrawRequest extends string = string,
-  TAccountRentCollector extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond?: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond?: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** validator vote account validator identity or bond authority may ask for cancelling */
-  authority: TransactionSigner<TAccountAuthority>
-  withdrawRequest?: Address<TAccountWithdrawRequest>
-  rentCollector: Address<TAccountRentCollector>
-  eventAuthority?: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  authority: TAccountAuthority
+  withdrawRequest?: TAccountWithdrawRequest
+  rentCollector: TAccountRentCollector
+  eventAuthority?: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export async function getCancelWithdrawRequestInstructionAsync<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountAuthority extends string,
-  TAccountWithdrawRequest extends string,
-  TAccountRentCollector extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: CancelWithdrawRequestAsyncInput<
@@ -173,30 +181,81 @@ export async function getCancelWithdrawRequestInstructionAsync<
 ): Promise<
   CancelWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountRentCollector,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    authority: { value: input.authority ?? null, isWritable: false },
-    withdrawRequest: { value: input.withdrawRequest ?? null, isWritable: true },
-    rentCollector: { value: input.rentCollector ?? null, isWritable: true },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    withdrawRequest: {
+      value: input.withdrawRequest ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    rentCollector: {
+      value: input.rentCollector ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -205,60 +264,37 @@ export async function getCancelWithdrawRequestInstructionAsync<
 
   // Resolve default values.
   if (!accounts.bond.value) {
-    accounts.bond.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116,
-          ]),
+    accounts.bond.value = await findBondPda(
+      {
+        config: getAddressFromResolvedInstructionAccount(
+          'config',
+          accounts.config.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'config',
-            accounts.config.value,
-          ),
+        voteAccount: getAddressFromResolvedInstructionAccount(
+          'voteAccount',
+          accounts.voteAccount.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount(
-            'voteAccount',
-            accounts.voteAccount.value,
-          ),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.withdrawRequest.value) {
-    accounts.withdrawRequest.value = await getProgramDerivedAddress({
-      programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            119, 105, 116, 104, 100, 114, 97, 119, 95, 97, 99, 99, 111, 117,
-            110, 116,
-          ]),
+    accounts.withdrawRequest.value = await findWithdrawRequestPda(
+      {
+        bond: getAddressFromResolvedInstructionAccount(
+          'bond',
+          accounts.bond.value,
         ),
-        getAddressEncoder().encode(
-          getAddressFromResolvedInstructionAccount('bond', accounts.bond.value),
-        ),
-      ],
-    })
+      },
+      { programAddress },
+    )
   }
   if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value = await getProgramDerivedAddress({
+    accounts.eventAuthority.value = await findEventAuthorityPda({
       programAddress,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            95, 95, 101, 118, 101, 110, 116, 95, 97, 117, 116, 104, 111, 114,
-            105, 116, 121,
-          ]),
-        ),
-      ],
     })
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -274,47 +310,74 @@ export async function getCancelWithdrawRequestInstructionAsync<
     programAddress,
   } as CancelWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountRentCollector,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 
 export type CancelWithdrawRequestInput<
-  TAccountConfig extends string = string,
-  TAccountBond extends string = string,
-  TAccountVoteAccount extends string = string,
-  TAccountAuthority extends string = string,
-  TAccountWithdrawRequest extends string = string,
-  TAccountRentCollector extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountConfig extends InstructionAccountInput = InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput = InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput = InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput = InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  config: Address<TAccountConfig>
-  bond: Address<TAccountBond>
-  voteAccount: Address<TAccountVoteAccount>
+  config: TAccountConfig
+  bond: TAccountBond
+  voteAccount: TAccountVoteAccount
   /** validator vote account validator identity or bond authority may ask for cancelling */
-  authority: TransactionSigner<TAccountAuthority>
-  withdrawRequest: Address<TAccountWithdrawRequest>
-  rentCollector: Address<TAccountRentCollector>
-  eventAuthority: Address<TAccountEventAuthority>
-  program: Address<TAccountProgram>
+  authority: TAccountAuthority
+  withdrawRequest: TAccountWithdrawRequest
+  rentCollector: TAccountRentCollector
+  eventAuthority: TAccountEventAuthority
+  program: TAccountProgram
 }
 
 export function getCancelWithdrawRequestInstruction<
-  TAccountConfig extends string,
-  TAccountBond extends string,
-  TAccountVoteAccount extends string,
-  TAccountAuthority extends string,
-  TAccountWithdrawRequest extends string,
-  TAccountRentCollector extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountConfig extends InstructionAccountInput,
+  TAccountBond extends InstructionAccountInput,
+  TAccountVoteAccount extends InstructionAccountInput,
+  TAccountAuthority extends InstructionSignerInput,
+  TAccountWithdrawRequest extends InstructionAccountInput,
+  TAccountRentCollector extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: CancelWithdrawRequestInput<
@@ -330,36 +393,86 @@ export function getCancelWithdrawRequestInstruction<
   config?: { programAddress?: TProgramAddress },
 ): CancelWithdrawRequestInstruction<
   TProgramAddress,
-  TAccountConfig,
-  TAccountBond,
-  TAccountVoteAccount,
-  TAccountAuthority,
-  TAccountWithdrawRequest,
-  TAccountRentCollector,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountConfig,
+    InstructionAccountInputAddress<TAccountConfig>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountBond,
+    InstructionAccountInputAddress<TAccountBond>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountVoteAccount,
+    InstructionAccountInputAddress<TAccountVoteAccount>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountAuthority,
+    InstructionAccountInputAddress<TAccountAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountWithdrawRequest,
+    InstructionAccountInputAddress<TAccountWithdrawRequest>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentCollector,
+    InstructionAccountInputAddress<TAccountRentCollector>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
-    config: { value: input.config ?? null, isWritable: false },
-    bond: { value: input.bond ?? null, isWritable: false },
-    voteAccount: { value: input.voteAccount ?? null, isWritable: false },
-    authority: { value: input.authority ?? null, isWritable: false },
-    withdrawRequest: { value: input.withdrawRequest ?? null, isWritable: true },
-    rentCollector: { value: input.rentCollector ?? null, isWritable: true },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    config: { value: input.config ?? null, isSigner: false, isWritable: false },
+    bond: { value: input.bond ?? null, isSigner: false, isWritable: false },
+    voteAccount: {
+      value: input.voteAccount ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    authority: {
+      value: input.authority ?? null,
+      isSigner: true,
+      isWritable: false,
+    },
+    withdrawRequest: {
+      value: input.withdrawRequest ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    rentCollector: {
+      value: input.rentCollector ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedInstructionAccount
   >
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('config', accounts.config),
@@ -375,14 +488,38 @@ export function getCancelWithdrawRequestInstruction<
     programAddress,
   } as CancelWithdrawRequestInstruction<
     TProgramAddress,
-    TAccountConfig,
-    TAccountBond,
-    TAccountVoteAccount,
-    TAccountAuthority,
-    TAccountWithdrawRequest,
-    TAccountRentCollector,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountConfig,
+      InstructionAccountInputAddress<TAccountConfig>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountBond,
+      InstructionAccountInputAddress<TAccountBond>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVoteAccount,
+      InstructionAccountInputAddress<TAccountVoteAccount>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountAuthority,
+      InstructionAccountInputAddress<TAccountAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawRequest,
+      InstructionAccountInputAddress<TAccountWithdrawRequest>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentCollector,
+      InstructionAccountInputAddress<TAccountRentCollector>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >)
 }
 

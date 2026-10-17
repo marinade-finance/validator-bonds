@@ -1,6 +1,5 @@
-use anchor_client::{ClientError, DynSigner, RequestBuilder, ThreadSafeSigner};
+use anchor_client::{DynSigner, RequestBuilder, ThreadSafeSigner};
 use anyhow::anyhow;
-use log::error;
 use solana_transaction_builder::TransactionBuilder;
 use std::sync::Arc;
 
@@ -21,17 +20,13 @@ fn add_instructions_to_builder_from_anchor_internal(
     request_builder: &RequestBuilder<Arc<DynSigner>, Arc<dyn ThreadSafeSigner>>,
     descriptions: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
-    let instructions = request_builder.instructions().map_err(|e: ClientError| {
-        error!("add_instructions_from_anchor_builder: error building instructions: {e:?}");
-        anyhow!(e)
-    })?;
+    let instructions = request_builder.instructions();
     if let Some(descriptions) = descriptions {
         if instructions.len() != descriptions.len() {
             return Err(anyhow!("add_instructions_from_anchor_builder: instructions and descriptions must have the same length"));
         }
-        transaction_builder.add_instructions_with_description(
-            instructions.into_iter().zip(descriptions.into_iter()),
-        )?;
+        transaction_builder
+            .add_instructions_with_description(instructions.into_iter().zip(descriptions))?;
     } else {
         transaction_builder.add_instructions(instructions)?;
     }

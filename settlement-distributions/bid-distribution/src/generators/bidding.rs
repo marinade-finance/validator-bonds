@@ -10,7 +10,7 @@ use settlement_common::settlement_collection::{Settlement, SettlementClaim, Sett
 use settlement_common::settlement_details::{
     BidSettlementDetails, PriorityFeeSettlementDetails, SettlementDetails,
 };
-use snapshot_parser_validator_cli::stake_meta::StakeMeta;
+use snapshot_parser::stake_meta::StakeMeta;
 use solana_sdk::pubkey::Pubkey;
 use std::collections::HashMap;
 use std::fmt;

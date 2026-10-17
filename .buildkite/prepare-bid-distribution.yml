@@ -85,6 +85,7 @@ steps:
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation.json" ./rewards/validators_inflation.json
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_blocks.json" ./rewards/validators_blocks.json
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_priority_fee.json" ./rewards/jito_priority_fee.json
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_burned.json" ./rewards/validators_inflation_burned.json || true
     artifact_paths:
       - './rewards/*.json'
 
@@ -95,9 +96,11 @@ steps:
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
+      gcloud storage cp "$gs_bucket/$$epoch/leader-schedule.json" "." || true
     artifact_paths:
       - "./validators.json"
       - "./past-validators.json"
+      - "./leader-schedule.json"
 
   - label: ":cloud: :arrow_right: :floppy_disk: Download DS SAM auction data"
     key: "download-ds-sam"
@@ -182,9 +185,12 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_blocks.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/jito_priority_fee.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_burned.json . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
     - 'chmod +x target/release/bid-distribution-cli'
+    - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
     - |
-      ./target/release/bid-distribution-cli \
+      ./target/release/bid-distribution-cli $$leader_schedule_arg \
         --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
         --sam-results-collection ./outputs/results.json \

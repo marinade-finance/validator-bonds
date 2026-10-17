@@ -52,3 +52,9 @@ settlements:
     extra_penalty_threshold_bps: 700 # 7%
     base_markup_bps: 0 # 0%
     penalty_markup_bps: 0 # 0%
+
+  - type: VatUnadmittedSettlement
+    meta:
+      funder: ValidatorBond
+    min_settlement_lamports: 100000000 # 0.1 SOL
+    covered_range_bps: [0, 10000] # 0 % - 100 %

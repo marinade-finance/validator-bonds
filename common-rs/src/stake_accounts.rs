@@ -7,15 +7,15 @@ use solana_client::{
     rpc_config::{RpcAccountInfoConfig, RpcProgramAccountsConfig},
     rpc_filter::{Memcmp, RpcFilterType},
 };
-use solana_program::stake::state::{Delegation, StakeStateV2};
-use solana_program::stake_history::StakeHistoryEntry;
 use solana_sdk::{
     clock::{Clock, Epoch},
     pubkey::Pubkey,
-    stake_history::StakeHistory,
-    sysvar::{clock, stake_history},
+    sysvar::clock,
 };
+use solana_sdk_ids::sysvar::stake_history;
 use solana_stake_interface::program::ID as stake_program_id;
+use solana_stake_interface::stake_history::{StakeHistory, StakeHistoryEntry};
+use solana_stake_interface::state::{Delegation, StakeStateV2};
 use std::collections::HashMap;
 
 use std::sync::Arc;
@@ -115,7 +115,7 @@ pub async fn collect_stake_accounts(
     }
 
     let accounts = rpc_client
-        .get_program_accounts_with_config(
+        .get_program_ui_accounts_with_config(
             &stake_program_id,
             RpcProgramAccountsConfig {
                 filters: Some([filters, vec![RpcFilterType::DataSize(200)]].concat()),
@@ -127,18 +127,18 @@ pub async fn collect_stake_accounts(
             },
         )
         .await?;
-    Ok(accounts
+    accounts
         .into_iter()
         .map(|(pubkey, account)| {
-            (
-                pubkey,
-                account.lamports,
-                bincode::deserialize(&account.data).unwrap_or_else(|_| {
-                    panic!("Failed to deserialize stake account data for {pubkey}")
-                }),
-            )
+            let data = account.data.decode().ok_or_else(|| {
+                anyhow::anyhow!("Failed to decode stake account data for {pubkey}")
+            })?;
+            let stake = bincode::deserialize(&data).map_err(|e| {
+                anyhow::anyhow!("Failed to deserialize stake account data for {pubkey}: {e}")
+            })?;
+            Ok((pubkey, account.lamports, stake))
         })
-        .collect())
+        .collect()
 }
 
 // Mapping provided stake accounts to the voter_pubkey,
@@ -396,8 +396,8 @@ pub async fn collect_stake_by_authority(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_program::stake::state::{Delegation, Meta, Stake};
     use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::state::{Delegation, Meta, Stake};
 
     const EPOCH: u64 = 1014;
     const STAKE: u64 = 100_000;

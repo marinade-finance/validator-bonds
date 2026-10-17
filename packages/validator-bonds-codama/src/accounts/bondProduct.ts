@@ -47,11 +47,11 @@ import {
   type ProductTypeConfigArgs,
 } from '../types'
 
-export const BOND_PRODUCT_DISCRIMINATOR = new Uint8Array([
+export const BOND_PRODUCT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   135, 68, 116, 146, 5, 75, 127, 143,
 ])
 
-export function getBondProductDiscriminatorBytes() {
+export function getBondProductDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(BOND_PRODUCT_DISCRIMINATOR)
 }
 

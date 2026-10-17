@@ -39,11 +39,10 @@ import {
   type ReadonlyUint8Array,
 } from '@solana/kit'
 
-export const SETTLEMENT_CLAIMS_DISCRIMINATOR = new Uint8Array([
-  32, 130, 62, 175, 231, 54, 170, 114,
-])
+export const SETTLEMENT_CLAIMS_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([32, 130, 62, 175, 231, 54, 170, 114])
 
-export function getSettlementClaimsDiscriminatorBytes() {
+export function getSettlementClaimsDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     SETTLEMENT_CLAIMS_DISCRIMINATOR,
   )
