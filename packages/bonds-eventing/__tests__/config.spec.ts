@@ -129,28 +129,36 @@ describe('--allow-empty-state', () => {
     const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
     expect(config.allowEmptyState).toBe(true)
   })
+})
 
-  /**
-   * Commander enables a plain boolean flag whenever its env var exists, so an
-   * operator who sets the variable to "false" must still get the refusal.
-   */
+describe.each([
+  ['EVENTING_ALLOW_EMPTY_STATE', 'allowEmptyState'],
+  ['DRY_RUN', 'dryRun'],
+] as const)('%s', (envVar, option) => {
+  /** Boolean environment values reach the parsed config unchanged. */
   it.each([
     ['false', false],
     ['true', true],
-  ])('reads EVENTING_ALLOW_EMPTY_STATE=%s as %s', (value, expected) => {
-    process.env.EVENTING_ALLOW_EMPTY_STATE = value
+    [undefined, false],
+  ])('reads %s as %s', (value, expected) => {
+    const previous = process.env[envVar]
+    if (value === undefined) delete process.env[envVar]
+    else process.env[envVar] = value
     try {
       const command = addSharedEventingOptions(new Command()).exitOverride()
       command.parse([], { from: 'user' })
-      expect(command.opts().allowEmptyState).toBe(expected)
+      const config = parseConfig({ ...BASE_CONFIG, ...command.opts() })
+      expect(config[option]).toBe(expected)
     } finally {
-      delete process.env.EVENTING_ALLOW_EMPTY_STATE
+      if (previous === undefined) delete process.env[envVar]
+      else process.env[envVar] = previous
     }
   })
 
-  /** A value other than true or false is a typo, so the command refuses it. */
-  it('refuses EVENTING_ALLOW_EMPTY_STATE=0', () => {
-    process.env.EVENTING_ALLOW_EMPTY_STATE = '0'
+  /** Invalid environment values stop the command. */
+  it('refuses 0', () => {
+    const previous = process.env[envVar]
+    process.env[envVar] = '0'
     try {
       const command = addSharedEventingOptions(new Command()).exitOverride()
       command.configureOutput({ writeErr: () => undefined })
@@ -158,7 +166,8 @@ describe('--allow-empty-state', () => {
         "expected true or false, got '0'",
       )
     } finally {
-      delete process.env.EVENTING_ALLOW_EMPTY_STATE
+      if (previous === undefined) delete process.env[envVar]
+      else process.env[envVar] = previous
     }
   })
 })
