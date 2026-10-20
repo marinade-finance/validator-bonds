@@ -337,7 +337,7 @@ async function downloadEpochInputs(
   }
 
   await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
-  let alpenglow = false
+  let alpenglow = false as boolean
   await fetchOne(
     gcsBonds(epoch, VALIDATORS_FILE),
     join(inp, VALIDATORS_FILE),
