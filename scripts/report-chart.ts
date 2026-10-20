@@ -87,11 +87,14 @@ function ratio(s: string | number | undefined): number {
 
 function isoWeek(ts: number): string {
   const d = new Date(ts * 1000)
-  const jan4 = new Date(d.getFullYear(), 0, 4)
-  const start = new Date(jan4)
-  start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-  const week = Math.floor((d.getTime() - start.getTime()) / 86400000 / 7) + 1
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
+  const day = (d.getUTCDay() + 6) % 7
+  const thursday = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day + 3),
+  )
+  const year = thursday.getUTCFullYear()
+  const jan1 = Date.UTC(year, 0, 1)
+  const week = Math.floor((thursday.getTime() - jan1) / 86400000 / 7) + 1
+  return `${year}-W${String(week).padStart(2, '0')}`
 }
 
 function isoMonth(ts: number): string {
