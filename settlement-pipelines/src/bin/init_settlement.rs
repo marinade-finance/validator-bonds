@@ -108,7 +108,7 @@ async fn real_main(
     };
 
     let collections = load_merkle_tree_collections(
-        &[args.input_merkle_tree_collection.clone()],
+        std::slice::from_ref(&args.input_merkle_tree_collection),
         args.global_opts.config,
     )?;
     // an input file that never loaded is not the same as an epoch that legitimately settles nothing
@@ -140,7 +140,7 @@ async fn real_main(
 
     let epoch = args
         .epoch
-        .map_or_else(|| settlement_records.first().unwrap().epoch, |v| v);
+        .unwrap_or_else(|| settlement_records.first().unwrap().epoch);
     reporting
         .reportable
         .init(

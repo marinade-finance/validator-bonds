@@ -80,7 +80,7 @@ pub fn allocate(input: AllocatorInput) -> anyhow::Result<AllocatorOutput> {
             .copied()
             .unwrap_or_default();
 
-        // a downtime event cannot exist without a revenue expectation, so this can only mean the
+        // a PSR event cannot exist without a revenue expectation, so this can only mean the
         // generator and the allocator were handed different evaluation.json files
         ensure!(
             input.evaluated_vote_accounts.contains(&vote_account),

@@ -380,7 +380,7 @@ mod tests {
     fn vote_accounts_are_canonicalised() {
         let valid = "We11J5D4iXcNbdMwCZX2o9RRkwaWBo1AGLADfubmeTb".to_string();
         assert_eq!(
-            parse_vote_accounts(&[valid.clone()]).unwrap(),
+            parse_vote_accounts(std::slice::from_ref(&valid)).unwrap(),
             vec![valid.clone()]
         );
         assert_eq!(parse_vote_accounts(&[]).unwrap(), Vec::<String>::new());

@@ -8,8 +8,8 @@ use crate::events::bond::FundBondEvent;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::StakeAuthorize;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
+use solana_stake_interface::state::StakeAuthorize;
 
 /// Funds the stake account to the validator bond record.
 // The same operation can be performed by manually changing the withdrawer and staker
@@ -97,7 +97,7 @@ impl FundBond<'_> {
 
         authorize(
             CpiContext::new(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.stake_authority.to_account_info(),
@@ -111,7 +111,7 @@ impl FundBond<'_> {
 
         authorize(
             CpiContext::new(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.stake_authority.to_account_info(),

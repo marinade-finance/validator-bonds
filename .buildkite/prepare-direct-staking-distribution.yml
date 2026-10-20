@@ -3,6 +3,7 @@ agents:
 
 env:
   gs_bucket: gs://marinade-validator-bonds-mainnet
+  gs_bucket_etl: gs://marinade-stakes-etl-mainnet
   BONDS_API_URL: https://validator-bonds-api.marinade.finance
   SLACK_API: https://slack.com/api/chat.postMessage
   SLACK_FEED: "feed-pipeline-sam-psr"
@@ -72,10 +73,22 @@ steps:
     - gcloud storage cp "$gs_bucket/$$epoch/stakes.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json" "./evaluation.json"
+    - gcloud storage cp "$gs_bucket/$$epoch/leader-schedule.json" "." || true
+    - mkdir -p ./rewards
+    - |
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_mev.json" ./rewards/mev.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_mev.json" ./rewards/validators_mev.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_inflation.json" ./rewards/inflation.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation.json" ./rewards/validators_inflation.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_blocks.json" ./rewards/validators_blocks.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_priority_fee.json" ./rewards/jito_priority_fee.json
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_burned.json" ./rewards/validators_inflation_burned.json || true
     artifact_paths:
       - "./stakes.json"
       - "./validators.json"
       - "./evaluation.json"
+      - "./leader-schedule.json"
+      - "./rewards/*.json"
 
   - label: ":link: Download bonds"
     key: "download-bonds"
@@ -97,11 +110,15 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs stakes.json .'
     - 'buildkite-agent artifact download --include-retried-jobs validators.json .'
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/*.json .'
+    - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
     - 'chmod +x target/release/bid-distribution-cli'
+    - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
     - |
-      ./target/release/bid-distribution-cli \
+      ./target/release/bid-distribution-cli $$leader_schedule_arg \
         --settlement-config settlement-config-direct-staking.yaml \
         --stake-meta-collection ./stakes.json \
+        --rewards-dir ./rewards \
         --validator-meta-collection ./validators.json \
         --revenue-expectation-collection ./evaluation.json \
         --output-settlement-collection "./direct-staking-psr-settlements.json" \

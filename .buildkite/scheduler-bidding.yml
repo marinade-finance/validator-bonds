@@ -52,6 +52,7 @@ steps:
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/past-validators.json" "$gs_bucket/$$epoch/"
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/validators.json" "$gs_bucket/$$epoch/"
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/stakes.json" "$gs_bucket/$$epoch/"
+            gcloud storage cp "$gs_bucket_snapshots/$$epoch/leader-schedule.json" "$gs_bucket/$$epoch/" || echo "No leader schedule for $$epoch"
 
             notify_feed=$${NOTIFY_FEED:-$${NOTIFY:-false}}
 

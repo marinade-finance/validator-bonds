@@ -5,7 +5,7 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
+use solana_sdk_ids::vote::ID as vote_program_id;
 
 /// Cancelling a validator bond withdrawal request.
 /// Only one withdrawal request per bond is permitted.

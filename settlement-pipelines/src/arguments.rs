@@ -5,7 +5,7 @@ use clap::{Args, ValueEnum};
 use log::debug;
 use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
 use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
 use std::path::{Path, PathBuf};
@@ -95,11 +95,10 @@ pub enum ReportFormat {
 }
 
 pub fn load_default_keypair(name: &str, s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
-    if s.is_none() || s.unwrap().is_empty() {
-        load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
-            .map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
-    } else {
-        Ok(Some(load_keypair(name, s.unwrap())?))
+    match s {
+        Some(s) if !s.is_empty() => Ok(Some(load_keypair(name, s)?)),
+        _ => load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
+            .map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair))),
     }
 }
 

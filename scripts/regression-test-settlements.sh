@@ -20,6 +20,7 @@
 #     sam-scores.json                          # scoring API
 #     validators.json                          # GCS: marinade-validator-bonds-mainnet
 #     evaluation.json                          # GCS: bid-psr-distribution-evaluation.json
+#     leader-schedule.json                     # GCS: marinade-validator-bonds-mainnet, Alpenglow only
 #     rewards/{mev,inflation,...}.json          # GCS: marinade-stakes-etl-mainnet
 #     institutional/
 #       institutional-payouts.json             # GCS: marinade-institutional-staking-mainnet
@@ -348,6 +349,7 @@ run_direct_staking_stage() {
   if ! "$BID_CLI" \
       --settlement-config "$REPO_ROOT/settlement-config-direct-staking.yaml" \
       --stake-meta-collection "$inputs_dir/stakes.json" \
+      --rewards-dir "$rewards_dir" \
       --validator-meta-collection "$inputs_dir/validators.json" \
       --revenue-expectation-collection "$inputs_dir/evaluation.json" \
       --output-settlement-collection "$ds_settlements" \
@@ -463,6 +465,19 @@ process_epoch() {
     || missing_bid_input=true
   gcs_cached_download "$GS_BUCKET_ETL/$epoch/rewards_priority_fee.json" "$rewards_dir/jito_priority_fee.json" \
     || missing_bid_input=true
+  # optional: epochs before collector attribution have no burned SIMD-0232 commission file
+  gcs_cached_download "$GS_BUCKET_ETL/$epoch/rewards_validators_inflation_burned.json" "$rewards_dir/validators_inflation_burned.json" \
+    || true
+  # bid-distribution-cli reads LEADER_SCHEDULE (its --leader-schedule) only in Alpenglow epochs
+  unset LEADER_SCHEDULE
+  if [[ -f "$inputs_dir/validators.json" \
+        && "$(jq -r '.alpenglow_epoch_type // "tower"' "$inputs_dir/validators.json")" == "alpenglow" ]]; then
+    if gcs_cached_download "$GS_BUCKET/$epoch/leader-schedule.json" "$inputs_dir/leader-schedule.json"; then
+      export LEADER_SCHEDULE="$inputs_dir/leader-schedule.json"
+    else
+      missing_bid_input=true
+    fi
+  fi
 
   # ------- Download bid expected outputs (cached) -------------------------
   # Auto-detect epoch format by probing for the new-format marker file.

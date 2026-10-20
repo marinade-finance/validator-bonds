@@ -11,10 +11,11 @@ use crate::state::config::Config;
 use crate::state::withdraw_request::WithdrawRequest;
 use crate::utils::{minimal_size_stake_account, return_unused_split_stake_account_rent};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::{StakeAuthorize, StakeStateV2};
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
-use anchor_lang::solana_program::{program::invoke_signed, stake};
+use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
+use solana_sdk_ids::vote::ID as vote_program_id;
+use solana_stake_interface as stake;
+use solana_stake_interface::state::{StakeAuthorize, StakeStateV2};
 
 /// Withdrawing funds from a bond account requires creating a withdrawal request first.
 /// The withdrawal process involves taking a StakeAccount associated with the bonds program
@@ -233,7 +234,7 @@ impl ClaimWithdrawRequest<'_> {
         // changing owner of the stake account to entity defined in this ix (via withdraw request)
         authorize(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),
@@ -252,7 +253,7 @@ impl ClaimWithdrawRequest<'_> {
         )?;
         authorize(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Authorize {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     authorized: ctx.accounts.bonds_withdrawer_authority.to_account_info(),

@@ -130,6 +130,10 @@ do
             reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
             ;;
 
+          VatUnadmitted)
+            reason="Inflation rewards unpaid (VAT unadmitted)"
+            ;;
+
           # ---- V1 events ----
           LowCredits)
             actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')

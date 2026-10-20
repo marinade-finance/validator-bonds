@@ -71,6 +71,11 @@ ignore = [
   # utoipa-gen < 4). Repos on utoipa >= 4 don't pull it; bumping utoipa past
   # 3.x is the real fix where the OpenAPI migration is worth it.
   "RUSTSEC-2024-0370",
+  # unsafe-libyaml — unmaintained (archived, c2rust translation of libyaml).
+  # Pulled via serde_yaml 0.9, used directly by the workspace crates and by
+  # solana-cli-config. No safe upgrade; the fix is migrating off serde_yaml
+  # (e.g. serde-saphyr), which solana-cli-config would also have to do.
+  "RUSTSEC-2024-0449",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
@@ -173,7 +178,8 @@ skip-tree = []
 unknown-registry = "deny"
 unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
+# Agave's rocksdb fork, patched in Cargo.toml because solana-ledger needs its APIs.
+allow-git = ["https://github.com/anza-xyz/rust-rocksdb"]
 # First-party crates are routinely consumed as git dependencies pinned to a
 # tag/branch (e.g. solana-transaction-builder, solana-snapshot-parser) before
 # they're ever published to crates.io. Trust the whole marinade-finance org as

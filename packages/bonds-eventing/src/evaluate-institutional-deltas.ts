@@ -1,3 +1,4 @@
+import { lamportsToSol, type LoggerWrapper } from '@marinade.finance/ts-common'
 import { bondAddress } from '@marinade.finance/validator-bonds-sdk'
 import { PublicKey } from '@solana/web3.js'
 
@@ -7,7 +8,6 @@ import {
   buildValidatorDelistedEvent,
   configAddressForBondType,
   fmtSol,
-  lamportsToSol,
   makeBaseEvent,
 } from './evaluate-deltas'
 
@@ -19,7 +19,6 @@ import type {
   InstitutionalValidatorData,
   ValidatorState,
 } from './types'
-import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 const BOND_TYPE: BondType = 'institutional'
 
@@ -54,10 +53,10 @@ export function evaluateInstitutionalDeltas(
       v.institutionalStakeLamports,
       v.effectiveAmountLamports,
     )
-    const balanceSol = lamportsToSol(v.effectiveAmountLamports)
-    const requiredSol = lamportsToSol(requiredLamports)
-    const deficitSol = lamportsToSol(deficitLamports)
-    const stakeSol = lamportsToSol(v.institutionalStakeLamports)
+    const balanceSol = lamportsToSol(v.effectiveAmountLamports).toNumber()
+    const requiredSol = lamportsToSol(requiredLamports).toNumber()
+    const deficitSol = lamportsToSol(deficitLamports).toNumber()
+    const stakeSol = lamportsToSol(v.institutionalStakeLamports).toNumber()
 
     if (!prev) {
       events.push(
@@ -88,7 +87,7 @@ export function evaluateInstitutionalDeltas(
     }
 
     if (deficitLamports !== prev.deficit_lamports) {
-      const previousDeficitSol = lamportsToSol(prev.deficit_lamports)
+      const previousDeficitSol = lamportsToSol(prev.deficit_lamports).toNumber()
       events.push(
         makeBaseEvent(
           'bond_underfunded_change',
@@ -135,7 +134,7 @@ export function evaluateInstitutionalDeltas(
       v.settlementClaimsLamports,
       prev.settlement_claims_lamports ?? 0n,
       {
-        bond_balance_sol: lamportsToSol(v.fundedAmountLamports),
+        bond_balance_sol: lamportsToSol(v.fundedAmountLamports).toNumber(),
         claimable_balance_sol: balanceSol,
         bond_good_for_n_epochs: null,
       },

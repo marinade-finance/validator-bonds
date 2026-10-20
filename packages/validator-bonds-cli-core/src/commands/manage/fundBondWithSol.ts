@@ -1,3 +1,4 @@
+import { solToLamports } from '@marinade.finance/ts-common'
 import {
   fundBondInstruction,
   getConfig,
@@ -10,12 +11,7 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  Authorized,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  StakeProgram,
-} from '@solana/web3.js'
+import { Authorized, Keypair, StakeProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { failIfUnexpectedFundingError } from './fundBond'
@@ -124,18 +120,16 @@ export async function manageFundBondWithSol({
     minimalSizeStakeAccount(configData.minimumStakeLamports),
     configData.minimumStakeLamports.add(new BN(rentExemptStake)),
   )
-  let amountLamports: BN
-  if (Number.isFinite(amount * LAMPORTS_PER_SOL)) {
-    amountLamports = new BN(amount * LAMPORTS_PER_SOL)
-  } else {
-    amountLamports = new BN(amount).mul(new BN(LAMPORTS_PER_SOL))
+  if (!Number.isFinite(amount)) {
+    throw new Error(`Provided amount ${amount} SOL is not a valid number.`)
   }
+  const amountLamports = new BN(solToLamports(amount).toString())
   recordAmountLamports(amountLamports.toString())
   if (amountLamports.lt(minimalAmountToFund)) {
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${formatToSol(minimalAmountToFund)} SOL. ` +
+        `${formatToSol(minimalAmountToFund)}. ` +
         'Please, use a bigger number of SOLs for funding.',
     )
   }

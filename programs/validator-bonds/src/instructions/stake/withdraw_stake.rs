@@ -1,6 +1,3 @@
-#![allow(deprecated)]
-// allowing deprecation as anchor 0.29.0 works with old version of StakeState struct
-
 use crate::checks::{check_stake_is_initialized_with_withdrawer_authority, is_closed};
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -8,8 +5,8 @@ use crate::events::stake::WithdrawStakeEvent;
 use crate::state::config::Config;
 use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{stake::state::StakeState, sysvar::stake_history};
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
+use solana_stake_interface::{state::StakeStateV2, sysvar::stake_history};
 use std::ops::Deref;
 
 /// Withdrawing funded stake account belonging to removed settlement that has not been delegated (it's in Initialized state).
@@ -74,10 +71,10 @@ impl WithdrawStake<'_> {
             &ctx.accounts.bonds_withdrawer_authority.key(),
             "stake_account",
         )?;
-        let stake_state: &StakeState = ctx.accounts.stake_account.deref();
+        let stake_state: &StakeStateV2 = ctx.accounts.stake_account.deref();
         // operator is permitted to work only with Initialized non-delegated stake accounts
         let stake_meta = match stake_state {
-            StakeState::Initialized(meta) => meta,
+            StakeStateV2::Initialized(meta) => meta,
             _ => {
                 return Err(
                     error!(ErrorCode::WrongStakeAccountState).with_account_name("stake_account")
@@ -103,7 +100,7 @@ impl WithdrawStake<'_> {
         let withdrawn_amount = ctx.accounts.stake_account.get_lamports();
         withdraw(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Withdraw {
                     stake: ctx.accounts.stake_account.to_account_info(),
                     withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),

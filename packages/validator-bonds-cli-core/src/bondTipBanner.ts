@@ -4,13 +4,13 @@ import {
   getValidatorTip,
   selectRedelegationPriorityFrontierPmpe,
 } from '@marinade.finance/ds-sam-calc'
+import { lamportsToSol } from '@marinade.finance/ts-common'
 import {
   MARINADE_CONFIG_ADDRESS,
   bondAddress,
   findBondNonSettlementStakeAccounts,
   findWithdrawRequests,
 } from '@marinade.finance/validator-bonds-sdk'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
 import { raceWithTimeout } from './async'
 import { Color, getBanner } from './banner'
@@ -132,9 +132,10 @@ async function fetchFreshBondBalanceSol(
             .toNumber()
         : 0
       return {
-        bondBalanceSol: ownedLamports / LAMPORTS_PER_SOL,
-        claimableBondBalanceSol:
-          Math.max(0, ownedLamports - pendingLamports) / LAMPORTS_PER_SOL,
+        bondBalanceSol: lamportsToSol(ownedLamports).toNumber(),
+        claimableBondBalanceSol: lamportsToSol(
+          Math.max(0, ownedLamports - pendingLamports),
+        ).toNumber(),
       }
     } catch (error) {
       logger?.debug(

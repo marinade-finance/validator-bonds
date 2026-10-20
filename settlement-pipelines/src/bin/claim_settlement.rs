@@ -26,8 +26,9 @@ use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::stake::program::ID as stake_program_id;
-use solana_sdk::sysvar::{clock::ID as clock_id, stake_history::ID as stake_history_id};
+use solana_sdk::sysvar::clock::ID as clock_id;
+use solana_sdk_ids::sysvar::stake_history::ID as stake_history_id;
+use solana_stake_interface::program::ID as stake_program_id;
 use solana_transaction_builder::TransactionBuilder;
 use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
 use std::collections::{HashMap, HashSet};
@@ -421,7 +422,7 @@ async fn claim_settlement<'a>(
             )
             .await
             .unwrap_or_else(|e| {
-                reporting.error().with_err(e).add();
+                reporting.retryable().with_err(e).add();
                 &empty_stake_accounts
             });
         let stake_account_to = prioritize_for_claiming(

@@ -28,21 +28,23 @@ import {
   type InstructionWithData,
   type ReadonlyAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR = new Uint8Array([
-  207, 46, 34, 88, 141, 36, 63, 132,
-])
+export const UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([207, 46, 34, 88, 141, 36, 63, 132])
 
-export function getUpsizeSettlementClaimsDiscriminatorBytes() {
+export function getUpsizeSettlementClaimsDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     UPSIZE_SETTLEMENT_CLAIMS_DISCRIMINATOR,
   )
@@ -106,20 +108,22 @@ export function getUpsizeSettlementClaimsInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type UpsizeSettlementClaimsInput<
-  TAccountSettlementClaims extends string = string,
-  TAccountRentPayer extends string = string,
-  TAccountSystemProgram extends string = string,
+  TAccountSettlementClaims extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountRentPayer extends InstructionSignerInput = InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
 > = {
-  settlementClaims: Address<TAccountSettlementClaims>
+  settlementClaims: TAccountSettlementClaims
   /** rent exempt payer of account reallocation */
-  rentPayer: TransactionSigner<TAccountRentPayer>
-  systemProgram?: Address<TAccountSystemProgram>
+  rentPayer: TAccountRentPayer
+  systemProgram?: TAccountSystemProgram
 }
 
 export function getUpsizeSettlementClaimsInstruction<
-  TAccountSettlementClaims extends string,
-  TAccountRentPayer extends string,
-  TAccountSystemProgram extends string,
+  TAccountSettlementClaims extends InstructionAccountInput,
+  TAccountRentPayer extends InstructionSignerInput,
+  TAccountSystemProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: UpsizeSettlementClaimsInput<
@@ -130,22 +134,43 @@ export function getUpsizeSettlementClaimsInstruction<
   config?: { programAddress?: TProgramAddress },
 ): UpsizeSettlementClaimsInstruction<
   TProgramAddress,
-  TAccountSettlementClaims,
-  TAccountRentPayer,
-  TAccountSystemProgram
+  ResolvedInstructionAccountMeta<
+    TAccountSettlementClaims,
+    InstructionAccountInputAddress<TAccountSettlementClaims>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRentPayer,
+    InstructionAccountInputAddress<TAccountRentPayer>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >
 > {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
 
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
+
   // Original accounts.
   const originalAccounts = {
     settlementClaims: {
       value: input.settlementClaims ?? null,
+      isSigner: false,
       isWritable: true,
     },
-    rentPayer: { value: input.rentPayer ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    rentPayer: {
+      value: input.rentPayer ?? null,
+      isSigner: true,
+      isWritable: true,
+    },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   }
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -158,7 +183,6 @@ export function getUpsizeSettlementClaimsInstruction<
       '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [
       getAccountMeta('settlementClaims', accounts.settlementClaims),
@@ -169,9 +193,18 @@ export function getUpsizeSettlementClaimsInstruction<
     programAddress,
   } as UpsizeSettlementClaimsInstruction<
     TProgramAddress,
-    TAccountSettlementClaims,
-    TAccountRentPayer,
-    TAccountSystemProgram
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaims,
+      InstructionAccountInputAddress<TAccountSettlementClaims>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRentPayer,
+      InstructionAccountInputAddress<TAccountRentPayer>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >
   >)
 }
 

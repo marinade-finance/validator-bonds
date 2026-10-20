@@ -41,5 +41,5 @@ utoipa = { workspace = true }
 validator-bonds-common = { workspace = true }
 
 [dev-dependencies]
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
 tokio = { workspace = true }

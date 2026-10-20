@@ -13,10 +13,10 @@
     "cli": "pnpm generate"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.1",
+    "@coral-xyz/anchor": "npm:@anchor-lang/core@^1.2.1",
     "@marinade.finance/validator-bonds-sdk": "file:../../packages/validator-bonds-sdk",
-    "@solana/web3.js": "^1.95.8",
-    "bn.js": "^5.2.2",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5",
     "borsh": "~0.7.0",
     "bs58": "^6.0.0",
     "commander": "^14.0.0"
