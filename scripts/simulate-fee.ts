@@ -10,8 +10,8 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { gunzipSync } from 'node:zlib'
 import { parseArgs } from 'node:util'
+import { gunzipSync } from 'node:zlib'
 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import {
@@ -351,7 +351,10 @@ async function downloadEpochInputs(
       gunzipSync(readFileSync(join(inp, VALIDATORS_FILE) + '.gz')).toString(),
     )
   if (alpenglow)
-    await fetchOne(gcsBonds(epoch, LEADER_SCHEDULE_FILE), join(inp, LEADER_SCHEDULE_FILE))
+    await fetchOne(
+      gcsBonds(epoch, LEADER_SCHEDULE_FILE),
+      join(inp, LEADER_SCHEDULE_FILE),
+    )
   await fetchOne(
     gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
     join(inp, 'evaluation.json'),
@@ -421,7 +424,9 @@ async function runBidDistributionCli(
       '/dev/null',
       '--apy-api-url',
       apyUrl,
-      ...(hasLeader ? ['--leader-schedule', join(tmp, LEADER_SCHEDULE_FILE)] : []),
+      ...(hasLeader
+        ? ['--leader-schedule', join(tmp, LEADER_SCHEDULE_FILE)]
+        : []),
     ]
     if (values.d) process.stderr.write(`+ ${cliArgs.join(' ')}\n`)
     const proc = Bun.spawn(cliArgs, {
@@ -499,11 +504,12 @@ async function processEpoch(
     out.push(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
     out.push(`  min_yield_floor_apy: ${apy(floorPmpe, epochSeconds)}`)
   }
-  if (targetSol !== undefined)
-    out.push(`  min_sol_revenue_sol: ${targetSol}`)
+  if (targetSol !== undefined) out.push(`  min_sol_revenue_sol: ${targetSol}`)
   const infApy = infApyAt(infPoints, epochData.time)
   if (infApy !== null) out.push(`  inf_apy: ${infApy.toFixed(2)}%`)
-  out.push(`  epochs_per_year: ${Math.floor(epochsPerYearFromDuration(epochSeconds))}`)
+  out.push(
+    `  epochs_per_year: ${Math.floor(epochsPerYearFromDuration(epochSeconds))}`,
+  )
   out.push('  simulations:')
 
   const inp = join(dataDir, String(epoch), 'inputs')
@@ -572,12 +578,11 @@ async function processEpoch(
       0,
     )
     const stakesPath = join(inp, STAKES_FILE)
-    const redeleg =
-      hasRustRedeleg
-        ? rustRedeleg
-        : existsSync(stakesPath)
-          ? await redelegationStakeFromFile(stakesPath, cfg)
-          : 0
+    const redeleg = hasRustRedeleg
+      ? rustRedeleg
+      : existsSync(stakesPath)
+        ? await redelegationStakeFromFile(stakesPath, cfg)
+        : 0
     const stake = activeStake + redeleg
     const bidVotes = new Set(bidSettlements.map(s => s.vote_account))
     const totalRewards =
