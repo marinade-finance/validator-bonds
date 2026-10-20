@@ -1,9 +1,8 @@
 question: >
   A validator raised commission so that expected_epr = 0.10 but actual_epr =
-  0.08. Its actual_inflation_commission = 5% and actual_mev_commission = 3%.
-  The settlement covers stake = 10,000 SOL.
+  0.08. The settlement covers stake = 10,000 SOL.
 
-  Compute: (a) base_cps, (b) claim_per_stake, (c) the payout in SOL.
+  Compute: (a) claim_per_stake, (b) the payout in SOL.
   Show each formula step.
 facts:
   - '0.02'
