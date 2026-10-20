@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 
 import { CLIContext } from '@marinade.finance/cli-common'
-import { pinoConfiguration, setContext } from '@marinade.finance/ts-common'
+import {
+  ErrorWithCause,
+  pinoConfiguration,
+  setContext,
+} from '@marinade.finance/ts-common'
 import { Command } from 'commander'
 import pino from 'pino'
 import 'reflect-metadata'
 
 import { installCommands } from './commands'
 
-export const logger = pino(pinoConfiguration('info'), pino.destination())
+export const logger = pino(pinoConfiguration('info'))
 logger.level = 'debug'
 const program = new Command()
 
@@ -43,8 +47,14 @@ program.parseAsync(process.argv).then(
   () => {
     logger.debug({ resolution: 'Success', args: process.argv })
   },
-  (err: Error) => {
-    logger.error(err.message)
+  (err: unknown) => {
+    logger.error(
+      err instanceof ErrorWithCause
+        ? err.messageWithCause()
+        : err instanceof Error
+          ? err.message
+          : String(err),
+    )
     logger.debug({ resolution: 'Failure', err, args: process.argv })
     process.exitCode = 200
   },

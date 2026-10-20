@@ -1,5 +1,7 @@
 import { createSubscriptionClient } from '@marinade.finance/notifications-ts-subscription-client'
 
+import { raceWithTimeout } from './async'
+
 import type { Notification } from '@marinade.finance/notifications-ts-subscription-client'
 import type { Logger } from 'pino'
 
@@ -36,23 +38,7 @@ export async function getNotificationBanners(
   if (!bannerPromise) {
     return null
   }
-
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null
-
-  try {
-    const timeoutPromise = new Promise<null>(resolve => {
-      timeoutHandle = setTimeout(() => resolve(null), timeoutMs)
-      timeoutHandle.unref()
-    })
-
-    return await Promise.race([bannerPromise, timeoutPromise])
-  } catch {
-    return null
-  } finally {
-    if (timeoutHandle !== null) {
-      clearTimeout(timeoutHandle)
-    }
-  }
+  return raceWithTimeout(bannerPromise, timeoutMs, null)
 }
 
 async function fetchBroadcastNotifications(

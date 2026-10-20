@@ -31,14 +31,13 @@ DAO_FEE_WITHDRAW_AUTHORITY: mDAo14E6YJfEHcVZLcc235RVjviypmKMhftq7jeiLJz
 # Build & run
 cargo run --release --bin institutional-distribution-cli -- \
     --institutional-payouts institutional-payouts.json \
-    --stake-meta-collection stakes.json \
     --marinade-fee-stake-authority ${MARINADE_FEE_STAKE_AUTHORITY} \
     --marinade-fee-withdraw-authority ${MARINADE_FEE_WITHDRAW_AUTHORITY} \
     --dao-fee-split-share-bps ${DAO_FEE_SPLIT_SHARE_BPS} \
     --dao-fee-stake-authority ${DAO_FEE_STAKE_AUTHORITY} \
     --dao-fee-withdraw-authority ${DAO_FEE_WITHDRAW_AUTHORITY} \
     --output-settlement-collection "./institutional-settlements.json" \
-    --output-merkle-tree-collection "./institutional-merkle-trees.json"
+    --output-config "./institutional-config.json"
 ```
 
 ## Testing
@@ -59,14 +58,13 @@ merkle tree generation CLI you can do:
    TARGET=`mktemp -d`
    cargo run --bin institutional-distribution-cli -- \
     --institutional-payouts "$INSTITUTIONAL_DATA_PATH" \
-    --stake-meta-collection stakes.json \
     --marinade-fee-stake-authority $(solana-keygen pubkey) \
     --marinade-fee-withdraw-authority $(solana-keygen pubkey) \
     --dao-fee-split-share-bps 5000 \
     --dao-fee-stake-authority $(solana-keygen pubkey) \
     --dao-fee-withdraw-authority $(solana-keygen pubkey) \
     --output-settlement-collection "$TARGET/institutional-settlements.json" \
-    --output-merkle-tree-collection "$TARGET/institutional-merkle-trees.json"
+    --output-config "$TARGET/institutional-config.json"
    echo "Generated data in '$TARGET'"
    ```
 

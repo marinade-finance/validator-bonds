@@ -9,8 +9,8 @@ use validator_bonds_common::funded_bonds::collect_validator_bonds_with_funds;
 
 pub async fn collect_bonds(options: CommonCollectOptions) -> anyhow::Result<()> {
     let rpc_client = Arc::new(get_rpc_client(
-        options.rpc_url,
-        options.commitment.to_string(),
+        options.rpc.rpc_url,
+        options.rpc.commitment.to_string(),
     ));
 
     let config_address = options.bond_type.config_address();

@@ -3,7 +3,7 @@
 import {
   CliCommandError,
   IsBigInt,
-  parseAndValidate,
+  validateAndReturn,
 } from '@marinade.finance/cli-common'
 import { getContext } from '@marinade.finance/ts-common'
 import { IsPublicKey } from '@marinade.finance/web3js-1x'
@@ -17,6 +17,8 @@ import {
   IsString,
   IsOptional,
 } from 'class-validator'
+
+import { parseLosslessJson } from './losslessJson'
 
 export class TreeNode {
   @Expose()
@@ -88,7 +90,16 @@ export class MerkleTree {
 
   @Expose()
   @IsOptional()
-  readonly funding_sources?: Record<string, number>
+  @Transform(({ value }) =>
+    value && typeof value === 'object'
+      ? Object.fromEntries(
+          Object.entries(value as Record<string, number | bigint>).map(
+            ([funder, lamports]) => [funder, BigInt(lamports)],
+          ),
+        )
+      : value,
+  )
+  readonly funding_sources?: Record<string, bigint>
 
   @Expose()
   @ValidateNested({ each: true })
@@ -134,11 +145,11 @@ export async function parseSettlementMerkleTree(
 ): Promise<SettlementMerkleTreesDto> {
   const { logger } = getContext()
   try {
-    const { data: merkleTreeData } =
-      await parseAndValidate<SettlementMerkleTreesDto>(
-        inputJson,
-        SettlementMerkleTreesDto,
-      )
+    const parsed = await parseLosslessJson(inputJson)
+    const merkleTreeData = await validateAndReturn<SettlementMerkleTreesDto>(
+      parsed,
+      SettlementMerkleTreesDto,
+    )
     logger.debug(
       'Settlement Merkle Trees loaded successfully [epoch: %s, merkle_trees: %s]',
       merkleTreeData.epoch,
@@ -159,11 +170,11 @@ export async function parseUnifiedMerkleTree(
 ): Promise<UnifiedMerkleTreesDto> {
   const { logger } = getContext()
   try {
-    const { data: merkleTreeData } =
-      await parseAndValidate<UnifiedMerkleTreesDto>(
-        inputJson,
-        UnifiedMerkleTreesDto,
-      )
+    const parsed = await parseLosslessJson(inputJson)
+    const merkleTreeData = await validateAndReturn<UnifiedMerkleTreesDto>(
+      parsed,
+      UnifiedMerkleTreesDto,
+    )
     logger.debug(
       'Unified Merkle Trees loaded successfully [epoch: %s, sources: %s, merkle_trees: %s]',
       merkleTreeData.epoch,

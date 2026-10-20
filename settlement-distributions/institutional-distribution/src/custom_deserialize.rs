@@ -4,12 +4,12 @@ use std::str::FromStr;
 
 /// The custom deserialize_bigint function handles parsing string representations of big integers.
 /// As the TypeScript codebase uses strings to represent big integers, this function is necessary.
+/// Delegates to the shared tolerant helper, so plain JSON numbers are accepted too.
 pub fn deserialize_bigint<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let s: String = serde::Deserialize::deserialize(deserializer)?;
-    s.parse::<u64>().map_err(serde::de::Error::custom)
+    merkle_tree::serde_serialize::u64_number_or_string::deserialize(deserializer)
 }
 
 /// The custom deserialize_large_decimal function handles parsing string representations of large decimal numbers.

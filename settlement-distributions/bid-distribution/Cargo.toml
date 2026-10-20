@@ -3,6 +3,7 @@ name = "bid-distribution-cli"
 path = "src/bin/cli.rs"
 
 [package]
+publish = false
 name = "bid-distribution"
 version = "0.0.0"
 edition = "2021"
@@ -21,6 +22,7 @@ rust_decimal_macros = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+snapshot-parser = { workspace = true }
 snapshot-parser-validator-cli = { workspace = true }
 solana-sdk = { workspace = true }
 validator-bonds = { workspace = true }

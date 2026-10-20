@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { waitForStakeAccountActivation } from '@marinade.finance/anchor-common'
 import {
   executeTxSimple,
@@ -128,7 +126,6 @@ describe('Validator Bonds claim withdraw request', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CLAIM_WITHDRAW_REQUEST_EVENT)
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.stakeAccount).toEqual(stakeAccount)
     expect(e.newStakeAccountOwner).toEqual(

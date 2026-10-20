@@ -37,6 +37,13 @@ pub enum SettlementConfigKind {
         /// penalty settlement markup, in basis points, applied if EPR change is large
         penalty_markup_bps: u64,
     },
+    /// configuration for protected event [protected_events::ProtectedEvent::VatUnadmitted]
+    VatUnadmittedSettlement {
+        /// when settlement sum of claims is under this value, it is not generated
+        min_settlement_lamports: u64,
+        /// range of bps that are covered by the settlement, usually differentiated by type of funder
+        covered_range_bps: [u64; 2],
+    },
 }
 
 impl SettlementConfigKind {
@@ -48,6 +55,9 @@ impl SettlementConfigKind {
             SettlementConfigKind::CommissionSamIncreaseSettlement {
                 covered_range_bps, ..
             } => covered_range_bps,
+            SettlementConfigKind::VatUnadmittedSettlement {
+                covered_range_bps, ..
+            } => covered_range_bps,
         }
     }
     pub fn min_settlement_lamports(&self) -> u64 {
@@ -57,6 +67,10 @@ impl SettlementConfigKind {
                 ..
             } => min_settlement_lamports,
             SettlementConfigKind::CommissionSamIncreaseSettlement {
+                min_settlement_lamports,
+                ..
+            } => min_settlement_lamports,
+            SettlementConfigKind::VatUnadmittedSettlement {
                 min_settlement_lamports,
                 ..
             } => min_settlement_lamports,
@@ -105,6 +119,10 @@ pub fn build_protected_event_matcher(
                     false
                 }
             }
+            (
+                SettlementConfigKind::VatUnadmittedSettlement { .. },
+                ProtectedEvent::VatUnadmitted { .. },
+            ) => true,
             _ => false,
         }
     })

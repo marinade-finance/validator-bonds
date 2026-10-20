@@ -1,0 +1,13 @@
+question: >
+  What is an InstitutionalPayout settlement and who is it for?
+  Name the exact fields that carry the lamport amounts for stakers and for
+  distributors, and name the CLI binary that reads them to produce the
+  settlement collection.
+facts:
+  - 'institutional stakers'
+  - 'payout_stakers'
+  - 'institutional-distribution-cli'
+  - 'payout_distributors'
+wrong_facts:
+  - 'mSOL holders receive'
+  - 'auction bid'

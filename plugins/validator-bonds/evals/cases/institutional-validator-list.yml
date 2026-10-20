@@ -1,0 +1,11 @@
+question: >
+  How do I find out which validators are in Marinade's institutional staking
+  (Select) program? Include: (a) the API endpoint to query, (b) the exact field
+  names in each returned record (vote account, name, etc.), (c) any alternative
+  source if the API is unavailable.
+facts:
+  - 'bonds/institutional'
+  - 'vote_account'
+wrong_facts:
+  - 'hardcoded in the skill'
+  - 'listed in settlement-config.yaml'

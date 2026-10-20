@@ -31,6 +31,7 @@ function makeConfig(overrides: Partial<EventingConfig> = {}): EventingConfig {
     validatorsApiUrl: 'https://validators-api.marinade.finance',
     scoringApiUrl: 'https://scoring.marinade.finance',
     tvlApiUrl: 'https://api.marinade.finance',
+    institutionalApiUrl: 'https://institutional-staking.marinade.finance',
     notificationsApiUrl: undefined,
     notificationsJwt: undefined,
     postgresUrl: undefined,
@@ -121,7 +122,10 @@ describe('emitEvents', () => {
       // Event is wrapped in Message<T> envelope
       expect(parsed.header).toBeDefined()
       expect(parsed.header.producer_id).toBe('bonds-eventing')
-      expect(parsed.header.message_id).toBeDefined()
+      expect(parsed.header.message_id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      )
+      expect(parsed.header.message_id).toBe(results.get(events[0]!)!.messageId)
       expect(parsed.header.created_at).toBeDefined()
       expect(parsed.payload.type).toBe('bonds')
       expect(parsed.payload.inner_type).toBe('bond_underfunded_change')

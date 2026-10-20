@@ -9,11 +9,25 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   utf-8-validate: true
+minimumReleaseAgeExclude:
+  - '@anchor-lang/borsh@1.2.1'
+  - '@anchor-lang/core@1.2.1'
+  - '@anchor-lang/errors@1.2.1'
+  - '@marinade.finance/anchor-common'
+  - '@marinade.finance/bankrun-utils'
+  - '@marinade.finance/cli-common'
+  - '@marinade.finance/config-common'
+  - '@marinade.finance/ds-sam-calc'
+  - '@marinade.finance/ds-sam-sdk'
+  - '@marinade.finance/ts-common'
+  - '@marinade.finance/web3js-1x-testing'
+  - '@marinade.finance/web3js-1x'
+  - '@marinade.finance/notifications-bonds-event-v1'
 overrides:
-  glob@<8: ^10.3.10
-  rpc-websockets: 9.3.10
-  utf-8-validate: ^6.0.6
+  jayson: ^5.0.0
+  tmp: ^0.2.6
+  toml: ^4.2.0
 peerDependencyRules:
   allowedVersions:
     jest: '29'
-    '@coral-xyz/anchor': '0.31'
+    '@coral-xyz/anchor': '1'

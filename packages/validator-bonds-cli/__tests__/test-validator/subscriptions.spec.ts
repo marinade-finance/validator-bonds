@@ -54,6 +54,7 @@ describe('CLI subscription commands', () => {
                 channel: 'telegram',
                 channel_address: '@testuser',
                 notification_type: 'bonds',
+                telegram_status: 'pending',
               },
             ]),
           )
@@ -171,7 +172,8 @@ describe('CLI subscription commands', () => {
       },
     ]).toHaveMatchingSpawnOutput({
       code: 0,
-      stdout: /Subscription created for bond/,
+      stdout:
+        /Subscription created for bond[\s\S]*reported as 'pending' until the first notification/,
     })
   })
 
@@ -264,6 +266,7 @@ describe('CLI subscription commands', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       stdout: /telegram/,
+      stderr: /Telegram status 'pending' means/,
     })
   })
 

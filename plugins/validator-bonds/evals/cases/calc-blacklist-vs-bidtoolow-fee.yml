@@ -1,0 +1,16 @@
+question: >
+  Take two validators, each with total_marinade_active_stake = 4,000 SOL. One has
+  bid_too_low_penalty_pmpe = 50; the other has blacklist_penalty_pmpe = 50.
+
+  Compute: (a) the per-validator total claim for each,
+  (b) for BidTooLowPenalty: the distributor cut and the stakers' share,
+  (c) for BlacklistPenalty: the distributor cut and the stakers' share,
+  (d) state the structural difference. Show each formula step.
+facts:
+  - '200 SOL'
+  - '16 SOL'
+  - '184 SOL'
+wrong_facts:
+  - 'blacklist fee split'
+  - 'DAO blacklist'
+  - 'blacklist distributor'

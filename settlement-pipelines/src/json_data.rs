@@ -3,7 +3,7 @@ use crate::settlement_data::{
 };
 use anchor_client::anchor_lang::prelude::Pubkey;
 use anyhow::{anyhow, format_err};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use merkle_tree::serde_serialize::pubkey_string_conversion;
 use serde::{Deserialize, Serialize};
 use settlement_common::merkle_tree_collection::{MerkleTreeCollection, MerkleTreeMeta};
@@ -177,23 +177,19 @@ fn resolve_combined_optional(
 ) -> anyhow::Result<CombinedMerkleTreeSettlementCollections> {
     let merkle_tree_collection = loaded_data.merkle_tree_collection;
     let settlement_collection = loaded_data.settlement_collection;
-    if merkle_tree_collection.is_none() && settlement_collection.is_none() {
-        Err(anyhow!("No merkle tree or settlement collection provided"))
-    } else if merkle_tree_collection.is_some() && settlement_collection.is_none() {
-        return Err(anyhow!(
+    match (merkle_tree_collection, settlement_collection) {
+        (None, None) => Err(anyhow!("No merkle tree or settlement collection provided")),
+        (Some(merkle_tree_collection), None) => Err(anyhow!(
             "No settlement collection provided for epoch {}",
-            merkle_tree_collection.unwrap().epoch
-        ));
-    } else if merkle_tree_collection.is_none() && settlement_collection.is_some() {
-        return Err(anyhow!(
+            merkle_tree_collection.epoch
+        )),
+        (None, Some(settlement_collection)) => Err(anyhow!(
             "No merkle tree collection provided for epoch {}",
-            settlement_collection.unwrap().epoch
-        ));
-    } else {
-        resolve_combined(
-            merkle_tree_collection.unwrap(),
-            settlement_collection.unwrap(),
-        )
+            settlement_collection.epoch
+        )),
+        (Some(merkle_tree_collection), Some(settlement_collection)) => {
+            resolve_combined(merkle_tree_collection, settlement_collection)
+        }
     }
 }
 
@@ -247,8 +243,8 @@ pub async fn load_json_with_on_chain(
 
     // Loading accounts from on-chain, trying to not pushing many RPC calls to the network
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
-        .iter()
-        .flat_map(|(_epoch, collection)| {
+        .values()
+        .flat_map(|collection| {
             collection
                 .iter()
                 .map(|record| (record.settlement_address, record.bond_address))
@@ -291,10 +287,7 @@ pub async fn load_json_with_on_chain(
     Ok(settlement_records_by_epoch)
 }
 
-/// Load merkle tree collection files (no pairing needed).
-/// Each file is a standalone MerkleTreeCollection JSON.
-/// When `config_override` is provided it is always used as the collection's config.
-/// A warning is printed if the file contained a different non-default config.
+/// A file contradicting `config_override` is skipped: `init-settlement` passes `--epoch`, so applying the override would create settlements under the wrong bond unnoticed.
 pub fn load_merkle_tree_collections(
     files: &[PathBuf],
     config_override: Option<Pubkey>,
@@ -312,11 +305,11 @@ pub fn load_merkle_tree_collections(
             if collection.validator_bonds_config != Pubkey::default()
                 && collection.validator_bonds_config != config
             {
-                warn!(
-                    "Merkle tree collection epoch {} has config {} that differs from CLI override {config}, using override",
-                    collection.epoch,
-                    collection.validator_bonds_config,
+                error!(
+                    "Skipping '{path:?}' (epoch {}): generated for config {} but {config} was requested",
+                    collection.epoch, collection.validator_bonds_config,
                 );
+                continue;
             }
             collection.validator_bonds_config = config;
         }
@@ -343,8 +336,8 @@ pub async fn load_merkle_tree_with_on_chain(
 
     // Loading accounts from on-chain
     let (settlement_addresses, bond_addresses) = settlement_records_by_epoch
-        .iter()
-        .flat_map(|(_epoch, collection)| {
+        .values()
+        .flat_map(|collection| {
             collection
                 .iter()
                 .map(|record| (record.settlement_address, record.bond_address))
@@ -388,7 +381,7 @@ pub async fn load_merkle_tree_with_on_chain(
 }
 
 fn pair_elements<T: Clone>(elements: &[T]) -> anyhow::Result<Vec<(T, T)>> {
-    if elements.len() % 2 != 0 {
+    if !elements.len().is_multiple_of(2) {
         return Err(anyhow!("The number of elements is not even"));
     }
     let pairs = elements
@@ -411,5 +404,65 @@ fn check_is_file(path: &PathBuf) -> bool {
     } else {
         debug!("Skipping path: {path:?} as not a file");
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    const BIDDING_CONFIG: &str = "vbMaRfmTCg92HWGzmd53APkMNpPnGVGZTUHwUJQkXAU";
+    const INSTITUTIONAL_CONFIG: &str = "VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE";
+
+    fn write_collection(name: &str, config: Option<&str>) -> PathBuf {
+        let config_entry = config
+            .map(|c| format!(r#""validator_bonds_config": "{c}","#))
+            .unwrap_or_default();
+        let path = std::env::temp_dir().join(format!("{name}-{}.json", std::process::id()));
+        std::fs::write(
+            &path,
+            format!(r#"{{"epoch": 980, "slot": 423791999, {config_entry} "merkle_trees": []}}"#),
+        )
+        .unwrap();
+        path
+    }
+
+    #[test]
+    fn config_override_contradicting_the_file_skips_it() {
+        let path = write_collection("contradicting", Some(INSTITUTIONAL_CONFIG));
+        let result = load_merkle_tree_collections(
+            std::slice::from_ref(&path),
+            Some(Pubkey::from_str(BIDDING_CONFIG).unwrap()),
+        );
+        std::fs::remove_file(&path).ok();
+
+        let collections = result.expect("one wrong-config file must not abort the whole run");
+        assert!(
+            collections.is_empty(),
+            "a mismatching --config must not be applied to the collection"
+        );
+    }
+
+    #[test]
+    fn config_override_fills_in_a_missing_config() {
+        let path = write_collection("missing-config", None);
+        let bidding = Pubkey::from_str(BIDDING_CONFIG).unwrap();
+        let result = load_merkle_tree_collections(std::slice::from_ref(&path), Some(bidding));
+        std::fs::remove_file(&path).ok();
+
+        let collections = result.expect("a defaulted config is filled in by the override");
+        assert_eq!(collections[0].validator_bonds_config, bidding);
+    }
+
+    #[test]
+    fn config_override_matching_the_file_is_accepted() {
+        let path = write_collection("matching", Some(INSTITUTIONAL_CONFIG));
+        let institutional = Pubkey::from_str(INSTITUTIONAL_CONFIG).unwrap();
+        let result = load_merkle_tree_collections(std::slice::from_ref(&path), Some(institutional));
+        std::fs::remove_file(&path).ok();
+
+        let collections = result.expect("the existing institutional runs must keep working");
+        assert_eq!(collections[0].validator_bonds_config, institutional);
     }
 }

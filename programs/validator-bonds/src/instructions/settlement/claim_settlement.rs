@@ -11,11 +11,11 @@ use crate::state::settlement::Settlement;
 use crate::state::settlement_claims::{SettlementClaims, SettlementClaimsWrapped};
 use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
-use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use merkle_tree::psr_claim::TreeNode;
 use merkle_tree::{hash_leaf, LEAF_PREFIX};
+use solana_program::hash::hashv;
+use solana_stake_interface::sysvar::stake_history;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ClaimSettlementV2Args {
@@ -52,7 +52,7 @@ pub struct ClaimSettlementV2<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     #[account(
         mut,
@@ -67,7 +67,7 @@ pub struct ClaimSettlementV2<'info> {
         ],
         bump = settlement.bumps.pda,
     )]
-    pub settlement: Account<'info, Settlement>,
+    pub settlement: Box<Account<'info, Settlement>>,
 
     /// deduplication, merkle tree record cannot be claimed twice
     #[account(
@@ -79,7 +79,7 @@ pub struct ClaimSettlementV2<'info> {
         ],
         bump = settlement.bumps.settlement_claims,
     )]
-    pub settlement_claims: Account<'info, SettlementClaims>,
+    pub settlement_claims: Box<Account<'info, SettlementClaims>>,
 
     /// a stake account that will be withdrawn
     #[account(mut)]
@@ -88,6 +88,7 @@ pub struct ClaimSettlementV2<'info> {
     /// a stake account that will receive the funds
     #[account(
         mut,
+        dup,
         constraint = stake_account_from.key() != stake_account_to.key() @ ErrorCode::MergeMismatchSameSourceDestination
     )]
     pub stake_account_to: Box<Account<'info, StakeAccount>>,
@@ -248,7 +249,7 @@ impl ClaimSettlementV2<'_> {
 
         withdraw(
             CpiContext::new_with_signer(
-                ctx.accounts.stake_program.to_account_info(),
+                ctx.accounts.stake_program.key(),
                 Withdraw {
                     stake: ctx.accounts.stake_account_from.to_account_info(),
                     withdrawer: ctx.accounts.bonds_withdrawer_authority.to_account_info(),

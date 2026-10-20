@@ -7,6 +7,8 @@ import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import { Keypair, PublicKey } from '@solana/web3.js'
 
+import { dryRunOutput } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 
@@ -140,7 +142,7 @@ describe('Configure config account using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully configured/,
+      stdout: dryRunOutput(/successfully configured/),
     })
     expect((await getConfig(program, configAccount)).operatorAuthority).toEqual(
       operatorAuthority.publicKey,

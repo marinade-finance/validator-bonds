@@ -1,0 +1,14 @@
+question: >
+  A blacklisted validator has blacklist_penalty_pmpe = 50 and
+  total_marinade_active_stake = 4,000 SOL.
+
+  Compute: (a) blacklist_penalty rate, (b) total claim in SOL, (c) how is the
+  total split between stakers and Marinade/DAO? Show each formula step.
+facts:
+  - '0.05'
+  - '200 SOL'
+  - 'stakers_blacklist_penalty_claim'
+wrong_facts:
+  - '184 SOL'
+  - '16 SOL'
+  - 'Marinade receives'

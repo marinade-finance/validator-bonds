@@ -10,6 +10,7 @@ import {
   parseWalletOrPubkeyOption,
 } from '@marinade.finance/web3js-1x'
 
+import { withConfigOption } from './config-option'
 import { signForSubscription } from './subscribe'
 import { getCliContext } from '../../context'
 import { formatHttpError, getBondFromAddress } from '../../utils'
@@ -45,6 +46,36 @@ export function configureUnsubscribe(program: Command): Command {
         '(default: wallet keypair)',
       parseWalletOrPubkeyOption,
     )
+}
+
+export function installUnsubscribe(
+  program: Command,
+  defaultConfigAddress: PublicKey,
+) {
+  withConfigOption(configureUnsubscribe(program), defaultConfigAddress).action(
+    async (
+      address: Promise<PublicKey>,
+      {
+        config,
+        authority,
+        type,
+        address: channelAddress,
+      }: {
+        config?: Promise<PublicKey>
+        authority?: Promise<WalletInterface | PublicKey>
+        type: string
+        address?: string
+      },
+    ) => {
+      await manageUnsubscribe({
+        address: await address,
+        config: (await config) ?? defaultConfigAddress,
+        authority: await authority,
+        type,
+        channelAddress,
+      })
+    },
+  )
 }
 
 export async function manageUnsubscribe({

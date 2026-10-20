@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { executeTxSimple } from '@marinade.finance/web3js-1x'
 import { transaction } from '@marinade.finance/web3js-1x'
@@ -77,8 +75,6 @@ describe('Validator Bonds cancel settlement', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, CANCEL_SETTLEMENT_EVENT)
-    // Ensure the event was emitted
-    assert(e !== undefined)
     expect(e.settlement).toEqual(settlementAccount)
     expect(e.bond).toEqual(bondAccount)
     expect(e.lamportsClaimed).toEqual(0)

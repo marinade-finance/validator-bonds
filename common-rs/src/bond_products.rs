@@ -1,4 +1,4 @@
-use anchor_client::anchor_lang::AnchorSerialize;
+use anchor_client::anchor_lang::prelude::borsh;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_client::rpc_filter::{Memcmp, RpcFilterType};
 use solana_sdk::bs58;
@@ -81,7 +81,7 @@ pub async fn find_bond_products(
         filters.push(RpcFilterType::Memcmp(Memcmp::new(
             PRODUCT_TYPE_SEED_OFFSET,
             solana_client::rpc_filter::MemcmpEncodedBytes::Base58(
-                bs58::encode(prod_type.try_to_vec()?).into_string(),
+                bs58::encode(borsh::to_vec(&prod_type)?).into_string(),
             ),
         )));
     }

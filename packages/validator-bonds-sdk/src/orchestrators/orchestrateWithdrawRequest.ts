@@ -57,6 +57,7 @@ export async function orchestrateWithdrawDeposit({
   withdrawStakeAccounts: PublicKey[]
   amountToWithdraw: BN
   voteAccount: PublicKey
+  bondAccount: PublicKey
 }> {
   if (
     configAccount !== undefined &&
@@ -241,6 +242,7 @@ export async function orchestrateWithdrawDeposit({
     withdrawStakeAccounts,
     amountToWithdraw,
     voteAccount,
+    bondAccount,
   }
 }
 

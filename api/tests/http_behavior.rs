@@ -1,0 +1,356 @@
+//! Black-box HTTP characterization of the API route/middleware stack.
+//!
+//! These tests pin the framework-level behavior preserved across the
+//! warp→axum migration: routing, rate-limit 429s, CORS headers (incl. on
+//! 429), gzip negotiation, and the internal metrics/health endpoints. Only the
+//! no-DB routes (`/`, `/docs.json`, `/docs`) are exercised — they need no
+//! `Context`/Postgres, and the middleware stack they ride is shared (via the
+//! `api::routes` building blocks) with the DB-backed routes. DB-backed routes
+//! and `readyz`'s DB check are covered by the manual smoke test in
+//! `api/README.md`.
+
+use std::net::SocketAddr;
+use std::time::Duration;
+
+use api::routes::{
+    meta_routes, with_global_middleware, with_public_rate_limit, with_trailing_slash_tolerance,
+};
+use axum::extract::Request;
+use axum::ServiceExt;
+
+/// Wait until the spawned server is actually accepting connections, instead of a
+/// fixed sleep that can flake on loaded CI runners.
+async fn wait_until_accepting(addr: SocketAddr) {
+    for _ in 0..100 {
+        if tokio::net::TcpStream::connect(addr).await.is_ok() {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    panic!("server at {addr} did not start accepting connections in time");
+}
+
+/// Build the no-DB routes with the same public-tier rate limit + global
+/// middleware as `routes::build_app`, bind an ephemeral port, spawn the
+/// server, and return its base URL. The DB-backed routes are excluded (they
+/// need a live Postgres `Context`); the middleware stack under test is shared
+/// with production via the `api::routes` building blocks.
+async fn spawn_test_server() -> String {
+    let app = with_trailing_slash_tolerance(with_global_middleware(with_public_rate_limit(
+        meta_routes(),
+    )));
+
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            ServiceExt::<Request>::into_make_service_with_connect_info::<SocketAddr>(app),
+        )
+        .await
+        .unwrap();
+    });
+    wait_until_accepting(addr).await;
+    format!("http://{addr}")
+}
+
+/// Spawn the state-free subset of the internal server (`/metrics`, `/healthz`).
+/// `readyz` needs a live DB `Context` and is exercised by the manual smoke test.
+async fn spawn_internal_server() -> String {
+    let app = axum::Router::new()
+        .route(
+            "/metrics",
+            axum::routing::get(api::metrics::metrics_handler),
+        )
+        .route("/healthz", axum::routing::get(api::metrics::healthz));
+    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+        .await
+        .unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app.into_make_service())
+            .await
+            .unwrap();
+    });
+    wait_until_accepting(addr).await;
+    format!("http://{addr}")
+}
+
+/// reqwest client with redirects/compression off so raw headers are observable.
+/// no_gzip() keeps that true even if another workspace crate enables the
+/// reqwest `gzip` feature (auto Accept-Encoding + transparent decompression).
+fn client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .no_gzip()
+        .build()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn top_level_route_returns_greeting() {
+    let base = spawn_test_server().await;
+    let resp = client().get(&base).send().await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.text().await.unwrap(), "API for Validator Bonds 2.0");
+}
+
+#[tokio::test]
+async fn docs_json_returns_openapi() {
+    let base = spawn_test_server().await;
+    let resp = client()
+        .get(format!("{base}/docs.json"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(ct.contains("application/json"), "content-type was {ct}");
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body.get("openapi").is_some(), "must be an OpenAPI document");
+}
+
+#[tokio::test]
+async fn docs_html_returns_swagger_ui_page() {
+    let base = spawn_test_server().await;
+    let resp = client().get(format!("{base}/docs")).send().await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(ct.contains("text/html"), "content-type was {ct}");
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("SwaggerUIBundle"),
+        "docs page is not Swagger UI"
+    );
+    assert!(!body.contains("redoc"), "docs page still references Redoc");
+    assert!(body.contains("/docs.json"), "spec URL is not wired up");
+}
+
+/// The `/docs` page pulls Swagger UI off a public CDN and is served to anyone.
+/// Each assertion below stands for a review finding on the Redoc -> Swagger UI
+/// switch, so a later edit cannot quietly undo one of them.
+#[tokio::test]
+async fn docs_html_keeps_the_swagger_ui_hardening() {
+    let base = spawn_test_server().await;
+    let resp = client().get(format!("{base}/docs")).send().await.unwrap();
+    let body = resp.text().await.unwrap();
+
+    // Subresource integrity, pinned per asset: a hash is only worth anything
+    // if it is *this* asset's hash, so bumping the version without
+    // regenerating the hash has to fail here rather than in the browser.
+    let css = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui.css";
+    let css_sri = "sha384-9Q2fpS+xeS4ffJy6CagnwoUl+4ldAYhOs9pgZuEKxypVModhmZFzeMlvVsAjf7uT";
+    let js = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.32.11/swagger-ui-bundle.js";
+    let js_sri = "sha384-vfl/klfTFrIz5urj0HnhcXLAbzPdRHezizfy+XgFB6GqcKkhlk0lS3bIbyB39NLA";
+    assert_pinned_asset(&body, css, css_sri);
+    assert_pinned_asset(&body, js, js_sri);
+
+    // ...and nothing else: an unpinned third asset would slip past the two
+    // checks above, which only look at the assets they already know about.
+    let found = body.matches("cdn.jsdelivr.net").count();
+    assert_eq!(found, 2, "an unpinned CDN asset crept in");
+
+    // Read-only docs, matching the Redoc page this replaced: a live console
+    // would call production and push multi-megabyte responses through Swagger
+    // UI's syntax highlighter, which has no size guard.
+    let read_only = body.contains("supportedSubmitMethods: []");
+    assert!(read_only, "docs must not offer a live Execute console");
+
+    // Keep the spec from being shipped to public validator.swagger.io.
+    let no_validator = body.contains("validatorUrl: null");
+    assert!(no_validator, "external Swagger validator must stay off");
+
+    // `?url=` / `?configUrl=` overrides stay off. This is already the Swagger
+    // UI default; pinning it means an asset upgrade cannot flip the policy.
+    let no_query_cfg = body.contains("queryConfigEnabled: false");
+    assert!(no_query_cfg, "URL config overrides must stay disabled");
+}
+
+/// Assert `html` loads `url` carrying exactly `sri`, on that same tag.
+///
+/// Counting `integrity=` attributes across the page would pass a stale hash,
+/// or one that belongs to a different asset — so match the tag, not the page.
+fn assert_pinned_asset(html: &str, url: &str, sri: &str) {
+    assert!(html.contains(url), "docs page dropped {url}");
+    let at = html.find(url).expect("presence checked above");
+    let start = html[..at].rfind('<').expect("tag has no start");
+    let end = at + html[at..].find('>').expect("tag has no end");
+    let tag = &html[start..=end];
+    let has_sri = tag.contains(&format!("integrity=\"{sri}\""));
+    let has_cors = tag.contains("crossorigin=\"anonymous\"");
+    assert!(has_sri, "wrong or missing SRI hash on {url}: {tag}");
+    assert!(has_cors, "missing crossorigin on {url}: {tag}");
+}
+
+#[tokio::test]
+async fn trailing_slash_resolves_to_the_same_route() {
+    let base = spawn_test_server().await;
+    let resp = client()
+        .get(format!("{base}/docs.json/"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        200,
+        "warp matched a trailing slash; the axum stack must keep doing so",
+    );
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert!(body.get("openapi").is_some(), "must be an OpenAPI document");
+}
+
+#[tokio::test]
+async fn unknown_path_is_404() {
+    let base = spawn_test_server().await;
+    let resp = client()
+        .get(format!("{base}/does-not-exist"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 404);
+}
+
+#[tokio::test]
+async fn cors_header_present_on_get_with_origin() {
+    let base = spawn_test_server().await;
+    let resp = client()
+        .get(&base)
+        .header("origin", "https://app.marinade.finance")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert!(
+        resp.headers().contains_key("access-control-allow-origin"),
+        "CORS allow-origin header must be present on GET responses",
+    );
+}
+
+#[tokio::test]
+async fn gzip_is_applied_only_when_requested() {
+    // Use /docs.json (large OpenAPI body): tower-http's CompressionLayer skips
+    // bodies under ~32 bytes, so a realistic payload is needed to assert gzip.
+    let base = spawn_test_server().await;
+
+    let with_gzip = client()
+        .get(format!("{base}/docs.json"))
+        .header("accept-encoding", "gzip")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        with_gzip
+            .headers()
+            .get("content-encoding")
+            .map(|v| v.to_str().unwrap().to_string()),
+        Some("gzip".to_string()),
+        "Accept-Encoding: gzip must yield a gzip-compressed response",
+    );
+
+    let no_gzip = client()
+        .get(format!("{base}/docs.json"))
+        .send()
+        .await
+        .unwrap();
+    assert!(
+        no_gzip.headers().get("content-encoding").is_none(),
+        "no Accept-Encoding → uncompressed response",
+    );
+}
+
+#[tokio::test]
+async fn internal_healthz_returns_200() {
+    let base = spawn_internal_server().await;
+    let c = client();
+    assert_eq!(
+        c.get(format!("{base}/healthz"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+}
+
+#[tokio::test]
+async fn metrics_endpoint_exposes_recorded_http_metrics() {
+    // Drive a public request so the metrics middleware records into the
+    // process-wide Prometheus registry, then scrape it on the internal server.
+    let public = spawn_test_server().await;
+    let c = client();
+    c.get(&public).send().await.unwrap();
+
+    let internal = spawn_internal_server().await;
+    let resp = c.get(format!("{internal}/metrics")).send().await.unwrap();
+    assert_eq!(resp.status(), 200);
+    let ct = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        ct.contains("version=0.0.4"),
+        "metrics must use the Prometheus exposition content type; got {ct}",
+    );
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("validator_bonds_api_http_requests_total"),
+        "metrics exposition must include the HTTP request counter; got:\n{body}",
+    );
+    assert!(
+        body.contains("path=\"/\""),
+        "the matched-route path label must be populated (not 'unknown'); got:\n{body}",
+    );
+}
+
+#[tokio::test]
+async fn rate_limit_trips_429_and_429_carries_cors_headers() {
+    let base = spawn_test_server().await;
+    let c = client();
+    // Public tier = 30 rps burst. Fire 90 concurrently from one IP: absorbing the
+    // 60 excess tokens would take >2s of refill, so a 429 is guaranteed unless the
+    // runner stalls pathologically mid-burst.
+    let mut set = tokio::task::JoinSet::new();
+    for _ in 0..90 {
+        let c = c.clone();
+        let base = base.clone();
+        set.spawn(async move {
+            c.get(&base)
+                .header("cf-connecting-ip", "7.7.7.7")
+                .header("origin", "https://app.marinade.finance")
+                .send()
+                .await
+                .map(|r| (r.status(), r.headers().clone()))
+        });
+    }
+    let mut saw_429 = false;
+    while let Some(joined) = set.join_next().await {
+        let (status, headers) = joined.unwrap().unwrap();
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            assert!(
+                headers.contains_key("access-control-allow-origin"),
+                "a 429 from the limiter must still carry CORS headers",
+            );
+            saw_429 = true;
+        }
+    }
+    assert!(
+        saw_429,
+        "exceeding the public burst (30) from one IP must yield a 429",
+    );
+}

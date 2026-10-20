@@ -5,7 +5,7 @@ use crate::instructions::verify_max_stake_wanted;
 use crate::state::bond::Bond;
 use crate::state::config::Config;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::vote::program::ID as vote_program_id;
+use solana_sdk_ids::vote::ID as vote_program_id;
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct ConfigureBondArgs {

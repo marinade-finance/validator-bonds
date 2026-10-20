@@ -10,14 +10,14 @@ use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::state::settlement_claims::SettlementClaims;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::stake_history;
 use anchor_spl::stake::{withdraw, Stake, Withdraw};
+use solana_stake_interface::sysvar::stake_history;
 
 /// Closes the settlement account, whoever can close it when the epoch expires
 #[event_cpi]
 #[derive(Accounts)]
 pub struct CloseSettlementV2<'info> {
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
 
     #[account(
         has_one = config @ ErrorCode::ConfigAccountMismatch,
@@ -28,7 +28,7 @@ pub struct CloseSettlementV2<'info> {
         ],
         bump = bond.bump,
     )]
-    pub bond: Account<'info, Bond>,
+    pub bond: Box<Account<'info, Bond>>,
 
     /// settlement to close when expired
     #[account(
@@ -160,7 +160,7 @@ pub fn withdraw_refund_stake_account<'info>(
 
     withdraw(
         CpiContext::new_with_signer(
-            stake_program.to_account_info(),
+            stake_program.key(),
             Withdraw {
                 stake: refund_stake_account.to_account_info(),
                 withdrawer: bonds_withdrawer_authority.to_account_info(),

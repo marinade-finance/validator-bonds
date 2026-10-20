@@ -31,6 +31,7 @@ steps:
     - '. "$HOME/.cargo/env"'
     - 'cargo build --release --bin list-settlement'
     - 'cargo build --release --bin close-settlement'
+    - '[ "$${CARGO_TARGET_DIR:-target}" = target ] || install -D -t target/release "$$CARGO_TARGET_DIR"/release/{list-settlement,close-settlement}'
     artifact_paths:
       - target/release/list-settlement
       - target/release/close-settlement

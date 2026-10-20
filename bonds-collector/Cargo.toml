@@ -1,4 +1,5 @@
 [package]
+publish = false
 name = "bonds-collector"
 version = "0.0.0"
 edition = "2021"
@@ -13,12 +14,12 @@ clap = { workspace = true }
 log = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }
-structopt = { workspace = true }
 solana-sdk = { workspace = true }
 tokio = { workspace = true }
 chrono = { workspace = true }
 solana-client = { workspace = true }
-rust_decimal = { workspace = true }
+solana-commitment-config = { workspace = true }
+rust_decimal = { workspace = true, features = ["serde-float"] }
 validator-bonds = { workspace = true }
 validator-bonds-common = { workspace = true }
 tracing = { workspace = true }

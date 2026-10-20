@@ -1,0 +1,18 @@
+question: >
+  Explain how an InstitutionalPayout amount is determined for a Select
+  validator: (a) what the APY floor is and whether it is a fixed rate,
+  (b) which field carries the per-validator APY shortfall, (c) which fields
+  the staker and distributor payout lamport amounts are read from, (d) whether
+  institutional-distribution-cli computes per-staker SOL itself or reads
+  pre-computed amounts. Name the exact field identifiers — look them up in source if not immediately known.
+facts:
+  - 'psr_percentile_apy'
+  - 'apy_percentile_diff'
+  - 'PayoutStaker'
+  - 'payout_lamports'
+wrong_facts:
+  - '50bps'
+  - '0.5% fixed'
+  - 'fixed APY floor'
+  - 'BlacklistPenalty'
+  - 'BidTooLowPenalty'

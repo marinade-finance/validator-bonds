@@ -1,8 +1,8 @@
-#!/usr/bin/env bun
 /* eslint-disable n/no-process-exit, import/no-extraneous-dependencies */
 
 import { readFileSync } from 'node:fs'
 
+import { pmpeToApy } from '@marinade.finance/ts-common'
 import { parse } from 'yaml'
 
 import {
@@ -16,14 +16,12 @@ import {
 
 type SsrFeed = { epochs: { epoch: number; time: number }[] }
 
-const SECONDS_PER_YEAR = 365.25 * 24 * 60 * 60
-
 async function main() {
   const [settlementsFile, configFile = './settlement-config.yaml'] =
     process.argv.slice(2)
   if (!settlementsFile) {
     process.stderr.write(
-      'Usage: bun scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
+      'Usage: tsx scripts/fee-annotation.ts <settlements.json> [settlement-config.yaml]\n',
     )
     process.exit(2)
   }
@@ -31,8 +29,8 @@ async function main() {
   const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 
   const cfg = parse(readFileSync(configFile, 'utf8')) as {
-    fee_config: { max_fee_bps: number; min_fee_bps: number }
-  }
+    fee_config?: { max_fee_bps: number; min_fee_bps: number }
+  } | null
   if (!cfg?.fee_config) {
     process.stderr.write(`Failed: fee_config missing in ${configFile}\n`)
     process.exit(1)
@@ -48,7 +46,8 @@ async function main() {
   }
 
   const bids = settlements.filter(
-    (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settlement JSON is external; epochs before ~890 omit `details` on Bidding entries
+    (s): s is BidSettlement => s.reason === 'Bidding' && s.details != null,
   )
   const stake = bids.reduce(
     (s, b) =>
@@ -120,8 +119,6 @@ async function main() {
     )
     process.exit(1)
   }
-  const epochsPerYear = SECONDS_PER_YEAR / (cur.time - prev.time)
-
   const stakerExtras = sumStakerExtras(settlements)
   const psrToStakers = settlements.reduce(
     (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
@@ -136,7 +133,9 @@ async function main() {
   const feesSol = fees / 1e9
   const feesFull = (gross * maxFeeBps) / 10000 / 1e9
   const apyFor = (p: number) =>
-    (Math.pow(1 + p / 1000, epochsPerYear) - 1) * 100
+    pmpeToApy(p, cur.time - prev.time)
+      .times(100)
+      .toNumber()
   const apyGross = apyFor(pmpeGross)
   const apyAdj = apyFor(pmpeAdj)
   const apyMax = apyFor(pmpeMax)

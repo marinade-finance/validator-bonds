@@ -30,15 +30,17 @@ import {
 } from '@solana/kit'
 import {
   getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
   type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
 } from '@solana/program-client-core'
 import { VALIDATOR_BONDS_PROGRAM_ADDRESS } from '../programs'
 
-export const CLAIM_SETTLEMENT_V1_DISCRIMINATOR = new Uint8Array([
-  0, 13, 213, 236, 10, 199, 94, 48,
-])
+export const CLAIM_SETTLEMENT_V1_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([0, 13, 213, 236, 10, 199, 94, 48])
 
-export function getClaimSettlementV1DiscriminatorBytes() {
+export function getClaimSettlementV1DiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
     CLAIM_SETTLEMENT_V1_DISCRIMINATOR,
   )
@@ -89,26 +91,37 @@ export function getClaimSettlementV1InstructionDataCodec(): FixedSizeCodec<
 }
 
 export type ClaimSettlementV1Input<
-  TAccountSettlementClaimV1 extends string = string,
+  TAccountSettlementClaimV1 extends InstructionAccountInput =
+    InstructionAccountInput,
 > = {
-  settlementClaimV1: Address<TAccountSettlementClaimV1>
+  settlementClaimV1: TAccountSettlementClaimV1
 }
 
 export function getClaimSettlementV1Instruction<
-  TAccountSettlementClaimV1 extends string,
+  TAccountSettlementClaimV1 extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
 >(
   input: ClaimSettlementV1Input<TAccountSettlementClaimV1>,
   config?: { programAddress?: TProgramAddress },
-): ClaimSettlementV1Instruction<TProgramAddress, TAccountSettlementClaimV1> {
+): ClaimSettlementV1Instruction<
+  TProgramAddress,
+  ResolvedInstructionAccountMeta<
+    TAccountSettlementClaimV1,
+    InstructionAccountInputAddress<TAccountSettlementClaimV1>
+  >
+> {
   // Program address.
   const programAddress =
     config?.programAddress ?? VALIDATOR_BONDS_PROGRAM_ADDRESS
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
 
   // Original accounts.
   const originalAccounts = {
     settlementClaimV1: {
       value: input.settlementClaimV1 ?? null,
+      isSigner: false,
       isWritable: false,
     },
   }
@@ -117,12 +130,17 @@ export function getClaimSettlementV1Instruction<
     ResolvedInstructionAccount
   >
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, 'programId')
   return Object.freeze({
     accounts: [getAccountMeta('settlementClaimV1', accounts.settlementClaimV1)],
     data: getClaimSettlementV1InstructionDataEncoder().encode({}),
     programAddress,
-  } as ClaimSettlementV1Instruction<TProgramAddress, TAccountSettlementClaimV1>)
+  } as ClaimSettlementV1Instruction<
+    TProgramAddress,
+    ResolvedInstructionAccountMeta<
+      TAccountSettlementClaimV1,
+      InstructionAccountInputAddress<TAccountSettlementClaimV1>
+    >
+  >)
 }
 
 export type ParsedClaimSettlementV1Instruction<

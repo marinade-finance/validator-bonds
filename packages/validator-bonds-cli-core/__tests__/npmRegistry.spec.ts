@@ -1,4 +1,5 @@
 import {
+  checkCliVersion,
   compareVersions,
   fetchLatestVersionInNpmRegistry,
 } from '../src/npmRegistry'
@@ -6,6 +7,16 @@ import {
 import type { Logger } from 'pino'
 
 const mockLogger = { debug: jest.fn() } as unknown as Logger
+
+// a fetch that only settles once the caller's own deadline fires, so tests exercise the real abort
+const rejectOnAbort =
+  (error: Error) =>
+  (...args: unknown[]) => {
+    const { signal } = args[1] as { signal: AbortSignal }
+    return new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(error))
+    })
+  }
 
 describe('compareVersions', () => {
   it('compares basic versions', () => {
@@ -83,10 +94,12 @@ describe('fetchLatestVersionInNpmRegistry', () => {
 
   afterEach(() => {
     global.fetch = originalFetch
+    jest.clearAllMocks()
   })
 
   it('returns latest stable version ignoring prereleases', async () => {
     global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
       json: () => ({
         name: '@marinade.finance/validator-bonds-cli',
         versions: {
@@ -110,6 +123,7 @@ describe('fetchLatestVersionInNpmRegistry', () => {
 
   it('falls back to all versions when no stable versions exist', async () => {
     global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
       json: () => ({
         name: '@marinade.finance/validator-bonds-cli',
         versions: {
@@ -127,5 +141,301 @@ describe('fetchLatestVersionInNpmRegistry', () => {
       name: '@marinade.finance/validator-bonds-cli',
       version: '2.4.1-beta.2',
     })
+  })
+
+  it('retries once and stays silent when a transport failure recovers', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new TypeError('fetch failed', { cause: new Error('ECONNRESET') }),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => ({
+          name: '@marinade.finance/validator-bonds-cli',
+          versions: { '2.5.0': {} },
+        }),
+      })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '2.5.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(mockLogger.debug).not.toHaveBeenCalled()
+  })
+
+  it('does not retry an HTTP status and reports it', async () => {
+    const json = jest.fn()
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      json,
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(json).not.toHaveBeenCalled()
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('Error: HTTP 429 Too Many Requests'),
+    )
+  })
+
+  it('reports the transport cause once both attempts fail', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValue(
+        new TypeError('fetch failed', { cause: new Error('ECONNRESET') }),
+      )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'TypeError: fetch failed (cause: Error: ECONNRESET)',
+      ),
+    )
+  })
+
+  it('falls back to the known package name when the packument omits it', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({ versions: { '2.9.0': {} } }),
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '2.9.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).not.toHaveBeenCalled()
+  })
+
+  it('does not retry a malformed packument and reports no TypeError', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({ name: '@marinade.finance/validator-bonds-cli' }),
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining('Error: registry response contains no versions'),
+    )
+    expect(mockLogger.debug).not.toHaveBeenCalledWith(
+      expect.stringContaining('TypeError:'),
+    )
+  })
+
+  it('keeps the transport cause when the retry hits the shared deadline', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new TypeError('fetch failed', { cause: new Error('ECONNRESET') }),
+      )
+      .mockImplementationOnce(
+        rejectOnAbort(
+          new DOMException('This operation was aborted', 'AbortError'),
+        ),
+      )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'TypeError: fetch failed (cause: Error: ECONNRESET)',
+      ),
+    )
+  })
+
+  it('does not retry a transport failure that lands after the deadline', async () => {
+    const fetchMock = jest.fn(
+      rejectOnAbort(
+        new TypeError('fetch failed', { cause: new Error('ECONNRESET') }),
+      ),
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'TypeError: fetch failed (cause: Error: ECONNRESET)',
+      ),
+    )
+  })
+
+  it('does not retry a timeout and reports it without a cause suffix', async () => {
+    const fetchMock = jest.fn(
+      rejectOnAbort(
+        new DOMException('This operation was aborted', 'AbortError'),
+      ),
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const result = await fetchLatestVersionInNpmRegistry(
+      mockLogger,
+      'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli',
+    )
+    expect(result).toEqual({
+      name: '@marinade.finance/validator-bonds-cli',
+      version: '0.0.0',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledTimes(1)
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'NPM registry fetch timed out after 1000ms',
+    )
+  })
+})
+
+describe('checkCliVersion', () => {
+  const originalFetch = global.fetch
+  const registryUrl =
+    'https://registry.npmjs.org/@marinade.finance/validator-bonds-cli'
+
+  const mockRegistry = (...publishedVersions: string[]) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => ({
+        name: '@marinade.finance/validator-bonds-cli',
+        versions: Object.fromEntries(publishedVersions.map(v => [v, {}])),
+      }),
+    }) as unknown as typeof fetch
+  }
+
+  let stderrSpy: jest.SpyInstance
+  let stdoutSpy: jest.SpyInstance
+
+  beforeEach(() => {
+    stderrSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    stdoutSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+    jest.restoreAllMocks()
+    jest.clearAllMocks()
+  })
+
+  it('recommends the exact version it compared against, not @latest', async () => {
+    mockRegistry('2.4.0', '2.5.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.4.0'),
+    ).rejects.toThrow(
+      'npm install -g @marinade.finance/validator-bonds-cli@2.5.0',
+    )
+  })
+
+  it('blocks on a newer minor release', async () => {
+    mockRegistry('2.5.0', '2.6.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.5.3'),
+    ).rejects.toThrow('CLI version 2.5.3 is outdated')
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('blocks on a newer major release', async () => {
+    mockRegistry('2.6.0', '3.0.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).rejects.toThrow('CLI version 2.6.0 is outdated')
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('only warns on a newer patch release', async () => {
+    mockRegistry('2.6.0', '2.6.2')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).toHaveBeenCalledTimes(1)
+    expect(stderrSpy.mock.calls[0]?.[0]).toContain(
+      'npm install -g @marinade.finance/validator-bonds-cli@2.6.2',
+    )
+    expect(stdoutSpy).not.toHaveBeenCalled()
+  })
+
+  it('says nothing when up to date or ahead', async () => {
+    mockRegistry('2.6.0')
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.7.1000'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).not.toHaveBeenCalled()
+  })
+
+  it('lets an unreachable registry pass', async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValue(
+        new TypeError('fetch failed'),
+      ) as unknown as typeof fetch
+
+    await expect(
+      checkCliVersion(mockLogger, registryUrl, '2.6.0'),
+    ).resolves.toBeUndefined()
+    expect(stderrSpy).not.toHaveBeenCalled()
   })
 })

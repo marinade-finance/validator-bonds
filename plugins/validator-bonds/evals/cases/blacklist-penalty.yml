@@ -1,0 +1,11 @@
+question: 'What triggers a BlacklistPenalty and who receives the settlement?'
+facts:
+  - 'blacklisted'
+  - 'sandwich'
+  - 'trillium.so'
+  - 'stakers'
+  - 'blacklist_penalty_pmpe'
+wrong_facts:
+  - 'bid too low'
+  - 'commission increase'
+  - 'fewer credits'

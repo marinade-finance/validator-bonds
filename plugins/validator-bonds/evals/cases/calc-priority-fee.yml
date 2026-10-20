@@ -1,0 +1,13 @@
+question: >
+  A validator has total_marinade_activating_stake = 10,000 SOL and an
+  activating_stakers_pool = 100 SOL to distribute via PriorityFee settlements.
+  One staker (stake_authority + withdraw_authority pair) has activating_sum =
+  2,000 SOL.
+
+  Compute: (a) that staker's staker_share as a fraction, (b) their PriorityFee
+  claim_amount in SOL (express as a whole number, e.g. "20 SOL" not "20.0 SOL"),
+  (c) the claim in lamports. Show each formula step.
+facts:
+  - '0.2'
+wrong_facts:
+  - '2 SOL'

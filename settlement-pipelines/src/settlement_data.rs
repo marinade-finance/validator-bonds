@@ -242,8 +242,7 @@ pub fn parse_settlements_from_json(
         .iter()
         .flat_map(|c| c.merkle_tree_settlements.iter().zip(std::iter::repeat(c.epoch)))
         .map(|(MerkleTreeMetaSettlement{merkle_tree, settlement}, epoch)|
-            if merkle_tree.merkle_root.is_some() {
-                let merkle_root = merkle_tree.merkle_root.unwrap();
+            if let Some(merkle_root) = merkle_tree.merkle_root {
                 let vote_account_address = merkle_tree.vote_account;
                 let (bond_address, _) = validator_bonds::state::bond::find_bond_address(
                     config_address,
@@ -282,7 +281,7 @@ pub fn parse_settlements_from_json(
                     tree_nodes: merkle_tree.tree_nodes.clone(),
                     max_total_claim_sum: merkle_tree.max_total_claim_sum,
                     max_total_claim: merkle_tree.max_total_claims as u64,
-                    funder: SettlementFunderType::new(&settlement.meta.funder),
+                    funder: SettlementFunderType::new(&settlement.funder),
                     reason: Some(settlement.reason.clone()),
                     funding_sources: merkle_tree.funding_sources.clone(),
                     bond_account: None,
@@ -292,7 +291,7 @@ pub fn parse_settlements_from_json(
             } else {
                 Err(anyhow!(
                     "Cannot get settlement for vote account {} (reason: {:?}, funder: {:?}), epoch {} without a merkle root",
-                    merkle_tree.vote_account, settlement.reason, settlement.meta.funder, epoch
+                    merkle_tree.vote_account, settlement.reason, settlement.funder, epoch
                 ))
             }
         )

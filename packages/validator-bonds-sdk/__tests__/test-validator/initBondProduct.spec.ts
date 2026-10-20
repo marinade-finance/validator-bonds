@@ -1,5 +1,3 @@
-import assert from 'assert'
-
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { NULL_LOG } from '@marinade.finance/ts-common'
 import {
@@ -97,7 +95,6 @@ describe('Validator Bonds init bond product', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_BOND_PRODUCT_EVENT)
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.bondProduct).toEqual(bondProduct)
     expect(e.config).toEqual(configAccount)
@@ -140,7 +137,6 @@ describe('Validator Bonds init bond product', () => {
 
     const events = parseCpiEvents(program, executionReturn?.response)
     const e = assertEvent(events, INIT_BOND_PRODUCT_EVENT)
-    assert(e !== undefined)
     expect(e.bond).toEqual(bondAccount)
     expect(e.bondProduct).toEqual(bondProduct)
   })

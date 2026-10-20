@@ -1,0 +1,22 @@
+{
+  "name": "validator-bonds",
+  "displayName": "Marinade Validator Bonds",
+  "version": "0.1.0",
+  "description": "Validator Bonds context skills — SAM auction, bond collateral, PSR, settlement lifecycle, and research tools.",
+  "author": {
+    "name": "Marinade Finance",
+    "email": "hello@marinade.finance"
+  },
+  "homepage": "https://psr.marinade.finance",
+  "repository": "https://github.com/marinade-finance/validator-bonds",
+  "license": "ISC",
+  "keywords": [
+    "solana",
+    "marinade",
+    "validator-bonds",
+    "sam",
+    "staking",
+    "defi"
+  ],
+  "skills": "./skills/"
+}

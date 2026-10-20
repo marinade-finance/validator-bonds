@@ -6,10 +6,13 @@ import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
+  retryOnEpochRewardsPeriod,
 } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { waitForNextEpoch } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+
+import { dryRunOutput } from './utils'
 
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
@@ -51,30 +54,32 @@ describe('Merge stake accounts using CLI', () => {
       lamports2: LAMPORTS_PER_SOL * 3,
     })
 
-    await expect([
-      'pnpm',
-      [
-        'cli',
-        '-u',
-        provider.connection.rpcEndpoint,
-        '--program-id',
-        program.programId.toBase58(),
-        'merge-stake',
-        '--source',
-        stakeAccount1.toBase58(),
-        '--destination',
-        stakeAccount2.toBase58(),
-        '--config',
-        configAccount.toBase58(),
-        '--confirmation-finality',
-        'confirmed',
-        '-v',
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-      // stderr: '',
-      stdout: /successfully merged/,
-    })
+    await retryOnEpochRewardsPeriod(() =>
+      expect([
+        'pnpm',
+        [
+          'cli',
+          '-u',
+          provider.connection.rpcEndpoint,
+          '--program-id',
+          program.programId.toBase58(),
+          'merge-stake',
+          '--source',
+          stakeAccount1.toBase58(),
+          '--destination',
+          stakeAccount2.toBase58(),
+          '--config',
+          configAccount.toBase58(),
+          '--confirmation-finality',
+          'confirmed',
+          '-v',
+        ],
+      ]).toHaveMatchingSpawnOutput({
+        code: 0,
+        // stderr: '',
+        stdout: /successfully merged/,
+      }),
+    )
 
     const stakeAccount1Info =
       await provider.connection.getAccountInfo(stakeAccount1)
@@ -112,7 +117,7 @@ describe('Merge stake accounts using CLI', () => {
     ]).toHaveMatchingSpawnOutput({
       code: 0,
       // stderr: '',
-      stdout: /successfully merged/,
+      stdout: dryRunOutput(/successfully merged/),
     })
     expect(
       await provider.connection.getAccountInfo(stakeAccount1),

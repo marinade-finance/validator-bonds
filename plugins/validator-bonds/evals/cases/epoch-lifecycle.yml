@@ -1,0 +1,13 @@
+question: >
+  Explain the full epoch lifecycle for Validator Bonds settlements: how are
+  settlement trees generated, how do they reach the chain, what is the
+  claiming window, and what happens to unclaimed funds after it closes?
+facts:
+  - 'merkle-generator-cli'
+  - 'init-settlement'
+  - 'epochs_to_claim_settlement'
+  - 'close-settlement'
+  - 'bonds_withdrawer_authority'
+wrong_facts:
+  - 'fixed 4-epoch window'
+  - 'funds are burned'

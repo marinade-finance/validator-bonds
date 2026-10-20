@@ -1,7 +1,11 @@
 import assert from 'assert'
 
 import { CliCommandError } from '@marinade.finance/cli-common'
-import { logDebug, logInfo } from '@marinade.finance/ts-common'
+import {
+  formatLamportsAsSol,
+  logDebug,
+  logInfo,
+} from '@marinade.finance/ts-common'
 import {
   bondAddress,
   deserializeStakeState,
@@ -19,7 +23,6 @@ import {
   splitAndExecuteTx,
 } from '@marinade.finance/web3js-1x'
 import {
-  LAMPORTS_PER_SOL,
   PublicKey,
   SendTransactionError,
   StakeProgram,
@@ -63,6 +66,7 @@ export async function getBondFromAddress({
   config: PublicKey | undefined
 }): Promise<ProgramAccountInfo<Bond>> {
   let accountInfo: AccountInfo<Buffer> | null
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- duck-type fallback: catches a PublicKey from another web3.js copy, and a base58 string/Buffer from an untyped caller, which `new PublicKey` below then normalizes
   if (address instanceof PublicKey || address.publicKey === undefined) {
     address = new PublicKey(address)
     accountInfo = await program.provider.connection.getAccountInfo(address)
@@ -185,6 +189,7 @@ export async function getBondFromAddress({
     accountInfo = bondAccountInfo
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- safeguard kept deliberately; narrowing proves non-null but a lying input type must not reach the decode
   if (accountInfo === null) {
     throw new CliCommandError({
       valueName: '[address]',
@@ -361,30 +366,11 @@ export async function getWithdrawRequestFromAddress({
 }
 
 export function formatToSolWithAll(value: BN | number | bigint): string {
-  if (new BN(value.toString()).eq(U64_MAX)) {
-    return '<ALL>'
-  } else {
-    return `${formatLamportsToSol(value)} ${formatUnit(value, 'SOL')}`
-  }
+  return new BN(value.toString()).eq(U64_MAX) ? '<ALL>' : formatToSol(value)
 }
 
 export function formatToSol(value: BN | number | bigint): string {
-  return `${formatLamportsToSol(value)} ${formatUnit(value, 'SOL')}`
-}
-
-function formatLamportsToSol(value: BN | number | bigint): string {
-  value = new BN(value.toString())
-  const { div, mod } = new BN(value).divmod(new BN(LAMPORTS_PER_SOL))
-  if (mod.isZero() && div.isZero()) {
-    return '0'
-  } else if (mod.isZero()) {
-    return div.toString()
-  } else {
-    return `${div.toString()}.${mod
-      .abs()
-      .toString()
-      .padStart(Math.log10(LAMPORTS_PER_SOL), '0')}`
-  }
+  return `${formatLamportsAsSol(value.toString())} ${formatUnit(value, 'SOL')}`
 }
 
 export function formatUnit(value: BN | number | bigint, unit: string): string {
@@ -421,12 +407,12 @@ export function isExpectedAnchorTransactionError(
   anchorErrMsg: string,
 ) {
   if (err instanceof ExecutionError) {
-    if (err.cause !== null && err.cause instanceof SendTransactionError) {
+    if (err.cause instanceof SendTransactionError) {
       const sendTransactionError = err.cause
       const parsedCustomError =
-        sendTransactionError.transactionError?.message
-          ?.toString()
-          .match(/custom program error: 0x([0-9a-fA-F]+)/) ?? null
+        sendTransactionError.transactionError.message.match(
+          /custom program error: 0x([0-9a-fA-F]+)/,
+        ) ?? null
       const decimalValue =
         parsedCustomError !== null && parsedCustomError[1]
           ? parseInt(parsedCustomError[1], 16)
@@ -515,11 +501,17 @@ export async function loadTestingVoteAccount(
   }
 }
 
+// `--simulate`/`--print-only` runs reach the same success logging as a sent transaction
+export function txOutcomeMessage(dryRun: boolean, message: string): string {
+  return dryRun ? `DRY RUN (nothing sent on-chain): ${message}` : message
+}
+
 export async function executeTxHandleErrors(
   args: ExecuteTxParams,
 ): Promise<ExecuteTxReturn> {
   try {
-    const result = await executeTx(args)
+    // executeTx's ExecuteTxParams overload claims ExecuteTxReturnExecuted, but printOnly returns undefined
+    const result = (await executeTx(args)) as ExecuteTxReturn
     if (result && 'signature' in result && result.signature) {
       recordTxSignature(result.signature)
     }

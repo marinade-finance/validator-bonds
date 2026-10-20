@@ -1,129 +1,50 @@
-//! Per-IP rate limiting for warp routes.
-//!
-//! Wraps the `governor` crate in a warp filter directly, since warp does
-//! not compose with tower layers as ergonomically as axum.
+//! Per-IP rate limiting via `tower_governor`.
 //!
 //! # Trust model
 //!
 //! Client IP is read from `cf-connecting-ip` (trusted when present) and
-//! falls back to the peer socket address. This is safe *only* under the
-//! invariant that the origin is reachable exclusively through
-//! Cloudflare, enforced at the infrastructure layer (security group /
-//! WAF / network ACL). If that invariant ever breaks, a client reaching
-//! the origin directly can spoof `cf-connecting-ip` to a fresh value
-//! per request and obtain a brand-new bucket each time, effectively
-//! bypassing the limiter. This is an **accepted risk**: the code does
-//! not re-enforce the invariant (e.g. by IP-allowlisting Cloudflare
-//! edges) — maintaining an in-code list of CF ranges is operationally
-//! brittle and we rely on the network layer instead.
+//! falls back to the peer socket address (axum `ConnectInfo`). This is safe
+//! *only* under the invariant that the origin is reachable exclusively through
+//! Cloudflare, enforced at the infrastructure layer (security group / WAF /
+//! network ACL). If that invariant ever breaks, a client reaching the origin
+//! directly can spoof `cf-connecting-ip` to a fresh value per request and
+//! obtain a brand-new bucket each time, effectively bypassing the limiter.
+//! This is an **accepted risk**: we rely on the network layer.
 //!
-//! # Keyed-store memory
-//!
-//! `DashMapStateStore` does not evict on its own. [`spawn_limiter_gc`]
-//! must be called once per limiter at startup to periodically drop
-//! entries whose buckets have fully refilled (equivalent to "this IP
-//! currently has no rate-limit state to remember"). Without it, the
-//! map grows with every unique observed IP until process restart.
-//!
-//! # Future work
-//!
-//! When/if this API migrates to axum, replace with
-//! `tower_governor::GovernorLayer` for a cleaner middleware layer.
+//! Generic forwarding headers (`x-forwarded-for`, `x-real-ip`) are
+//! intentionally NOT consulted — they are spoofable and not what Cloudflare
+//! sends. This is why we use a custom [`CfConnectingIpKeyExtractor`] rather
+//! than `tower_governor`'s `SmartIpKeyExtractor` (which would trust them).
 
 use std::net::{IpAddr, SocketAddr};
-use std::num::NonZeroU32;
-use std::sync::Arc;
-use std::time::Duration;
 
-use governor::clock::DefaultClock;
-use governor::state::keyed::DashMapStateStore;
-use governor::{Quota, RateLimiter};
-use warp::http::StatusCode;
-use warp::reject::Reject;
-use warp::reply::{Reply, Response};
-use warp::{Filter, Rejection};
+use axum::extract::ConnectInfo;
+use axum::http::Request;
+use tower_governor::key_extractor::KeyExtractor;
+use tower_governor::GovernorError;
 
-/// Per-IP keyed rate limiter (in-memory).
-pub type KeyedLimiter = RateLimiter<IpAddr, DashMapStateStore<IpAddr>, DefaultClock>;
+/// Per-IP rate-limit key: `cf-connecting-ip` when present and parseable,
+/// otherwise the peer socket IP. See the module-level trust model.
+#[derive(Clone, Debug)]
+pub struct CfConnectingIpKeyExtractor;
 
-/// Rejection returned by [`with_rate_limit`] when the per-IP quota is
-/// exceeded. Pair with a `.recover(...)` to render a 429.
-#[derive(Debug)]
-pub struct RateLimited;
-impl Reject for RateLimited {}
+impl KeyExtractor for CfConnectingIpKeyExtractor {
+    type Key = IpAddr;
 
-/// Per-IP policy for public read endpoints: 30 rps, burst 30.
-/// Generous enough for browser dashboards loading several resources at once
-/// and for polling monitors, while still blocking scraping-scale floods.
-/// Burst is the `per_second` default in `governor`.
-pub fn public_routes_limiter() -> Arc<KeyedLimiter> {
-    let quota = Quota::per_second(NonZeroU32::new(30).expect("30 is non-zero"));
-    Arc::new(RateLimiter::keyed(quota))
-}
-
-/// How often the background GC task prunes fully-replenished buckets.
-/// Value is a trade-off: too short wastes CPU locking the DashMap under
-/// steady load; too long lets memory grow between sweeps. 10 min is
-/// well under any realistic memory-pressure horizon for this API.
-const LIMITER_GC_INTERVAL: Duration = Duration::from_secs(600);
-
-/// Spawn a background task that periodically evicts IPs whose buckets
-/// have fully refilled from `limiter`. Call once per limiter at
-/// startup. See the module doc "Keyed-store memory" section for the
-/// rationale.
-pub fn spawn_limiter_gc(limiter: Arc<KeyedLimiter>) {
-    tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(LIMITER_GC_INTERVAL);
-        // `interval` fires immediately on the first tick; skip it so
-        // we don't sweep an empty map the moment the server boots.
-        ticker.tick().await;
-        loop {
-            ticker.tick().await;
-            limiter.retain_recent();
-        }
-    });
-}
-
-/// Recover filter that maps a [`RateLimited`] rejection to a 429 response.
-/// Other rejections are forwarded unchanged so warp's default handling
-/// (or any other recover) still applies.
-pub async fn recover_rate_limited(err: Rejection) -> Result<Response, Rejection> {
-    if err.find::<RateLimited>().is_some() {
-        return Ok(
-            warp::reply::with_status("Too many requests", StatusCode::TOO_MANY_REQUESTS)
-                .into_response(),
-        );
+    fn extract<T>(&self, req: &Request<T>) -> Result<Self::Key, GovernorError> {
+        let cf = req
+            .headers()
+            .get("cf-connecting-ip")
+            .and_then(|v| v.to_str().ok());
+        let peer = req
+            .extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|ci| ci.0);
+        pick_client_ip(cf, peer).ok_or(GovernorError::UnableToExtractKey)
     }
-    Err(err)
 }
 
-/// Warp filter that gates a route on `limiter`, keyed by client IP.
-///
-/// IP resolution order: `cf-connecting-ip` → peer socket address. The origin
-/// is expected to only be reachable through Cloudflare (enforced at the
-/// network layer), so `cf-connecting-ip` is trusted when present. Generic
-/// forwarding headers (`x-forwarded-for`, `x-real-ip`) are intentionally
-/// ignored because they are spoofable and not what Cloudflare sends. If no
-/// IP can be determined the request is allowed through.
-pub fn with_rate_limit(
-    limiter: Arc<KeyedLimiter>,
-) -> impl Filter<Extract = (), Error = Rejection> + Clone {
-    warp::header::optional::<String>("cf-connecting-ip")
-        .and(warp::addr::remote())
-        .and_then(move |cf: Option<String>, remote: Option<SocketAddr>| {
-            let limiter = limiter.clone();
-            async move {
-                if let Some(addr) = pick_client_ip(cf.as_deref(), remote) {
-                    if limiter.check_key(&addr).is_err() {
-                        return Err(warp::reject::custom(RateLimited));
-                    }
-                }
-                Ok::<(), Rejection>(())
-            }
-        })
-        .untuple_one()
-}
-
+/// IP resolution: a valid `cf-connecting-ip` wins; otherwise the peer IP.
 fn pick_client_ip(cf: Option<&str>, remote: Option<SocketAddr>) -> Option<IpAddr> {
     if let Some(s) = cf {
         if let Ok(ip) = s.parse() {
@@ -131,4 +52,63 @@ fn pick_client_ip(cf: Option<&str>, remote: Option<SocketAddr>) -> Option<IpAddr
         }
     }
     remote.map(|s| s.ip())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    fn sock(ip: &str) -> SocketAddr {
+        SocketAddr::new(ip.parse().unwrap(), 1234)
+    }
+
+    #[test]
+    fn cf_connecting_ip_is_used_when_valid() {
+        assert_eq!(
+            pick_client_ip(Some("1.2.3.4"), Some(sock("9.9.9.9"))),
+            Some(IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))),
+            "valid cf-connecting-ip must win over the peer address",
+        );
+    }
+
+    #[test]
+    fn cf_connecting_ip_supports_ipv6() {
+        assert_eq!(
+            pick_client_ip(Some("::1"), None),
+            Some(IpAddr::V6(Ipv6Addr::LOCALHOST)),
+        );
+    }
+
+    #[test]
+    fn falls_back_to_peer_when_cf_missing_or_unparseable() {
+        let peer = Some(sock("9.9.9.9"));
+        assert_eq!(
+            pick_client_ip(None, peer),
+            Some(IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9))),
+            "no cf header → peer ip",
+        );
+        assert_eq!(
+            pick_client_ip(Some("not-an-ip"), peer),
+            Some(IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9))),
+            "garbage cf header → peer ip",
+        );
+    }
+
+    #[test]
+    fn returns_none_when_no_ip_available() {
+        assert_eq!(pick_client_ip(None, None), None);
+        assert_eq!(pick_client_ip(Some("garbage"), None), None);
+    }
+
+    // Pins current behavior: with no `cf-connecting-ip` header and no `ConnectInfo`
+    // extension, the extractor errors (tower_governor renders 500) rather than
+    // failing open. Unreachable in production — the server is served via
+    // `into_make_service_with_connect_info`, so `ConnectInfo` is always present.
+    #[test]
+    fn extract_errors_when_no_ip_available() {
+        let req = axum::http::Request::builder().body(()).unwrap();
+        let err = CfConnectingIpKeyExtractor.extract(&req).unwrap_err();
+        assert!(matches!(err, GovernorError::UnableToExtractKey));
+    }
 }

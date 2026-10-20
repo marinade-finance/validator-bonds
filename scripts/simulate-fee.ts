@@ -5,12 +5,20 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 import { parseArgs } from 'node:util'
 
+// eslint-disable-next-line import/no-extraneous-dependencies
+import {
+  SECONDS_PER_YEAR,
+  epochsPerYearFromDuration,
+  pmpeToApy,
+} from '@marinade.finance/ts-common'
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { parse as parseYaml } from 'yaml'
 
@@ -68,7 +76,7 @@ if (!epochArg) {
       '  -f      force re-download inputs even if already cached\n' +
       '  -n N    compute concurrency (default: 20)\n' +
       '  -r      use release binary (./target/release/bid-distribution-cli)\n' +
-      '  -v      verbose CLI output (print SSR cap and fee: effective lines)\n' +
+      '  -v      verbose CLI output (print SSR cap and effective fee lines)\n' +
       '\n' +
       'epoch header fields:\n' +
       '  ssr_pmpe / ssr_apy          Solana Staking Rate — baseline staking return\n' +
@@ -111,6 +119,7 @@ const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 const STAKES_FILE = 'stakes.json'
 const SAM_FILE = 'sam-scores.json'
 const VALIDATORS_FILE = 'validators.json'
+const LEADER_SCHEDULE_FILE = 'leader-schedule.json'
 
 const INPUTS = [
   STAKES_FILE,
@@ -138,8 +147,8 @@ const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
 const binaryPath = values.r
   ? './target/release/bid-distribution-cli'
   : './target/debug/bid-distribution-cli'
-const apy = (p: number, n: number) =>
-  ((Math.pow(1 + p / 1000, n) - 1) * 100).toFixed(2) + '%'
+const apy = (p: number, epochSeconds: number) =>
+  pmpeToApy(p, epochSeconds).times(100).toFixed(2) + '%'
 const sol = (v: number) => (v / 1e9).toFixed(3)
 
 const scratchDir = join(dataDir, 'tmp')
@@ -297,6 +306,14 @@ async function fetchProductionSettlement(epoch: number): Promise<string> {
   return path
 }
 
+// The CLI reads --leader-schedule only in Alpenglow epochs.
+function isAlpenglow(validatorsJson: string): boolean {
+  return (
+    (JSON.parse(validatorsJson) as { alpenglow_epoch_type?: string })
+      .alpenglow_epoch_type === 'alpenglow'
+  )
+}
+
 async function downloadEpochInputs(
   epoch: number,
   gzip: ReturnType<typeof makePool>,
@@ -309,16 +326,32 @@ async function downloadEpochInputs(
     src: string,
     dst: string,
     via: 'gcs' | 'http' = 'gcs',
+    beforeGzip?: (dst: string) => void,
   ) => {
     if (!values.f && existsSync(dst + '.gz')) return
     rmSync(dst + '.gz', { force: true })
     if (!values.d) process.stderr.write(`  ${src}\n`)
     await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
+    beforeGzip?.(dst)
     gzip.add(() => runGzip(dst))
   }
 
   await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
-  await fetchOne(gcsBonds(epoch, VALIDATORS_FILE), join(inp, VALIDATORS_FILE))
+  let alpenglow = false
+  await fetchOne(
+    gcsBonds(epoch, VALIDATORS_FILE),
+    join(inp, VALIDATORS_FILE),
+    'gcs',
+    dst => {
+      alpenglow = isAlpenglow(readFileSync(dst, 'utf8'))
+    },
+  )
+  if (!alpenglow && existsSync(join(inp, VALIDATORS_FILE) + '.gz'))
+    alpenglow = isAlpenglow(
+      gunzipSync(readFileSync(join(inp, VALIDATORS_FILE) + '.gz')).toString(),
+    )
+  if (alpenglow)
+    await fetchOne(gcsBonds(epoch, LEADER_SCHEDULE_FILE), join(inp, LEADER_SCHEDULE_FILE))
   await fetchOne(
     gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
     join(inp, 'evaluation.json'),
@@ -361,6 +394,13 @@ async function runBidDistributionCli(
       if (existsSync(src + '.gz')) await runGzipD(src + '.gz', dst)
       else await runCmd(['cp', src, dst], `cp failed: ${src}`)
     }
+    const leaderSrc = join(inp, LEADER_SCHEDULE_FILE)
+    const hasLeader = existsSync(leaderSrc) || existsSync(leaderSrc + '.gz')
+    if (hasLeader) {
+      const dst = join(tmp, LEADER_SCHEDULE_FILE)
+      if (existsSync(leaderSrc + '.gz')) await runGzipD(leaderSrc + '.gz', dst)
+      else await runCmd(['cp', leaderSrc, dst], `cp failed: ${leaderSrc}`)
+    }
     const cliArgs = [
       binaryPath,
       '--settlement-config',
@@ -381,14 +421,15 @@ async function runBidDistributionCli(
       '/dev/null',
       '--apy-api-url',
       apyUrl,
+      ...(hasLeader ? ['--leader-schedule', join(tmp, LEADER_SCHEDULE_FILE)] : []),
     ]
     if (values.d) process.stderr.write(`+ ${cliArgs.join(' ')}\n`)
     const proc = Bun.spawn(cliArgs, {
       env: {
         ...process.env,
         RUST_LOG: values.d
-          ? 'info,bid_distribution::generators::bidding=debug'
-          : 'warn,bid_distribution::generators::bidding=info',
+          ? 'info,bid_distribution::generators::bidding=debug,bid_distribution::generators::fee_optimizer=debug'
+          : 'warn,bid_distribution::generators::bidding=info,bid_distribution::generators::fee_optimizer=info',
       },
       stderr: 'pipe',
     })
@@ -402,6 +443,7 @@ async function runBidDistributionCli(
         if (line) process.stderr.write(line + '\n')
       } else if (
         line.includes(' ERROR ') ||
+        line.startsWith('Error: ') ||
         line.includes('Adjusted ') ||
         line.includes('converged at') ||
         line.includes('adj_max_fee_bps')
@@ -409,7 +451,7 @@ async function runBidDistributionCli(
         process.stderr.write(line + '\n')
       } else if (
         values.v &&
-        (line.includes('SSR cap') || line.includes('fee: effective:'))
+        (line.includes('SSR cap') || line.includes('effective fee'))
       ) {
         process.stderr.write(line + '\n')
       }
@@ -439,7 +481,9 @@ async function processEpoch(
   const prodFile = values.c ? await fetchProductionSettlement(epoch) : null
 
   const prev = ssrEpochs.find(e => e.epoch === epoch - 1)
-  const epy = prev ? 31557600 / (epochData.time - prev.time) : 182
+  const epochSeconds = prev
+    ? epochData.time - prev.time
+    : SECONDS_PER_YEAR / 182
   const yieldPremium = (parseYaml(cfgTemplate) as BidConfig).fee_config
     .min_yield_premium_over_ssr_pmpe
 
@@ -448,18 +492,18 @@ async function processEpoch(
   out.push(`- epoch: ${epoch}`)
   out.push(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
   out.push(`  ssr_pmpe: ${epochData.pmpe}`)
-  out.push(`  ssr_apy: ${apy(epochData.pmpe, epy)}`)
+  out.push(`  ssr_apy: ${apy(epochData.pmpe, epochSeconds)}`)
   if (yieldPremium != null) {
     const floorPmpe = epochData.pmpe + yieldPremium
     out.push(`  min_yield_premium_pmpe: ${yieldPremium}`)
     out.push(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
-    out.push(`  min_yield_floor_apy: ${apy(floorPmpe, epy)}`)
+    out.push(`  min_yield_floor_apy: ${apy(floorPmpe, epochSeconds)}`)
   }
   if (targetSol !== undefined)
-    out.push(`  target_sol_revenue_sol: ${targetSol}`)
+    out.push(`  min_sol_revenue_sol: ${targetSol}`)
   const infApy = infApyAt(infPoints, epochData.time)
   if (infApy !== null) out.push(`  inf_apy: ${infApy.toFixed(2)}%`)
-  out.push(`  epochs_per_year: ${Math.floor(epy)}`)
+  out.push(`  epochs_per_year: ${Math.floor(epochsPerYearFromDuration(epochSeconds))}`)
   out.push('  simulations:')
 
   const inp = join(dataDir, String(epoch), 'inputs')
@@ -470,15 +514,15 @@ async function processEpoch(
     if (values.m !== undefined)
       cfgText = cfgText.replace(/(min_fee_bps:)\s*\d+/, `$1 ${values.m}`)
     if (targetSol !== undefined) {
-      if (/target_sol_revenue:/.test(cfgText)) {
+      if (/min_sol_revenue:/.test(cfgText)) {
         cfgText = cfgText.replace(
-          /(target_sol_revenue:)\s*[\d.]+/,
+          /(min_sol_revenue:)\s*[\d.]+/,
           `$1 ${targetSol}`,
         )
       } else {
         cfgText = cfgText.replace(
           /(min_fee_bps:.*\n)/,
-          `$1  target_sol_revenue: ${targetSol}\n`,
+          `$1  min_sol_revenue: ${targetSol}\n`,
         )
       }
       cfgText = cfgText.replace(/^\s*min_yield_premium_over_ssr_pmpe:.*\n/m, '')
@@ -507,7 +551,8 @@ async function processEpoch(
       adj_min_fee_bps?: number
     }
     const bidSettlements = settlements.filter(
-      (s): s is BidSettlement => s.reason === 'Bidding' && s.details !== null,
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- settlement JSON is external; epochs before ~890 omit `details` on Bidding entries
+      (s): s is BidSettlement => s.reason === 'Bidding' && s.details != null,
     )
     const bidDetails = bidSettlements.map(s => s.details)
     if (!bidDetails.length) {
@@ -519,13 +564,16 @@ async function processEpoch(
       (sum, d) => sum + d.total_marinade_active_stake,
       0,
     )
+    const hasRustRedeleg = bidDetails.some(
+      d => d.total_marinade_redelegation_stake !== undefined,
+    )
     const rustRedeleg = bidDetails.reduce(
       (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
       0,
     )
     const stakesPath = join(inp, STAKES_FILE)
     const redeleg =
-      rustRedeleg > 0
+      hasRustRedeleg
         ? rustRedeleg
         : existsSync(stakesPath)
           ? await redelegationStakeFromFile(stakesPath, cfg)
@@ -588,9 +636,9 @@ async function processEpoch(
     out.push(`    pre_fee_pmpe: ${pmpePreFee.toFixed(6)}`)
     out.push(`    post_fee_pmpe_adj: ${pmpeAdj.toFixed(6)}`)
     out.push(`    post_fee_pmpe_max: ${pmpeMax.toFixed(6)}`)
-    out.push(`    apy_pre_fee: ${apy(pmpePreFee, epy)}`)
-    out.push(`    apy_adj: ${apy(pmpeAdj, epy)}`)
-    out.push(`    apy_max: ${apy(pmpeMax, epy)}`)
+    out.push(`    apy_pre_fee: ${apy(pmpePreFee, epochSeconds)}`)
+    out.push(`    apy_adj: ${apy(pmpeAdj, epochSeconds)}`)
+    out.push(`    apy_max: ${apy(pmpeMax, epochSeconds)}`)
     out.push(`    fee_sol_adj: ${sol(feeAdj)}`)
     out.push(`    fee_sol_max: ${sol(feeMax)}`)
     out.push(`    settlement_sol: ${sol(settlementSol)}`)

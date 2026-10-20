@@ -1,0 +1,13 @@
+question: >
+  ds-sam's calcBondRiskFee produced bond_risk_fee_sol = 2.5 for a validator with
+  total_marinade_active_stake = 5,000 SOL. One staker holds active_stake =
+  1,000 SOL.
+
+  Compute: (a) the total stakers_bond_risk_fee_claim in lamports, (b) that
+  staker's staker_share as a fraction, (c) their BondRiskFee claim in SOL and
+  lamports. Show each formula step.
+facts:
+  - '0.2'
+  - '0.5 SOL'
+wrong_facts:
+  - 'dao_fee_split_share_bps applies'

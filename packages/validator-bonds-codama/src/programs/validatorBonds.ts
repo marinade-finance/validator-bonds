@@ -9,6 +9,7 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
+  extendClient,
   fixEncoderSize,
   getBytesEncoder,
   SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
@@ -19,6 +20,7 @@ import {
   type ClientWithRpc,
   type ClientWithTransactionPlanning,
   type ClientWithTransactionSending,
+  type ExtendedClient,
   type GetAccountInfoApi,
   type GetMultipleAccountsApi,
   type Instruction,
@@ -152,6 +154,15 @@ import {
   type UpsizeSettlementClaimsInput,
   type WithdrawStakeAsyncInput,
 } from '../instructions'
+import {
+  findBondPda,
+  findBondsWithdrawerAuthorityPda,
+  findEventAuthorityPda,
+  findMintPda,
+  findSettlementClaimsPda,
+  findSettlementStakerAuthorityPda,
+  findWithdrawRequestPda,
+} from '../pdas'
 
 export const VALIDATOR_BONDS_PROGRAM_ADDRESS =
   'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4' as Address<'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'>
@@ -250,6 +261,294 @@ export function identifyValidatorBondsAccount(
   throw new SolanaError(
     SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
     { accountData: data, programName: 'validatorBonds' },
+  )
+}
+
+export enum ValidatorBondsEvent {
+  CancelSettlementEvent,
+  CancelWithdrawRequestEvent,
+  ClaimSettlementEvent,
+  ClaimSettlementV2Event,
+  ClaimWithdrawRequestEvent,
+  CloseSettlementEvent,
+  ConfigureBondEvent,
+  ConfigureBondProductEvent,
+  ConfigureBondWithMintEvent,
+  ConfigureConfigEvent,
+  EmergencyPauseEvent,
+  EmergencyResumeEvent,
+  FundBondEvent,
+  FundSettlementEvent,
+  InitBondEvent,
+  InitBondProductEvent,
+  InitConfigEvent,
+  InitSettlementEvent,
+  InitWithdrawRequestEvent,
+  MergeStakeEvent,
+  MintBondEvent,
+  ResetStakeEvent,
+  WithdrawStakeEvent,
+}
+
+export function identifyValidatorBondsEvent(
+  event: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+): ValidatorBondsEvent {
+  const data = 'data' in event ? event.data : event
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([80, 190, 161, 61, 97, 7, 242, 92]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.CancelSettlementEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([221, 97, 104, 35, 19, 137, 248, 246]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.CancelWithdrawRequestEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([135, 253, 145, 233, 227, 29, 188, 141]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ClaimSettlementEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([114, 201, 131, 134, 182, 165, 237, 47]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ClaimSettlementV2Event
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([201, 210, 144, 108, 235, 209, 85, 58]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ClaimWithdrawRequestEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([226, 173, 111, 111, 105, 218, 118, 103]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.CloseSettlementEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([183, 119, 162, 244, 82, 182, 114, 228]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ConfigureBondEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([15, 80, 219, 241, 47, 206, 5, 179]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ConfigureBondProductEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([209, 167, 200, 198, 99, 71, 4, 96]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ConfigureBondWithMintEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([121, 240, 38, 122, 0, 102, 203, 122]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ConfigureConfigEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([159, 241, 192, 232, 29, 208, 51, 21]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.EmergencyPauseEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([19, 211, 43, 129, 45, 168, 226, 200]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.EmergencyResumeEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([156, 63, 156, 252, 109, 181, 73, 110]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.FundBondEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([104, 161, 6, 77, 82, 236, 4, 114]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.FundSettlementEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([56, 106, 209, 158, 171, 85, 159, 200]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.InitBondEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([159, 222, 72, 56, 134, 104, 96, 161]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.InitBondProductEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([125, 127, 160, 86, 247, 110, 50, 238]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.InitConfigEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([187, 195, 46, 129, 116, 83, 231, 241]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.InitSettlementEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([122, 40, 131, 105, 70, 35, 119, 128]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.InitWithdrawRequestEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([111, 6, 45, 208, 79, 53, 119, 57]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.MergeStakeEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([82, 190, 245, 33, 35, 128, 142, 197]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.MintBondEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([255, 49, 219, 199, 119, 10, 195, 177]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.ResetStakeEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([47, 85, 239, 214, 207, 29, 151, 88]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.WithdrawStakeEvent
+  }
+  throw new Error(
+    'The provided event could not be identified as a validatorBonds event.',
   )
 }
 
@@ -817,6 +1116,10 @@ export function parseValidatorBondsInstruction<TProgram extends string>(
 export type ValidatorBondsPlugin = {
   accounts: ValidatorBondsPluginAccounts
   instructions: ValidatorBondsPluginInstructions
+  pdas: ValidatorBondsPluginPdas
+  identifyAccount: typeof identifyValidatorBondsAccount
+  identifyInstruction: typeof identifyValidatorBondsInstruction
+  parseInstruction: typeof parseValidatorBondsInstruction
 }
 
 export type ValidatorBondsPluginAccounts = {
@@ -931,6 +1234,16 @@ export type ValidatorBondsPluginInstructions = {
     SelfPlanAndSendFunctions
 }
 
+export type ValidatorBondsPluginPdas = {
+  settlementClaims: typeof findSettlementClaimsPda
+  bondsWithdrawerAuthority: typeof findBondsWithdrawerAuthorityPda
+  eventAuthority: typeof findEventAuthorityPda
+  bond: typeof findBondPda
+  withdrawRequest: typeof findWithdrawRequestPda
+  settlementStakerAuthority: typeof findSettlementStakerAuthorityPda
+  mint: typeof findMintPda
+}
+
 export type ValidatorBondsPluginRequirements = ClientWithRpc<
   GetAccountInfoApi & GetMultipleAccountsApi
 > &
@@ -938,9 +1251,10 @@ export type ValidatorBondsPluginRequirements = ClientWithRpc<
   ClientWithTransactionSending
 
 export function validatorBondsProgram() {
-  return <T extends ValidatorBondsPluginRequirements>(client: T) => {
-    return {
-      ...client,
+  return <T extends ValidatorBondsPluginRequirements>(
+    client: T,
+  ): ExtendedClient<T, { validatorBonds: ValidatorBondsPlugin }> => {
+    return extendClient(client, {
       validatorBonds: <ValidatorBondsPlugin>{
         accounts: {
           bond: addSelfFetchFunctions(client, getBondCodec()),
@@ -1082,7 +1396,19 @@ export function validatorBondsProgram() {
               getWithdrawStakeInstructionAsync(input),
             ),
         },
+        pdas: {
+          settlementClaims: findSettlementClaimsPda,
+          bondsWithdrawerAuthority: findBondsWithdrawerAuthorityPda,
+          eventAuthority: findEventAuthorityPda,
+          bond: findBondPda,
+          withdrawRequest: findWithdrawRequestPda,
+          settlementStakerAuthority: findSettlementStakerAuthorityPda,
+          mint: findMintPda,
+        },
+        identifyAccount: identifyValidatorBondsAccount,
+        identifyInstruction: identifyValidatorBondsInstruction,
+        parseInstruction: parseValidatorBondsInstruction,
       },
-    }
+    })
   }
 }

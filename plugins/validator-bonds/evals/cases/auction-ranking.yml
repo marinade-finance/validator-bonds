@@ -1,0 +1,13 @@
+question: >
+  Explain how the SAM auction ranks and selects validators to receive Marinade
+  stake. Specifically: what metric is used to rank validators, what determines
+  the clearing price, and what happens to validators whose bid is above vs below
+  the clearing price?
+facts:
+  - 'totalPmpe'
+  - 'winningTotalPmpe'
+  - 'auction_effective_bid_pmpe'
+wrong_facts:
+  - 'validators pay their own bid'
+  - 'ranked by commission'
+  - 'random selection'

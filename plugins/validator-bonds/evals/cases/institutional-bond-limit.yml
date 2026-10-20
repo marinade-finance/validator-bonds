@@ -1,0 +1,12 @@
+question: >
+  What happens to an institutional (Select) validator's stake allocation when
+  their bond balance drops below the minimum? Name the exact ds-sam config field
+  that sets the minimum, and describe all three balance tiers with their exact
+  percentage thresholds and what each tier does to the stake cap.
+facts:
+  - 'minBondBalanceSol'
+  - '80%'
+  - 'clipped'
+wrong_facts:
+  - 'BlacklistPenalty'
+  - 'fixed SOL amount'

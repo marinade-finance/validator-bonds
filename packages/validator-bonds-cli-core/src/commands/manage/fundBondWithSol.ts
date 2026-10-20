@@ -1,7 +1,9 @@
+import { solToLamports } from '@marinade.finance/ts-common'
 import {
   fundBondInstruction,
   getConfig,
   getRentExemptStake,
+  minimalSizeStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   instanceOfWallet,
@@ -9,15 +11,11 @@ import {
   parseWalletOrPubkeyOption,
   transaction,
 } from '@marinade.finance/web3js-1x'
-import {
-  Authorized,
-  Keypair,
-  LAMPORTS_PER_SOL,
-  StakeProgram,
-} from '@solana/web3.js'
+import { Authorized, Keypair, StakeProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { failIfUnexpectedFundingError } from './fundBond'
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordAmountLamports,
   recordResolvedAccounts,
@@ -32,6 +30,7 @@ import {
   executeTxHandleErrors,
   formatToSol,
   getBondFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type {
@@ -116,21 +115,21 @@ export async function manageFundBondWithSol({
 
   const configData = await getConfig(program, config)
   const rentExemptStake = await getRentExemptStake(provider)
-  const minimalAmountToFund = configData.minimumStakeLamports.add(
-    new BN(rentExemptStake),
+  // must clear the program's pinned-reserve floor as well as the live delegation floor
+  const minimalAmountToFund = BN.max(
+    minimalSizeStakeAccount(configData.minimumStakeLamports),
+    configData.minimumStakeLamports.add(new BN(rentExemptStake)),
   )
-  let amountLamports: BN
-  if (Number.isFinite(amount * LAMPORTS_PER_SOL)) {
-    amountLamports = new BN(amount * LAMPORTS_PER_SOL)
-  } else {
-    amountLamports = new BN(amount).mul(new BN(LAMPORTS_PER_SOL))
+  if (!Number.isFinite(amount)) {
+    throw new Error(`Provided amount ${amount} SOL is not a valid number.`)
   }
+  const amountLamports = new BN(solToLamports(amount).toString())
   recordAmountLamports(amountLamports.toString())
   if (amountLamports.lt(minimalAmountToFund)) {
     throw new Error(
       `Provided amount ${amount} SOL is lower than minimal amount ` +
         'that is permitted to be funded. Minimal is ' +
-        `${formatToSol(minimalAmountToFund)} SOL. ` +
+        `${formatToSol(minimalAmountToFund)}. ` +
         'Please, use a bigger number of SOLs for funding.',
     )
   }
@@ -156,9 +155,7 @@ export async function manageFundBondWithSol({
     lamports: amountLamports.toNumber(),
     lockup: undefined,
   })
-  // error 0xc means not enough SOL to delegate the account
-  // lamports param has to be rentExempt + 1 SOL as min delegation amount
-  // normally it was 1 lamport, in new Solana versions it could be 1 SOL (SIMD that was not activated)
+  // delegate fails with 0xc unless the created amount clears rent plus the 1 SOL minimum delegation
   const delegateStakeAccountIx = StakeProgram.delegate({
     stakePubkey: stakeAccount,
     authorizedPubkey: from,
@@ -194,8 +191,11 @@ export async function manageFundBondWithSol({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Bond account ${bondAccount.toBase58()} successfully funded ` +
-        `with amount ${amount} from ${from.toBase58()}`,
+      txOutcomeMessage(
+        simulate || printOnly,
+        `Bond account ${bondAccount.toBase58()} successfully funded ` +
+          `with amount ${amount} from ${from.toBase58()}`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedFundingError({
@@ -208,4 +208,5 @@ export async function manageFundBondWithSol({
       bondAccount,
     })
   }
+  await printBondTipBannerFromContext({ voteAccount })
 }

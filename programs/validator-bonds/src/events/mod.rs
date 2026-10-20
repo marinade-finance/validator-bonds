@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::stake::state::Delegation;
+use solana_stake_interface::state::Delegation;
 
 pub mod bond;
 pub mod bond_product;

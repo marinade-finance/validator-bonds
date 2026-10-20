@@ -1,4 +1,5 @@
 import type { EventingConfig } from './types'
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 /** Parse a value as integer >= 0. Returns fallback for undefined/empty (unset env var). Throws on invalid input. */
 function parseNonNegativeInt(
@@ -40,6 +41,7 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
     validatorsApiUrl: opts.validatorsApiUrl as string,
     scoringApiUrl: opts.scoringApiUrl as string,
     tvlApiUrl: opts.tvlApiUrl as string,
+    institutionalApiUrl: opts.institutionalApiUrl as string,
     notificationsApiUrl: opts.notificationsApiUrl as string | undefined,
     notificationsJwt: opts.notificationsJwt as string | undefined,
     postgresUrl: opts.postgresUrl as string | undefined,
@@ -62,4 +64,18 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
     dryRun: opts.dryRun === true || opts.dryRun === 'true',
     cacheInputs: opts.cacheInputs as string | undefined,
   }
+}
+
+export function logResolvedConfig(
+  logger: LoggerWrapper,
+  config: EventingConfig,
+) {
+  logger.info(
+    {
+      ...config,
+      notificationsJwt: config.notificationsJwt ? '***' : undefined,
+      postgresUrl: config.postgresUrl ? '***' : undefined,
+    },
+    'Resolved configuration',
+  )
 }

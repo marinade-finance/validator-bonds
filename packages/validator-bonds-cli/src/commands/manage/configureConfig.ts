@@ -5,6 +5,7 @@ import {
   getCliContext,
   setProgramTelemetryFields,
   toBN,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import {
   MARINADE_CONFIG_ADDRESS,
@@ -212,5 +213,10 @@ async function manageConfigureConfig({
     confirmWaitTime,
     sendOpts: { skipPreflight },
   })
-  logger.info(`Config account ${address.toBase58()} successfully configured`)
+  logger.info(
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Config account ${address.toBase58()} successfully configured`,
+    ),
+  )
 }

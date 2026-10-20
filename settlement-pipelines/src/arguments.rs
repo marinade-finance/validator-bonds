@@ -5,7 +5,7 @@ use clap::{Args, ValueEnum};
 use log::debug;
 use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
 use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
 use std::path::{Path, PathBuf};
@@ -95,11 +95,10 @@ pub enum ReportFormat {
 }
 
 pub fn load_default_keypair(name: &str, s: Option<&str>) -> anyhow::Result<Option<Arc<Keypair>>> {
-    if s.is_none() || s.unwrap().is_empty() {
-        load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
-            .map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair)))
-    } else {
-        Ok(Some(load_keypair(name, s.unwrap())?))
+    match s {
+        Some(s) if !s.is_empty() => Ok(Some(load_keypair(name, s)?)),
+        _ => load_keypair("<default Solana keypair>", DEFAULT_KEYPAIR_PATH)
+            .map_or_else(|_e| Ok(None), |keypair| Ok(Some(keypair))),
     }
 }
 
@@ -232,6 +231,8 @@ pub fn init_from_opts(
     let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
     let tip_policy = to_tip_policy(tip_policy_opts);
 
+    // anchor's DynSigner wraps Arc<dyn Signer> (!Send+!Sync); Arc<DynSigner> is the Program<C> API pattern
+    #[allow(clippy::arc_with_non_send_sync)]
     let dyn_fee_payer = Arc::new(DynSigner(Arc::new(fee_payer_keypair.clone())));
     let program = get_validator_bonds_program(rpc_client.clone(), Some(dyn_fee_payer))?;
 

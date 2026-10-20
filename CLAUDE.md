@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Solana monorepo for **Validator Bonds** — an on-chain protocol where validators post bonds as collateral for Marinade stake. Settlements distribute SOL to stakers affected by protected events (PSR) or validator bidding.
 
+Program ID: `vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+
 Key data flow: snapshot → bid-distribution CLI → settlement JSON → merkle trees → on-chain settlements → claims.
 
 ## Build & Test
@@ -52,7 +54,9 @@ MIXPANEL_TOKEN=<token> pnpm publish:cli
 pnpm publish:sdk
 ```
 
-Rust toolchain: `1.88.0` (see `rust-toolchain.toml`). Anchor: `0.31.1`, Solana: `2.3.1` (see `Anchor.toml`). Node ≥ 20.18.0 required.
+Rust toolchain: `1.97.1` (see `rust-toolchain.toml`). Anchor: `1.2.1`, Solana: `3.1.12` (see `Anchor.toml`). Node ≥ 20.18.0 required. Program builds stay SBPF v0 (`ANCHOR_BUILD_SBF_ARCH=v0`, which bankrun needs), and the snapshot-parser crate builds rocksdb, so clang/libclang must be installed.
+
+**Footgun:** consumer TS packages (e.g. `bonds-eventing`) fail `eslint` with cryptic `"Unsafe … of a value of type error"` diagnostics until the workspace SDK is built, because typescript-eslint falls back to `error` for unresolved `@marinade.finance/validator-bonds-sdk` imports. Run `pnpm --filter @marinade.finance/validator-bonds-sdk build` (or `pnpm -r build`) before `pnpm check` on a fresh checkout.
 
 ## Simulation & Regression
 
@@ -85,6 +89,15 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
 | `settlement-distributions/merkle-generator`           | Generates Merkle tree JSON from settlement collections          |
 | `settlement-distributions/settlement-common`          | Shared types: `SettlementCollection`, `StakeMetaIndex`          |
 
+### On-chain program (`programs/validator-bonds/`)
+
+Anchor program: 6 state accounts, 23 active instructions (v1 handlers in `instructions/v1/` are commented out at `lib.rs:194-199`, kept for type exports only).
+
+- **States:** Config, Bond (PDA: config+vote_account), BondProduct (PDA: bond+product_type), Settlement (PDA: bond+merkle_root+epoch), SettlementClaims (bitmap dedup), WithdrawRequest (PDA: bond, one per bond).
+- **Instructions:** config/ (init, configure, emergency pause/resume), bond/ (init, configure, configure_with_mint, mint, fund), bond_product/ (init, configure), settlement/ (init, fund, close_v2, cancel, claim_v2, upsize_claims), withdraw/ (init, cancel, claim), stake/ (merge, reset, withdraw).
+- **Access control:** admin_authority (config), operator_authority (settlements/funding), pause_authority (emergency), bond authority or validator identity (bond mgmt), permissionless (claims via merkle proof, closing expired settlements).
+- **PDA seeds:** Bond: `b"bond_account"` + config + vote_account | Settlement: `b"settlement_account"` + bond + merkle_root + epoch_le_bytes | Bonds Withdrawer Authority: `b"bonds_authority"` + config | WithdrawRequest: `b"withdraw_account"` + bond
+
 ### TypeScript packages (`packages/`)
 
 | Package                             | Purpose                                      |
@@ -109,6 +122,23 @@ The core off-chain computation. Inputs: SAM scores JSON, stakes snapshot JSON, r
 - `sam_meta.rs` — parses SAM scoring JSON
 - `apy_api.rs` — fetches SSI/SSR PMPE from `apy.marinade.finance`
 
+### Settlement pipelines (`settlement-pipelines/`)
+
+Each binary handles one stage of the on-chain settlement lifecycle:
+
+| Binary                 | Purpose                                      | Access         |
+| ---------------------- | -------------------------------------------- | -------------- |
+| `init-settlement`      | Create Settlement accounts from merkle trees | operator       |
+| `fund-settlement`      | Fund from bond stake accounts                | operator       |
+| `claim-settlement`     | Claim via merkle proofs                      | permissionless |
+| `close-settlement`     | Close expired, reset/withdraw stakes         | permissionless |
+| `verify-settlement`    | Sanity check on-chain vs JSON                | read-only      |
+| `merge-stakes`         | Consolidate stake accounts per validator     | permissionless |
+| `list-settlement`      | Merkle tree JSON -> settlement listing       | offline        |
+| `list-claimable-epoch` | Query claimable epochs                       | read-only      |
+
+Exit code 100 = retriable failure (Buildkite retries up to 5x).
+
 ### Pipeline automation (`.buildkite/`)
 
 Each YAML pipeline corresponds to a stage in the epoch settlement cycle:
@@ -120,6 +150,14 @@ Data is staged in GCS bucket `marinade-validator-bonds-mainnet/<epoch>/`.
 
 `settlement-config.yaml` at repo root configures the bid-distribution CLI (fee parameters, whitelist authorities, settlement types). This is the production config — simulation overrides use separate flags or env vars.
 
+| Source          | Location                                                     |
+| --------------- | ------------------------------------------------------------ |
+| GCS bonds       | `gs://marinade-validator-bonds-mainnet/{epoch}/`             |
+| GCS ETL         | `gs://marinade-stakes-etl-mainnet/{epoch}/`                  |
+| Scoring API     | `https://scoring.marinade.finance/api/v1/scores/sam?epoch=N` |
+| ds-sam-pipeline | GitHub `marinade-finance/ds-sam-pipeline`                    |
+| Bonds API       | `https://validator-bonds-api.marinade.finance`               |
+
 ### Deployment runbooks (`runbooks/`)
 
 Surfpool-based deployment scripts for on-chain program upgrades. See `runbooks/README.md` for setup; `txtx.yml` at repo root is the Surfpool config.
@@ -128,7 +166,18 @@ Surfpool-based deployment scripts for on-chain program upgrades. See `runbooks/R
 
 - `settlement-distributions/bid-distribution/src/settlement_config.rs` is **read-only** — never modify it.
 - Never modify `.buildkite/` pipelines without understanding the full epoch flow.
-- The `facts/` directory contains distilled knowledge about SAM auction mechanics, contract behavior, and historical decisions — read relevant files before touching settlement logic.
+- The **Facts** section below records settlement policy decisions — read it before touching settlement logic.
 - `DEV_GUIDE.md` covers ops procedures: CLI broadcast banners (via marinade-notifications API) and CLI telemetry (Mixpanel via mix-proxy).
 - Epochs ≥928 use unified pipeline output (`bid-distribution-settlements.json` + `unified-merkle-trees.json`); epochs ≤927 have separate SAM/PSR files. The regression script detects the format automatically.
-- Open bug: division-by-zero panic in `generators/bidding.rs` when `active_stake + redelegation_stake == 0` — `staker_yield_pmpe` is computed before the `> 0` guard fires. Not yet fixed.
+- Settlement JSON written before the `funder`/`kind` schema change is intentionally not readable by current binaries — regenerating merkle trees for those epochs needs a pre-change build.
+- `common-rs` stays free of `utoipa`, and API-presentation concerns (descriptions, deprecations) stay out of shared settlement crates. `api/src/dto.rs` therefore mirrors `ValidatorBondRecord` and `SettlementMeta` by hand on purpose; drift is guarded by the tests in that file, not by the compiler. Correcting an **existing** `ToSchema` derive with `#[schema(value_type = …)]` so the docs match what serde emits is fine — adding the dependency or consumer-facing prose is not.
+
+## Facts
+
+### VAT-unadmitted PSR policy
+
+A `VatUnadmitted` event (SIMD-0357) pays stakers the full expected inflation EPR, `validator_rewards / Σstake × (1 − applied_bps/10000)`, not scaled by the validator's own uptime, and it replaces that validator's `DowntimeRevenueImpact` event. PSR makes stakers whole to the expected rate: an admitted validator at 50% uptime leaves its stakers at about the full rate (half on-chain, half from the downtime event), while a refused one pays nothing on-chain, so the bond covers the full rate. Scaling by uptime would leave stakers of a refused validator worse off than those of a slow one.
+
+Accepted gaps: VAT covers inflation only, so a refused validator's MEV/block shortfall (part of `actual_non_bid_pmpe`) is not compensated; VAT prices from the chain, downtime from the ds-sam PMPE; the snapshot's `inflation_rewards_admitted` reflects end-of-epoch stake, so a validator refused only by the next epoch's stake refresh (all delegators leaving, the 2000-account cutoff) gets no event.
+
+Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ticket feature is active (Tower epochs included, mainnet since epoch 1006), the epoch is not the Alpenglow migration epoch, and the snapshot marks the validator `inflation_rewards_admitted: false`. Missing stakers' inflation rows alone never charge a bond.

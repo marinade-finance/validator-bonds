@@ -5,6 +5,7 @@ import {
   executeTxHandleErrors,
   getCliContext,
   setProgramTelemetryFields,
+  txOutcomeMessage,
 } from '@marinade.finance/validator-bonds-cli-core'
 import { resetStakeInstruction } from '@marinade.finance/validator-bonds-sdk'
 import {
@@ -119,5 +120,10 @@ export async function manageResetStake({
     confirmWaitTime,
     sendOpts: { skipPreflight },
   })
-  logger.info(`Stake account ${address.toBase58()} successfully reset`)
+  logger.info(
+    txOutcomeMessage(
+      simulate || printOnly,
+      `Stake account ${address.toBase58()} successfully reset`,
+    ),
+  )
 }

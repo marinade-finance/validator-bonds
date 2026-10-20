@@ -2,7 +2,6 @@ use anchor_client::anchor_lang::AccountDeserialize;
 use anyhow::anyhow;
 use log::{debug, error};
 use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_client::rpc_config::RpcAccountInfoConfig;
 use solana_program::pubkey::Pubkey;
 use solana_sdk::account::Account;
 use std::sync::Arc;
@@ -20,7 +19,7 @@ pub async fn get_account_infos_for_pubkeys(
     let mut accounts_result: Vec<(Pubkey, Option<Account>)> = vec![];
     for address_chunk in addresses.iter() {
         let accounts = rpc_client
-            .get_multiple_accounts_with_config(address_chunk, RpcAccountInfoConfig::default())
+            .get_multiple_accounts_with_commitment(address_chunk, rpc_client.commitment())
             .await
             .map_err(|e| anyhow!("Error fetching settlement accounts: {e:?}"))?;
         accounts

@@ -139,7 +139,7 @@ export async function findBonds({
       program.programId,
     )
     const bondData = await program.account.bond.fetch(bondAccount)
-    return bondData ? [{ publicKey: bondAccount, account: bondData }] : []
+    return [{ publicKey: bondAccount, account: bondData }]
   }
   const filters: GetProgramAccountsFilter[] = []
   if (configAccount) {

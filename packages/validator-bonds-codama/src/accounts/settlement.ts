@@ -47,11 +47,11 @@ import {
   type BumpsArgs,
 } from '../types'
 
-export const SETTLEMENT_DISCRIMINATOR = new Uint8Array([
+export const SETTLEMENT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   55, 11, 219, 33, 36, 136, 40, 182,
 ])
 
-export function getSettlementDiscriminatorBytes() {
+export function getSettlementDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(SETTLEMENT_DISCRIMINATOR)
 }
 

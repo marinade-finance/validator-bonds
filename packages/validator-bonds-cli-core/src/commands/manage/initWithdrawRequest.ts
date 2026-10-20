@@ -3,8 +3,8 @@ import {
   checkAndGetBondAddress,
   getBond,
   getConfig,
-  getRentExemptStake,
   initWithdrawRequestInstruction,
+  minimalSizeStakeAccount,
 } from '@marinade.finance/validator-bonds-sdk'
 import {
   ExecutionError,
@@ -17,6 +17,7 @@ import {
 } from '@marinade.finance/web3js-1x'
 import BN from 'bn.js'
 
+import { printBondTipBannerFromContext } from '../../bondTipBanner'
 import {
   recordAmountLamports,
   recordResolvedAccounts,
@@ -32,6 +33,7 @@ import {
   formatToSol,
   formatToSolWithAll,
   getBondFromAddress,
+  txOutcomeMessage,
 } from '../../utils'
 
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -151,10 +153,9 @@ export async function manageInitWithdrawRequest({
     voteAccount,
     programId: program.programId,
   })
-  if (voteAccount === undefined || config === undefined) {
+  if (voteAccount === undefined) {
     const bondData = await getBond(program, bondAccountAddress)
-    voteAccount = voteAccount ?? bondData.voteAccount
-    config = config ?? bondData.config
+    voteAccount = bondData.voteAccount
   }
 
   let amountBN: BN
@@ -168,9 +169,8 @@ export async function manageInitWithdrawRequest({
     // withdraw request may withdraw only if possible to create a separate stake account,
     // or when withdrawing whole stake account, the amount is greater to minimal stake account "size"
     const configData = await getConfig(program, config)
-    const rentExemptStake = await getRentExemptStake(provider)
-    const minimalAmountToWithdraw = configData.minimumStakeLamports.add(
-      new BN(rentExemptStake),
+    const minimalAmountToWithdraw = minimalSizeStakeAccount(
+      configData.minimumStakeLamports,
     )
     if (amountBN.lt(minimalAmountToWithdraw)) {
       throw new CliCommandError({
@@ -222,8 +222,11 @@ export async function manageInitWithdrawRequest({
       sendOpts: { skipPreflight },
     })
     logger.info(
-      `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
-        `for bond account ${bondAccount.toBase58()} successfully initialized`,
+      txOutcomeMessage(
+        simulate || printOnly,
+        `Withdraw request account ${withdrawRequestAccount.toBase58()} ` +
+          `for bond account ${bondAccount.toBase58()} successfully initialized`,
+      ),
     )
   } catch (err) {
     await failIfUnexpectedError({
@@ -233,6 +236,7 @@ export async function manageInitWithdrawRequest({
       withdrawRequestAccount,
     })
   }
+  await printBondTipBannerFromContext({ voteAccount })
 }
 
 async function failIfUnexpectedError({
