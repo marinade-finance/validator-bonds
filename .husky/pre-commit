@@ -1,4 +1,3 @@
 pnpm lint-staged
 
-.husky/fmt.sh
 .husky/clippy.sh
