@@ -55,9 +55,14 @@ const { values, positionals } = parseArgs({
 const [epochArg, ...feeStrs] = positionals
 const fees: (number | null)[] = feeStrs.length ? feeStrs.map(Number) : [null]
 
-if (values.c && feeStrs.length) {
+if (
+  values.c &&
+  (feeStrs.length ||
+    values.m !== undefined ||
+    values['target-sol'] !== undefined)
+) {
   process.stderr.write(
-    'Failed: fee arguments are ignored in -c mode (production settlement already has fees baked in)\n',
+    'Failed: fee arguments, -m and -s are ignored in -c mode (production settlement already has fees baked in)\n',
   )
   process.exit(2)
 }
@@ -646,6 +651,10 @@ async function processEpoch(
     out.push(`    apy_max: ${apy(pmpeMax, epochSeconds)}`)
     out.push(`    fee_sol_adj: ${sol(feeAdj)}`)
     out.push(`    fee_sol_max: ${sol(feeMax)}`)
+    if (totalRewards > 0)
+      out.push(
+        `    actual_fee_bps: ${((feeAdj / totalRewards) * 10000).toFixed(2)}`,
+      )
     out.push(`    settlement_sol: ${sol(settlementSol)}`)
     if (protectedEventClaims > 0)
       out.push(`    psr_sol_to_stakers: ${sol(protectedEventClaims)}`)
@@ -700,6 +709,12 @@ async function main() {
   const gzip = makePool(8)
 
   const CONCURRENCY = values.n ? Number(values.n) : 20
+  if (!Number.isInteger(CONCURRENCY) || CONCURRENCY < 1) {
+    process.stderr.write(
+      `Failed: -n must be a positive integer, got ${values.n}\n`,
+    )
+    process.exit(2)
+  }
   const epochs: number[] = []
   for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
@@ -754,7 +769,12 @@ async function main() {
   if (failed.length)
     process.stderr.write(`Failed: epochs skipped: ${failed.join(', ')}\n`)
 
-  const yaml = 'epochs:\n' + results.filter(Boolean).join('')
+  const ok = results.filter(Boolean)
+  if (!ok.length) {
+    process.stderr.write('Failed: no epochs produced results\n')
+    process.exit(1)
+  }
+  const yaml = 'epochs:\n' + ok.join('')
   const ymlFile = `${values.t}.yml`
   writeFileSync(ymlFile, yaml)
   process.stderr.write(`wrote ${ymlFile}, rendering chart...\n`)

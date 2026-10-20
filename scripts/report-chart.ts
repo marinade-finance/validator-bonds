@@ -50,6 +50,7 @@ const C_MINFEE = '#9370db'
 const C_COST = '#b22222'
 
 type SimYaml = {
+  actual_fee_bps?: string | number
   max_fee_bps?: string | number
   min_fee_bps?: string | number
   apy_adj?: string | number
@@ -65,6 +66,7 @@ type EpochYaml = {
   epoch: number
   time: string | number
   ssr_apy: string
+  min_sol_revenue_sol?: string | number
   simulations: SimYaml[] | null
 }
 type ReportYaml = { epochs: EpochYaml[] }
@@ -131,7 +133,12 @@ function load() {
     minFeeBps = Number(sim.min_fee_bps ?? minFeeBps)
     const feeAdj = Number(sim.fee_sol_adj)
     const feeMax = Number(sim.fee_sol_max)
-    const actualFeeBps = feeMax > 0 ? (feeAdj * maxFeeBps) / feeMax : 0
+    const actualFeeBps =
+      sim.actual_fee_bps != null
+        ? Number(sim.actual_fee_bps)
+        : feeMax > 0
+          ? (feeAdj * maxFeeBps) / feeMax
+          : 0
     return [
       {
         epoch: e.epoch,
@@ -153,12 +160,16 @@ function load() {
     ]
   })
   const maxAdjFee = Math.max(...rows.map(r => r.adjMaxFee))
-  return { rows, maxFeeBps, minFeeBps, maxAdjFee }
+  const reportTarget = data.epochs.find(
+    e => e.min_sol_revenue_sol != null,
+  )?.min_sol_revenue_sol
+  return { rows, maxFeeBps, minFeeBps, maxAdjFee, reportTarget }
 }
 
 async function main() {
-  const { rows, maxFeeBps, minFeeBps, maxAdjFee } = load()
-  const minSolRevenue = loadMinSolRevenue()
+  const { rows, maxFeeBps, minFeeBps, maxAdjFee, reportTarget } = load()
+  const minSolRevenue =
+    reportTarget != null ? Number(reportTarget) : loadMinSolRevenue()
   const epochs = rows.map(r => r.epoch)
   const title = `Marinade Validator Bond Fee Simulation · Epochs ${epochs[0]}–${epochs[epochs.length - 1]}`
   const base = REPORT.replace(/^.*\//, '').replace(/\.ya?ml$/, '')
