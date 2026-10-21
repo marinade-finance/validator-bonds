@@ -55,8 +55,7 @@
     "tsx": "^4.22.3",
     "typescript": "5.4.5",
     "vega": "^6.2.0",
-    "vega-lite": "^6.4.3",
-    "yaml": "^2.8.1"
+    "vega-lite": "^6.4.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,cjs,mjs,json,yaml,yml,md}": [

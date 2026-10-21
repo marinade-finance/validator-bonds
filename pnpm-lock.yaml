@@ -83,7 +83,7 @@ importers:
         specifier: ^6.4.3
         version: 6.5.0(vega@6.4.0)
       yaml:
-        specifier: ^2.8.1
+        specifier: ^2.9.1
         version: 2.9.1
 
   packages/bonds-eventing:
