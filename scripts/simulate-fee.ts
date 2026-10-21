@@ -2,22 +2,26 @@
 /* eslint-disable n/no-process-exit */
 import { randomBytes } from 'node:crypto'
 import {
+  createReadStream,
+  createWriteStream,
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
+import { copyFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { pipeline } from 'node:stream/promises'
 import { parseArgs } from 'node:util'
-import { gunzipSync } from 'node:zlib'
+import { createGunzip } from 'node:zlib'
 
 // eslint-disable-next-line import/no-extraneous-dependencies
 import {
   SECONDS_PER_YEAR,
   epochsPerYearFromDuration,
   pmpeToApy,
+  runWithConcurrency,
 } from '@marinade.finance/ts-common'
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { parse as parseYaml } from 'yaml'
@@ -80,7 +84,7 @@ if (!epochArg) {
       '  -d      debug: print all subprocess commands and full CLI output\n' +
       '  -f      force re-download inputs even if already cached\n' +
       '  -n N    compute concurrency (default: 20)\n' +
-      '  -r      use release binary (./target/release/bid-distribution-cli)\n' +
+      '  -r      build and use the release binary (default: debug)\n' +
       '  -v      verbose CLI output (print SSR cap and effective fee lines)\n' +
       '\n' +
       'epoch header fields:\n' +
@@ -99,7 +103,7 @@ if (!epochArg) {
       '  post_fee_pmpe_max/apy_max   net staker yield if every validator charged max_fee\n' +
       '    (theoretical; does not account for settlement cap)\n' +
       '  fee_sol_adj                 actual Marinade fee = Σ(marinade_fee_claim + dao_fee_claim)\n' +
-      '  fee_sol_max                 min(total_rewards × max_fee, settlement_sol) — capped at bond\n' +
+      '  fee_sol_max                 Σ per validator min(rewards × max_fee, settlement) — capped at bond\n' +
       '  settlement_sol              total bond payout = Σ(staker_claims + fees); hard cap on fee\n' +
       '  psr_sol_to_stakers          PSR protected-event claims redistributed to stakers (if any)\n' +
       '  penalty_sol_to_stakers      bid-too-low / blacklist penalty claims to stakers (if any)\n' +
@@ -117,14 +121,36 @@ if (!values.t) {
   process.exit(2)
 }
 
-const dataDir = values['data-dir']
+const isBps = (s: string) => /^\d+$/.test(s)
+if (!feeStrs.every(isBps) || (values.m !== undefined && !isBps(values.m))) {
+  process.stderr.write(
+    'Failed: max fee arguments and -m must be non-negative integers (bps)\n',
+  )
+  process.exit(2)
+}
 const targetSol = values['target-sol']
+if (targetSol !== undefined && !/^\d+(\.\d+)?$/.test(targetSol)) {
+  process.stderr.write(
+    `Failed: -s must be a non-negative number, got ${targetSol}\n`,
+  )
+  process.exit(2)
+}
+const CONCURRENCY = values.n ? Number(values.n) : 20
+if (!Number.isInteger(CONCURRENCY) || CONCURRENCY < 1) {
+  process.stderr.write(
+    `Failed: -n must be a positive integer, got ${values.n}\n`,
+  )
+  process.exit(2)
+}
+
+const dataDir = values['data-dir']
 const apyUrl = process.env.APY_API_URL ?? 'https://apy.marinade.finance'
 
 const STAKES_FILE = 'stakes.json'
 const SAM_FILE = 'sam-scores.json'
 const VALIDATORS_FILE = 'validators.json'
 const LEADER_SCHEDULE_FILE = 'leader-schedule.json'
+const BURNED_FILE = 'rewards/validators_inflation_burned.json'
 
 const INPUTS = [
   STAKES_FILE,
@@ -149,9 +175,11 @@ const gcsBonds = (epoch: number, file: string) =>
 const gcsEtl = (epoch: number, file: string) => `${GCS_ETL}/${epoch}/${file}`
 const scoringUrl = (epoch: number) => `${SCORING_API}/scores/sam?epoch=${epoch}`
 
-const binaryPath = values.r
-  ? './target/release/bid-distribution-cli'
-  : './target/debug/bid-distribution-cli'
+const binaryPath = join(
+  process.env.CARGO_TARGET_DIR ?? './target',
+  values.r ? 'release' : 'debug',
+  'bid-distribution-cli',
+)
 const apy = (p: number, epochSeconds: number) =>
   pmpeToApy(p, epochSeconds).times(100).toFixed(2) + '%'
 const sol = (v: number) => (v / 1e9).toFixed(3)
@@ -159,15 +187,23 @@ const sol = (v: number) => (v / 1e9).toFixed(3)
 const scratchDir = join(dataDir, 'tmp')
 mkdirSync(scratchDir, { recursive: true })
 const tmps: string[] = []
+const procs = new Set<{ kill: () => void }>()
 function tmpFile() {
   const p = join(scratchDir, `fee-${randomBytes(6).toString('hex')}.tmp`)
   tmps.push(p)
   return p
 }
+function spawnTracked(cmd: string[], env?: Record<string, string | undefined>) {
+  const proc = Bun.spawn(cmd, { env, stderr: 'pipe' })
+  procs.add(proc)
+  void proc.exited.finally(() => procs.delete(proc))
+  return proc
+}
 function cleanup() {
+  for (const p of procs) p.kill()
   for (const t of tmps)
     try {
-      rmSync(t, { force: true })
+      rmSync(t, { force: true, recursive: true })
     } catch {}
 }
 process.on('exit', cleanup)
@@ -197,6 +233,8 @@ function infApyAt(infPoints: LlamaPoint[], epochTime: number): number | null {
   return bestDiff < 30 * 86400 ? best.apy : null
 }
 
+type PriorityFeeSettlement = Extract<Settlement, { reason: 'PriorityFee' }>
+
 type SsrEpoch = { epoch: number; pmpe: number; time: number }
 
 type BidConfig = {
@@ -209,16 +247,30 @@ type BidConfig = {
   }
 }
 
+function hasInput(path: string): boolean {
+  return existsSync(path) || existsSync(path + '.gz')
+}
+
+async function readInputJson<T>(path: string): Promise<T> {
+  if (existsSync(path + '.gz'))
+    return new Response(
+      Bun.file(path + '.gz')
+        .stream()
+        .pipeThrough(new DecompressionStream('gzip')),
+    ).json() as Promise<T>
+  return Bun.file(path).json() as Promise<T>
+}
+
 async function redelegationStakeFromFile(
   stakesPath: string,
   cfg: BidConfig,
 ): Promise<number> {
-  const { stake_metas: metas } = (await Bun.file(stakesPath).json()) as {
+  const { stake_metas: metas } = await readInputJson<{
     stake_metas: {
       stake_authority: string
       deactivating_delegation_lamports: string | number
     }[]
-  }
+  }>(stakesPath)
   const whitelist = new Set(cfg.whitelist_stake_authorities ?? [])
   const exiting = new Set(cfg.exiting_stake_authorities ?? [])
   return metas.reduce(
@@ -230,46 +282,9 @@ async function redelegationStakeFromFile(
   )
 }
 
-// Bounded async pool: add() is fire-and-forget; drain() waits for all.
-function makePool(cap: number) {
-  let n = 0
-  const queue: Array<() => void> = []
-  const jobs: Promise<void>[] = []
-  function next() {
-    while (n < cap && queue.length) {
-      n++
-      const job = queue.shift()
-      if (job) job()
-    }
-  }
-  return {
-    add(fn: () => Promise<void>) {
-      jobs.push(
-        new Promise<void>(resolve => {
-          queue.push(() => {
-            void fn()
-              .catch((e: unknown) =>
-                process.stderr.write(
-                  `Failed: ${e instanceof Error ? e.message : String(e)}\n`,
-                ),
-              )
-              .finally(() => {
-                n--
-                resolve()
-                next()
-              })
-          })
-          next()
-        }),
-      )
-    },
-    drain: () => Promise.all(jobs),
-  }
-}
-
 async function runCmd(cmd: string[], errMsg: string): Promise<void> {
   if (values.d) process.stderr.write(`+ ${cmd.join(' ')}\n`)
-  const proc = Bun.spawn(cmd, { stderr: 'pipe' })
+  const proc = spawnTracked(cmd)
   const [code, buf] = await Promise.all([
     proc.exited,
     new Response(proc.stderr).arrayBuffer(),
@@ -293,11 +308,19 @@ function runGzip(f: string) {
   return runCmd(['gzip', f], `gzip failed: ${f}`)
 }
 
-function runGzipD(src: string, dst: string) {
-  return runCmd(
-    ['sh', '-c', `gzip -dc "${src}" > "${dst}"`],
-    `decompression failed: ${src}`,
-  )
+async function stageInput(src: string, dst: string): Promise<boolean> {
+  mkdirSync(dirname(dst), { recursive: true })
+  if (existsSync(src + '.gz')) {
+    await pipeline(
+      createReadStream(src + '.gz'),
+      createGunzip(),
+      createWriteStream(dst),
+    )
+    return true
+  }
+  if (!existsSync(src)) return false
+  await copyFile(src, dst)
+  return true
 }
 
 async function fetchProductionSettlement(epoch: number): Promise<string> {
@@ -312,16 +335,13 @@ async function fetchProductionSettlement(epoch: number): Promise<string> {
 }
 
 // The CLI reads --leader-schedule only in Alpenglow epochs.
-function isAlpenglow(validatorsJson: string): boolean {
-  return (
-    (JSON.parse(validatorsJson) as { alpenglow_epoch_type?: string })
-      .alpenglow_epoch_type === 'alpenglow'
-  )
+function isAlpenglow(validators: { alpenglow_epoch_type?: string }): boolean {
+  return validators.alpenglow_epoch_type === 'alpenglow'
 }
 
 async function downloadEpochInputs(
   epoch: number,
-  gzip: ReturnType<typeof makePool>,
+  gzipJobs: (() => Promise<void>)[],
 ): Promise<void> {
   const inp = join(dataDir, String(epoch), 'inputs')
   const rwd = join(inp, 'rewards')
@@ -331,31 +351,18 @@ async function downloadEpochInputs(
     src: string,
     dst: string,
     via: 'gcs' | 'http' = 'gcs',
-    beforeGzip?: (dst: string) => void,
   ) => {
-    if (!values.f && existsSync(dst + '.gz')) return
+    if (!values.f && hasInput(dst)) return
     rmSync(dst + '.gz', { force: true })
     if (!values.d) process.stderr.write(`  ${src}\n`)
     await (via === 'gcs' ? runGcsCp(src, dst) : runHttpGet(src, dst))
-    beforeGzip?.(dst)
-    gzip.add(() => runGzip(dst))
+    gzipJobs.push(() => runGzip(dst))
   }
 
   await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
-  let alpenglow = false as boolean
-  await fetchOne(
-    gcsBonds(epoch, VALIDATORS_FILE),
-    join(inp, VALIDATORS_FILE),
-    'gcs',
-    dst => {
-      alpenglow = isAlpenglow(readFileSync(dst, 'utf8'))
-    },
-  )
-  if (!alpenglow && existsSync(join(inp, VALIDATORS_FILE) + '.gz'))
-    alpenglow = isAlpenglow(
-      gunzipSync(readFileSync(join(inp, VALIDATORS_FILE) + '.gz')).toString(),
-    )
-  if (alpenglow)
+  const validatorsPath = join(inp, VALIDATORS_FILE)
+  await fetchOne(gcsBonds(epoch, VALIDATORS_FILE), validatorsPath)
+  if (isAlpenglow(await readInputJson(validatorsPath)))
     await fetchOne(
       gcsBonds(epoch, LEADER_SCHEDULE_FILE),
       join(inp, LEADER_SCHEDULE_FILE),
@@ -385,6 +392,14 @@ async function downloadEpochInputs(
     gcsEtl(epoch, 'rewards_priority_fee.json'),
     join(rwd, 'jito_priority_fee.json'),
   )
+  await fetchOne(
+    gcsEtl(epoch, 'rewards_validators_inflation_burned.json'),
+    join(inp, BURNED_FILE),
+  ).catch(() => {
+    process.stderr.write(
+      `  epoch ${epoch}: optional ${BURNED_FILE} not fetched\n`,
+    )
+  })
   await fetchOne(scoringUrl(epoch), join(inp, SAM_FILE), 'http')
 }
 
@@ -394,21 +409,16 @@ async function runBidDistributionCli(
 ): Promise<string> {
   const out = tmpFile()
   const tmp = mkdtempSync(join(scratchDir, 'bd-'))
+  tmps.push(tmp)
   try {
-    for (const f of INPUTS) {
-      const src = join(inp, f)
-      const dst = join(tmp, f)
-      mkdirSync(dirname(dst), { recursive: true })
-      if (existsSync(src + '.gz')) await runGzipD(src + '.gz', dst)
-      else await runCmd(['cp', src, dst], `cp failed: ${src}`)
-    }
-    const leaderSrc = join(inp, LEADER_SCHEDULE_FILE)
-    const hasLeader = existsSync(leaderSrc) || existsSync(leaderSrc + '.gz')
-    if (hasLeader) {
-      const dst = join(tmp, LEADER_SCHEDULE_FILE)
-      if (existsSync(leaderSrc + '.gz')) await runGzipD(leaderSrc + '.gz', dst)
-      else await runCmd(['cp', leaderSrc, dst], `cp failed: ${leaderSrc}`)
-    }
+    for (const f of INPUTS)
+      if (!(await stageInput(join(inp, f), join(tmp, f))))
+        throw new Error(`missing input: ${join(inp, f)}`)
+    const hasLeader = await stageInput(
+      join(inp, LEADER_SCHEDULE_FILE),
+      join(tmp, LEADER_SCHEDULE_FILE),
+    )
+    await stageInput(join(inp, BURNED_FILE), join(tmp, BURNED_FILE))
     const cliArgs = [
       binaryPath,
       '--settlement-config',
@@ -434,14 +444,11 @@ async function runBidDistributionCli(
         : []),
     ]
     if (values.d) process.stderr.write(`+ ${cliArgs.join(' ')}\n`)
-    const proc = Bun.spawn(cliArgs, {
-      env: {
-        ...process.env,
-        RUST_LOG: values.d
-          ? 'info,bid_distribution::generators::bidding=debug,bid_distribution::generators::fee_optimizer=debug'
-          : 'warn,bid_distribution::generators::bidding=info,bid_distribution::generators::fee_optimizer=info',
-      },
-      stderr: 'pipe',
+    const proc = spawnTracked(cliArgs, {
+      ...process.env,
+      RUST_LOG: values.d
+        ? 'info,bid_distribution::generators::bidding=debug,bid_distribution::generators::fee_optimizer=debug'
+        : 'warn,bid_distribution::generators::bidding=info,bid_distribution::generators::fee_optimizer=info',
     })
     const [code, stderrBuf] = await Promise.all([
       proc.exited,
@@ -503,7 +510,7 @@ async function processEpoch(
   out.push(`  time: ${new Date(epochData.time * 1000).toISOString()}`)
   out.push(`  ssr_pmpe: ${epochData.pmpe}`)
   out.push(`  ssr_apy: ${apy(epochData.pmpe, epochSeconds)}`)
-  if (yieldPremium != null) {
+  if (yieldPremium != null && targetSol === undefined) {
     const floorPmpe = epochData.pmpe + yieldPremium
     out.push(`  min_yield_premium_pmpe: ${yieldPremium}`)
     out.push(`  min_yield_floor_pmpe: ${floorPmpe.toFixed(6)}`)
@@ -518,6 +525,7 @@ async function processEpoch(
   out.push('  simulations:')
 
   const inp = join(dataDir, String(epoch), 'inputs')
+  let rowsWritten = 0
   for (const fee of fees) {
     let cfgText = cfgTemplate
     if (fee != null)
@@ -570,6 +578,7 @@ async function processEpoch(
       process.stderr.write(`epoch ${epoch}: no data for fee=${fee}, skipping\n`)
       continue
     }
+    rowsWritten++
 
     const activeStake = bidDetails.reduce(
       (sum, d) => sum + d.total_marinade_active_stake,
@@ -578,28 +587,48 @@ async function processEpoch(
     const hasRustRedeleg = bidDetails.some(
       d => d.total_marinade_redelegation_stake !== undefined,
     )
-    const rustRedeleg = bidDetails.reduce(
+    let redeleg = bidDetails.reduce(
       (sum, d) => sum + (d.total_marinade_redelegation_stake ?? 0),
       0,
     )
-    const stakesPath = join(inp, STAKES_FILE)
-    const redeleg = hasRustRedeleg
-      ? rustRedeleg
-      : existsSync(stakesPath)
-        ? await redelegationStakeFromFile(stakesPath, cfg)
-        : 0
-    const stake = activeStake + redeleg
+    if (!hasRustRedeleg) {
+      const stakesPath = join(inp, STAKES_FILE)
+      if (hasInput(stakesPath))
+        redeleg = await redelegationStakeFromFile(stakesPath, cfg)
+      else
+        process.stderr.write(
+          `epoch ${epoch}: no ${STAKES_FILE}, redelegation stake counted as 0\n`,
+        )
+    }
     const bidVotes = new Set(bidSettlements.map(s => s.vote_account))
-    const totalRewards =
-      bidDetails.reduce(
-        (sum, d) => sum + parseFloat(d.total_marinade_stakers_rewards),
+    const priorityOnly = settlements.filter(
+      (s): s is PriorityFeeSettlement =>
+        s.reason === 'PriorityFee' && !bidVotes.has(s.vote_account),
+    )
+    const stake =
+      activeStake +
+      redeleg +
+      priorityOnly.reduce(
+        (sum, s) => sum + s.details.total_marinade_active_stake,
         0,
-      ) +
-      settlements.reduce((sum, s) => {
-        if (s.reason === 'PriorityFee' && !bidVotes.has(s.vote_account))
-          return sum + parseFloat(s.details.activating_bid_claim)
-        return sum
-      }, 0)
+      )
+    const rewardsByVote = new Map<string, number>()
+    for (const s of bidSettlements)
+      rewardsByVote.set(
+        s.vote_account,
+        (rewardsByVote.get(s.vote_account) ?? 0) +
+          parseFloat(s.details.total_marinade_stakers_rewards),
+      )
+    for (const s of priorityOnly)
+      rewardsByVote.set(
+        s.vote_account,
+        (rewardsByVote.get(s.vote_account) ?? 0) +
+          parseFloat(s.details.activating_bid_claim),
+      )
+    const totalRewards = [...rewardsByVote.values()].reduce(
+      (sum, r) => sum + r,
+      0,
+    )
     const feeAdj = settlements
       .filter(isFeeSettlement)
       .reduce(
@@ -607,9 +636,16 @@ async function processEpoch(
           sum + s.details.marinade_fee_claim + s.details.dao_fee_claim,
         0,
       )
-    const settlementSol = settlements
-      .filter(isFeeSettlement)
-      .reduce((sum, s) => sum + s.claims_amount, 0)
+    const settlementByVote = new Map<string, number>()
+    for (const s of settlements.filter(isFeeSettlement))
+      settlementByVote.set(
+        s.vote_account,
+        (settlementByVote.get(s.vote_account) ?? 0) + s.claims_amount,
+      )
+    const settlementSol = [...settlementByVote.values()].reduce(
+      (sum, c) => sum + c,
+      0,
+    )
     const stakerExtras = sumStakerExtras(settlements)
     const protectedEventClaims = settlements.reduce(
       (sum, s) => (isProtectedEvent(s.reason) ? sum + s.claims_amount : sum),
@@ -617,7 +653,12 @@ async function processEpoch(
     )
     const penaltyStakerClaims = stakerExtras - protectedEventClaims
     const pmpeAdj = ((totalRewards - feeAdj + stakerExtras) / stake) * 1000
-    const feeMax = Math.min((totalRewards * maxFee) / 10000, settlementSol)
+    const feeMax = [...settlementByVote].reduce(
+      (sum, [vote, claims]) =>
+        sum +
+        Math.min(((rewardsByVote.get(vote) ?? 0) * maxFee) / 10000, claims),
+      0,
+    )
     const pmpeMax = ((totalRewards - feeMax + stakerExtras) / stake) * 1000
     const feesByVote = feesByVoteAccount(settlements)
     const nCapped =
@@ -668,6 +709,7 @@ async function processEpoch(
     if (adjMin !== undefined) out.push(`    adj_min_fee_bps: ${adjMin}`)
   }
 
+  if (!rowsWritten) return null
   return out.join('\n') + '\n'
 }
 
@@ -684,16 +726,28 @@ async function main() {
     process.exit(2)
   }
 
+  if (!values.c)
+    await runCmd(
+      [
+        'cargo',
+        'build',
+        '-q',
+        ...(values.r ? ['--release'] : []),
+        '--bin',
+        'bid-distribution-cli',
+      ],
+      'cargo build failed',
+    )
   if (!values.c && !existsSync(binaryPath)) {
     process.stderr.write(
-      `Failed: binary not found at ${binaryPath} — run: cargo build${values.r ? ' --release' : ''} --bin bid-distribution-cli\n`,
+      `Failed: binary not found at ${binaryPath} after cargo build\n`,
     )
     process.exit(1)
   }
 
   const [ssrRes, infRes, cfgTemplate] = await Promise.all([
     fetch(`${apyUrl}/v1/epoch-pmpe/ssr`),
-    fetch(INF_LLAMA),
+    fetch(INF_LLAMA).catch(() => null),
     Bun.file('./settlement-config.yaml').text(),
   ])
   if (!ssrRes.ok) {
@@ -701,20 +755,11 @@ async function main() {
     process.exit(1)
   }
   const ssr = (await ssrRes.json()) as { epochs: SsrEpoch[] }
-  const infPoints: LlamaPoint[] = infRes.ok
+  const infPoints: LlamaPoint[] = infRes?.ok
     ? (((await infRes.json()) as { data?: LlamaPoint[] | undefined }).data ??
       [])
     : []
 
-  const gzip = makePool(8)
-
-  const CONCURRENCY = values.n ? Number(values.n) : 20
-  if (!Number.isInteger(CONCURRENCY) || CONCURRENCY < 1) {
-    process.stderr.write(
-      `Failed: -n must be a positive integer, got ${values.n}\n`,
-    )
-    process.exit(2)
-  }
   const epochs: number[] = []
   for (let e = epochStart; e <= epochEnd; e++) epochs.push(e)
 
@@ -724,26 +769,33 @@ async function main() {
   // Phase 1: download inputs sequentially (one file at a time), gzip in background
   if (!values.c) {
     process.stderr.write(`fetching inputs for ${epochs.length} epochs...\n`)
+    let gzipping: Promise<unknown> = Promise.resolve()
     for (const epoch of epochs) {
+      const gzipJobs: (() => Promise<void>)[] = []
       try {
-        await downloadEpochInputs(epoch, gzip)
+        await downloadEpochInputs(epoch, gzipJobs)
       } catch (err) {
         process.stderr.write(
           `Failed: epoch ${epoch} fetch — ${err instanceof Error ? err.message : String(err)}\n`,
         )
         failed.push(epoch)
       }
+      gzipping = gzipping
+        .then(() => runWithConcurrency(gzipJobs, 8))
+        .catch((err: unknown) =>
+          process.stderr.write(
+            `Failed: ${err instanceof Error ? err.message : String(err)}\n`,
+          ),
+        )
     }
-    await gzip.drain()
+    await gzipping
   }
 
   // Phase 2: parallel CLI compute over successfully fetched epochs
   const toCompute = epochs.filter(e => !failed.includes(e))
-  let nextIdx = 0
   let doneCount = 0
-  async function runWorker(): Promise<void> {
-    while (nextIdx < toCompute.length) {
-      const epoch = toCompute[nextIdx++]
+  await runWithConcurrency(
+    toCompute.map(epoch => async () => {
       try {
         results[epoch - epochStart] = await processEpoch(
           epoch,
@@ -760,10 +812,8 @@ async function main() {
         )
         failed.push(epoch)
       }
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(CONCURRENCY, toCompute.length) }, runWorker),
+    }),
+    CONCURRENCY,
   )
 
   if (failed.length)
@@ -783,6 +833,7 @@ async function main() {
     'report-chart failed',
   )
   process.stderr.write(`report → ${values.t}.png\n`)
+  if (failed.length) process.exitCode = 1
 }
 
 void main()

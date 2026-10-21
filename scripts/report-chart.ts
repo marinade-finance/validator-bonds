@@ -21,7 +21,6 @@ if (process.argv.includes('-h') || process.argv.includes('--help')) {
       '  epoch                 x-axis position\n' +
       '  time                  unix seconds — drives month/week period aggregation\n' +
       '  ssr_apy               SSR baseline line on the APY panel\n' +
-      '  inf_apy (optional)    Sanctum INF APY reference; absent for older epochs\n' +
       '\n' +
       'simulations[0] fields read:\n' +
       '  max_fee_bps           configured ceiling — shown in footer\n' +
@@ -33,15 +32,15 @@ if (process.argv.includes('-h') || process.argv.includes('--help')) {
       '  adj_max_fee_bps       optimized ceiling line (bps panel)\n' +
       '  adj_min_fee_bps       optimized floor line (bps panel)\n' +
       '\n' +
-      'present in the YAML but not charted: apy_pre_fee, min_fee_bps,\n' +
-      'marinade_stake_sol, settlement_sol\n',
+      'present in the YAML but not charted: inf_apy, apy_pre_fee, min_fee_bps,\n' +
+      'marinade_stake_sol, settlement_sol; only simulations[0] is charted\n',
   )
   process.exit(2)
 }
 
 const [, , argReport, argOut] = process.argv
 const REPORT = argReport ?? 'report.yml'
-const OUT = argOut ?? REPORT.replace(/\.yml$/, '.png')
+const OUT = argOut ?? REPORT.replace(/\.ya?ml$/, '') + '.png'
 
 const C_ACTUAL = '#4682b4'
 const C_REF = '#708090'
@@ -126,9 +125,16 @@ function load() {
   const data = parseYaml(fs.readFileSync(REPORT, 'utf8')) as ReportYaml
   let maxFeeBps = 0
   let minFeeBps = 0
+  let warnedTiers = false
   const rows = data.epochs.flatMap(e => {
     const sim = e.simulations?.[0]
     if (!sim) return []
+    if (e.simulations && e.simulations.length > 1 && !warnedTiers) {
+      warnedTiers = true
+      process.stderr.write(
+        `warning: ${e.simulations.length} fee tiers in report, charting only the first (max_fee_bps ${sim.max_fee_bps})\n`,
+      )
+    }
     maxFeeBps = Number(sim.max_fee_bps ?? maxFeeBps)
     minFeeBps = Number(sim.min_fee_bps ?? minFeeBps)
     const feeAdj = Number(sim.fee_sol_adj)
@@ -219,26 +225,22 @@ async function main() {
   const periodDomain = [...periodMap.keys()].sort()
   const avgEpochSec =
     rows.length > 1
-      ? (rows[rows.length - 1].time - rows[0].time) / (rows.length - 1)
+      ? (rows[rows.length - 1].time - rows[0].time) /
+        (rows[rows.length - 1].epoch - rows[0].epoch)
       : 2 * 86400
   const epochsPerPeriod = ((useMonth ? 30 : 7) * 86400) / avgEpochSec
   const periodTarget =
     minSolRevenue != null ? minSolRevenue * epochsPerPeriod : null
-  // First & last periods are dotted when partial: a boundary period holding
-  // fewer epochs than its neighbour hasn't been fully observed.
+  // A period holding under 80% of a full period's epochs (boundary period,
+  // single-period report or interior gap) is dotted: it isn't fully observed.
   const periodCount = new Map<string, number>()
   for (const r of rows) {
     const k = periodOf(r.time)
     periodCount.set(k, (periodCount.get(k) ?? 0) + 1)
   }
-  const lastIdx = periodDomain.length - 1
-  const cnt = (i: number) => periodCount.get(periodDomain[i]) ?? 0
-  const incompletePeriods = new Set<string>()
-  if (periodDomain.length >= 2) {
-    if (cnt(0) < cnt(1)) incompletePeriods.add(periodDomain[0])
-    if (cnt(lastIdx) < cnt(lastIdx - 1))
-      incompletePeriods.add(periodDomain[lastIdx])
-  }
+  const incompletePeriods = new Set(
+    periodDomain.filter(p => (periodCount.get(p) ?? 0) < 0.8 * epochsPerPeriod),
+  )
   const feePeriodTidy = periodDomain.flatMap(p => {
     const d = periodMap.get(p) ?? { feeAdj: 0, feeMax: 0 }
     const incomplete = incompletePeriods.has(p)
