@@ -283,6 +283,24 @@ fn staker_rewards_breakdown(
     }
 }
 
+/// Fee that leaves stakers `target_pmpe`, clamped to the configured band;
+/// `max_fee` when there is no yield or no Marinade stake to measure against.
+fn effective_fee(
+    total_marinade_stakers_rewards: Decimal,
+    totals: &StakeTotals,
+    fee_percentages: &FeePercentages,
+    target_pmpe: Decimal,
+) -> Decimal {
+    let stake = totals.marinade_active + totals.marinade_redelegation;
+    if total_marinade_stakers_rewards <= Decimal::ZERO || stake == 0 {
+        return fee_percentages.max_fee;
+    }
+    let staker_yield_pmpe =
+        total_marinade_stakers_rewards / Decimal::from(stake) * Decimal::ONE_THOUSAND;
+    let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
+    fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn split_distributor_fee(
     result_claims: &ResultSettlementClaims,
@@ -292,17 +310,12 @@ fn split_distributor_fee(
     target_pmpe: Decimal,
     vote_account: &Pubkey,
 ) -> anyhow::Result<FeeSplit> {
-    let effective_fee = if total_marinade_stakers_rewards > Decimal::ZERO
-        && (totals.marinade_active + totals.marinade_redelegation) > 0
-    {
-        let staker_yield_pmpe = total_marinade_stakers_rewards
-            / (Decimal::from(totals.marinade_active) + Decimal::from(totals.marinade_redelegation))
-            * Decimal::ONE_THOUSAND;
-        let fee_cap = (Decimal::ONE - target_pmpe / staker_yield_pmpe).max(Decimal::ZERO);
-        fee_cap.clamp(fee_percentages.min_fee, fee_percentages.max_fee)
-    } else {
-        fee_percentages.max_fee
-    };
+    let effective_fee = effective_fee(
+        total_marinade_stakers_rewards,
+        totals,
+        fee_percentages,
+        target_pmpe,
+    );
     info!(
         "{} effective fee: {} (configured: {}, min: {}, target_pmpe: {})",
         vote_account, effective_fee, fee_percentages.max_fee, fee_percentages.min_fee, target_pmpe,

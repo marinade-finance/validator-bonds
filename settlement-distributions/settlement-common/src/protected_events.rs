@@ -125,40 +125,14 @@ impl ProtectedEvent {
         }
     }
 
-    fn claim_per_stake(&self, cfg: &SettlementConfig) -> Decimal {
-        use crate::settlement_config::SettlementConfigKind;
+    fn claim_per_stake(&self) -> Decimal {
         match self {
             ProtectedEvent::CommissionSamIncrease {
-                actual_inflation_commission,
-                actual_mev_commission,
                 expected_epr,
                 actual_epr,
                 ..
-            } => {
-                let base_cps = expected_epr - actual_epr;
-                match &cfg.kind {
-                    SettlementConfigKind::CommissionSamIncreaseSettlement {
-                        base_markup_bps,
-                        penalty_markup_bps,
-                        extra_penalty_threshold_bps,
-                        ..
-                    } => {
-                        let threshold = bps_to_fraction(*extra_penalty_threshold_bps);
-                        let markup = if *actual_inflation_commission <= threshold
-                            && actual_mev_commission.unwrap_or(Decimal::ZERO) <= threshold
-                        {
-                            *base_markup_bps
-                        } else {
-                            *penalty_markup_bps
-                        };
-                        base_cps + base_cps * bps_to_fraction(markup)
-                    }
-                    _ => {
-                        panic!("Can not process CommissionSamIncrease settlement with wrong config: {cfg:?}")
-                    }
-                }
             }
-            ProtectedEvent::DowntimeRevenueImpact {
+            | ProtectedEvent::DowntimeRevenueImpact {
                 expected_epr,
                 actual_epr,
                 ..
@@ -186,7 +160,7 @@ impl ProtectedEvent {
         let max_claim_per_stake = bps_to_fraction(upper_bps) * self.expected_epr();
         let ignored_claim_per_stake = bps_to_fraction(lower_bps) * self.expected_epr();
         let claim_per_stake =
-            self.claim_per_stake(cfg).min(max_claim_per_stake) - ignored_claim_per_stake;
+            self.claim_per_stake().min(max_claim_per_stake) - ignored_claim_per_stake;
 
         let amount = (Decimal::from(stake) * claim_per_stake).max(Decimal::ZERO);
         amount.to_u64().with_context(|| {
@@ -528,6 +502,17 @@ pub fn generate_protected_event_collection(
         validator_meta_collection.slot, revenue_expectation_meta_collection.slot,
         "Validator meta and bids pmpe meta collections have to be of the same slot"
     );
+    if epoch_type(&validator_meta_collection) == AlpenglowEpochType::Migration {
+        info!(
+            "Epoch {} is the Alpenglow migration epoch, no protected events",
+            validator_meta_collection.epoch
+        );
+        return Ok(ProtectedEventCollection {
+            epoch: validator_meta_collection.epoch,
+            slot: validator_meta_collection.slot,
+            events: vec![],
+        });
+    }
     if let Some(divergence) = inflation_baseline_divergence(&validator_meta_collection) {
         if divergence > dec!(0.05) {
             warn!(
@@ -1016,6 +1001,42 @@ mod tests {
         )
         .unwrap()
         .is_empty());
+    }
+
+    #[test]
+    fn the_migration_epoch_has_no_protected_events_of_any_kind() {
+        let events_of = |epoch_type: &str| {
+            let collection = alpenglow_collection(epoch_type);
+            let revenue = RevenueExpectationMetaCollection {
+                epoch: collection.epoch,
+                slot: collection.slot,
+                revenue_expectations: revenue_map(&collection)
+                    .into_values()
+                    .map(|mut r| {
+                        r.before_sam_commission_increase_pmpe = dec!(1);
+                        r
+                    })
+                    .collect(),
+            };
+            generate_protected_event_collection(
+                collection,
+                revenue,
+                Some(&leader_slots()),
+                Some(&HashSet::from([pk(C)])),
+                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+            )
+            .unwrap()
+            .events
+        };
+        let alpenglow = events_of("alpenglow");
+        assert!(alpenglow
+            .iter()
+            .any(|e| matches!(e, ProtectedEvent::CommissionSamIncrease { .. })));
+        assert!(alpenglow
+            .iter()
+            .any(|e| matches!(e, ProtectedEvent::VatUnadmitted { .. })));
+        let migration = events_of("migration");
+        assert!(migration.is_empty(), "{migration:?}");
     }
 
     #[test]

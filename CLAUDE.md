@@ -64,8 +64,10 @@ Rust toolchain: `1.97.1` (see `rust-toolchain.toml`). Anchor: `1.2.1`, Solana: `
 # Regression test against production GCS data (caches inputs in ./regression-data)
 ./scripts/regression-test-settlements.sh --start-epoch 918 --end-epoch 918 --data-dir ./regression-data
 
-# Fee simulation: runs bid-distribution-cli at multiple fee tiers, writes YAML report
-bun scripts/simulate-fee.ts [-r] [-v] [-c] [-d DIR] <epoch|start-end> [-m <min_fee>] [<max_fee>]...
+# Fee simulation: runs bid-distribution-cli at multiple fee tiers; -t writes <tag>.yml AND renders <tag>.png
+bun scripts/simulate-fee.ts -t <tag> <epoch|start-end> [max_fee_bps]...
+# Render a chart standalone (simulate-fee -t already does this)
+bun scripts/report-chart.ts <tag>.yml
 ```
 
 Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
