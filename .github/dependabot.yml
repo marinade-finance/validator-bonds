@@ -22,3 +22,6 @@ updates:
       # majors are migrated by hand: many are ESM-only now while our packages are CommonJS
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+      # bankrun >0.2.0 runs a newer runtime where stake program calls are "temporarily restricted"
+      - dependency-name: 'solana-bankrun'
+      - dependency-name: 'anchor-bankrun'
