@@ -534,8 +534,7 @@ export async function showSettlement({
     const settlementData = await getSettlement(program, address)
 
     let stakeAccountsDisplay:
-      | { pubkey: PublicKey; amount: number }[]
-      | undefined = undefined
+      { pubkey: PublicKey; amount: number }[] | undefined = undefined
     if (cliContext.logger.isLevelEnabled('debug')) {
       const bondData = await getBondFromAddress({
         program,

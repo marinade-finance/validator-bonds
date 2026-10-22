@@ -99,7 +99,7 @@ function fromConstants(constantName: string): string {
 }
 export function seedFromConstants(seedName: string): Uint8Array {
   const constantValue = fromConstants(seedName)
-  return new Uint8Array(JSON.parse(constantValue))
+  return new Uint8Array(JSON.parse(constantValue) as number[])
 }
 export const BOND_SEED = seedFromConstants('BOND_SEED')
 export const BOND_PRODUCT_SEED = seedFromConstants('BOND_PRODUCT_SEED')

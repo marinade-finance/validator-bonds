@@ -180,7 +180,7 @@ export function toWordArray(bytes: number[]) {
   for (let j = 0; j < bytes.length; j++) {
     const byteJ = bytes[j]
     assert(byteJ !== undefined, 'Byte array has `undefined` values')
-    words[j >>> 2] |= byteJ << (24 - 8 * (j % 4))
+    words[j >>> 2] = (words[j >>> 2] ?? 0) | (byteJ << (24 - 8 * (j % 4)))
   }
   return CryptoJS.lib.WordArray.create(words, bytes.length)
 }

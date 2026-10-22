@@ -23,11 +23,7 @@ const BUILD_TIME_MIXPANEL_TOKEN: string = '__MIXPANEL_TOKEN_PLACEHOLDER__'
 export const DEFAULT_MIX_PROXY_URL = 'https://mix-proxy.marinade.finance'
 
 export type ClusterLabel =
-  | 'mainnet'
-  | 'devnet'
-  | 'testnet'
-  | 'localnet'
-  | 'custom'
+  'mainnet' | 'devnet' | 'testnet' | 'localnet' | 'custom'
 
 // Raw `-u/--url` may carry an RPC API key; only forward a coarse label.
 export function clusterLabel(input: string | undefined): ClusterLabel {
@@ -105,8 +101,7 @@ export interface ResolvedAccounts {
 }
 
 export interface CliCommandCompleteEventParams
-  extends BaseEventParams,
-    ResolvedAccounts {
+  extends BaseEventParams, ResolvedAccounts {
   result: CompletionResult
   durationMs: number
   signatures?: string[]
