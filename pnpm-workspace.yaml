@@ -31,3 +31,7 @@ peerDependencyRules:
   allowedVersions:
     jest: '29'
     '@coral-xyz/anchor': '1'
+    # unreleased ledger-utils 4.0.0 widens this peer to ts-common ^5 with the same API
+    '@marinade.finance/ledger-utils@3>@marinade.finance/ts-common': '5'
+    # ws 7 only calls the default-exported validator function, unchanged in utf-8-validate 6
+    'ws@7>utf-8-validate': '6'
