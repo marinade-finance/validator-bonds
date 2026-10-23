@@ -282,12 +282,14 @@ fn expected_credits(
             unreachable!("the caller returns early for the migration epoch")
         }
         AlpenglowEpochType::Alpenglow => {
-            let leader_slots = leader_slots.with_context(|| {
-                format!(
-                    "Alpenglow epoch {} needs the leader schedule to expect credits",
-                    validator_meta_collection.epoch
-                )
-            })?;
+            let leader_slots = leader_slots
+                .with_context(|| {
+                    format!(
+                        "Alpenglow epoch {} needs the leader schedule to expect credits",
+                        validator_meta_collection.epoch
+                    )
+                })?
+                .without_first_window(validator_meta_collection.epoch);
             let epoch_total_stake = validator_meta_collection
                 .epoch_total_stake
                 .filter(|s| *s > 0)
@@ -578,6 +580,7 @@ pub fn generate_protected_event_collection(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::leader_schedule::FIRST_LEADER_WINDOW_SKIP_EPOCHS;
     use std::str::FromStr;
 
     const TOWER_1048: &str = include_str!("../fixtures/validators-tower-1048.json");
@@ -751,6 +754,78 @@ mod tests {
                 assert_eq!(*expected_credits, 600);
                 assert_eq!(*expected_epr, dec!(0.007));
                 assert_eq!(*actual_epr, dec!(0.007) * dec!(400) / dec!(600));
+                assert_eq!(*epr_loss_bps, 3333);
+                assert_eq!(*stake, 100);
+            }
+            other => panic!("unexpected event {other:?}"),
+        }
+    }
+
+    /// A, B, C stake 100 each skipped their whole first window and produced every other slot
+    fn first_window_skip_collection(epoch: u64) -> ValidatorMetaCollection {
+        let mut collection = alpenglow_collection("alpenglow");
+        collection.epoch = epoch;
+        for meta in &mut collection.validator_metas {
+            meta.alpenglow_credits = match meta.vote_account.to_string().as_str() {
+                A => Some(1200),
+                B => Some(800),
+                C => Some(400),
+                _ => meta.alpenglow_credits,
+            };
+        }
+        collection
+    }
+
+    #[test]
+    fn alpenglow_downtime_drops_the_skipped_first_window_in_the_agave_epochs() {
+        // D is in the schedule but not in the committee, its window still leaves N: 28 - 16 = 12
+        let scheduled = LeaderSlots {
+            per_vote_account: HashMap::from([(pk(A), 12), (pk(B), 8), (pk(C), 4), (pk(D), 4)]),
+            total_slots: 28,
+        };
+        for epoch in FIRST_LEADER_WINDOW_SKIP_EPOCHS {
+            let collection = first_window_skip_collection(epoch);
+            let credits = expected_credits(&collection, Some(&scheduled)).unwrap();
+            assert_eq!(credits[&pk(A)], (1200, 1200), "epoch {epoch}");
+            assert_eq!(credits[&pk(B)], (800, 800), "epoch {epoch}");
+            assert_eq!(credits[&pk(C)], (400, 400), "epoch {epoch}");
+            let events = collect_downtime_revenue_impact_events(
+                &collection,
+                &revenue_map(&collection),
+                Some(&scheduled),
+            )
+            .unwrap();
+            assert!(events.is_empty(), "epoch {epoch}: {events:?}");
+        }
+    }
+
+    #[test]
+    fn alpenglow_downtime_keeps_every_scheduled_slot_outside_the_agave_epochs() {
+        let collection = first_window_skip_collection(1100);
+        let scheduled = LeaderSlots {
+            per_vote_account: HashMap::from([(pk(A), 12), (pk(B), 8), (pk(C), 4)]),
+            total_slots: 24,
+        };
+        let events = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            Some(&scheduled),
+        )
+        .unwrap();
+        // w = s/S + L/N: A 1/3+12/24, B 1/3+8/24, C 1/3+4/24, Σw = 2, Σcredits = 2400 -> C expects 600
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            ProtectedEvent::DowntimeRevenueImpact {
+                vote_account,
+                actual_credits,
+                expected_credits,
+                epr_loss_bps,
+                stake,
+                ..
+            } => {
+                assert_eq!(*vote_account, pk(C));
+                assert_eq!(*actual_credits, 400);
+                assert_eq!(*expected_credits, 600);
                 assert_eq!(*epr_loss_bps, 3333);
                 assert_eq!(*stake, 100);
             }
