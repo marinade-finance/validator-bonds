@@ -19,9 +19,7 @@ export async function executeTxWithError(
   checkMessage: string,
   signers: (WalletInterface | Signer)[],
   ...ixes: (
-    | Transaction
-    | TransactionInstruction
-    | TransactionInstructionCtorFields
+    Transaction | TransactionInstruction | TransactionInstructionCtorFields
   )[]
 ) {
   try {

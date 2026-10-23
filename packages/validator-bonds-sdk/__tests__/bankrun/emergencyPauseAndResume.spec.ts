@@ -457,9 +457,7 @@ describe('Validator Bonds pause&resume', () => {
   async function verifyIsPaused(
     signers: (Keypair | Signer | Wallet | PublicKey)[],
     ...ixes: (
-      | Transaction
-      | TransactionInstruction
-      | TransactionInstructionCtorFields
+      Transaction | TransactionInstruction | TransactionInstructionCtorFields
     )[]
   ) {
     try {

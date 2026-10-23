@@ -673,8 +673,7 @@ export type BondDataWithFunding = {
 
 function calculateFundedAmount(
   stakeAccounts:
-    | ProgramAccountInfoNoData[]
-    | ProgramAccountInfo<StakeAccountParsed>[],
+    ProgramAccountInfoNoData[] | ProgramAccountInfo<StakeAccountParsed>[],
 ): { amount: BN } {
   const amount = stakeAccounts
     .map(stakeAccount => stakeAccount.account.lamports)
