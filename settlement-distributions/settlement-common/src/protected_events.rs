@@ -797,39 +797,46 @@ mod tests {
             .unwrap();
             assert!(events.is_empty(), "epoch {epoch}: {events:?}");
         }
+        // outside the skip epochs every scheduled slot counts: C weighs 4000 of 15600 -> 615
+        let credits =
+            expected_credits(&first_window_skip_collection(1100), Some(&scheduled)).unwrap();
+        assert_eq!(credits[&pk(C)], (400, 615));
     }
 
     #[test]
-    fn alpenglow_downtime_keeps_every_scheduled_slot_outside_the_agave_epochs() {
-        let collection = first_window_skip_collection(1100);
+    fn alpenglow_downtime_pools_a_produced_first_window_onto_the_others() {
         let scheduled = LeaderSlots {
             per_vote_account: HashMap::from([(pk(A), 12), (pk(B), 8), (pk(C), 4)]),
             total_slots: 24,
         };
-        let events = collect_downtime_revenue_impact_events(
-            &collection,
-            &revenue_map(&collection),
-            Some(&scheduled),
-        )
-        .unwrap();
-        // w = s/S + L/N: A 1/3+12/24, B 1/3+8/24, C 1/3+4/24, Σw = 2, Σcredits = 2400 -> C expects 600
-        assert_eq!(events.len(), 1);
-        match &events[0] {
-            ProtectedEvent::DowntimeRevenueImpact {
-                vote_account,
-                actual_credits,
-                expected_credits,
-                epr_loss_bps,
-                stake,
-                ..
-            } => {
-                assert_eq!(*vote_account, pk(C));
-                assert_eq!(*actual_credits, 400);
-                assert_eq!(*expected_credits, 600);
-                assert_eq!(*epr_loss_bps, 3333);
-                assert_eq!(*stake, 100);
-            }
-            other => panic!("unexpected event {other:?}"),
+        for epoch in FIRST_LEADER_WINDOW_SKIP_EPOCHS {
+            let mut collection = first_window_skip_collection(epoch);
+            // A produced its first window: its 400 leader credits stay in the pooled Σcredits
+            collection
+                .validator_metas
+                .iter_mut()
+                .find(|meta| meta.vote_account == pk(A))
+                .unwrap()
+                .alpenglow_credits = Some(1600);
+            let credits = expected_credits(&collection, Some(&scheduled)).unwrap();
+            // weights A 3600, B 2400, C 1200 of 7200, Σcredits 2800
+            assert_eq!(credits[&pk(A)], (1600, 1400), "epoch {epoch}");
+            assert_eq!(credits[&pk(B)], (800, 933), "epoch {epoch}");
+            assert_eq!(credits[&pk(C)], (400, 466), "epoch {epoch}");
+            let events = collect_downtime_revenue_impact_events(
+                &collection,
+                &revenue_map(&collection),
+                Some(&scheduled),
+            )
+            .unwrap();
+            let charged: Vec<_> = events
+                .iter()
+                .map(|event| match event {
+                    ProtectedEvent::DowntimeRevenueImpact { vote_account, .. } => *vote_account,
+                    other => panic!("unexpected event {other:?}"),
+                })
+                .collect();
+            assert_eq!(charged, vec![pk(B), pk(C)], "epoch {epoch}");
         }
     }
 
