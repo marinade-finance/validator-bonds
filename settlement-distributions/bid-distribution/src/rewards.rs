@@ -399,6 +399,7 @@ pub fn load_rewards_from_directory(
         &validators_mev,
     )?;
     verify_block_rewards_present(&validators_blocks)?;
+    verify_stake_accounts_unique(&jito_priority_fee_rewards, JITO_PRIORITY_FEE_FILE)?;
 
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(
@@ -445,6 +446,18 @@ fn verify_block_rewards_present(
     if validators_blocks.is_empty() {
         return Err(anyhow::anyhow!(
             "{VALIDATORS_BLOCKS_REWARDS_FILE} is empty - every bond would be charged zero block commission and the stakers' block rewards would drop out of the payout"
+        ));
+    }
+    Ok(())
+}
+
+// Jito PF beyond the validator's rewards counts as staker income, so a repeat would pass silently
+fn verify_stake_accounts_unique(rewards: &[StakeRewardEntry], file: &str) -> anyhow::Result<()> {
+    let mut seen = HashSet::new();
+    if let Some(duplicate) = rewards.iter().find(|r| !seen.insert(r.stake_account)) {
+        return Err(anyhow::anyhow!(
+            "{file} repeats stake account {}",
+            duplicate.stake_account
         ));
     }
     Ok(())
@@ -593,8 +606,6 @@ fn aggregate_rewards(
     }
 
     info!(" > Processing Jito priority fee rewards...");
-    // Note: jito_priority_fee is NOT included in total_amount as they are for re-distributing
-    //       validators' block rewards already gained by the validators.
     for reward in jito_priority_fee_rewards {
         if let Some(vote_account) = stake_to_vote.get(&reward.stake_account) {
             let entry = rewards_map
@@ -610,9 +621,12 @@ fn aggregate_rewards(
             entry.jito_priority_fee_rewards = entry
                 .jito_priority_fee_rewards
                 .saturating_add(reward.amount);
-            // what stakers got from jito was what validators lost
-            entry.validators_total_amount =
-                entry.validators_total_amount.saturating_sub(reward.amount);
+            // Jito PF redistributes the validator's rewards; anything beyond them is new staker income
+            let deducted = reward.amount.min(entry.validators_total_amount);
+            entry.validators_total_amount = entry.validators_total_amount.saturating_sub(deducted);
+            entry.total_amount = entry
+                .total_amount
+                .saturating_add(reward.amount.saturating_sub(deducted));
         } else {
             unmatched_jito = unmatched_jito.saturating_add(reward.amount);
             log::warn!(
@@ -656,13 +670,18 @@ fn aggregate_rewards(
     // aggregate assert above can't see per-validator excesses (they net out). Surface each offender.
     for rewards in rewards_map.values() {
         for (kind, anomaly) in rewards.realized_commission_anomalies() {
+            let catch_up = if kind == "block" {
+                " or a Jito catch-up payment covering earlier epochs"
+            } else {
+                ""
+            };
             match anomaly {
                 Some(commission) => log::warn!(
-                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — likely a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue)",
+                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue){catch_up}",
                     rewards.vote_account
                 ),
                 None => log::warn!(
-                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — likely a rewards input discrepancy",
+                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — a rewards input discrepancy{catch_up}",
                     rewards.vote_account
                 ),
             }
@@ -795,6 +814,33 @@ mod tests {
 
         let error = verify_block_rewards_present(&[]).unwrap_err().to_string();
         assert!(error.contains("validators_blocks.json is empty"), "{error}");
+    }
+
+    #[test]
+    fn test_verify_stake_accounts_unique() {
+        let stake_a = Pubkey::new_unique();
+        let stake_b = Pubkey::new_unique();
+        assert!(verify_stake_accounts_unique(
+            &[stake_entry(stake_a, 1), stake_entry(stake_b, 1)],
+            JITO_PRIORITY_FEE_FILE
+        )
+        .is_ok());
+        assert!(verify_stake_accounts_unique(&[], JITO_PRIORITY_FEE_FILE).is_ok());
+
+        let error = verify_stake_accounts_unique(
+            &[
+                stake_entry(stake_a, 1),
+                stake_entry(stake_b, 1),
+                stake_entry(stake_a, 2),
+            ],
+            JITO_PRIORITY_FEE_FILE,
+        )
+        .unwrap_err()
+        .to_string();
+        assert_eq!(
+            error,
+            format!("jito_priority_fee.json repeats stake account {stake_a}")
+        );
     }
 
     #[test]
@@ -948,6 +994,52 @@ mod tests {
         // jito redistributes block rewards: stakers gain 10, validators lose 10, total unchanged
         assert_eq!(rewards.validators_total_amount, 0);
         assert_eq!(rewards.total_amount, 130);
+    }
+
+    #[test]
+    fn test_aggregate_rewards_jito_exceeds_validator_rewards() {
+        let vote_account = Pubkey::new_unique();
+        let stake_a = Pubkey::new_unique();
+        let stake_b = Pubkey::new_unique();
+        let stake_meta_collection = StakeMetaCollection {
+            epoch: 1,
+            slot: 1,
+            stake_metas: vec![
+                stake_meta(stake_a, vote_account),
+                stake_meta(stake_b, vote_account),
+            ],
+        };
+
+        // epoch 1065: a catch-up Jito PFD payment exceeded the validator's own rewards
+        let rewards_map = aggregate_rewards(
+            vec![stake_entry(stake_a, 1_000_000_000)],
+            vec![
+                stake_entry(stake_a, 3_000_000_000),
+                stake_entry(stake_b, 6_604_649_949),
+            ],
+            vec![],
+            vec![ValidatorBlockRewardEntry {
+                amount: 3_337_466_417,
+                ..block_entry(vote_account)
+            }],
+            vec![],
+            vec![],
+            vec![],
+            &stake_meta_collection,
+        )
+        .unwrap();
+
+        let rewards = rewards_map.get(&vote_account).unwrap();
+        assert_eq!(rewards.block_rewards, 3_337_466_417);
+        assert_eq!(rewards.jito_priority_fee_rewards, 9_604_649_949);
+        assert_eq!(rewards.stakers_priority_fee_rewards, 9_604_649_949);
+        assert_eq!(
+            rewards.realized_block_commission_dec(),
+            Some(Decimal::from(-6_267_183_532i64) / Decimal::from(3_337_466_417u64))
+        );
+        assert_eq!(rewards.stakers_total_amount, 10_604_649_949);
+        assert_eq!(rewards.validators_total_amount, 0);
+        assert_eq!(rewards.total_amount, 10_604_649_949);
     }
 
     fn block_entry(vote_account: Pubkey) -> ValidatorBlockRewardEntry {
