@@ -3,13 +3,45 @@ use {
     anyhow::{bail, ensure},
     snapshot_parser_validator_cli::leader_schedule::LeaderScheduleEntry,
     solana_sdk::pubkey::Pubkey,
-    std::{collections::HashMap, path::Path},
+    std::{borrow::Cow, collections::HashMap, path::Path},
 };
+
+const NUM_CONSECUTIVE_LEADER_SLOTS: u64 = 4;
+
+// Agave skipped each validator's first leader window of these epochs (agave#16302)
+pub const FIRST_LEADER_WINDOW_SKIP_EPOCHS: [u64; 3] = [1065, 1066, 1067];
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LeaderSlots {
     pub per_vote_account: HashMap<Pubkey, u64>,
     pub total_slots: u64,
+}
+
+impl LeaderSlots {
+    pub fn without_first_window(&self, epoch: u64) -> Cow<'_, LeaderSlots> {
+        if !FIRST_LEADER_WINDOW_SKIP_EPOCHS.contains(&epoch) {
+            return Cow::Borrowed(self);
+        }
+        let per_vote_account: HashMap<Pubkey, u64> = self
+            .per_vote_account
+            .iter()
+            .map(|(vote_account, slots)| {
+                (
+                    *vote_account,
+                    slots.saturating_sub(NUM_CONSECUTIVE_LEADER_SLOTS),
+                )
+            })
+            .collect();
+        let removed: u64 = self
+            .per_vote_account
+            .iter()
+            .map(|(vote_account, slots)| slots - per_vote_account[vote_account])
+            .sum();
+        Cow::Owned(LeaderSlots {
+            per_vote_account,
+            total_slots: self.total_slots - removed,
+        })
+    }
 }
 
 pub fn load_leader_slot_counts(path: &Path, expected_epoch: u64) -> anyhow::Result<LeaderSlots> {
@@ -73,6 +105,35 @@ mod tests {
             slots.per_vote_account,
             HashMap::from([(a, 3), (b, 2), (c, 1)])
         );
+    }
+
+    #[test]
+    fn drops_the_first_window_in_the_agave_skip_epochs() {
+        let (a, b, c) = (
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+            Pubkey::new_unique(),
+        );
+        let scheduled = LeaderSlots {
+            per_vote_account: HashMap::from([(a, 12), (b, 4), (c, 1)]),
+            total_slots: 17,
+        };
+        for epoch in FIRST_LEADER_WINDOW_SKIP_EPOCHS {
+            assert_eq!(
+                *scheduled.without_first_window(epoch),
+                LeaderSlots {
+                    per_vote_account: HashMap::from([(a, 8), (b, 0), (c, 0)]),
+                    total_slots: 8,
+                },
+                "epoch {epoch}"
+            );
+        }
+        for epoch in [1064, 1068, 1100] {
+            assert!(matches!(
+                scheduled.without_first_window(epoch),
+                Cow::Borrowed(slots) if *slots == scheduled
+            ));
+        }
     }
 
     #[test]
