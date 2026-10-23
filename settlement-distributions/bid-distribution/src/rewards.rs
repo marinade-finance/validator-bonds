@@ -399,6 +399,7 @@ pub fn load_rewards_from_directory(
         &validators_mev,
     )?;
     verify_block_rewards_present(&validators_blocks)?;
+    verify_stake_accounts_unique(&jito_priority_fee_rewards, JITO_PRIORITY_FEE_FILE)?;
 
     info!("Aggregating rewards by vote account...");
     let rewards_by_vote_account = aggregate_rewards(
@@ -445,6 +446,18 @@ fn verify_block_rewards_present(
     if validators_blocks.is_empty() {
         return Err(anyhow::anyhow!(
             "{VALIDATORS_BLOCKS_REWARDS_FILE} is empty - every bond would be charged zero block commission and the stakers' block rewards would drop out of the payout"
+        ));
+    }
+    Ok(())
+}
+
+// Jito PF beyond the validator's rewards counts as staker income, so a repeat would pass silently
+fn verify_stake_accounts_unique(rewards: &[StakeRewardEntry], file: &str) -> anyhow::Result<()> {
+    let mut seen = HashSet::new();
+    if let Some(duplicate) = rewards.iter().find(|r| !seen.insert(r.stake_account)) {
+        return Err(anyhow::anyhow!(
+            "{file} repeats stake account {}",
+            duplicate.stake_account
         ));
     }
     Ok(())
@@ -659,11 +672,11 @@ fn aggregate_rewards(
         for (kind, anomaly) in rewards.realized_commission_anomalies() {
             match anomaly {
                 Some(commission) => log::warn!(
-                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — likely a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue)",
+                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue) or a Jito catch-up payment covering earlier epochs",
                     rewards.vote_account
                 ),
                 None => log::warn!(
-                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — likely a rewards input discrepancy",
+                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — a rewards input discrepancy or a Jito catch-up payment covering earlier epochs",
                     rewards.vote_account
                 ),
             }
@@ -796,6 +809,33 @@ mod tests {
 
         let error = verify_block_rewards_present(&[]).unwrap_err().to_string();
         assert!(error.contains("validators_blocks.json is empty"), "{error}");
+    }
+
+    #[test]
+    fn test_verify_stake_accounts_unique() {
+        let stake_a = Pubkey::new_unique();
+        let stake_b = Pubkey::new_unique();
+        assert!(verify_stake_accounts_unique(
+            &[stake_entry(stake_a, 1), stake_entry(stake_b, 1)],
+            JITO_PRIORITY_FEE_FILE
+        )
+        .is_ok());
+        assert!(verify_stake_accounts_unique(&[], JITO_PRIORITY_FEE_FILE).is_ok());
+
+        let error = verify_stake_accounts_unique(
+            &[
+                stake_entry(stake_a, 1),
+                stake_entry(stake_b, 1),
+                stake_entry(stake_a, 2),
+            ],
+            JITO_PRIORITY_FEE_FILE,
+        )
+        .unwrap_err()
+        .to_string();
+        assert_eq!(
+            error,
+            format!("jito_priority_fee.json repeats stake account {stake_a}")
+        );
     }
 
     #[test]
