@@ -670,13 +670,18 @@ fn aggregate_rewards(
     // aggregate assert above can't see per-validator excesses (they net out). Surface each offender.
     for rewards in rewards_map.values() {
         for (kind, anomaly) in rewards.realized_commission_anomalies() {
+            let catch_up = if kind == "block" {
+                " or a Jito catch-up payment covering earlier epochs"
+            } else {
+                ""
+            };
             match anomaly {
                 Some(commission) => log::warn!(
-                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue) or a Jito catch-up payment covering earlier epochs",
+                    "Negative realized {kind} commission {commission} for vote account {}: stakers' share exceeds validator gross — a rewards input discrepancy (validators_blocks.json vs jito_priority_fee.json, or the inflation/mev analogue){catch_up}",
                     rewards.vote_account
                 ),
                 None => log::warn!(
-                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — a rewards input discrepancy or a Jito catch-up payment covering earlier epochs",
+                    "Stakers received {kind} rewards while validator gross is zero for vote account {} — a rewards input discrepancy{catch_up}",
                     rewards.vote_account
                 ),
             }
