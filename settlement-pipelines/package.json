@@ -31,7 +31,7 @@
     "test": "pnpm test:validator"
   },
   "devDependencies": {
-    "@marinade.finance/validator-bonds-sdk": "workspace: *",
+    "@marinade.finance/validator-bonds-sdk": "workspace:*",
     "@coral-xyz/anchor": "npm:@anchor-lang/core@^1.2.1",
     "@solana/web3.js": "1.99.0",
     "@marinade.finance/ledger-utils": "3.2.1",

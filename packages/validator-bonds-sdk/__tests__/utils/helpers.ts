@@ -1,7 +1,7 @@
 import assert from 'assert'
+import { randomBytes, randomInt } from 'crypto'
 
 import { checkErrorMessage } from '@marinade.finance/ts-common'
-import CryptoJS from 'crypto-js'
 
 import type { Wallet as WalletInterface } from '@coral-xyz/anchor/dist/cjs/provider'
 import type { ExtendedProvider } from '@marinade.finance/web3js-1x'
@@ -57,26 +57,11 @@ export async function getRentExempt(
  * The range is inclusive.
  */
 export function getSecureRandomInt(min: number, max: number): number {
-  const range = max - min + 1
-  const bitsNeeded = Math.ceil(Math.log2(range))
-  const bytesNeeded = Math.ceil(bitsNeeded / 8)
-  const mask = (1 << bitsNeeded) - 1
-
-  let result: number
-  do {
-    const wordArray = CryptoJS.lib.WordArray.random(bytesNeeded)
-    assert(wordArray.words[0] !== undefined)
-    result = wordArray.words[0] >>> 0 // Convert to unsigned 32-bit
-    result = result & mask // Apply mask to get required bits
-  } while (result >= range)
-
-  return min + result
+  return randomInt(min, max + 1)
 }
 
 export function getRandomByte() {
-  const wordArray = CryptoJS.lib.WordArray.random(1)
-  assert(wordArray.words[0] !== undefined)
-  return wordArray.words[0] & 0xff
+  return randomBytes(1)[0] as number
 }
 
 export function customTestResult(name: string) {
