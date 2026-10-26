@@ -14,6 +14,7 @@ function calcValidator(
     maxStakeWanted: null,
     samEligible: true,
     samBlocked: false,
+    vatEligible: true,
     minBondPmpe: 4.2,
     idealBondPmpe: 12.5,
     minUnprotectedReserve: 0,
@@ -74,6 +75,7 @@ describe('toCalcValidator', () => {
   it('relays the fields ds-sam-calc reads', () => {
     const blob = toCalcValidator(calcValidator())
     expect(blob.voteAccount).toBe('11111111111111111111111111111112')
+    expect(blob.vatEligible).toBe(true)
     expect(blob.minBondPmpe).toBe(4.2)
     expect(blob.idealBondPmpe).toBe(12.5)
     expect(blob.bondGoodForNEpochs).toBe(5)
@@ -89,6 +91,13 @@ describe('toCalcValidator', () => {
     expect((blob.revShare as Record<string, unknown>).totalPmpe).toBe(20)
     expect((blob.values as Record<string, unknown>).bondRiskFeeSol).toBe(0)
     expect(blob.auctions).toEqual([{ bidPmpe: 1, effParticipatingBidPmpe: 1 }])
+  })
+
+  it('relays vatEligible: false for the vatIneligible tip gate', () => {
+    const blob = toCalcValidator(
+      calcValidator({ samEligible: false, vatEligible: false }),
+    )
+    expect(blob.vatEligible).toBe(false)
   })
 
   it('drops the recursive lastCapConstraint.validators back-reference', () => {
