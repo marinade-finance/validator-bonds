@@ -60,7 +60,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond.vote_account",
+                "path": "bond.voteAccount",
                 "account": "bond"
               }
             ]
@@ -106,12 +106,12 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "settlement.merkle_root",
+                "path": "settlement.merkleRoot",
                 "account": "settlement"
               },
               {
                 "kind": "account",
-                "path": "settlement.epoch_created_for",
+                "path": "settlement.epochCreatedFor",
                 "account": "settlement"
               }
             ]
@@ -221,33 +221,7 @@ export type ValidatorBonds = {
           "address": "SysvarStakeHistory1111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -360,33 +334,7 @@ export type ValidatorBonds = {
           "writable": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -462,7 +410,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond.vote_account",
+                "path": "bond.voteAccount",
                 "account": "bond"
               }
             ]
@@ -505,12 +453,12 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "settlement.merkle_root",
+                "path": "settlement.merkleRoot",
                 "account": "settlement"
               },
               {
                 "kind": "account",
-                "path": "settlement.epoch_created_for",
+                "path": "settlement.epochCreatedFor",
                 "account": "settlement"
               }
             ]
@@ -614,33 +562,7 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -841,33 +763,7 @@ export type ValidatorBonds = {
           "address": "SysvarC1ock11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -921,7 +817,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond.vote_account",
+                "path": "bond.voteAccount",
                 "account": "bond"
               }
             ]
@@ -967,12 +863,12 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "settlement.merkle_root",
+                "path": "settlement.merkleRoot",
                 "account": "settlement"
               },
               {
                 "kind": "account",
-                "path": "settlement.epoch_created_for",
+                "path": "settlement.epochCreatedFor",
                 "account": "settlement"
               }
             ]
@@ -1075,33 +971,7 @@ export type ValidatorBonds = {
           "address": "SysvarStakeHistory1111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1175,33 +1045,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1306,7 +1150,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond_product.product_type",
+                "path": "bondProduct.productType",
                 "account": "bondProduct"
               }
             ]
@@ -1320,33 +1164,7 @@ export type ValidatorBonds = {
           "signer": true
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1440,7 +1258,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "arg",
-                "path": "params.validator_identity"
+                "path": "params.validatorIdentity"
               }
             ]
           }
@@ -1467,33 +1285,7 @@ export type ValidatorBonds = {
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1538,33 +1330,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1606,33 +1372,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1665,33 +1405,7 @@ export type ValidatorBonds = {
           ]
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1748,7 +1462,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond.vote_account",
+                "path": "bond.voteAccount",
                 "account": "bond"
               }
             ]
@@ -1815,33 +1529,7 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -1943,12 +1631,12 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "settlement.merkle_root",
+                "path": "settlement.merkleRoot",
                 "account": "settlement"
               },
               {
                 "kind": "account",
-                "path": "settlement.epoch_created_for",
+                "path": "settlement.epochCreatedFor",
                 "account": "settlement"
               }
             ]
@@ -2092,33 +1780,7 @@ export type ValidatorBonds = {
           "address": "StakeConfig11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2203,33 +1865,7 @@ export type ValidatorBonds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2338,7 +1974,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "arg",
-                "path": "args.product_type"
+                "path": "args.productType"
               }
             ]
           }
@@ -2365,33 +2001,7 @@ export type ValidatorBonds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2439,33 +2049,7 @@ export type ValidatorBonds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2528,7 +2112,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "bond.vote_account",
+                "path": "bond.voteAccount",
                 "account": "bond"
               }
             ]
@@ -2568,7 +2152,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "arg",
-                "path": "params.merkle_root"
+                "path": "params.merkleRoot"
               },
               {
                 "kind": "arg",
@@ -2631,33 +2215,7 @@ export type ValidatorBonds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2787,33 +2345,7 @@ export type ValidatorBonds = {
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -2876,33 +2408,7 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3132,33 +2638,7 @@ export type ValidatorBonds = {
           "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3294,33 +2774,7 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
@@ -3367,7 +2821,7 @@ export type ValidatorBonds = {
               },
               {
                 "kind": "account",
-                "path": "settlement_claims.settlement",
+                "path": "settlementClaims.settlement",
                 "account": "settlementClaims"
               }
             ]
@@ -3481,33 +2935,7 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "eventAuthority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "eventAuthority"
         },
         {
           "name": "program"
