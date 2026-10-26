@@ -1,7 +1,7 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import { currentEpoch } from '@marinade.finance/bankrun-utils'
+import { currentEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import { U64_MAX } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
@@ -103,6 +103,52 @@ describe('Validator Bonds reset stake', () => {
     expect(delegation.deactivationEpoch).toEqual(U64_MAX)
     expect(meta.authorized.staker).toEqual(bondsAuth)
     expect(meta.authorized.withdrawer).toEqual(bondsAuth)
+  })
+
+  it('reset active settlement stake account', async () => {
+    const fakeSettlement = Keypair.generate().publicKey
+    const stakeAccount = await createSettlementFundedDelegatedStake({
+      program,
+      provider,
+      configAccount,
+      settlementAccount: fakeSettlement,
+      voteAccount,
+      lamports: LAMPORTS_PER_SOL * 5,
+    })
+    // one epoch later the stake is effective and the stake program refuses to delegate it again
+    await warpToNextEpoch(provider)
+    const [before] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount,
+      StakeStates.Delegated,
+    )
+    assert(before.Stake)
+    expect(before.Stake.stake.delegation.deactivationEpoch).toEqual(U64_MAX)
+
+    const { instruction } = await resetStakeInstruction({
+      program,
+      configAccount,
+      stakeAccount,
+      voteAccount,
+      settlementAccount: fakeSettlement,
+    })
+    await provider.sendIx([], instruction)
+
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    const [stakeAccountData] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount,
+      StakeStates.Delegated,
+    )
+    assert(stakeAccountData.Stake)
+    expect(stakeAccountData.Stake.meta.authorized.staker).toEqual(bondsAuth)
+    expect(stakeAccountData.Stake.meta.authorized.withdrawer).toEqual(bondsAuth)
+    expect(stakeAccountData.Stake.stake.delegation).toEqual(
+      before.Stake.stake.delegation,
+    )
   })
 
   it('reset stake from non-existing vote account', async () => {

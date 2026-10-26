@@ -92,7 +92,10 @@ impl ResetStake<'_> {
             "stake_account",
         )?;
         // a bond account is tightly coupled to a vote account, this stake account belongs to bond
-        check_stake_valid_delegation(&ctx.accounts.stake_account, &ctx.accounts.bond.vote_account)?;
+        let delegation = check_stake_valid_delegation(
+            &ctx.accounts.stake_account,
+            &ctx.accounts.bond.vote_account,
+        )?;
         // stake account is funded to removed settlement
         let settlement_staker_authority =
             find_settlement_staker_authority(&ctx.accounts.settlement.key()).0;
@@ -123,7 +126,12 @@ impl ResetStake<'_> {
             None,
         )?;
 
-        if ctx.accounts.vote_account.owner == &vote_program_id {
+        if delegation.deactivation_epoch == u64::MAX {
+            msg!(
+                "Stake account {} is not deactivated, skipping delegation",
+                ctx.accounts.stake_account.key()
+            );
+        } else if ctx.accounts.vote_account.owner == &vote_program_id {
             // activate the stake, i.e., resetting delegation to the validator again
             let delegate_instruction = &stake::instruction::delegate_stake(
                 &ctx.accounts.stake_account.key(),
