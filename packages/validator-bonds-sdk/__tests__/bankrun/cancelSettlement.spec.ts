@@ -18,7 +18,7 @@ import {
   fundSettlementInstruction,
   getSettlement,
 } from '../../src'
-import { getRentExempt } from '../utils/helpers'
+import { executeTxWithError, getRentExempt } from '../utils/helpers'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
@@ -201,6 +201,26 @@ describe('Validator Bonds cancel settlement', () => {
     )
     const { splitRentAmount } = await getSettlement(program, settlementAccount)
     expect(splitRentAmount.toNumber()).toBeGreaterThan(0)
+
+    // the funded stake deactivates in the funding epoch, so its split rent is withdrawable only later
+    const { instruction: ixFundingEpoch } = await cancelSettlementInstruction({
+      program,
+      settlementAccount,
+      rentCollector: rentCollector.publicKey,
+      splitRentRefundAccount: stakeAccount,
+      splitRentCollector: pubkey(splitStakeRentPayer),
+      authority: operatorAuthority,
+    })
+    await executeTxWithError(
+      provider,
+      '',
+      'insufficient funds',
+      [operatorAuthority],
+      ixFundingEpoch,
+    )
+    expect(
+      await provider.connection.getAccountInfo(settlementAccount),
+    ).not.toBeNull()
     await warpToNextEpoch(provider)
 
     const { instruction: ixWrongStake } = await cancelSettlementInstruction({
