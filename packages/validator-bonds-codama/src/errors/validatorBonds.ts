@@ -172,6 +172,8 @@ export const VALIDATOR_BONDS_ERROR__BOND_PRODUCT_SETUP_NOT_PERMITTED = 0x17bc //
 export const VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS = 0x17bd // 6077
 /** ProductTypeConfigValidationFailure: Fail to validate ProductConfig value */
 export const VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE = 0x17be // 6078
+/** SettlementSplitRentCollectorAlreadySet: Settlement split rent collector is already set */
+export const VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET = 0x17bf // 6079
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -234,6 +236,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_CLOSED
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_EXPIRED
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING
+  | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT
@@ -317,6 +320,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_CLOSED]: `Settlement has to be closed`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_EXPIRED]: `Settlement has not expired yet`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING]: `Settlement slots to start claiming not expired yet`,
+    [VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET]: `Settlement split rent collector is already set`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT]: `Provided stake account has been already funded to a settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT]: `Stake account is not big enough to be split`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT]: `Provided stake account is not funded under the settlement`,
