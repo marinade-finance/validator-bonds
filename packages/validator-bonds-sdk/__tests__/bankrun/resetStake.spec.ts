@@ -3,20 +3,23 @@ import assert from 'assert'
 import { verifyError } from '@marinade.finance/anchor-common'
 import { currentEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import { U64_MAX } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, StakeProgram } from '@solana/web3.js'
 
 import { initBankrunTest } from './bankrun'
 import {
   Errors,
   resetStakeInstruction,
   bondsWithdrawerAuthority,
+  settlementStakerAuthority,
 } from '../../src'
 import {
   StakeStates,
+  authorizeStakeAccount,
   createBondsFundedStakeAccount,
   createSettlementFundedDelegatedStake,
   createSettlementFundedInitializedStake,
   createVoteAccount,
+  delegatedStakeAccount,
   getAndCheckStakeAccount,
   removeVoteAccount,
 } from '../utils/staking'
@@ -149,6 +152,64 @@ describe('Validator Bonds reset stake', () => {
     expect(stakeAccountData.Stake.stake.delegation).toEqual(
       before.Stake.stake.delegation,
     )
+  })
+
+  it('reset deactivated settlement stake account', async () => {
+    const fakeSettlement = Keypair.generate().publicKey
+    const { stakeAccount, staker, withdrawer } = await delegatedStakeAccount({
+      provider,
+      voteAccountToDelegate: voteAccount,
+    })
+    await warpToNextEpoch(provider)
+    await provider.sendIx(
+      [staker],
+      StakeProgram.deactivate({
+        stakePubkey: stakeAccount,
+        authorizedPubkey: staker.publicKey,
+      }),
+    )
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    const [settlementAuth] = settlementStakerAuthority(
+      fakeSettlement,
+      program.programId,
+    )
+    await authorizeStakeAccount({
+      provider,
+      stakeAccount,
+      authority: withdrawer,
+      staker: settlementAuth,
+      withdrawer: bondsAuth,
+    })
+    await warpToNextEpoch(provider)
+
+    const { instruction } = await resetStakeInstruction({
+      program,
+      configAccount,
+      stakeAccount,
+      voteAccount,
+      settlementAccount: fakeSettlement,
+    })
+    await provider.sendIx([], instruction)
+
+    const epochNow = await currentEpoch(provider)
+    const [stakeAccountData] = await getAndCheckStakeAccount(
+      provider,
+      stakeAccount,
+      StakeStates.Delegated,
+    )
+    assert(stakeAccountData.Stake)
+    const {
+      stake: { delegation },
+      meta,
+    } = stakeAccountData.Stake
+    expect(delegation.voterPubkey).toEqual(voteAccount)
+    expect(delegation.activationEpoch).toEqual(epochNow)
+    expect(delegation.deactivationEpoch).toEqual(U64_MAX)
+    expect(meta.authorized.staker).toEqual(bondsAuth)
+    expect(meta.authorized.withdrawer).toEqual(bondsAuth)
   })
 
   it('reset stake from non-existing vote account', async () => {

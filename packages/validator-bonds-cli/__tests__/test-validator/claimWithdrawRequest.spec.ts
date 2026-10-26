@@ -9,11 +9,14 @@ import {
   getWithdrawRequest,
   cancelWithdrawRequestInstruction,
   withdrawRequestAddress,
+  bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
 import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
+  authorizeStakeAccount,
   createBondsFundedStakeAccount,
   createVoteAccount,
+  delegatedStakeAccount,
   retryOnEpochRewardsPeriod,
 } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
@@ -28,7 +31,7 @@ import {
   pubkey,
   waitForNextEpoch,
 } from '@marinade.finance/web3js-1x'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { LAMPORTS_PER_SOL, StakeProgram } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import { dryRunOutput } from './utils'
@@ -310,6 +313,78 @@ describe('Claim withdraw request using CLI', () => {
         // stderr: '',
         stdout: /successfully claimed/,
       }),
+    )
+  })
+
+  it('claim withdraw request with deactivated and activating stake accounts', async () => {
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    const {
+      stakeAccount: deactivatedStake,
+      staker,
+      withdrawer,
+    } = await delegatedStakeAccount({
+      provider,
+      voteAccountToDelegate: voteAccount,
+    })
+    await waitForNextEpoch(provider.connection, 15)
+    await retryOnEpochRewardsPeriod(() =>
+      provider.sendIx(
+        [staker],
+        StakeProgram.deactivate({
+          stakePubkey: deactivatedStake,
+          authorizedPubkey: staker.publicKey,
+        }),
+      ),
+    )
+    await authorizeStakeAccount({
+      provider,
+      stakeAccount: deactivatedStake,
+      authority: withdrawer,
+      staker: bondsAuth,
+      withdrawer: bondsAuth,
+    })
+    await waitForNextEpoch(provider.connection, 15)
+    const activatingStake = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      lamports: LAMPORTS_PER_SOL * 2,
+      voteAccount,
+    })
+
+    const user = await createUserAndFund({ provider })
+    await expect([
+      'pnpm',
+      [
+        'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
+        '--program-id',
+        program.programId.toBase58(),
+        'claim-withdraw-request',
+        voteAccount.toBase58(),
+        '--config',
+        configAccount.toBase58(),
+        '--authority',
+        validatorIdentityPath,
+        '--withdrawer',
+        pubkey(user).toBase58(),
+      ],
+    ]).toHaveMatchingSpawnOutput({
+      code: 0,
+      stdout: /successfully claimed/,
+    })
+
+    const userStakeAccounts = await findStakeAccounts({
+      connection: program,
+      staker: pubkey(user),
+      withdrawer: pubkey(user),
+    })
+    expect(userStakeAccounts.map(s => s.publicKey.toBase58()).sort()).toEqual(
+      [deactivatedStake.toBase58(), activatingStake.toBase58()].sort(),
     )
   })
 

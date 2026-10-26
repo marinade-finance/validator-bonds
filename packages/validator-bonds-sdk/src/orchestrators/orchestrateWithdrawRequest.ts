@@ -178,7 +178,9 @@ export async function orchestrateWithdrawDeposit({
 
       if (
         isFullyActive(sourceStakeAccount, currentEpoch) ===
-        isFullyActive(destinationStakeAccount, currentEpoch)
+          isFullyActive(destinationStakeAccount, currentEpoch) &&
+        sourceStakeAccount.account.data.isCoolingDown ===
+          destinationStakeAccount.account.data.isCoolingDown
       ) {
         const mergeIx = await mergeStakeInstruction({
           program,
