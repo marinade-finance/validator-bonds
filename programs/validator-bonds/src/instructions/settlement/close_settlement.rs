@@ -104,7 +104,7 @@ impl CloseSettlementV2<'_> {
                 &ctx.accounts.bond,
                 &ctx.accounts.stake_program,
                 &ctx.accounts.split_rent_collector,
-                ctx.accounts.settlement.split_rent_amount,
+                &ctx.accounts.settlement,
                 &ctx.accounts.clock,
                 &ctx.accounts.stake_history,
                 &ctx.accounts.config,
@@ -143,18 +143,23 @@ pub fn withdraw_refund_stake_account<'info>(
     bond: &Bond,
     stake_program: &Program<'info, Stake>,
     split_rent_collector: &UncheckedAccount<'info>,
-    split_rent_amount: u64,
+    settlement: &Settlement,
     clock: &Sysvar<'info, Clock>,
     stake_history: &UncheckedAccount<'info>,
     config: &Account<'info, Config>,
 ) -> Result<()> {
     let stake_account = deserialize_stake_account(refund_stake_account)?;
     // stake account is managed by bonds program
-    check_stake_is_initialized_with_withdrawer_authority(
+    let stake_meta = check_stake_is_initialized_with_withdrawer_authority(
         &stake_account,
         &bonds_withdrawer_authority.key(),
         "stake_account",
     )?;
+    require_keys_eq!(
+        stake_meta.authorized.staker,
+        settlement.staker_authority,
+        ErrorCode::StakeAccountNotFundedToSettlement,
+    );
     // stake account is delegated to bond's validator vote account
     check_stake_valid_delegation(&stake_account, &bond.vote_account)?;
 
@@ -174,7 +179,7 @@ pub fn withdraw_refund_stake_account<'info>(
                 &[config.bonds_withdrawer_authority_bump],
             ]],
         ),
-        split_rent_amount,
+        settlement.split_rent_amount,
         None,
     )
 }

@@ -1,8 +1,12 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
-import { createUserAndFund } from '@marinade.finance/web3js-1x'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpToNextEpoch,
+} from '@marinade.finance/bankrun-utils'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
 import { initBankrunTest } from './bankrun'
@@ -11,10 +15,14 @@ import {
   cancelSettlementInstruction,
   closeSettlementV2Instruction,
   configureConfigInstruction,
+  fundSettlementInstruction,
   getSettlement,
 } from '../../src'
 import { getRentExempt } from '../utils/helpers'
-import { createVoteAccount } from '../utils/staking'
+import {
+  createBondsFundedStakeAccount,
+  createVoteAccount,
+} from '../utils/staking'
 import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
@@ -160,6 +168,75 @@ describe('Validator Bonds cancel settlement', () => {
     expect(
       await provider.connection.getAccountInfo(settlementAccount),
     ).not.toBeNull()
+  })
+
+  it('cancel funded settlement with split', async () => {
+    const settlementData = await getSettlement(program, settlementAccount)
+    const stakeAccount = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      lamports: settlementData.maxTotalClaim.toNumber() + 6 * LAMPORTS_PER_SOL,
+    })
+    await warpToNextEpoch(provider)
+    const splitStakeRentPayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const { instruction: fundIx, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount,
+        splitStakeRentPayer,
+      })
+    await provider.sendIx(
+      [
+        signer(splitStakeRentPayer),
+        signer(splitStakeAccount),
+        operatorAuthority,
+      ],
+      fundIx,
+    )
+    const { splitRentAmount } = await getSettlement(program, settlementAccount)
+    expect(splitRentAmount.toNumber()).toBeGreaterThan(0)
+    await warpToNextEpoch(provider)
+
+    const { instruction: ixWrongStake } = await cancelSettlementInstruction({
+      program,
+      settlementAccount,
+      rentCollector: rentCollector.publicKey,
+      splitRentRefundAccount: pubkey(splitStakeAccount),
+      splitRentCollector: pubkey(splitStakeRentPayer),
+      authority: operatorAuthority,
+    })
+    try {
+      await provider.sendIx([operatorAuthority], ixWrongStake)
+      throw new Error('failure expected; stake not funded to the settlement')
+    } catch (e) {
+      verifyError(e, Errors, 6036, 'not funded under the settlement')
+    }
+
+    const stakeInfo = await provider.connection.getAccountInfo(stakeAccount)
+    assert(stakeInfo !== null)
+    const { instruction } = await cancelSettlementInstruction({
+      program,
+      settlementAccount,
+      rentCollector: rentCollector.publicKey,
+      splitRentRefundAccount: stakeAccount,
+      splitRentCollector: pubkey(splitStakeRentPayer),
+      authority: operatorAuthority,
+    })
+    await provider.sendIx([operatorAuthority], instruction)
+    await assertNotExist(provider, settlementAccount)
+    expect(
+      (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
+        ?.lamports,
+    ).toEqual(LAMPORTS_PER_SOL)
+    expect(
+      (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
+    ).toEqual(stakeInfo.lamports - splitRentAmount.toNumber())
   })
 
   it('cannot close settlement when not expired', async () => {

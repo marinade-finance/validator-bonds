@@ -107,7 +107,7 @@ impl CancelSettlement<'_> {
                 &ctx.accounts.bond,
                 &ctx.accounts.stake_program,
                 &ctx.accounts.split_rent_collector,
-                ctx.accounts.settlement.split_rent_amount,
+                &ctx.accounts.settlement,
                 &ctx.accounts.clock,
                 &ctx.accounts.stake_history,
                 &ctx.accounts.config,
