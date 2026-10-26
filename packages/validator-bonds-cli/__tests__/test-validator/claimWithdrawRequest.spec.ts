@@ -169,6 +169,29 @@ describe('Claim withdraw request using CLI', () => {
       stdout: /successfully claimed/,
     })
 
+    let neededStakeAccounts = 1
+    while (toFund.muln(neededStakeAccounts).lt(withdrawRequestLamports)) {
+      neededStakeAccounts++
+    }
+    const leftoverStakeAccounts = toFund
+      .muln(neededStakeAccounts)
+      .gt(withdrawRequestLamports)
+      ? 1
+      : 0
+    const [bondsAuth] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    const bondStakeAccounts = await findStakeAccounts({
+      connection: program,
+      staker: bondsAuth,
+      withdrawer: bondsAuth,
+      voter: voteAccount,
+    })
+    expect(bondStakeAccounts.length).toEqual(
+      stakeAccountNumber - neededStakeAccounts + leftoverStakeAccounts,
+    )
+
     // second claim will not fail
     await expect([
       'pnpm',
