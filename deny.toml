@@ -76,6 +76,10 @@ ignore = [
   # solana-cli-config. No safe upgrade; the fix is migrating off serde_yaml
   # (e.g. serde-saphyr), which solana-cli-config would also have to do.
   "RUSTSEC-2024-0449",
+  # zstd 0.13 / zstd-safe 7, fixed only in 0.14 / 8.2; agave and tonic 0.14 still require ^0.13.
+  "RUSTSEC-2026-0391",
+  "RUSTSEC-2026-0398",
+  "RUSTSEC-2026-0403",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
