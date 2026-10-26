@@ -3733,6 +3733,11 @@ export type ValidatorBonds = {
       "code": 6078,
       "name": "productTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "settlementSplitRentCollectorAlreadySet",
+      "msg": "Settlement split rent collector is already set"
     }
   ],
   "types": [

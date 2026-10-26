@@ -1,3 +1,5 @@
+import assert from 'assert'
+
 import { verifyError } from '@marinade.finance/anchor-common'
 import {
   assertNotExist,
@@ -18,6 +20,7 @@ import {
   StakeProgram,
   SystemProgram,
 } from '@solana/web3.js'
+import BN from 'bn.js'
 
 import { initBankrunTest, delegateAndFund } from './bankrun'
 import {
@@ -46,7 +49,7 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
-import type { ValidatorBondsProgram, Config } from '../../src'
+import type { ValidatorBondsProgram, Config, Settlement } from '../../src'
 import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
@@ -347,6 +350,170 @@ describe('Validator Bonds fund settlement', () => {
     expect(stakeAccountData.Stake?.stake.delegation.activationEpoch).toEqual(
       executionEpoch - BigInt(1),
     )
+  })
+
+  it('fund settlement with split keeps the split rent collector', async () => {
+    const maxTotalClaim = LAMPORTS_PER_SOL * 10
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      rentCollector: rentCollector.publicKey,
+      maxTotalClaim,
+    })
+
+    const payer1 = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const stakeAccount1 = await createBondsFundedStakeAccountActivated(
+      maxTotalClaim / 2,
+    )
+    const { instruction: ix1, splitStakeAccount: split1 } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: stakeAccount1,
+        splitStakeRentPayer: payer1,
+      })
+    await provider.sendIx(
+      [signer(payer1), signer(split1), operatorAuthority],
+      ix1,
+    )
+    let settlementData = await getSettlement(program, settlementAccount)
+    expect(settlementData.splitRentCollector).toEqual(null)
+
+    const stakeAccount2 = await createBondsFundedStakeAccountActivated(
+      maxTotalClaim + 3 * LAMPORTS_PER_SOL,
+    )
+    const { instruction: ix2, splitStakeAccount: split2 } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: stakeAccount2,
+        splitStakeRentPayer: payer1,
+      })
+    await provider.sendIx(
+      [signer(payer1), signer(split2), operatorAuthority],
+      ix2,
+    )
+    settlementData = await getSettlement(program, settlementAccount)
+    expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
+    expect(settlementData.splitRentCollector).toEqual(pubkey(payer1))
+    expect(settlementData.splitRentAmount).toEqual(rentExemptStake)
+
+    const payer2 = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const stakeAccount3 = await createBondsFundedStakeAccountActivated(
+      LAMPORTS_PER_SOL * 2,
+    )
+    const { instruction: ix3, splitStakeAccount: split3 } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: stakeAccount3,
+        splitStakeRentPayer: payer2,
+      })
+    const txLog = await bankrunExecuteIx(
+      provider,
+      [provider.wallet, signer(payer2), signer(split3), operatorAuthority],
+      ix3,
+    )
+    expect(
+      txLog.logMessages.find(v => v.includes('already fully funded')),
+    ).toBeDefined()
+    settlementData = await getSettlement(program, settlementAccount)
+    expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
+    expect(settlementData.splitRentCollector).toEqual(pubkey(payer1))
+    expect(settlementData.splitRentAmount).toEqual(rentExemptStake)
+    expect(
+      (await provider.connection.getAccountInfo(pubkey(payer2)))?.lamports,
+    ).toEqual(LAMPORTS_PER_SOL)
+    await assertNotExist(provider, pubkey(split3))
+  })
+
+  it('cannot fund a second split when the split rent collector is set', async () => {
+    const maxTotalClaim = LAMPORTS_PER_SOL * 10
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+      rentCollector: rentCollector.publicKey,
+      maxTotalClaim,
+    })
+
+    const payer1 = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const stakeAccount1 = await createBondsFundedStakeAccountActivated(
+      maxTotalClaim + 3 * LAMPORTS_PER_SOL,
+    )
+    const { instruction: ix1, splitStakeAccount: split1 } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: stakeAccount1,
+        splitStakeRentPayer: payer1,
+      })
+    await provider.sendIx(
+      [signer(payer1), signer(split1), operatorAuthority],
+      ix1,
+    )
+
+    // no instruction lowers lamports_funded after a split, so the state is injected
+    const settlementInfo =
+      await provider.connection.getAccountInfo(settlementAccount)
+    assert(settlementInfo !== null)
+    const decoded = program.coder.accounts.decode<Settlement>(
+      'settlement',
+      settlementInfo.data,
+    )
+    decoded.lamportsFunded = new BN(maxTotalClaim - 2 * LAMPORTS_PER_SOL)
+    const encoded = await program.coder.accounts.encode('settlement', decoded)
+    const data = Buffer.alloc(settlementInfo.data.length)
+    encoded.copy(data)
+    provider.context.setAccount(settlementAccount, {
+      lamports: settlementInfo.lamports,
+      data,
+      owner: program.programId,
+      executable: false,
+    })
+
+    const payer2 = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const stakeAccount2 = await createBondsFundedStakeAccountActivated(
+      maxTotalClaim + 3 * LAMPORTS_PER_SOL,
+    )
+    const { instruction: ix2, splitStakeAccount: split2 } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: stakeAccount2,
+        splitStakeRentPayer: payer2,
+      })
+    try {
+      await provider.sendIx(
+        [signer(payer2), signer(split2), operatorAuthority],
+        ix2,
+      )
+      throw new Error('failure expected; split rent collector already set')
+    } catch (e) {
+      verifyError(e, Errors, 6079, 'split rent collector is already set')
+    }
+    const settlementData = await getSettlement(program, settlementAccount)
+    expect(settlementData.splitRentCollector).toEqual(pubkey(payer1))
+    expect(settlementData.splitRentAmount).toEqual(rentExemptStake)
   })
 
   it('fund settlement with bond funded account', async () => {

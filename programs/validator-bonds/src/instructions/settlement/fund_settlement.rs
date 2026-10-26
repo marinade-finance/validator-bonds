@@ -209,6 +209,10 @@ impl FundSettlement<'_> {
                 )?;
                 (lamports_to_fund, false)
             } else {
+                require!(
+                    ctx.accounts.settlement.split_rent_collector.is_none(),
+                    ErrorCode::SettlementSplitRentCollectorAlreadySet
+                );
                 // -> to fund only part of the lamports available in the stake account
                 //    'stake_account' is funded to settlement, the overflow is moved into 'split_stake_account'
 

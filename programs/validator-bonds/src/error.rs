@@ -242,4 +242,7 @@ pub enum ErrorCode {
 
     #[msg("Fail to validate ProductConfig value")]
     ProductTypeConfigValidationFailure, // 6078 0x17be
+
+    #[msg("Settlement split rent collector is already set")]
+    SettlementSplitRentCollectorAlreadySet, // 6079 0x17bf
 }
