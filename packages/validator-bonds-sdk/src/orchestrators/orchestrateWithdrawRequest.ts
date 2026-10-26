@@ -3,7 +3,7 @@ import assert from 'assert'
 import { logDebug } from '@marinade.finance/ts-common'
 import BN from 'bn.js'
 
-import { getBond, getWithdrawRequest } from '../api'
+import { getBond, getConfig, getWithdrawRequest } from '../api'
 import { claimWithdrawRequestInstruction } from '../instructions/claimWithdrawRequest'
 import { mergeStakeInstruction } from '../instructions/mergeStake'
 import {
@@ -12,7 +12,7 @@ import {
   withdrawRequestAddress,
 } from '../sdk'
 import { anchorProgramWalletPubkey } from '../utils'
-import { findStakeAccounts } from '../web3.js'
+import { findStakeAccounts, minimalSizeStakeAccount } from '../web3.js'
 
 import type { ValidatorBondsProgram, WithdrawRequest } from '../sdk'
 import type { StakeAccountParsed } from '../web3.js'
@@ -140,12 +140,20 @@ export async function orchestrateWithdrawDeposit({
     'Found stake accounts: ' +
       JSON.stringify(stakeAccountsFunded.map(s => s.publicKey.toBase58())),
   )
+  const { minimumStakeLamports } = await getConfig(program, configAccount)
+  // the split leftover of the withdrawn stake has to be at least the minimal stake size
+  const amountToSelect = amountToWithdraw.add(
+    minimalSizeStakeAccount(minimumStakeLamports),
+  )
   const stakeAccountsToWithdraw = stakeAccountsFunded.reduce<{
     stakesAmount: BN
     accounts: ProgramAccountInfo<StakeAccountParsed>[]
   }>(
     (acc, accountInfo) => {
-      if (acc.stakesAmount.lt(amountToWithdraw)) {
+      if (
+        acc.stakesAmount.lt(amountToSelect) &&
+        !acc.stakesAmount.eq(amountToWithdraw)
+      ) {
         acc.stakesAmount = acc.stakesAmount.add(
           new BN(accountInfo.account.lamports),
         )

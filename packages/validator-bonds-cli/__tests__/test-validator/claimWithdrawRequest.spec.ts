@@ -110,7 +110,10 @@ describe('Claim withdraw request using CLI', () => {
 
   it('claim withdraw request', async () => {
     const stakeAccountNumber = 10
-    const toFund = withdrawRequestLamports.divn(stakeAccountNumber - 3)
+    // 7 stakes overshoot the request by less than the minimal stake size, an 8th one is needed
+    const toFund = withdrawRequestLamports
+      .divn(stakeAccountNumber - 3)
+      .add(new BN(LAMPORTS_PER_SOL / 10))
     let stakeAccountSumBalance = new BN(0)
     for (let i = 0; i < stakeAccountNumber; i++) {
       const sa = await createBondsFundedStakeAccount({
@@ -169,15 +172,6 @@ describe('Claim withdraw request using CLI', () => {
       stdout: /successfully claimed/,
     })
 
-    let neededStakeAccounts = 1
-    while (toFund.muln(neededStakeAccounts).lt(withdrawRequestLamports)) {
-      neededStakeAccounts++
-    }
-    const leftoverStakeAccounts = toFund
-      .muln(neededStakeAccounts)
-      .gt(withdrawRequestLamports)
-      ? 1
-      : 0
     const [bondsAuth] = bondsWithdrawerAuthority(
       configAccount,
       program.programId,
@@ -188,9 +182,8 @@ describe('Claim withdraw request using CLI', () => {
       withdrawer: bondsAuth,
       voter: voteAccount,
     })
-    expect(bondStakeAccounts.length).toEqual(
-      stakeAccountNumber - neededStakeAccounts + leftoverStakeAccounts,
-    )
+    // 8 stakes merged and withdrawn, the split leftover stays with the bond
+    expect(bondStakeAccounts.length).toEqual(stakeAccountNumber - 8 + 1)
 
     // second claim will not fail
     await expect([
