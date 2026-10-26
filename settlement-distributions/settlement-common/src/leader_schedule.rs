@@ -8,8 +8,8 @@ use {
 
 const NUM_CONSECUTIVE_LEADER_SLOTS: u64 = 4;
 
-// Agave skipped each validator's first leader window of these epochs (agave#16302)
-pub const FIRST_LEADER_WINDOW_SKIP_EPOCHS: [u64; 3] = [1065, 1066, 1067];
+// Agave skips each validator's first leader window in these epochs (agave#16302)
+pub const FIRST_LEADER_WINDOW_SKIP_EPOCHS: [u64; 6] = [1065, 1066, 1067, 1068, 1069, 1070];
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct LeaderSlots {
@@ -128,7 +128,7 @@ mod tests {
                 "epoch {epoch}"
             );
         }
-        for epoch in [1064, 1068, 1100] {
+        for epoch in [1064, 1071, 1100] {
             assert!(matches!(
                 scheduled.without_first_window(epoch),
                 Cow::Borrowed(slots) if *slots == scheduled
