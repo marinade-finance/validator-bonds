@@ -1,5 +1,4 @@
-import { createHash } from 'crypto'
-
+import { sha256 } from '@noble/hashes/sha2'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
@@ -54,9 +53,9 @@ export function hashTreeV1(
   withdrawAuthority: PublicKey,
   claim: BN | number,
 ): MerkleTreeNodeEncoded {
-  const sha256 = createHash('sha256')
-  sha256.update(stakeAuthority.toBuffer())
-  sha256.update(withdrawAuthority.toBuffer())
-  sha256.update(new BN(claim).toBuffer('le', 8))
-  return MerkleTreeNode.toEncodings(sha256.digest())
+  const hasher = sha256.create()
+  hasher.update(stakeAuthority.toBuffer())
+  hasher.update(withdrawAuthority.toBuffer())
+  hasher.update(new BN(claim).toBuffer('le', 8))
+  return MerkleTreeNode.toEncodings(hasher.digest())
 }

@@ -1,6 +1,5 @@
-import { createHash } from 'crypto'
-
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { sha256 } from '@noble/hashes/sha2'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
 
@@ -113,12 +112,12 @@ export class MerkleTreeNode {
     claim,
     index,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
-    const sha256 = createHash('sha256')
-    sha256.update(stakeAuthority.toBuffer())
-    sha256.update(withdrawAuthority.toBuffer())
-    sha256.update(new BN(claim).toBuffer('le', 8))
-    sha256.update(new BN(index).toBuffer('le', 8))
-    return MerkleTreeNode.toEncodings(sha256.digest())
+    const hasher = sha256.create()
+    hasher.update(stakeAuthority.toBuffer())
+    hasher.update(withdrawAuthority.toBuffer())
+    hasher.update(new BN(claim).toBuffer('le', 8))
+    hasher.update(new BN(index).toBuffer('le', 8))
+    return MerkleTreeNode.toEncodings(hasher.digest())
   }
 
   public static hashLeafNode({
@@ -140,11 +139,11 @@ export class MerkleTreeNode {
     buffer,
   }: MerkleTreeNodeEncoded): MerkleTreeNodeEncoded {
     const prolongedBuffer = Buffer.concat([LEAF_NODE_PREFIX_BUF, buffer])
-    const digest = createHash('sha256').update(prolongedBuffer).digest()
-    return MerkleTreeNode.toEncodings(digest)
+    return MerkleTreeNode.toEncodings(sha256(prolongedBuffer))
   }
 
-  public static toEncodings(buffer: Buffer): MerkleTreeNodeEncoded {
+  public static toEncodings(hash: Uint8Array): MerkleTreeNodeEncoded {
+    const buffer = Buffer.from(hash)
     return {
       base58: bs58.encode(buffer),
       base64: buffer.toString('base64'),
