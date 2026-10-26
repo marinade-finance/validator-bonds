@@ -218,6 +218,26 @@ describe('Validator Bonds cancel settlement', () => {
       verifyError(e, Errors, 6036, 'not funded under the settlement')
     }
 
+    const { instruction: ixWrongCollector } = await cancelSettlementInstruction(
+      {
+        program,
+        settlementAccount,
+        rentCollector: rentCollector.publicKey,
+        splitRentRefundAccount: stakeAccount,
+        splitRentCollector: provider.walletPubkey,
+        authority: operatorAuthority,
+      },
+    )
+    try {
+      await provider.sendIx([operatorAuthority], ixWrongCollector)
+      throw new Error('failure expected; wrong split rent collector')
+    } catch (e) {
+      verifyError(e, Errors, 6043, 'does not match permitted rent collector')
+    }
+    expect(
+      await provider.connection.getAccountInfo(settlementAccount),
+    ).not.toBeNull()
+
     const stakeInfo = await provider.connection.getAccountInfo(stakeAccount)
     assert(stakeInfo !== null)
     const { instruction } = await cancelSettlementInstruction({

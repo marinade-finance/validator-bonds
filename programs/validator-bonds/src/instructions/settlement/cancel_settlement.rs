@@ -38,6 +38,7 @@ pub struct CancelSettlement<'info> {
         close = rent_collector,
         has_one = bond @ ErrorCode::BondAccountMismatch,
         has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
+        constraint = (settlement.split_rent_collector.is_none() || settlement.split_rent_collector.unwrap() == split_rent_collector.key()) @ ErrorCode::RentCollectorMismatch,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
