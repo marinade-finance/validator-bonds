@@ -174,6 +174,12 @@ export const VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS = 0x17bd // 607
 export const VALIDATOR_BONDS_ERROR__PRODUCT_TYPE_CONFIG_VALIDATION_FAILURE = 0x17be // 6078
 /** SettlementSplitRentCollectorAlreadySet: Settlement split rent collector is already set */
 export const VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET = 0x17bf // 6079
+/** StakeAccountNotInMarinadeLiquidStakeList: Stake account to claim into is not in the Marinade liquid stake list */
+export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_LIST = 0x17c0 // 6080
+/** MarinadeLiquidAccountsMissing: Marinade liquid State and stake list accounts are required for the mSOL withdrawer */
+export const VALIDATOR_BONDS_ERROR__MARINADE_LIQUID_ACCOUNTS_MISSING = 0x17c1 // 6081
+/** InvalidMarinadeLiquidAccount: Marinade liquid State or stake list account is invalid */
+export const VALIDATOR_BONDS_ERROR__INVALID_MARINADE_LIQUID_ACCOUNT = 0x17c2 // 6082
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -202,6 +208,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS
   | typeof VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_DATA
   | typeof VALIDATOR_BONDS_ERROR__INVALID_BONDS_WITHDRAWER_AUTHORITY_ADDRESS
+  | typeof VALIDATOR_BONDS_ERROR__INVALID_MARINADE_LIQUID_ACCOUNT
   | typeof VALIDATOR_BONDS_ERROR__INVALID_OPERATOR_AUTHORITY
   | typeof VALIDATOR_BONDS_ERROR__INVALID_PAUSE_AUTHORITY
   | typeof VALIDATOR_BONDS_ERROR__INVALID_PRODUCT_TYPE
@@ -216,6 +223,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__INVALID_VOTE_ACCOUNT_TYPE
   | typeof VALIDATOR_BONDS_ERROR__INVALID_WITHDRAW_REQUEST_ADDRESS
   | typeof VALIDATOR_BONDS_ERROR__INVALID_WITHDRAW_REQUEST_AUTHORITY
+  | typeof VALIDATOR_BONDS_ERROR__MARINADE_LIQUID_ACCOUNTS_MISSING
   | typeof VALIDATOR_BONDS_ERROR__MAX_STAKE_WANTED_TOO_LOW
   | typeof VALIDATOR_BONDS_ERROR__MERGE_MISMATCH_SAME_SOURCE_DESTINATION
   | typeof VALIDATOR_BONDS_ERROR__NON_BOND_STAKE_AUTHORITIES
@@ -240,6 +248,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT
+  | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_LIST
   | typeof VALIDATOR_BONDS_ERROR__STAKE_DELEGATION_MISMATCH
   | typeof VALIDATOR_BONDS_ERROR__STAKE_LOCKED_UP
   | typeof VALIDATOR_BONDS_ERROR__STAKE_NOT_DELEGATED
@@ -286,6 +295,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_ADDRESS]: `Fail to create program address for Bond Product`,
     [VALIDATOR_BONDS_ERROR__INVALID_BOND_PRODUCT_DATA]: `Invalid data for Bond Product`,
     [VALIDATOR_BONDS_ERROR__INVALID_BONDS_WITHDRAWER_AUTHORITY_ADDRESS]: `Fail to create PDA address for Bonds Withdrawer Authority`,
+    [VALIDATOR_BONDS_ERROR__INVALID_MARINADE_LIQUID_ACCOUNT]: `Marinade liquid State or stake list account is invalid`,
     [VALIDATOR_BONDS_ERROR__INVALID_OPERATOR_AUTHORITY]: `Operation requires operator authority signature`,
     [VALIDATOR_BONDS_ERROR__INVALID_PAUSE_AUTHORITY]: `Invalid pause authority`,
     [VALIDATOR_BONDS_ERROR__INVALID_PRODUCT_TYPE]: `Invalid Bond Product type`,
@@ -300,6 +310,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__INVALID_VOTE_ACCOUNT_TYPE]: `Unsupported vote account type to deserialize`,
     [VALIDATOR_BONDS_ERROR__INVALID_WITHDRAW_REQUEST_ADDRESS]: `Fail to create program address for WithdrawRequest`,
     [VALIDATOR_BONDS_ERROR__INVALID_WITHDRAW_REQUEST_AUTHORITY]: `Invalid authority to operate with the withdraw request of validator bond account`,
+    [VALIDATOR_BONDS_ERROR__MARINADE_LIQUID_ACCOUNTS_MISSING]: `Marinade liquid State and stake list accounts are required for the mSOL withdrawer`,
     [VALIDATOR_BONDS_ERROR__MAX_STAKE_WANTED_TOO_LOW]: `Max stake wanted value is lower to minimum configured value`,
     [VALIDATOR_BONDS_ERROR__MERGE_MISMATCH_SAME_SOURCE_DESTINATION]: `Source and destination cannot be the same for merge operation`,
     [VALIDATOR_BONDS_ERROR__NON_BOND_STAKE_AUTHORITIES]: `One or both stake authorities does not belong to bonds program`,
@@ -324,6 +335,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT]: `Provided stake account has been already funded to a settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT]: `Stake account is not big enough to be split`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT]: `Provided stake account is not funded under the settlement`,
+    [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_LIST]: `Stake account to claim into is not in the Marinade liquid stake list`,
     [VALIDATOR_BONDS_ERROR__STAKE_DELEGATION_MISMATCH]: `Delegation of provided stake account mismatches`,
     [VALIDATOR_BONDS_ERROR__STAKE_LOCKED_UP]: `Provided stake account is locked-up`,
     [VALIDATOR_BONDS_ERROR__STAKE_NOT_DELEGATED]: `Provided stake cannot be used for bonds, it's not delegated`,

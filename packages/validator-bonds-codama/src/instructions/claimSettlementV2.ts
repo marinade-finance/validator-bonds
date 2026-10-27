@@ -75,6 +75,8 @@ export type ClaimSettlementV2Instruction<
     'SysvarC1ock11111111111111111111111111111111',
   TAccountStakeProgram extends string | AccountMeta<string> =
     'Stake11111111111111111111111111111111111111',
+  TAccountMarinadeLiquidState extends string | AccountMeta<string> = string,
+  TAccountMarinadeLiquidStakeList extends string | AccountMeta<string> = string,
   TAccountEventAuthority extends string | AccountMeta<string> = string,
   TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -112,6 +114,12 @@ export type ClaimSettlementV2Instruction<
       TAccountStakeProgram extends string
         ? ReadonlyAccount<TAccountStakeProgram>
         : TAccountStakeProgram,
+      TAccountMarinadeLiquidState extends string
+        ? ReadonlyAccount<TAccountMarinadeLiquidState>
+        : TAccountMarinadeLiquidState,
+      TAccountMarinadeLiquidStakeList extends string
+        ? ReadonlyAccount<TAccountMarinadeLiquidStakeList>
+        : TAccountMarinadeLiquidStakeList,
       TAccountEventAuthority extends string
         ? ReadonlyAccount<TAccountEventAuthority>
         : TAccountEventAuthority,
@@ -205,6 +213,10 @@ export type ClaimSettlementV2AsyncInput<
   TAccountClock extends InstructionAccountInput = InstructionAccountInput,
   TAccountStakeProgram extends InstructionAccountInput =
     InstructionAccountInput,
+  TAccountMarinadeLiquidState extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountMarinadeLiquidStakeList extends InstructionAccountInput =
+    InstructionAccountInput,
   TAccountEventAuthority extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
@@ -224,6 +236,8 @@ export type ClaimSettlementV2AsyncInput<
   stakeHistory?: TAccountStakeHistory
   clock?: TAccountClock
   stakeProgram?: TAccountStakeProgram
+  marinadeLiquidState?: TAccountMarinadeLiquidState
+  marinadeLiquidStakeList?: TAccountMarinadeLiquidStakeList
   eventAuthority?: TAccountEventAuthority
   program: TAccountProgram
   proof: ClaimSettlementV2InstructionDataArgs['proof']
@@ -245,6 +259,8 @@ export async function getClaimSettlementV2InstructionAsync<
   TAccountStakeHistory extends InstructionAccountInput,
   TAccountClock extends InstructionAccountInput,
   TAccountStakeProgram extends InstructionAccountInput,
+  TAccountMarinadeLiquidState extends InstructionAccountInput,
+  TAccountMarinadeLiquidStakeList extends InstructionAccountInput,
   TAccountEventAuthority extends InstructionAccountInput,
   TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
@@ -260,6 +276,8 @@ export async function getClaimSettlementV2InstructionAsync<
     TAccountStakeHistory,
     TAccountClock,
     TAccountStakeProgram,
+    TAccountMarinadeLiquidState,
+    TAccountMarinadeLiquidStakeList,
     TAccountEventAuthority,
     TAccountProgram
   >,
@@ -306,6 +324,14 @@ export async function getClaimSettlementV2InstructionAsync<
     ResolvedInstructionAccountMeta<
       TAccountStakeProgram,
       InstructionAccountInputAddress<TAccountStakeProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidState,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidState>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidStakeList,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidStakeList>
     >,
     ResolvedInstructionAccountMeta<
       TAccountEventAuthority,
@@ -361,6 +387,16 @@ export async function getClaimSettlementV2InstructionAsync<
     clock: { value: input.clock ?? null, isSigner: false, isWritable: false },
     stakeProgram: {
       value: input.stakeProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    marinadeLiquidState: {
+      value: input.marinadeLiquidState ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    marinadeLiquidStakeList: {
+      value: input.marinadeLiquidStakeList ?? null,
       isSigner: false,
       isWritable: false,
     },
@@ -440,6 +476,11 @@ export async function getClaimSettlementV2InstructionAsync<
       getAccountMeta('stakeHistory', accounts.stakeHistory),
       getAccountMeta('clock', accounts.clock),
       getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('marinadeLiquidState', accounts.marinadeLiquidState),
+      getAccountMeta(
+        'marinadeLiquidStakeList',
+        accounts.marinadeLiquidStakeList,
+      ),
       getAccountMeta('eventAuthority', accounts.eventAuthority),
       getAccountMeta('program', accounts.program),
     ],
@@ -490,6 +531,14 @@ export async function getClaimSettlementV2InstructionAsync<
       InstructionAccountInputAddress<TAccountStakeProgram>
     >,
     ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidState,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidState>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidStakeList,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidStakeList>
+    >,
+    ResolvedInstructionAccountMeta<
       TAccountEventAuthority,
       InstructionAccountInputAddress<TAccountEventAuthority>
     >,
@@ -517,6 +566,10 @@ export type ClaimSettlementV2Input<
   TAccountClock extends InstructionAccountInput = InstructionAccountInput,
   TAccountStakeProgram extends InstructionAccountInput =
     InstructionAccountInput,
+  TAccountMarinadeLiquidState extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountMarinadeLiquidStakeList extends InstructionAccountInput =
+    InstructionAccountInput,
   TAccountEventAuthority extends InstructionAccountInput =
     InstructionAccountInput,
   TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
@@ -536,6 +589,8 @@ export type ClaimSettlementV2Input<
   stakeHistory?: TAccountStakeHistory
   clock?: TAccountClock
   stakeProgram?: TAccountStakeProgram
+  marinadeLiquidState?: TAccountMarinadeLiquidState
+  marinadeLiquidStakeList?: TAccountMarinadeLiquidStakeList
   eventAuthority: TAccountEventAuthority
   program: TAccountProgram
   proof: ClaimSettlementV2InstructionDataArgs['proof']
@@ -557,6 +612,8 @@ export function getClaimSettlementV2Instruction<
   TAccountStakeHistory extends InstructionAccountInput,
   TAccountClock extends InstructionAccountInput,
   TAccountStakeProgram extends InstructionAccountInput,
+  TAccountMarinadeLiquidState extends InstructionAccountInput,
+  TAccountMarinadeLiquidStakeList extends InstructionAccountInput,
   TAccountEventAuthority extends InstructionAccountInput,
   TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof VALIDATOR_BONDS_PROGRAM_ADDRESS,
@@ -572,6 +629,8 @@ export function getClaimSettlementV2Instruction<
     TAccountStakeHistory,
     TAccountClock,
     TAccountStakeProgram,
+    TAccountMarinadeLiquidState,
+    TAccountMarinadeLiquidStakeList,
     TAccountEventAuthority,
     TAccountProgram
   >,
@@ -617,6 +676,14 @@ export function getClaimSettlementV2Instruction<
   ResolvedInstructionAccountMeta<
     TAccountStakeProgram,
     InstructionAccountInputAddress<TAccountStakeProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountMarinadeLiquidState,
+    InstructionAccountInputAddress<TAccountMarinadeLiquidState>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountMarinadeLiquidStakeList,
+    InstructionAccountInputAddress<TAccountMarinadeLiquidStakeList>
   >,
   ResolvedInstructionAccountMeta<
     TAccountEventAuthority,
@@ -674,6 +741,16 @@ export function getClaimSettlementV2Instruction<
       isSigner: false,
       isWritable: false,
     },
+    marinadeLiquidState: {
+      value: input.marinadeLiquidState ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    marinadeLiquidStakeList: {
+      value: input.marinadeLiquidStakeList ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
     eventAuthority: {
       value: input.eventAuthority ?? null,
       isSigner: false,
@@ -722,6 +799,11 @@ export function getClaimSettlementV2Instruction<
       getAccountMeta('stakeHistory', accounts.stakeHistory),
       getAccountMeta('clock', accounts.clock),
       getAccountMeta('stakeProgram', accounts.stakeProgram),
+      getAccountMeta('marinadeLiquidState', accounts.marinadeLiquidState),
+      getAccountMeta(
+        'marinadeLiquidStakeList',
+        accounts.marinadeLiquidStakeList,
+      ),
       getAccountMeta('eventAuthority', accounts.eventAuthority),
       getAccountMeta('program', accounts.program),
     ],
@@ -772,6 +854,14 @@ export function getClaimSettlementV2Instruction<
       InstructionAccountInputAddress<TAccountStakeProgram>
     >,
     ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidState,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidState>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountMarinadeLiquidStakeList,
+      InstructionAccountInputAddress<TAccountMarinadeLiquidStakeList>
+    >,
+    ResolvedInstructionAccountMeta<
       TAccountEventAuthority,
       InstructionAccountInputAddress<TAccountEventAuthority>
     >,
@@ -803,8 +893,10 @@ export type ParsedClaimSettlementV2Instruction<
     stakeHistory: TAccountMetas[7]
     clock: TAccountMetas[8]
     stakeProgram: TAccountMetas[9]
-    eventAuthority: TAccountMetas[10]
-    program: TAccountMetas[11]
+    marinadeLiquidState?: TAccountMetas[10] | undefined
+    marinadeLiquidStakeList?: TAccountMetas[11] | undefined
+    eventAuthority: TAccountMetas[12]
+    program: TAccountMetas[13]
   }
   data: ClaimSettlementV2InstructionData
 }
@@ -817,12 +909,12 @@ export function parseClaimSettlementV2Instruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedClaimSettlementV2Instruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 12) {
+  if (instruction.accounts.length < 14) {
     throw new SolanaError(
       SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
       {
         actualAccountMetas: instruction.accounts.length,
-        expectedAccountMetas: 12,
+        expectedAccountMetas: 14,
       },
     )
   }
@@ -831,6 +923,12 @@ export function parseClaimSettlementV2Instruction<
     const accountMeta = (instruction.accounts as TAccountMetas)[accountIndex]!
     accountIndex += 1
     return accountMeta
+  }
+  const getNextOptionalAccount = () => {
+    const accountMeta = getNextAccount()
+    return accountMeta.address === VALIDATOR_BONDS_PROGRAM_ADDRESS
+      ? undefined
+      : accountMeta
   }
   return {
     programAddress: instruction.programAddress,
@@ -845,6 +943,8 @@ export function parseClaimSettlementV2Instruction<
       stakeHistory: getNextAccount(),
       clock: getNextAccount(),
       stakeProgram: getNextAccount(),
+      marinadeLiquidState: getNextOptionalAccount(),
+      marinadeLiquidStakeList: getNextOptionalAccount(),
       eventAuthority: getNextAccount(),
       program: getNextAccount(),
     },
