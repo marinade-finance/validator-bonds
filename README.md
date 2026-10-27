@@ -90,6 +90,15 @@ scheduler-bidding → prepare-bid-distribution → init-settlements
 
 ![Validator Bonds Workflow](./resources/diagram/validator-bonds-workflow.svg)
 
+## Known constraints
+
+Settlement claims are permissionless: anyone may claim a merkle leaf into any stake account whose
+staker and withdrawer match the leaf. Holders of program-owned (PDA) stake authorities must be able
+to manage and reclaim such stake accounts themselves; the protocol does not handle this for them,
+and reports about stake claimed this way are out of scope. The one on-chain exception is Marinade
+liquid staking (mSOL), which Marinade manages: its leaf can be claimed only into a stake account
+listed in the liquid staking stake list.
+
 ## Contract Audits
 
 - [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0),

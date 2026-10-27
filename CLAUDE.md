@@ -95,7 +95,7 @@ Anchor program: 6 state accounts, 23 active instructions (v1 handlers in `instru
 
 - **States:** Config, Bond (PDA: config+vote_account), BondProduct (PDA: bond+product_type), Settlement (PDA: bond+merkle_root+epoch), SettlementClaims (bitmap dedup), WithdrawRequest (PDA: bond, one per bond).
 - **Instructions:** config/ (init, configure, emergency pause/resume), bond/ (init, configure, configure_with_mint, mint, fund), bond_product/ (init, configure), settlement/ (init, fund, close_v2, cancel, claim_v2, upsize_claims), withdraw/ (init, cancel, claim), stake/ (merge, reset, withdraw).
-- **Access control:** admin_authority (config), operator_authority (settlements/funding), pause_authority (emergency), bond authority or validator identity (bond mgmt), permissionless (claims via merkle proof, closing expired settlements).
+- **Access control:** admin_authority (config), operator_authority (settlements/funding), pause_authority (emergency), bond authority or validator identity (bond mgmt), permissionless (claims via merkle proof — mSOL-withdrawer leaves only into liquid stake-list members, closing expired settlements).
 - **PDA seeds:** Bond: `b"bond_account"` + config + vote_account | Settlement: `b"settlement_account"` + bond + merkle_root + epoch_le_bytes | Bonds Withdrawer Authority: `b"bonds_authority"` + config | WithdrawRequest: `b"withdraw_account"` + bond
 
 ### TypeScript packages (`packages/`)
@@ -130,7 +130,7 @@ Each binary handles one stage of the on-chain settlement lifecycle:
 | ---------------------- | -------------------------------------------- | -------------- |
 | `init-settlement`      | Create Settlement accounts from merkle trees | operator       |
 | `fund-settlement`      | Fund from bond stake accounts                | operator       |
-| `claim-settlement`     | Claim via merkle proofs                      | permissionless |
+| `claim-settlement`     | Claim via merkle proofs (mSOL: stake list)   | permissionless |
 | `close-settlement`     | Close expired, reset/withdraw stakes         | permissionless |
 | `verify-settlement`    | Sanity check on-chain vs JSON                | read-only      |
 | `merge-stakes`         | Consolidate stake accounts per validator     | permissionless |
@@ -185,3 +185,7 @@ Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ti
 ### Agave first-leader-window skip
 
 In epochs 1065–1070 (`FIRST_LEADER_WINDOW_SKIP_EPOCHS`) Agave skips each validator's first leader window of the epoch (agave#16302), and Alpenglow pays the leader half of a slot's reward into the leader's credits. Expected Alpenglow credits therefore drop that window, `n − min(4, n)` per vote account with the same slots removed from N, while actual credits stay as paid; institutional-staking and ds-sam apply the same correction. A validator that produced its first window lands above 1 uptime, which is never charged. Accepted gap: the credits of a produced first window stay in the pooled Σcredits and raise every other validator's expected credits, at worst 36 bps in epoch 1065.
+
+### mSOL claim destination
+
+A leaf whose withdrawer is the liquid withdraw PDA `9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco` can be claimed only into a stake account listed in the Marinade liquid stake list, because the liquid program ignores stake accounts outside its list and the SOL would be stranded. The program reads the list raw (State offsets 150/182/186, `staker__` discriminator, live records below `count`) from the two optional accounts after `stake_program`. `claim_settlement_v2` keeps its name, args and account positions 0–5 byte-identical: stakes-etl (`claims.rs`) decodes args by offset from the end and staking-rewards (`processor.rs`) by strict borsh, both reading accounts 4/5 by position. Other program-owned withdrawers are out of scope (README Known constraints).
