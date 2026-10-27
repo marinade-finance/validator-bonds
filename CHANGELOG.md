@@ -15,11 +15,12 @@ All notable changes to this project will be documented in this file. See [standa
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
 - tag: [`contract-v2.3.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.3.0), commit: TBD,
 - tx: TBD
-- anchor verify command:
+- solana-verify command (anchor 1.x `verify` no longer takes `-p`/`--env`):
   ```
-  git checkout <commit> &&\
-  anchor verify  --provider.cluster mainnet -p validator_bonds \
-    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.3.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
+    --library-name validator_bonds \
+    --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash <commit> \
+    -- --config env.GIT_REV=\'<commit>\' --config env.GIT_REV_NAME=\'v2.3.0\'
   ```
 
 ### Breaking updates
