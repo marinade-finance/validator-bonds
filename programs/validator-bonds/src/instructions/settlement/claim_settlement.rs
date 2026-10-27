@@ -219,6 +219,7 @@ impl ClaimSettlementV2<'_> {
             &ctx.accounts.clock,
             "stake_account_to",
         )?;
+        // when withdrawing to mSOL pool then we require the target is a pool's managed stake account
         if stake_account_withdrawer == MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY {
             check_marinade_liquid_stake_list_member(
                 ctx.accounts.marinade_liquid_state.as_ref(),

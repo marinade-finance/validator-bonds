@@ -109,7 +109,8 @@ In the event that the operator authority's hot wallet key is compromised, the ad
 ```sh
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 echo "Building version $VERSION"
-anchor build --verifiable --arch v0 \
+# TODO: arch v0 is because of bankrun tested only v0, moving to litesvm is a step to fix this
+anchor build --verifiable --arch v0 --tools-version v1.54 --ignore-keys \
   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
 
 # 1. DEPLOY
@@ -145,20 +146,34 @@ anchor idl create-buffer --provider.cluster mainnet --provider.wallet [fee-payer
 anchor idl set-buffer-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
   --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
 # the write from the buffer is signed by the upgrade authority: export it and submit via SPL Governance (as in 4.b, 4.c)
-npx --yes --package=@solana-program/program-metadata@0.5.1 program-metadata \
+# or insert the base64 transactions as is: `spl-governance-cli proposal insert-transactions <proposal> -t <base64...>`
+npx --yes --package=@solana-program/program-metadata@0.11.0 program-metadata \
   write idl vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --buffer <BUFFER_PUBKEY> \
   --rpc https://api.mainnet-beta.solana.com -k [fee-payer-keypair] \
-  --export 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --export-encoding base64
+  --export 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --export-encoding base64 \
+  --single-extend-per-tx
 
 
 # 3. check verifiable deployment with solana-verify (<BUFFER_PUBKEY> can be verified as well)
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 COMMIT_HASH=`git rev-parse --short HEAD`
+# the image `anchor build --verifiable` uses; solana-verify builds with its default tools v1.54
 solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
   --library-name validator_bonds \
+  --base-image quay.io/ottersec/anchor:v1.2.1 \
   --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
   -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
 
+# 3.b verify with local commit
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+COMMIT_HASH=`git rev-parse --short HEAD`
+solana-verify build --library-name validator_bonds \
+  --base-image quay.io/ottersec/anchor:v1.2.1 \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+solana-verify get-executable-hash target/deploy/validator_bonds.so
+solana-verify -um get-program-hash vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+# -- or --
+solana-verify -um get-buffer-hash <BUFFER_PUBKEY>
 
 # 4 upload the  Verified Build via OtterSec API
 # need to upload PDA verified build data account on-chain signed with upgrade authority

@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file. See [standa
   ```
   solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
     --library-name validator_bonds \
+    --base-image quay.io/ottersec/anchor:v1.2.1 \
     --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash <commit> \
     -- --config env.GIT_REV=\'<commit>\' --config env.GIT_REV_NAME=\'v2.3.0\'
   ```
