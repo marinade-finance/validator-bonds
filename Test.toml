@@ -15,3 +15,6 @@ directory = "fixtures/accounts"
 
 [[test.validator.account_dir]]
 directory = "fixtures/accounts/settlement-pipelines"
+
+[[test.validator.account_dir]]
+directory = "fixtures/accounts-marinade-liquid"

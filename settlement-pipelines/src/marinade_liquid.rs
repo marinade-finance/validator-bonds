@@ -63,7 +63,72 @@ pub fn filter_listed(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_cli_output::CliAccount;
+    use solana_sdk::account::Account;
+    use solana_sdk::pubkey;
     use solana_stake_interface::state::StakeStateV2;
+    use validator_bonds::constants::MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY;
+    use validator_bonds::utils::{stake_list_contains, STAKE_LIST_HEADER_LEN};
+
+    const MAINNET_STAKE_LIST: Pubkey = pubkey!("Anv3XE7e5saNdm16MU6bniYS59Mpv7DzQXHAhxJUmAKW");
+    const MAINNET_LISTED_STAKE_ACCOUNTS: [Pubkey; 2] = [
+        pubkey!("3tGbZed4ZfxR56CjxQW5kAghcz5gr7fzcXisWFkhdjeG"),
+        pubkey!("2j8WmiHcr3TEEBfsKpfdkXhmq2NVGrbXEW3vWFn2uQFd"),
+    ];
+
+    fn mainnet_fixture(pubkey: &Pubkey) -> Account {
+        let path = format!(
+            "{}/../fixtures/accounts-marinade-liquid/{pubkey}.json",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let cli_account: CliAccount =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        cli_account.keyed_account.account.decode().unwrap()
+    }
+
+    fn record_key(record: &[u8]) -> Pubkey {
+        Pubkey::new_from_array(record[..32].try_into().unwrap())
+    }
+
+    #[test]
+    fn mainnet_stake_list_contains_its_stake_accounts() {
+        let state = mainnet_fixture(&MARINADE_LIQUID_STATE);
+        assert_eq!(state.owner, MARINADE_LIQUID_PROGRAM_ID);
+        let meta = parse_state_stake_list_meta(&state.data).unwrap();
+        assert_eq!(meta.account, MAINNET_STAKE_LIST);
+        assert_eq!(meta.item_size, 56);
+        assert_eq!(meta.count, 489);
+
+        let list = mainnet_fixture(&meta.account);
+        assert_eq!(list.owner, MARINADE_LIQUID_PROGRAM_ID);
+        let listed: HashSet<Pubkey> = stake_list_records(&list.data, &meta)
+            .unwrap()
+            .map(record_key)
+            .collect();
+        assert_eq!(listed.len(), meta.count);
+
+        for stake_account in MAINNET_LISTED_STAKE_ACCOUNTS {
+            let StakeStateV2::Stake(stake_meta, _, _) =
+                bincode::deserialize(&mainnet_fixture(&stake_account).data).unwrap()
+            else {
+                panic!("{stake_account} is not a delegated stake account");
+            };
+            assert_eq!(
+                stake_meta.authorized.withdrawer,
+                MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY
+            );
+            assert!(listed.contains(&stake_account));
+            assert!(stake_list_contains(&list.data, &meta, &stake_account).unwrap());
+        }
+
+        let stale = list.data[STAKE_LIST_HEADER_LEN + meta.count * meta.item_size..]
+            .chunks_exact(meta.item_size)
+            .map(record_key)
+            .find(|key| *key != Pubkey::default())
+            .unwrap();
+        assert!(!listed.contains(&stale));
+        assert!(!stake_list_contains(&list.data, &meta, &stale).unwrap());
+    }
 
     fn stake_accounts(count: usize) -> CollectedStakeAccounts {
         (0..count)
