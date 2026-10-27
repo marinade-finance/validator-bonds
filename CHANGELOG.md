@@ -10,15 +10,31 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
-## contract release (unreleased)
+## contract release v2.3.0 (TBD)
 
-### Breaking
+- address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+- tag: [`contract-v2.3.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.3.0), commit: TBD,
+- tx: TBD
+- anchor verify command:
+  ```
+  git checkout <commit> &&\
+  anchor verify  --provider.cluster mainnet -p validator_bonds \
+    --env "GIT_REV=`git rev-parse --short HEAD`" --env 'GIT_REV_NAME=v2.3.0' vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+  ```
 
-- `claim_settlement_v2` takes two optional accounts, `marinade_liquid_state` and `marinade_liquid_stake_list`, after `stake_program`, so `event_authority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. Ship the program upgrade, the `claim-settlement` binary and the SDK/codama major versions in one release window.
+### Breaking updates
+
+- `ClaimSettlementV2` instruction takes two optional accounts, `marinadeLiquidState` and `marinadeLiquidStakeList`, after `stakeProgram`, so `eventAuthority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. The program upgrade, the `claim-settlement` binary, SDK 4.0.0 and codama 5.0.0 ship in one release window.
 
 ### Changes
 
-- Leaves whose withdrawer is the Marinade liquid withdraw authority can be claimed only into a stake account on the liquid stake list (README, Known constraints).
+- Anchor update to 1.2.1 ([PR#525](https://github.com/marinade-finance/validator-bonds/pull/525))
+- Leaves whose withdrawer is the Marinade liquid withdraw authority can be claimed only into a stake account on the liquid stake list (README, Known constraints)
+- `merge_stake` rejects merging stakes of different deactivation state
+- `reset_stake` skips re-delegation of a stake that is not deactivated
+- `close_settlement_v2` and `cancel_settlement` refund the split rent only from a stake funded to the settlement
+- `cancel_settlement` checks the split rent collector
+- `fund_settlement` rejects overwriting the split rent collector
 
 ## contract release v2.2.1 (2025-04-02)
 
