@@ -1,9 +1,7 @@
-import assert from 'assert'
-
-import { base64, bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes'
+import { sha256 } from '@noble/hashes/sha2'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import CryptoJS from 'crypto-js'
 
 export const LEAF_NODE_PREFIX = new BN(0)
 export const LEAF_NODE_PREFIX_BUF = Buffer.alloc(
@@ -21,7 +19,6 @@ export type MerkleTreeNodeEncoded = {
   base64: string
   buffer: Buffer
   words: number[]
-  wordArray: CryptoJS.lib.WordArray
 }
 
 type MerkleTreeNodeDataInput = {
@@ -115,19 +112,12 @@ export class MerkleTreeNode {
     claim,
     index,
   }: MerkleTreeNodeDataInput): MerkleTreeNodeEncoded {
-    const sha256 = CryptoJS.algo.SHA256.create()
-    sha256.update(pubkeyToWordArray(stakeAuthority))
-    sha256.update(pubkeyToWordArray(withdrawAuthority))
-    claim = new BN(claim)
-    sha256.update(
-      CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex')),
-    )
-    index = new BN(index)
-    sha256.update(
-      CryptoJS.enc.Hex.parse(index.toBuffer('le', 8).toString('hex')),
-    )
-    const wordArray = sha256.finalize()
-    return MerkleTreeNode.toEncodings(wordArray)
+    const hasher = sha256.create()
+    hasher.update(stakeAuthority.toBuffer())
+    hasher.update(withdrawAuthority.toBuffer())
+    hasher.update(new BN(claim).toBuffer('le', 8))
+    hasher.update(new BN(index).toBuffer('le', 8))
+    return MerkleTreeNode.toEncodings(hasher.digest())
   }
 
   public static hashLeafNode({
@@ -149,42 +139,16 @@ export class MerkleTreeNode {
     buffer,
   }: MerkleTreeNodeEncoded): MerkleTreeNodeEncoded {
     const prolongedBuffer = Buffer.concat([LEAF_NODE_PREFIX_BUF, buffer])
-    const sha256 = CryptoJS.algo.SHA256.create()
-    sha256.update(CryptoJS.enc.Hex.parse(prolongedBuffer.toString('hex')))
-    const wordArray = sha256.finalize()
-    return MerkleTreeNode.toEncodings(wordArray)
+    return MerkleTreeNode.toEncodings(sha256(prolongedBuffer))
   }
 
-  public static toEncodings(
-    wordArray: CryptoJS.lib.WordArray,
-  ): MerkleTreeNodeEncoded {
-    const base64Hash = CryptoJS.enc.Base64.stringify(wordArray)
-    const buffer = base64.decode(base64Hash)
-    const base58Hash = bs58.encode(buffer)
+  public static toEncodings(hash: Uint8Array): MerkleTreeNodeEncoded {
+    const buffer = Buffer.from(hash)
     return {
-      base58: base58Hash,
-      base64: base64Hash,
+      base58: bs58.encode(buffer),
+      base64: buffer.toString('base64'),
       buffer,
       words: Array.from(buffer),
-      wordArray,
     }
   }
-}
-
-/**
- * Returns a crypto-JS compatible Word Array, based on the byte array provided.
- * https://gist.github.com/artjomb/7ef1ee574a411ba0dd1933c1ef4690d1?permalink_comment_id=4759901#gistcomment-4759901
- **/
-export function toWordArray(bytes: number[]) {
-  const words: number[] = []
-  for (let j = 0; j < bytes.length; j++) {
-    const byteJ = bytes[j]
-    assert(byteJ !== undefined, 'Byte array has `undefined` values')
-    words[j >>> 2] = (words[j >>> 2] ?? 0) | (byteJ << (24 - 8 * (j % 4)))
-  }
-  return CryptoJS.lib.WordArray.create(words, bytes.length)
-}
-
-export function pubkeyToWordArray(pubkey: PublicKey) {
-  return toWordArray(Array.from(pubkey.toBuffer()))
 }

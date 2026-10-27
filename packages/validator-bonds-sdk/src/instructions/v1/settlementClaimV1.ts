@@ -1,8 +1,8 @@
+import { sha256 } from '@noble/hashes/sha2'
 import { PublicKey } from '@solana/web3.js'
 import BN from 'bn.js'
-import CryptoJS from 'crypto-js'
 
-import { MerkleTreeNode, pubkeyToWordArray } from '../../merkleTree'
+import { MerkleTreeNode } from '../../merkleTree'
 import { VALIDATOR_BONDS_PROGRAM_ID, seedFromConstants } from '../../sdk'
 
 import type { ValidatorBonds } from '../../../idl/types/validator_bonds'
@@ -53,11 +53,9 @@ export function hashTreeV1(
   withdrawAuthority: PublicKey,
   claim: BN | number,
 ): MerkleTreeNodeEncoded {
-  const sha256 = CryptoJS.algo.SHA256.create()
-  sha256.update(pubkeyToWordArray(stakeAuthority))
-  sha256.update(pubkeyToWordArray(withdrawAuthority))
-  claim = new BN(claim)
-  sha256.update(CryptoJS.enc.Hex.parse(claim.toBuffer('le', 8).toString('hex')))
-  const wordArray = sha256.finalize()
-  return MerkleTreeNode.toEncodings(wordArray)
+  const hasher = sha256.create()
+  hasher.update(stakeAuthority.toBuffer())
+  hasher.update(withdrawAuthority.toBuffer())
+  hasher.update(new BN(claim).toBuffer('le', 8))
+  return MerkleTreeNode.toEncodings(hasher.digest())
 }
