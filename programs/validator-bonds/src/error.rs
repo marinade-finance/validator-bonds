@@ -245,4 +245,13 @@ pub enum ErrorCode {
 
     #[msg("Settlement split rent collector is already set")]
     SettlementSplitRentCollectorAlreadySet, // 6079 0x17bf
+
+    #[msg("Stake account to claim into is not in the Marinade liquid stake list")]
+    StakeAccountNotInMarinadeLiquidStakeList, // 6080 0x17c0
+
+    #[msg("Marinade liquid State and stake list accounts are required for the mSOL withdrawer")]
+    MarinadeLiquidAccountsMissing, // 6081 0x17c1
+
+    #[msg("Marinade liquid State or stake list account is invalid")]
+    InvalidMarinadeLiquidAccount, // 6082 0x17c2
 }
