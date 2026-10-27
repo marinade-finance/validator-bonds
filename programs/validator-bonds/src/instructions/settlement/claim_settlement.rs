@@ -1,10 +1,8 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_marinade_liquid_stake_list_member, check_stake_is_initialized_with_withdrawer_authority,
+    check_stake_is_not_locked,
 };
-use crate::constants::{
-    BONDS_WITHDRAWER_AUTHORITY_SEED, MARINADE_LIQUID_PROGRAM_ID,
-    MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY, MARINADE_LIQUID_STATE,
-};
+use crate::constants::{BONDS_WITHDRAWER_AUTHORITY_SEED, MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY};
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementV2Event;
 use crate::events::U64ValueChange;
@@ -12,9 +10,7 @@ use crate::state::bond::Bond;
 use crate::state::config::Config;
 use crate::state::settlement::Settlement;
 use crate::state::settlement_claims::{SettlementClaims, SettlementClaimsWrapped};
-use crate::utils::{
-    merkle_proof, minimal_size_stake_account, parse_state_stake_list_meta, stake_list_contains,
-};
+use crate::utils::{merkle_proof, minimal_size_stake_account};
 use anchor_lang::prelude::*;
 use anchor_spl::stake::{withdraw, Stake, StakeAccount, Withdraw};
 use merkle_tree::psr_claim::TreeNode;
@@ -304,40 +300,4 @@ impl ClaimSettlementV2<'_> {
 
         Ok(())
     }
-}
-
-fn check_marinade_liquid_stake_list_member(
-    state: Option<&UncheckedAccount>,
-    stake_list: Option<&UncheckedAccount>,
-    stake_account_to: &Pubkey,
-) -> Result<()> {
-    let (state, stake_list) = state
-        .zip(stake_list)
-        .ok_or(ErrorCode::MarinadeLiquidAccountsMissing)?;
-    require_keys_eq!(
-        state.key(),
-        MARINADE_LIQUID_STATE,
-        ErrorCode::InvalidMarinadeLiquidAccount
-    );
-    require_keys_eq!(
-        *state.owner,
-        MARINADE_LIQUID_PROGRAM_ID,
-        ErrorCode::InvalidMarinadeLiquidAccount
-    );
-    let meta = parse_state_stake_list_meta(&state.try_borrow_data()?)?;
-    require_keys_eq!(
-        stake_list.key(),
-        meta.account,
-        ErrorCode::InvalidMarinadeLiquidAccount
-    );
-    require_keys_eq!(
-        *stake_list.owner,
-        MARINADE_LIQUID_PROGRAM_ID,
-        ErrorCode::InvalidMarinadeLiquidAccount
-    );
-    require!(
-        stake_list_contains(&stake_list.try_borrow_data()?, &meta, stake_account_to)?,
-        ErrorCode::StakeAccountNotInMarinadeLiquidStakeList
-    );
-    Ok(())
 }

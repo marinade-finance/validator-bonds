@@ -1,5 +1,7 @@
+use crate::constants::{MARINADE_LIQUID_PROGRAM_ID, MARINADE_LIQUID_STATE};
 use crate::error::ErrorCode;
 use crate::state::bond::Bond;
+use crate::utils::{parse_state_stake_list_meta, stake_list_contains};
 use anchor_lang::prelude::*;
 use anchor_lang::prelude::{msg, Pubkey};
 use anchor_lang::require_keys_eq;
@@ -11,6 +13,43 @@ use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::stake_history::StakeHistoryEntry;
 use solana_stake_interface::state::{Delegation, Meta, Stake, StakeStateV2};
 use std::ops::Deref;
+
+/// Verification the stake account is listed in the Marinade liquid stake list read from the State
+pub fn check_marinade_liquid_stake_list_member(
+    state: Option<&UncheckedAccount>,
+    stake_list: Option<&UncheckedAccount>,
+    stake_account_to: &Pubkey,
+) -> Result<()> {
+    let (state, stake_list) = state
+        .zip(stake_list)
+        .ok_or(ErrorCode::MarinadeLiquidAccountsMissing)?;
+    require_keys_eq!(
+        state.key(),
+        MARINADE_LIQUID_STATE,
+        ErrorCode::InvalidMarinadeLiquidAccount
+    );
+    require_keys_eq!(
+        *state.owner,
+        MARINADE_LIQUID_PROGRAM_ID,
+        ErrorCode::InvalidMarinadeLiquidAccount
+    );
+    let meta = parse_state_stake_list_meta(&state.try_borrow_data()?)?;
+    require_keys_eq!(
+        stake_list.key(),
+        meta.account,
+        ErrorCode::InvalidMarinadeLiquidAccount
+    );
+    require_keys_eq!(
+        *stake_list.owner,
+        MARINADE_LIQUID_PROGRAM_ID,
+        ErrorCode::InvalidMarinadeLiquidAccount
+    );
+    require!(
+        stake_list_contains(&stake_list.try_borrow_data()?, &meta, stake_account_to)?,
+        ErrorCode::StakeAccountNotInMarinadeLiquidStakeList
+    );
+    Ok(())
+}
 
 /// Verification the account is owned by vote program + matching validator identity
 pub fn check_vote_account_validator_identity(

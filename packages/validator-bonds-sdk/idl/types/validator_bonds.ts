@@ -5857,6 +5857,21 @@ export type ValidatorBonds = {
       "value": "[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]"
     },
     {
+      "name": "marinadeLiquidProgramId",
+      "type": "pubkey",
+      "value": "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD"
+    },
+    {
+      "name": "marinadeLiquidStakeWithdrawAuthority",
+      "type": "pubkey",
+      "value": "9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco"
+    },
+    {
+      "name": "marinadeLiquidState",
+      "type": "pubkey",
+      "value": "8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC"
+    },
+    {
       "name": "programId",
       "type": "string",
       "value": "\"vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4\""
