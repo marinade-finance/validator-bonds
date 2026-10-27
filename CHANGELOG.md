@@ -10,6 +10,16 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+## contract release (unreleased)
+
+### Breaking
+
+- `claim_settlement_v2` takes two optional accounts, `marinade_liquid_state` and `marinade_liquid_stake_list`, after `stake_program`, so `event_authority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. Ship the program upgrade, the `claim-settlement` binary and the SDK/codama major versions in one release window.
+
+### Changes
+
+- Leaves whose withdrawer is the Marinade liquid withdraw authority can be claimed only into a stake account on the liquid stake list (README, Known constraints).
+
 ## contract release v2.2.1 (2025-04-02)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
