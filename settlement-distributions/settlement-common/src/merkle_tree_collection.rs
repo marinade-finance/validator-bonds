@@ -252,5 +252,46 @@ mod tests {
                 tree_node.hash()
             )
         }
+
+        let msol_staker = Pubkey::from_str("4bZ6o3eUUNXhKuqjdCnCoPAoLgWiuLYixKaxoa8PpiKk").unwrap();
+        let msol_withdrawer =
+            Pubkey::from_str("9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco").unwrap();
+        let mut items_msol: Vec<TreeNode> = [
+            (msol_staker, msol_withdrawer, 1000),
+            (msol_staker, msol_withdrawer, 2000),
+            (msol_staker, msol_withdrawer, 3000),
+            (msol_staker, msol_withdrawer, 4000),
+            (staker1, withdrawer1, 1234),
+            (staker1, withdrawer1, 5678),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(
+            |(index, (stake_authority, withdraw_authority, claim))| TreeNode {
+                stake_authority,
+                withdraw_authority,
+                claim,
+                index: index as u64,
+                proof: None,
+            },
+        )
+        .collect();
+        let item_msol_hashes = items_msol.iter().map(|n| n.hash()).collect::<Vec<_>>();
+        let merkle_tree_msol = MerkleTree::new(&item_msol_hashes[..], true);
+        let merkle_tree_msol_root = merkle_tree_msol.get_root().unwrap();
+        println!("merkle tree root msol: {merkle_tree_msol_root}");
+        assert_eq!(
+            merkle_tree_msol_root.to_string(),
+            "8tPZyA6xYco9YAz65V2PYoeEYqzvbCRrtovMsumcUBiu"
+        );
+        for (i, tree_node) in items_msol.iter_mut().enumerate() {
+            tree_node.proof = Some(get_proof(&merkle_tree_msol, i));
+            println!(
+                "msol: index: {}, proof: {:?}, hash tree node: {}",
+                tree_node.index,
+                tree_node.proof,
+                tree_node.hash()
+            )
+        }
     }
 }
