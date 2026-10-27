@@ -26,6 +26,17 @@ export const MARINADE_INSTITUTIONAL_CONFIG_ADDRESS = new PublicKey(
   'VbinSTyUEC8JXtzFteC4ruKSfs6dkQUUcY6wB1oJyjE',
 )
 
+export const MARINADE_LIQUID_PROGRAM_ID = new PublicKey(
+  'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD',
+)
+export const MARINADE_LIQUID_STATE = new PublicKey(
+  '8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC',
+)
+export const MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY = new PublicKey(
+  '9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco',
+)
+export const MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET = 150
+
 export const VALIDATOR_BONDS_PROGRAM_ID = new PublicKey(
   JSON.parse(
     ValidatorBondsIDL.constants.find(x => x.name === 'PROGRAM_ID')!.value,
