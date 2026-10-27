@@ -562,6 +562,14 @@ export type ValidatorBonds = {
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
+          "name": "marinadeLiquidState",
+          "optional": true
+        },
+        {
+          "name": "marinadeLiquidStakeList",
+          "optional": true
+        },
+        {
           "name": "eventAuthority"
         },
         {
@@ -3738,6 +3746,21 @@ export type ValidatorBonds = {
       "code": 6079,
       "name": "settlementSplitRentCollectorAlreadySet",
       "msg": "Settlement split rent collector is already set"
+    },
+    {
+      "code": 6080,
+      "name": "stakeAccountNotInMarinadeLiquidStakeList",
+      "msg": "Stake account to claim into is not in the Marinade liquid stake list"
+    },
+    {
+      "code": 6081,
+      "name": "marinadeLiquidAccountsMissing",
+      "msg": "Marinade liquid State and stake list accounts are required for the mSOL withdrawer"
+    },
+    {
+      "code": 6082,
+      "name": "invalidMarinadeLiquidAccount",
+      "msg": "Marinade liquid State or stake list account is invalid"
     }
   ],
   "types": [

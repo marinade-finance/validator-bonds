@@ -464,6 +464,8 @@ async fn claim_settlement<'a>(
                 bonds_withdrawer_authority,
                 stake_history: stake_history_id,
                 stake_program: stake_program_id,
+                marinade_liquid_state: None,
+                marinade_liquid_stake_list: None,
                 program: validator_bonds_id,
                 clock: clock_id,
                 event_authority: find_event_authority().0,

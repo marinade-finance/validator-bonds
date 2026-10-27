@@ -165,6 +165,8 @@ export async function claimSettlementV2Instruction({
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      marinadeLiquidState: null,
+      marinadeLiquidStakeList: null,
     })
     .instruction()
   return {

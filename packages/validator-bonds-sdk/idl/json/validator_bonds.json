@@ -556,6 +556,14 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
+          "name": "marinade_liquid_state",
+          "optional": true
+        },
+        {
+          "name": "marinade_liquid_stake_list",
+          "optional": true
+        },
+        {
           "name": "event_authority"
         },
         {
@@ -3732,6 +3740,21 @@
       "code": 6079,
       "name": "SettlementSplitRentCollectorAlreadySet",
       "msg": "Settlement split rent collector is already set"
+    },
+    {
+      "code": 6080,
+      "name": "StakeAccountNotInMarinadeLiquidStakeList",
+      "msg": "Stake account to claim into is not in the Marinade liquid stake list"
+    },
+    {
+      "code": 6081,
+      "name": "MarinadeLiquidAccountsMissing",
+      "msg": "Marinade liquid State and stake list accounts are required for the mSOL withdrawer"
+    },
+    {
+      "code": 6082,
+      "name": "InvalidMarinadeLiquidAccount",
+      "msg": "Marinade liquid State or stake list account is invalid"
     }
   ],
   "types": [
