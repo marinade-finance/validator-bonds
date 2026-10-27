@@ -144,8 +144,11 @@ anchor idl create-buffer --provider.cluster mainnet --provider.wallet [fee-payer
   -f target/idl/validator_bonds.json
 anchor idl set-buffer-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
   --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
-# the write from the buffer is signed by the upgrade authority, i.e., proposed via SPL Governance;
-# it is the transaction of `anchor idl write-buffer --buffer <BUFFER_PUBKEY> vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`
+# the write from the buffer is signed by the upgrade authority: export it and submit via SPL Governance (as in 4.b, 4.c)
+npx --yes --package=@solana-program/program-metadata@0.5.1 program-metadata \
+  write idl vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --buffer <BUFFER_PUBKEY> \
+  --rpc https://api.mainnet-beta.solana.com -k [fee-payer-keypair] \
+  --export 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --export-encoding base64
 
 
 # 3. check verifiable deployment with solana-verify (<BUFFER_PUBKEY> can be verified as well)
