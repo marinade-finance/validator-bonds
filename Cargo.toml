@@ -42,7 +42,7 @@ merkle-tree = { path = "./merkle-tree" }
 openssl = "0.10.80"
 postgres-openssl = "0.5.1"
 regex = "1.10.4"
-reqwest = "0.12"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 rust_decimal = { version = "1.37.1", features = ["db-postgres"] }
 rust_decimal_macros = "1.37.1"
 serde = "1.0.197"
