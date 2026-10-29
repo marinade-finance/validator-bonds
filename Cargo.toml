@@ -42,7 +42,7 @@ merkle-tree = { path = "./merkle-tree" }
 openssl = "0.10.80"
 postgres-openssl = "0.5.1"
 regex = "1.10.4"
-reqwest = "0.11.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 rust_decimal = { version = "1.37.1", features = ["db-postgres"] }
 rust_decimal_macros = "1.37.1"
 serde = "1.0.197"
@@ -78,7 +78,6 @@ tracing-subscriber = { version = "0.3" }
 utoipa = { version = "3.2.1", features = ["chrono", "decimal"] }
 validator-bonds = { path = "./programs/validator-bonds" }
 validator-bonds-common = { path = "./common-rs" }
-warp = { version = "0.3", features = ["compression-gzip"] }
 
 [patch.crates-io]
 # solana-ledger 4.3.0 (via the parser) calls rocksdb APIs only agave's fork has
