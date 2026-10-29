@@ -5,7 +5,7 @@
     "eval": "cd plugins/validator-bonds && bun eval.ts",
     "anchor:build": "ANCHOR_BUILD_SBF_ARCH=v0 anchor build",
     "build": "pnpm anchor:build && pnpm -r build",
-    "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",
+    "_test": "TS_NODE_TRANSPILE_ONLY=1 pnpm jest --config jest.config.test-validator.js --verbose --runInBand --bail -- \"$FILE\"",
     "pretest:validator": "node -e \"const [maj,min] = process.versions.node.split('.').map(Number); if (maj < 20 || (maj === 20 && min < 18)) { console.error('Node.js 20.18.0 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
     "test:validator": "ANCHOR_BUILD_SBF_ARCH=v0 anchor test --validator legacy",
     "test:bankrun": "pnpm anchor:build && pnpm jest --config jest.config.bankrun.js --runInBand true -- \"$FILE\"",

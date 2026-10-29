@@ -28,8 +28,6 @@ import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair } from '@solana/web3.js'
 
-jest.setTimeout(5000 * 1000)
-
 describe('Configure bond account using CLI (institutional)', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram

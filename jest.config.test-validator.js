@@ -6,7 +6,7 @@ module.exports = {
   modulePathIgnorePatterns: ['dist/'],
   testRegex: ['__tests__/test-validator/.*.spec.ts'],
   testPathIgnorePatterns: ['.*utils.*'],
-  testTimeout: 1200000,
+  testTimeout: 240000,
   detectOpenHandles: true,
   setupFiles: ['reflect-metadata'],
   setupFilesAfterEnv: [

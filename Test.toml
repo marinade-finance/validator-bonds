@@ -4,7 +4,9 @@
 test = "pnpm _test"
 
 [test.validator]
-slots_per_epoch = "32"
+# root lags the tip by 31 slots, 32-slot epochs deadlock when a dead test vote identity leads a window
+slots_per_epoch = "64"
+ticks_per_slot = "32"
 
 [[test.genesis]]
 address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"  
