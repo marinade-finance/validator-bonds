@@ -99,6 +99,12 @@ and reports about stake claimed this way are out of scope. The one on-chain exce
 liquid staking (mSOL), which Marinade manages: its leaf can be claimed only into a stake account
 listed in the liquid staking stake list.
 
+A partial `claim_withdraw_request` splits by delegated stake only, so it can fail with
+`InsufficientDelegation`; withdrawing the whole stake account works around it
+(https://github.com/marinade-finance/validator-bonds/pull/159).
+`cancel_settlement` fails in the epoch its settlement was funded by a split, because the split stake
+is not yet withdrawable; it succeeds in the next epoch.
+
 ## Contract Audits
 
 - [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0),
