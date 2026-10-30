@@ -10,23 +10,27 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
-## contract release v2.3.0 (TBD)
+## contract release v2.3.0 (2026-10-30)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
-- tag: [`contract-v2.3.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.3.0), commit: TBD,
-- tx: TBD
+- tag: [`contract-v2.3.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.3.0), commit: [`d607a31`](https://github.com/marinade-finance/validator-bonds/commit/d607a3115deabb665faa3417f9d31c887ca9c538),
+- branch: [`merge-stake-activation-guard`](https://github.com/marinade-finance/validator-bonds/tree/merge-stake-activation-guard), the deployed build predates the squash merge of [PR#558](https://github.com/marinade-finance/validator-bonds/pull/558)
+- SPL Governance proposal: [`9wiVP...RCiR`](https://v2.realms.today/dao/899YG3yk4F66ZgbNWLHriZHTXSKk9e1kvsKEquW7L6Mo/proposal/9wiVPXMjs4sKQbtTfz8GQVwQL3tLVDLLTHPQnqrXRCiR/instructions)
+- tx:
+  - program upgrade: [`31q5y...VAUS`](https://explorer.solana.com/tx/31q5y3UnUMmcdskWptLQxtCmEQ7Z9c6kc1pCKMssJc678M6xng9rM8oFm7eYV8JmDNCSZJt2gPUDSffTJbbpVAUS)
+  - IDL metadata write: [`38Kke...TAY`](https://explorer.solana.com/tx/38Kke7WV6qjTcF61x9XqNWLLqeozdxjvkha6avW7Rcw6jMxx7VEhfPv5UCCPvavo5BFd13GwP2FeVv5DxBrB7TAY), [`vUfQE...45G7`](https://explorer.solana.com/tx/vUfQEJbE7vqg7q9GF9sHjC9qtuNV1igpvRCwm31UBMPShLgUJwkGBcPBDVB7SjKDz4CuMiTy7DrJ8vehLit45G7)
 - solana-verify command (anchor 1.x `verify` no longer takes `-p`/`--env`):
   ```
   solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
     --library-name validator_bonds \
     --base-image quay.io/ottersec/anchor:v1.2.1 \
-    --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash <commit> \
-    -- --config env.GIT_REV=\'<commit>\' --config env.GIT_REV_NAME=\'v2.3.0\'
+    --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash d607a3115deabb665faa3417f9d31c887ca9c538 \
+    -- --config env.GIT_REV=\'d607a311\' --config env.GIT_REV_NAME=\'v2.3.0\'
   ```
 
 ### Breaking updates
 
-- `ClaimSettlementV2` instruction takes two optional accounts, `marinadeLiquidState` and `marinadeLiquidStakeList`, after `stakeProgram`, so `eventAuthority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. The program upgrade, the `claim-settlement` binary, SDK 4.0.0 and codama 5.0.0 ship in one release window.
+- `ClaimSettlementV2` instruction takes two optional accounts, `marinadeLiquidState` and `marinadeLiquidStakeList`, after `stakeProgram`, so `eventAuthority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. The program upgrade, the `claim-settlement` binary, SDK 3.0.0 and codama 5.0.0 ship in one release window.
 
 ### Changes
 
