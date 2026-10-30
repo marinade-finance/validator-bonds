@@ -1,7 +1,8 @@
 use crate::checks::{
-    check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
+    check_marinade_liquid_stake_list_member, check_stake_is_initialized_with_withdrawer_authority,
+    check_stake_is_not_locked,
 };
-use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
+use crate::constants::{BONDS_WITHDRAWER_AUTHORITY_SEED, MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY};
 use crate::error::ErrorCode;
 use crate::events::settlement_claim::ClaimSettlementV2Event;
 use crate::events::U64ValueChange;
@@ -111,6 +112,12 @@ pub struct ClaimSettlementV2<'info> {
     pub clock: Sysvar<'info, Clock>,
 
     pub stake_program: Program<'info, Stake>,
+
+    /// CHECK: required for the Marinade liquid withdrawer, verified in the handler
+    pub marinade_liquid_state: Option<UncheckedAccount<'info>>,
+
+    /// CHECK: required for the Marinade liquid withdrawer, verified in the handler
+    pub marinade_liquid_stake_list: Option<UncheckedAccount<'info>>,
 }
 
 impl ClaimSettlementV2<'_> {
@@ -212,6 +219,14 @@ impl ClaimSettlementV2<'_> {
             &ctx.accounts.clock,
             "stake_account_to",
         )?;
+        // when withdrawing to mSOL pool then we require the target is a pool's managed stake account
+        if stake_account_withdrawer == MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY {
+            check_marinade_liquid_stake_list_member(
+                ctx.accounts.marinade_liquid_state.as_ref(),
+                ctx.accounts.marinade_liquid_stake_list.as_ref(),
+                &ctx.accounts.stake_account_to.key(),
+            )?;
+        }
 
         // The provided stake account must be sufficiently large to cover the claim while remaining valid.
         // It is the caller's responsibility to merge stake accounts if necessary.

@@ -2,7 +2,7 @@
   "address": "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4",
   "metadata": {
     "name": "validator_bonds",
-    "version": "2.2.1",
+    "version": "2.3.0",
     "spec": "0.1.0",
     "description": "Marinade validator bonds program protecting validators performance"
   },
@@ -215,33 +215,7 @@
           "address": "SysvarStakeHistory1111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -354,33 +328,7 @@
           "writable": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -608,33 +556,15 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "marinade_liquid_state",
+          "optional": true
+        },
+        {
+          "name": "marinade_liquid_stake_list",
+          "optional": true
+        },
+        {
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -835,33 +765,7 @@
           "address": "SysvarC1ock11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1069,33 +973,7 @@
           "address": "SysvarStakeHistory1111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1169,33 +1047,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1314,33 +1166,7 @@
           "signer": true
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1461,33 +1287,7 @@
           "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1532,33 +1332,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1600,33 +1374,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1659,33 +1407,7 @@
           ]
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -1809,33 +1531,7 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2086,33 +1782,7 @@
           "address": "StakeConfig11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2197,33 +1867,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2359,33 +2003,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2433,33 +2051,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2625,33 +2217,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2781,33 +2347,7 @@
           "address": "11111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -2870,33 +2410,7 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -3126,33 +2640,7 @@
           "address": "SysvarRent111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -3288,33 +2776,7 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -3475,33 +2937,7 @@
           "address": "Stake11111111111111111111111111111111111111"
         },
         {
-          "name": "event_authority",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  95,
-                  95,
-                  101,
-                  118,
-                  101,
-                  110,
-                  116,
-                  95,
-                  97,
-                  117,
-                  116,
-                  104,
-                  111,
-                  114,
-                  105,
-                  116,
-                  121
-                ]
-              }
-            ]
-          }
+          "name": "event_authority"
         },
         {
           "name": "program"
@@ -4299,6 +3735,26 @@
       "code": 6078,
       "name": "ProductTypeConfigValidationFailure",
       "msg": "Fail to validate ProductConfig value"
+    },
+    {
+      "code": 6079,
+      "name": "SettlementSplitRentCollectorAlreadySet",
+      "msg": "Settlement split rent collector is already set"
+    },
+    {
+      "code": 6080,
+      "name": "StakeAccountNotInMarinadeLiquidStakeList",
+      "msg": "Stake account to claim into is not in the Marinade liquid stake list"
+    },
+    {
+      "code": 6081,
+      "name": "MarinadeLiquidAccountsMissing",
+      "msg": "Marinade liquid State and stake list accounts are required for the mSOL withdrawer"
+    },
+    {
+      "code": 6082,
+      "name": "InvalidMarinadeLiquidAccount",
+      "msg": "Marinade liquid State or stake list account is invalid"
     }
   ],
   "types": [
@@ -6393,6 +5849,21 @@
       "name": "BOND_SEED",
       "type": "bytes",
       "value": "[98, 111, 110, 100, 95, 97, 99, 99, 111, 117, 110, 116]"
+    },
+    {
+      "name": "MARINADE_LIQUID_PROGRAM_ID",
+      "type": "pubkey",
+      "value": "MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD"
+    },
+    {
+      "name": "MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY",
+      "type": "pubkey",
+      "value": "9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco"
+    },
+    {
+      "name": "MARINADE_LIQUID_STATE",
+      "type": "pubkey",
+      "value": "8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC"
     },
     {
       "name": "PROGRAM_ID",

@@ -10,6 +10,34 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+## contract release v2.3.0 (TBD)
+
+- address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
+- tag: [`contract-v2.3.0`](https://github.com/marinade-finance/validator-bonds/releases/tag/contract-v2.3.0), commit: TBD,
+- tx: TBD
+- solana-verify command (anchor 1.x `verify` no longer takes `-p`/`--env`):
+  ```
+  solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
+    --library-name validator_bonds \
+    --base-image quay.io/ottersec/anchor:v1.2.1 \
+    --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash <commit> \
+    -- --config env.GIT_REV=\'<commit>\' --config env.GIT_REV_NAME=\'v2.3.0\'
+  ```
+
+### Breaking updates
+
+- `ClaimSettlementV2` instruction takes two optional accounts, `marinadeLiquidState` and `marinadeLiquidStakeList`, after `stakeProgram`, so `eventAuthority` and `program` move to indexes 12 and 13. Claim clients built for the old account list fail every claim against this program, and new clients fail against the old one. The program upgrade, the `claim-settlement` binary, SDK 4.0.0 and codama 5.0.0 ship in one release window.
+
+### Changes
+
+- Anchor update to 1.2.1 ([PR#525](https://github.com/marinade-finance/validator-bonds/pull/525))
+- Leaves whose withdrawer is the Marinade liquid withdraw authority can be claimed only into a stake account on the liquid stake list (README, Known constraints)
+- `merge_stake` rejects merging stakes of different deactivation state
+- `reset_stake` skips re-delegation of a stake that is not deactivated
+- `close_settlement_v2` and `cancel_settlement` refund the split rent only from a stake funded to the settlement
+- `cancel_settlement` checks the split rent collector
+- `fund_settlement` rejects overwriting the split rent collector
+
 ## contract release v2.2.1 (2025-04-02)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)

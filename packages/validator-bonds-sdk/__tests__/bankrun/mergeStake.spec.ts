@@ -5,7 +5,7 @@ import {
   warpToEpoch,
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
-import { pubkey, signer } from '@marinade.finance/web3js-1x'
+import { U64_MAX, pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -667,6 +667,141 @@ describe('Staking merge verification/investigation', () => {
     expect(settlement.lamportsFunded).toEqual(
       maxTotalClaim + 1 * LAMPORTS_PER_SOL,
     )
+  })
+
+  it('cannot merge deactivated settlement stake into activating stake', async () => {
+    const { voteAccount, validatorIdentity } = await createVoteAccount({
+      provider,
+    })
+    await executeInitBondInstruction({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      validatorIdentity,
+    })
+    const maxTotalClaim = LAMPORTS_PER_SOL * 10
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      maxTotalClaim,
+      currentEpoch: await currentEpoch(provider),
+    })
+    const lamportsToFund = maxTotalClaim / 2 + 2 * LAMPORTS_PER_SOL
+    const settlementStake = await createBondsFundedStakeAccountActivated(
+      voteAccount,
+      lamportsToFund,
+    )
+    const fundEpoch = await currentEpoch(provider)
+    const { instruction: fundIx, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount: settlementStake,
+      })
+    await provider.sendIx(
+      [signer(splitStakeAccount), operatorAuthority],
+      fundIx,
+    )
+
+    const [withdrawerAuthority] = bondsWithdrawerAuthority(
+      configAccount,
+      program.programId,
+    )
+    const [stakerAuthority] = settlementStakerAuthority(
+      settlementAccount,
+      program.programId,
+    )
+    let [settlementStakeData] = await getAndCheckStakeAccount(
+      provider,
+      settlementStake,
+      StakeStates.Delegated,
+    )
+    expect(settlementStakeData.Stake?.meta.authorized.staker).toEqual(
+      stakerAuthority,
+    )
+    expect(settlementStakeData.Stake?.meta.authorized.withdrawer).toEqual(
+      withdrawerAuthority,
+    )
+    expect(
+      settlementStakeData.Stake?.stake.delegation.deactivationEpoch,
+    ).toEqual(fundEpoch)
+
+    // settlement stake fully deactivated; attacker stake delegated in the current epoch
+    await warpToNextEpoch(provider)
+    const { stakeAccount: attackerStake, withdrawer: attackerWithdrawer } =
+      await delegatedStakeAccount({
+        provider,
+        voteAccountToDelegate: voteAccount,
+        lamports: 2 * LAMPORTS_PER_SOL,
+      })
+    await authorizeStakeAccount({
+      provider,
+      stakeAccount: attackerStake,
+      authority: attackerWithdrawer,
+      staker: stakerAuthority,
+      withdrawer: withdrawerAuthority,
+    })
+    const [attackerStakeData] = await getAndCheckStakeAccount(
+      provider,
+      attackerStake,
+      StakeStates.Delegated,
+    )
+    expect(attackerStakeData.Stake?.meta.authorized.staker).toEqual(
+      stakerAuthority,
+    )
+    expect(attackerStakeData.Stake?.meta.authorized.withdrawer).toEqual(
+      withdrawerAuthority,
+    )
+    expect(attackerStakeData.Stake?.stake.delegation.voterPubkey).toEqual(
+      voteAccount,
+    )
+    expect(attackerStakeData.Stake?.stake.delegation.deactivationEpoch).toEqual(
+      U64_MAX,
+    )
+
+    for (const [sourceStakeAccount, destinationStakeAccount] of [
+      [settlementStake, attackerStake],
+      [attackerStake, settlementStake],
+    ] as const) {
+      const { instruction } = await mergeStakeInstruction({
+        program,
+        configAccount,
+        sourceStakeAccount,
+        destinationStakeAccount,
+        settlementAccount,
+        stakerAuthority,
+      })
+      try {
+        await provider.sendIx([], instruction)
+        throw new Error('failure expected; different deactivation state')
+      } catch (e) {
+        verifyError(
+          e,
+          Errors,
+          6047,
+          'Delegation of provided stake account mismatches',
+        )
+      }
+    }
+
+    ;[settlementStakeData] = await getAndCheckStakeAccount(
+      provider,
+      settlementStake,
+      StakeStates.Delegated,
+    )
+    expect(settlementStakeData.Stake?.meta.authorized.staker).toEqual(
+      stakerAuthority,
+    )
+    expect(
+      settlementStakeData.Stake?.stake.delegation.deactivationEpoch,
+    ).toEqual(fundEpoch)
+    expect(
+      (await provider.connection.getAccountInfo(settlementStake))?.lamports,
+    ).toEqual(lamportsToFund)
   })
 
   async function createBondsFundedStakeAccountActivated(

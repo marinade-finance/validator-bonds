@@ -6,7 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
-import type { ReadonlyUint8Array } from '@solana/kit'
+import { address, type Address, type ReadonlyUint8Array } from '@solana/kit'
 
 export const BOND_MINT_SEED: ReadonlyUint8Array = new Uint8Array([
   98, 111, 110, 100, 95, 109, 105, 110, 116,
@@ -24,6 +24,18 @@ export const BONDS_WITHDRAWER_AUTHORITY_SEED: ReadonlyUint8Array =
   new Uint8Array([
     98, 111, 110, 100, 115, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121,
   ])
+
+export const MARINADE_LIQUID_PROGRAM_ID: Address = address(
+  'MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD',
+)
+
+export const MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY: Address = address(
+  '9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco',
+)
+
+export const MARINADE_LIQUID_STATE: Address = address(
+  '8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC',
+)
 
 export const PROGRAM_ID: string = 'vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4'
 

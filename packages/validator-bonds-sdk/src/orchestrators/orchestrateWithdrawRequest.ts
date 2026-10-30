@@ -112,8 +112,7 @@ export async function orchestrateWithdrawDeposit({
   let amountToWithdraw = withdrawRequestData.requestedAmount.sub(
     withdrawRequestData.withdrawnAmount,
   )
-  amountToWithdraw =
-    amountToWithdraw <= new BN(0) ? new BN(0) : amountToWithdraw
+  amountToWithdraw = amountToWithdraw.lten(0) ? new BN(0) : amountToWithdraw
 
   // calculating what are the stake accounts we need to merge to easily withdraw the deposit
   const [bondWithdrawerAuthority] = bondsWithdrawerAuthority(
@@ -146,8 +145,10 @@ export async function orchestrateWithdrawDeposit({
     accounts: ProgramAccountInfo<StakeAccountParsed>[]
   }>(
     (acc, accountInfo) => {
-      if (acc.stakesAmount < amountToWithdraw) {
-        acc.stakesAmount.add(new BN(accountInfo.account.lamports))
+      if (acc.stakesAmount.lt(amountToWithdraw)) {
+        acc.stakesAmount = acc.stakesAmount.add(
+          new BN(accountInfo.account.lamports),
+        )
         acc.accounts.push(accountInfo)
       }
       return acc
@@ -178,7 +179,9 @@ export async function orchestrateWithdrawDeposit({
 
       if (
         isFullyActive(sourceStakeAccount, currentEpoch) ===
-        isFullyActive(destinationStakeAccount, currentEpoch)
+          isFullyActive(destinationStakeAccount, currentEpoch) &&
+        sourceStakeAccount.account.data.isCoolingDown ===
+          destinationStakeAccount.account.data.isCoolingDown
       ) {
         const mergeIx = await mergeStakeInstruction({
           program,
@@ -228,7 +231,7 @@ export async function orchestrateWithdrawDeposit({
     instructions.push(withdrawRequest.instruction)
   }
 
-  if (stakeAccountsFunded.length === 0 && amountToWithdraw > new BN(0)) {
+  if (stakeAccountsFunded.length === 0 && amountToWithdraw.gtn(0)) {
     throw new Error(
       'Claim withdraw request failed: No stake accounts found for bond account ' +
         `(${bondAccount.toBase58()}) to process the withdrawal.`,

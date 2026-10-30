@@ -109,7 +109,8 @@ In the event that the operator authority's hot wallet key is compromised, the ad
 ```sh
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 echo "Building version $VERSION"
-anchor build --verifiable --arch v0 \
+# TODO: arch v0 is because of bankrun tested only v0, moving to litesvm is a step to fix this
+anchor build --verifiable --arch v0 --tools-version v1.54 --ignore-keys \
   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
 
 # 1. DEPLOY
@@ -121,8 +122,7 @@ solana program deploy -v -ud \
    ./target/verifiable/validator_bonds.so
 
 # deploy (mainnet, SPL Gov authority multisig, governance 7iUtT...wtBZY)
-# NOTE: solana version 1.18.x; `--with-compute-unit-price --use-rpc --use-quic` fixing the congestion of the network
-#       check the latest available Solana client version at https://docs.solanalabs.com/cli/install
+# NOTE: `--with-compute-unit-price --use-rpc --use-quic` fixing the congestion of the network
 solana -um -k [fee-payer-keypair] \
     program write-buffer target/verifiable/validator_bonds.so \
     --with-compute-unit-price 10 \
@@ -132,45 +132,48 @@ solana -um -k [fee-payer-keypair] \
     --new-buffer-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
 
 
-# 2. IDL UPDATE, idl account Du3XrzTNqhLt9gpui9LUogrLqCDrVC2HrtiNXHSJM58y)
-# NOTE: 'Error processing Instruction 0: custom program error: 0x7d3' means wrong IDL authority
+# 2. IDL UPDATE, Program Metadata account written via `npx @solana-program/program-metadata` (anchor 1.x)
+# NOTE: only the program upgrade authority writes the canonical IDL; `idl init` and `idl upgrade` run the same write
+#       the legacy anchor IDL account Du3XrzTNqhLt9gpui9LUogrLqCDrVC2HrtiNXHSJM58y is not updated anymore
 ## publish IDL (devnet, hot wallet)
-anchor --provider.cluster devnet idl \
-  --provider.wallet [idl-authority-and-fee-payer-keypair] \
-  # init vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  upgrade vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  -f ./target/idl/validator_bonds.json
+anchor idl upgrade --provider.cluster devnet \
+  --provider.wallet [upgrade-authority-and-fee-payer-keypair] \
+  -f ./target/idl/validator_bonds.json vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
 
 ## publish IDL (mainnet, spl gov)
-anchor idl write-buffer --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
-  --filepath target/idl/validator_bonds.json vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
-anchor idl set-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
-  --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 \
-  <BUFFER_PUBKEY>
+anchor idl create-buffer --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
+  -f target/idl/validator_bonds.json
+anchor idl set-buffer-authority --provider.cluster mainnet --provider.wallet [fee-payer-keypair] \
+  --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
+# the write from the buffer is signed by the upgrade authority: export it and submit via SPL Governance (as in 4.b, 4.c)
+# or insert the base64 transactions as is: `spl-governance-cli proposal insert-transactions <proposal> -t <base64...>`
+npx --yes --package=@solana-program/program-metadata@0.11.0 program-metadata \
+  write idl vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --buffer <BUFFER_PUBKEY> \
+  --rpc https://api.mainnet-beta.solana.com -k [fee-payer-keypair] \
+  --export 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --export-encoding base64 \
+  --single-extend-per-tx
 
-## in case a need of base64 anchor update
-anchor idl --provider.cluster mainnet set-buffer --print-only \
-  --buffer <BUFFER_PUBKEY> vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
 
-
-# 3.check verifiable deployment (<BUFFER_PUBKEY> can be verified as well)
-#   a) when the target/verifiable/.so has been built already use switch --skip-build
+# 3. check verifiable deployment with solana-verify (<BUFFER_PUBKEY> can be verified as well)
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 COMMIT_HASH=`git rev-parse --short HEAD`
-echo "Verification version $VERSION, commit hash $COMMIT_HASH"
-anchor --provider.cluster mainnet \
-   verify -p validator_bonds \
-   --env "GIT_REV=${COMMIT_HASH}" --env "GIT_REV_NAME=${VERSION}" \
-   # --skip-build \
-   <PROGRAM_ID_or_BUFFER_ID>
-
-# 3.b check the verified build with solana-verify
-COMMIT_HASH=`git rev-parse --short HEAD`
+# the image `anchor build --verifiable` uses; solana-verify builds with its default tools v1.54
 solana-verify -um verify-from-repo https://github.com/marinade-finance/validator-bonds \
   --library-name validator_bonds \
+  --base-image quay.io/ottersec/anchor:v1.2.1 \
   --program-id vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --commit-hash "${COMMIT_HASH}" \
   -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
 
+# 3.b verify with local commit
+VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
+COMMIT_HASH=`git rev-parse --short HEAD`
+solana-verify build --library-name validator_bonds \
+  --base-image quay.io/ottersec/anchor:v1.2.1 \
+  -- --config env.GIT_REV=\'${COMMIT_HASH}\' --config env.GIT_REV_NAME=\'${VERSION}\'
+solana-verify get-executable-hash target/deploy/validator_bonds.so
+solana-verify -um get-program-hash vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4
+# -- or --
+solana-verify -um get-buffer-hash <BUFFER_PUBKEY>
 
 # 4 upload the  Verified Build via OtterSec API
 # need to upload PDA verified build data account on-chain signed with upgrade authority

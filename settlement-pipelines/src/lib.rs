@@ -7,6 +7,7 @@ pub mod executor;
 pub mod init;
 pub mod institutional_validators;
 pub mod json_data;
+pub mod marinade_liquid;
 pub mod reporting;
 pub mod reporting_data;
 pub mod settlement_data;

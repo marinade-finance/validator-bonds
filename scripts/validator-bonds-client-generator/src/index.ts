@@ -20,6 +20,24 @@ for (const constant of anchorIdl.constants ?? []) {
     constant.value = JSON.parse(constant.value)
   }
 }
+// Anchor 1.x checks event_authority by an address the IDL cannot express; codama needs seeds to derive it
+type IdlAccountItem = { name: string; pda?: unknown; address?: string }
+const eventAuthorityPda = {
+  seeds: [{ kind: 'const', value: [...Buffer.from('__event_authority')] }],
+}
+for (const instruction of anchorIdl.instructions as {
+  accounts: IdlAccountItem[]
+}[]) {
+  for (const account of instruction.accounts) {
+    if (
+      account.name === 'event_authority' &&
+      !account.pda &&
+      !account.address
+    ) {
+      account.pda = eventAuthorityPda
+    }
+  }
+}
 
 interface ProgramOptions {
   output: string

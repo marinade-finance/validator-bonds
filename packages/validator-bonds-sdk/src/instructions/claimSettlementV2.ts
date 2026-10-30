@@ -1,4 +1,5 @@
 import {
+  PublicKey,
   SYSVAR_CLOCK_PUBKEY,
   SYSVAR_STAKE_HISTORY_PUBKEY,
   StakeProgram,
@@ -10,22 +11,23 @@ import { MerkleTreeNode } from '../merkleTree'
 import {
   bondAddress,
   bondsWithdrawerAuthority,
+  MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY,
+  MARINADE_LIQUID_STATE,
+  MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET,
   settlementAddress,
   settlementClaimsAddress,
 } from '../sdk'
 import { getStakeAccount } from '../web3.js'
 
 import type { Settlement, ValidatorBondsProgram } from '../sdk'
-import type {
-  EpochInfo,
-  PublicKey,
-  TransactionInstruction,
-} from '@solana/web3.js'
+import type { EpochInfo, TransactionInstruction } from '@solana/web3.js'
 
 /**
  * Generate instruction to claim from settlement protected event.
  * Permission-less operation. The legitimacy of the claim
  * is verified against the merkle proof and the merkle root.
+ * A leaf with the Marinade liquid withdraw authority gets the liquid State and stake list
+ * accounts resolved automatically; pass `null` to omit them.
  */
 export async function claimSettlementV2Instruction({
   program,
@@ -42,6 +44,8 @@ export async function claimSettlementV2Instruction({
   configAccount,
   bondAccount,
   voteAccount,
+  marinadeLiquidState,
+  marinadeLiquidStakeList,
 }: {
   program: ValidatorBondsProgram
   claimAmount: number | BN
@@ -57,6 +61,8 @@ export async function claimSettlementV2Instruction({
   configAccount?: PublicKey
   bondAccount?: PublicKey
   voteAccount?: PublicKey
+  marinadeLiquidState?: PublicKey | null
+  marinadeLiquidStakeList?: PublicKey | null
 }): Promise<{
   instruction: TransactionInstruction
   settlementAccount: PublicKey
@@ -135,6 +141,27 @@ export async function claimSettlementV2Instruction({
       stakeAccountWithdrawer || stakeAccountToData.withdrawer
   }
 
+  if (stakeAccountWithdrawer.equals(MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY)) {
+    if (marinadeLiquidState === undefined) {
+      marinadeLiquidState = MARINADE_LIQUID_STATE
+    }
+    if (marinadeLiquidStakeList === undefined && marinadeLiquidState !== null) {
+      const stateInfo =
+        await program.provider.connection.getAccountInfo(marinadeLiquidState)
+      if (stateInfo === null) {
+        throw new Error(
+          `Marinade liquid State ${marinadeLiquidState.toBase58()} not found`,
+        )
+      }
+      marinadeLiquidStakeList = new PublicKey(
+        stateInfo.data.subarray(
+          MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET,
+          MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET + 32,
+        ),
+      )
+    }
+  }
+
   const treeNodeHash = MerkleTreeNode.hash({
     stakeAuthority: stakeAccountStaker,
     withdrawAuthority: stakeAccountWithdrawer,
@@ -165,6 +192,8 @@ export async function claimSettlementV2Instruction({
       stakeHistory: SYSVAR_STAKE_HISTORY_PUBKEY,
       clock: SYSVAR_CLOCK_PUBKEY,
       stakeProgram: StakeProgram.programId,
+      marinadeLiquidState: marinadeLiquidState ?? null,
+      marinadeLiquidStakeList: marinadeLiquidStakeList ?? null,
     })
     .instruction()
   return {

@@ -32,6 +32,15 @@ pub const SETTLEMENT_CLAIMS_SEED: &[u8] = b"claims_account";
 
 pub const MIN_STAKE_LAMPORTS: u64 = 1_000_000_000;
 
+#[constant]
+pub const MARINADE_LIQUID_PROGRAM_ID: Pubkey =
+    pubkey!("MarBmsSgKXdrN1egZf5sqe1TMai9K1rChYNDJgjq7aD");
+#[constant]
+pub const MARINADE_LIQUID_STATE: Pubkey = pubkey!("8szGkuLTAux9XMgZ2vtY39jVSowEcpBfFfD8hXSEqdGC");
+#[constant]
+pub const MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY: Pubkey =
+    pubkey!("9eG63CdHjsfhHmobHgLtESGC8GabbmRcaSpHAZrtmhco");
+
 // 8 + mem::size_of::<SettlementClaims>(): 8 + 32 + 1 + 8 = 49 bytes
 // Anchor aligns to 8 bytes, so data part that Anchor uses for saving data is 56 bytes
 #[constant]

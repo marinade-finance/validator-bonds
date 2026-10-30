@@ -95,9 +95,9 @@ impl MergeStake<'_> {
 
         let destination_delegation = get_delegation(&ctx.accounts.destination_stake)?;
         let source_delegation = get_delegation(&ctx.accounts.source_stake)?;
-        // the stakes have to be both non-delegated or both delegated to the same vote account
-        if destination_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
-            != source_delegation.map_or_else(|| None, |p| Some(p.voter_pubkey))
+        // both non-delegated, or delegated to the same vote account in the same deactivation state
+        if destination_delegation.map(|p| (p.voter_pubkey, p.deactivation_epoch == u64::MAX))
+            != source_delegation.map(|p| (p.voter_pubkey, p.deactivation_epoch == u64::MAX))
         {
             return Err(error!(ErrorCode::StakeDelegationMismatch).with_values((
                 "source_stake/destination_stake",

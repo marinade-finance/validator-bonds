@@ -8,7 +8,7 @@ import {
   warpToNextEpoch,
 } from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from '@solana/web3.js'
 
 import { initBankrunTest } from './bankrun'
 import {
@@ -19,9 +19,10 @@ import {
   getRentExemptStake,
   getSettlement,
 } from '../../src'
-import { getRentExempt, executeTxWithError } from '../utils/helpers'
+import { getRentExempt } from '../utils/helpers'
 import {
   createBondsFundedStakeAccount,
+  createSettlementFundedDelegatedStake,
   createVoteAccount,
 } from '../utils/staking'
 import {
@@ -231,13 +232,12 @@ describe('Validator Bonds close settlement', () => {
       settlementAccount,
       splitRentRefundAccount: pubkey(splitStakeAccount),
     })
-    await executeTxWithError(
-      provider,
-      '',
-      'insufficient funds',
-      [],
-      ixWrongStake,
-    )
+    try {
+      await provider.sendIx([], ixWrongStake)
+      throw new Error('error expected; stake not funded to the settlement')
+    } catch (e) {
+      verifyError(e, Errors, 6036, 'not funded under the settlement')
+    }
 
     const { instruction: ixWrongCollector } =
       await closeSettlementV2Instruction({
@@ -272,6 +272,93 @@ describe('Validator Bonds close settlement', () => {
         rentExemptStake +
         config.minimumStakeLamports.toNumber(),
     )
+  })
+
+  it('cannot close settlement with refund stake funded to another settlement', async () => {
+    const settlementData = await getSettlement(program, settlementAccount)
+    const stakeAccount = await createBondsFundedStakeAccount({
+      program,
+      provider,
+      configAccount,
+      voteAccount,
+      lamports: settlementData.maxTotalClaim.toNumber() + 6 * LAMPORTS_PER_SOL,
+    })
+    await warpToNextEpoch(provider)
+    const splitStakeRentPayer = await createUserAndFund({
+      provider,
+      lamports: LAMPORTS_PER_SOL,
+    })
+    const { instruction: fundIx, splitStakeAccount } =
+      await fundSettlementInstruction({
+        program,
+        settlementAccount,
+        stakeAccount,
+        splitStakeRentPayer,
+      })
+    await provider.sendIx(
+      [
+        signer(splitStakeRentPayer),
+        signer(splitStakeAccount),
+        operatorAuthority,
+      ],
+      fundIx,
+    )
+    const { splitRentAmount } = await getSettlement(program, settlementAccount)
+    expect(splitRentAmount.toNumber()).toBeGreaterThan(0)
+
+    const { settlementAccount: otherSettlement } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: settlementEpoch,
+    })
+    const otherStake = await createSettlementFundedDelegatedStake({
+      program,
+      provider,
+      configAccount,
+      settlementAccount: otherSettlement,
+      voteAccount,
+      lamports: 2 * LAMPORTS_PER_SOL,
+    })
+    await provider.sendIx(
+      [],
+      SystemProgram.transfer({
+        fromPubkey: provider.walletPubkey,
+        toPubkey: otherStake,
+        lamports: splitRentAmount.toNumber(),
+      }),
+    )
+    const otherStakeLamports = (
+      await provider.connection.getAccountInfo(otherStake)
+    )?.lamports
+    const payerLamports = (
+      await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer))
+    )?.lamports
+
+    await warpToBeClosable()
+    const { instruction } = await closeSettlementV2Instruction({
+      program,
+      settlementAccount,
+      splitRentRefundAccount: otherStake,
+      splitRentCollector: pubkey(splitStakeRentPayer),
+    })
+    try {
+      await provider.sendIx([], instruction)
+      throw new Error(
+        'error expected; refund stake funded to another settlement',
+      )
+    } catch (e) {
+      verifyError(e, Errors, 6036, 'not funded under the settlement')
+    }
+    expect(
+      (await provider.connection.getAccountInfo(otherStake))?.lamports,
+    ).toEqual(otherStakeLamports)
+    expect(
+      (await provider.connection.getAccountInfo(pubkey(splitStakeRentPayer)))
+        ?.lamports,
+    ).toEqual(payerLamports)
   })
 
   async function warpToBeClosable() {

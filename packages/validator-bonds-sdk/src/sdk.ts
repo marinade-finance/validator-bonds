@@ -119,6 +119,16 @@ export const SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE = Number(
   fromConstants('SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE'),
 )
 export const EVENT_AUTHORITY_SEED_STRING = '__event_authority'
+export const MARINADE_LIQUID_PROGRAM_ID = new PublicKey(
+  fromConstants('MARINADE_LIQUID_PROGRAM_ID'),
+)
+export const MARINADE_LIQUID_STATE = new PublicKey(
+  fromConstants('MARINADE_LIQUID_STATE'),
+)
+export const MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY = new PublicKey(
+  fromConstants('MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY'),
+)
+export const MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET = 150
 
 // --- EVENTS ---
 export const INIT_CONFIG_EVENT = 'initConfigEvent'

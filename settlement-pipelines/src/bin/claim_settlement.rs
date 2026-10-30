@@ -11,6 +11,9 @@ use settlement_pipelines::arguments::{
 use settlement_pipelines::executor::execute_parallel;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_merkle_tree_collections;
+use settlement_pipelines::marinade_liquid::{
+    fetch_marinade_liquid_stake_list, filter_listed, MarinadeLiquidStakeList,
+};
 use settlement_pipelines::reporting::{
     with_reporting_ext, PrintReportable, ReportHandler, ReportSerializable,
 };
@@ -38,6 +41,7 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::time::sleep;
+use validator_bonds::constants::MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY;
 use validator_bonds::instructions::ClaimSettlementV2Args;
 use validator_bonds::state::config::find_bonds_withdrawer_authority;
 use validator_bonds::state::settlement::{
@@ -203,6 +207,7 @@ async fn real_main(
 
     let mut settlement_claimed_amounts: HashMap<Pubkey, u64> = HashMap::new();
     let mut stake_accounts_to_cache = StakeAccountsCache::default();
+    let mut marinade_liquid: Option<anyhow::Result<MarinadeLiquidStakeList>> = None;
 
     for claimable_settlement in claimable_settlements {
         let json_matching_settlement = match get_settlement_from_json(
@@ -238,6 +243,7 @@ async fn real_main(
             reporting,
             &mut settlement_claimed_amounts,
             &mut stake_accounts_to_cache,
+            &mut marinade_liquid,
             minimal_stake_lamports,
             &stake_activation,
         )
@@ -330,6 +336,7 @@ async fn claim_settlement<'a>(
     reporting: &mut ReportHandler<ClaimSettlementsReport>,
     settlement_claimed_amounts: &mut HashMap<Pubkey, u64>,
     stake_accounts_to_cache: &mut StakeAccountsCache<'a>,
+    marinade_liquid: &mut Option<anyhow::Result<MarinadeLiquidStakeList>>,
     minimal_stake_lamports: u64,
     stake_activation: &StakeActivation,
 ) -> anyhow::Result<()> {
@@ -375,6 +382,23 @@ async fn claim_settlement<'a>(
             )).add();
             continue;
         }
+
+        let is_liquid = tree_node.withdraw_authority == MARINADE_LIQUID_STAKE_WITHDRAW_AUTHORITY;
+        if is_liquid && marinade_liquid.is_none() {
+            *marinade_liquid = Some(fetch_marinade_liquid_stake_list(rpc_client.clone()).await);
+        }
+        let liquid = match marinade_liquid.as_ref().filter(|_| is_liquid) {
+            None => None,
+            Some(Ok(liquid)) => Some(liquid),
+            Some(Err(e)) => {
+                reporting.retryable().with_msg(format!(
+                    "Cannot load the Marinade liquid stake list to claim index {} of settlement {}: {e:?}",
+                    tree_node.index,
+                    settlement_json_data.settlement_address,
+                )).add();
+                continue;
+            }
+        };
 
         let stake_account_from = {
             let stake_account_from =
@@ -425,13 +449,21 @@ async fn claim_settlement<'a>(
                 reporting.retryable().with_err(e).add();
                 &empty_stake_accounts
             });
+        let listed_stake_accounts_to;
+        let stake_accounts_to = if let Some(liquid) = liquid {
+            listed_stake_accounts_to = filter_listed(stake_accounts_to, &liquid.stake_accounts);
+            &listed_stake_accounts_to
+        } else {
+            stake_accounts_to
+        };
         let stake_account_to = prioritize_for_claiming(
             stake_accounts_to,
             stake_activation,
         ).map_or_else(|e| {
             reporting.warning().with_msg(format!(
-                "No available stake account found where to claim into of staker/withdraw authorities {}/{} (epoch: {}, settlement: {}, claim: {}, index: {}): {:?}",
+                "No available stake account found where to claim into of staker/withdraw authorities {}/{}{} (epoch: {}, settlement: {}, claim: {}, index: {}): {:?}",
                 tree_node.stake_authority, tree_node.withdraw_authority,
+                if is_liquid { " listed in the Marinade liquid stake list" } else { "" },
                 settlement_json_data.epoch,
                 settlement_json_data.settlement_address,
                 tree_node.claim,
@@ -464,6 +496,8 @@ async fn claim_settlement<'a>(
                 bonds_withdrawer_authority,
                 stake_history: stake_history_id,
                 stake_program: stake_program_id,
+                marinade_liquid_state: liquid.map(|liquid| liquid.state),
+                marinade_liquid_stake_list: liquid.map(|liquid| liquid.stake_list),
                 program: validator_bonds_id,
                 clock: clock_id,
                 event_authority: find_event_authority().0,
