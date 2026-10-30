@@ -45,6 +45,7 @@ export function toCalcValidator(v: AuctionValidator): Record<string, unknown> {
     unprotectedStakeSol: v.unprotectedStakeSol,
     maxStakeWanted: v.maxStakeWanted,
     samEligible: v.samEligible,
+    samIneligibilityGate: v.samIneligibilityGate,
     samBlocked: v.samBlocked,
     vatEligible: v.vatEligible,
     minBondPmpe: v.minBondPmpe,
