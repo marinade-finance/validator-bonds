@@ -26,7 +26,7 @@
     "prepublishOnly": "node ../../scripts/inject-mixpanel-token.js"
   },
   "dependencies": {
-    "@marinade.finance/ds-sam-calc": "0.6.5"
+    "@marinade.finance/ds-sam-calc": "0.6.6"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "npm:@anchor-lang/core@^1.2.1",
