@@ -20,49 +20,13 @@ ignore = [
   "RUSTSEC-2024-0388",
   # paste unmaintained. Pulled via solana-program / anchor-lang.
   "RUSTSEC-2024-0436",
-  # number_prefix unmaintained. Pulled via indicatif.
-  "RUSTSEC-2025-0119",
   # bincode 1.x unmaintained. Pulled via solana-sdk.
   "RUSTSEC-2025-0141",
   # libsecp256k1 unmaintained. Pulled via solana-sdk.
   "RUSTSEC-2025-0161",
-  # rustls-webpki 0.101.x (EOL) cert-validation bugs: URI/wildcard name
-  # constraints and a reachable CRL-parsing panic. Fixed in the 0.102/0.103
-  # lines but the 0.101 line is end-of-life. Pulled via the old rustls 0.21
-  # / tokio-tungstenite 0.20 stack that solana-pubsub-client still pins.
-  # Drop these once the Solana websocket client upgrades tungstenite/rustls.
-  "RUSTSEC-2026-0098",
-  "RUSTSEC-2026-0099",
-  "RUSTSEC-2026-0104",
-  # rustls-webpki <0.103.10 CRL distribution-point matching bug. The 0.103
-  # line is patched (repos pick up 0.103.13 via `cargo update`); the stuck
-  # 0.102.x is pulled via gcp-bigquery-client -> yup-oauth2 -> rustls 0.22.
-  # Revisit when gcp-bigquery-client moves to a rustls 0.23 release.
-  "RUSTSEC-2026-0049",
-  # h2 unbounded empty DATA frames (DoS, low severity). Patched only in >= 0.4.16
-  # and the 0.3 line never got a release. The 0.4 stack is on 0.4.17 via `cargo
-  # update`; the stuck 0.3.27 comes through hyper 0.14 via tonic 0.9 / reqwest
-  # 0.11 / solana-storage-bigtable. Drop once those move to hyper 1.x.
-  "RUSTSEC-2026-0258",
-  # Unmaintained crates pinned deep in the Solana validator stack
-  # (solana-runtime / solana-ledger / solana-storage-bigtable), reached via
-  # the snapshot-parser git dep, plus the reqwest 0.11 / gcp-bigquery-client
-  # TLS stack. No maintained drop-in at the versions those crates pin; revisit
-  # when the upstream Solana / reqwest crates move forward.
-  # instant — unmaintained. Pulled via backoff -> solana-storage-bigtable.
+  # instant — unmaintained. Pulled via backoff -> solana-storage-bigtable,
+  # reached via the snapshot-parser git dep.
   "RUSTSEC-2024-0384",
-  # backoff — unmaintained. Pulled via solana-storage-bigtable.
-  "RUSTSEC-2025-0012",
-  # proc-macro-error2 — unmaintained. Pulled via aquamarine -> solana-runtime.
-  "RUSTSEC-2026-0173",
-  # im, and its bitmaps / sized-chunks deps — unmaintained, all archived by the
-  # same owner on 2026-05-03 with no safe upgrade. Pulled via solana-runtime.
-  # The imbl fork is the upstream replacement; goes away when Solana adopts it.
-  "RUSTSEC-2026-0248",
-  "RUSTSEC-2026-0247",
-  "RUSTSEC-2026-0251",
-  # rustls-pemfile — unmaintained. Pulled via reqwest 0.11 (gcp-bigquery-client).
-  "RUSTSEC-2025-0134",
   # ansi_term — unmaintained. Pulled via clap 2.x, which the Solana CLI
   # helper crates (solana-clap-utils -> solana-cli-config / solana-cli-output)
   # still depend on. Goes away when Solana's CLI crates move off clap 2.

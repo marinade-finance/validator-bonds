@@ -82,7 +82,7 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
 | `common-rs`                                           | Shared Rust types: bond DTOs, settlement, config                |
 | `merkle-tree`                                         | Generic Merkle tree library                                     |
 | `bonds-collector`                                     | CLI: loads on-chain bond data → YAML                            |
-| `api`                                                 | Warp HTTP server (OpenAPI) serving bonds data from Postgres     |
+| `api`                                                 | Axum HTTP server (OpenAPI) serving bonds data from Postgres     |
 | `settlement-pipelines`                                | Pipeline CLIs: init/fund/claim/close settlements on-chain       |
 | `settlement-distributions/bid-distribution`           | Core engine: SAM scores + rewards → bidding/PSR settlement JSON |
 | `settlement-distributions/institutional-distribution` | Settlement engine for institutional staking payouts             |
@@ -184,7 +184,7 @@ Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ti
 
 ### Agave first-leader-window skip
 
-In epochs 1065–1070 (`FIRST_LEADER_WINDOW_SKIP_EPOCHS`) Agave skips each validator's first leader window of the epoch (agave#16302), and Alpenglow pays the leader half of a slot's reward into the leader's credits. Expected Alpenglow credits therefore drop that window, `n − min(4, n)` per vote account with the same slots removed from N, while actual credits stay as paid; institutional-staking and ds-sam apply the same correction. A validator that produced its first window lands above 1 uptime, which is never charged. Accepted gap: the credits of a produced first window stay in the pooled Σcredits and raise every other validator's expected credits, at worst 36 bps in epoch 1065.
+In epochs 1065–1072 (`FIRST_LEADER_WINDOW_SKIP_EPOCHS`) Agave skips each validator's first leader window of the epoch (agave#16302), and Alpenglow pays the leader half of a slot's reward into the leader's credits. Expected Alpenglow credits therefore drop that window, `n − min(4, n)` per vote account with the same slots removed from N, while actual credits stay as paid; institutional-staking and ds-sam apply the same correction. A validator that produced its first window lands above 1 uptime, which is never charged. Accepted gap: the credits of a produced first window stay in the pooled Σcredits and raise every other validator's expected credits, at worst 36 bps in epoch 1065.
 
 ### mSOL claim destination
 
