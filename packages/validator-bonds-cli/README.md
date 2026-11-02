@@ -23,8 +23,10 @@ CLI for [Marinade](https://docs.marinade.finance/) Validator Bonds on-chain prog
 To install the CLI as a global npm package:
 
 ```sh
-npm install -g @marinade.finance/validator-bonds-cli@latest
+npm install -g --allow-scripts=node-hid @marinade.finance/validator-bonds-cli@latest
 ```
+
+npm 11+ skips dependency install scripts unless allowed; `node-hid` needs its script for Ledger signing.
 
 Successful installation output:
 

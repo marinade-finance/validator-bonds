@@ -7,8 +7,10 @@ Institutional CLI for Validator Bonds contract.
 To install the CLI as global npm package
 
 ```sh
-npm install -g @marinade.finance/validator-bonds-cli-institutional@latest
+npm install -g --allow-scripts=node-hid @marinade.finance/validator-bonds-cli-institutional@latest
 ```
+
+npm 11+ skips dependency install scripts unless allowed; `node-hid` needs its script for Ledger signing.
 
 Successful installation will be shown in similar fashion to this output
 (it is recommended to use NodeJS 20+).

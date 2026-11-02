@@ -13,6 +13,7 @@ function calcValidator(
     unprotectedStakeSol: 0,
     maxStakeWanted: null,
     samEligible: true,
+    samIneligibilityGate: null,
     samBlocked: false,
     vatEligible: true,
     minBondPmpe: 4.2,
@@ -98,6 +99,14 @@ describe('toCalcValidator', () => {
       calcValidator({ samEligible: false, vatEligible: false }),
     )
     expect(blob.vatEligible).toBe(false)
+  })
+
+  it('relays samIneligibilityGate so the tip engine reads the SDK gate', () => {
+    expect(toCalcValidator(calcValidator()).samIneligibilityGate).toBeNull()
+    const blob = toCalcValidator(
+      calcValidator({ samEligible: false, samIneligibilityGate: 'uptime' }),
+    )
+    expect(blob.samIneligibilityGate).toBe('uptime')
   })
 
   it('drops the recursive lastCapConstraint.validators back-reference', () => {
