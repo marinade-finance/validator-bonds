@@ -2,7 +2,7 @@ use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
 use crate::settlement_config::{FeeConfig, FeePercentages, SettlementConfig};
 use anyhow::{anyhow, ensure};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -206,20 +206,29 @@ fn build_result_claims(
     {
         if let Some(in_bond) = commissions.inflation_commission_in_bond_dec {
             settlement_claim.inflation_commission_claim = mr.inflation.mul(commission_eff(
+                &validator.vote_account,
+                "inflation",
                 rewards.realized_inflation_commission_dec(),
                 in_bond,
+                commissions.inflation_commission_dec,
             ));
         }
         if let Some(in_bond) = commissions.mev_commission_in_bond_dec {
             settlement_claim.mev_commission_claim = mr.mev.mul(commission_eff(
+                &validator.vote_account,
+                "mev",
                 rewards.realized_mev_commission_dec(),
                 in_bond,
+                commissions.mev_commission_dec,
             ));
         }
         if let Some(in_bond) = commissions.block_rewards_commission_in_bond_dec {
             settlement_claim.block_commission_claim = mr.block.mul(commission_eff(
+                &validator.vote_account,
+                "block",
                 rewards.realized_block_commission_dec(),
                 in_bond,
+                commissions.block_rewards_commission_dec,
             ));
         }
     }
@@ -634,13 +643,22 @@ pub(crate) fn generate_bid_settlements_worker(
     Ok(settlement_claim_collections)
 }
 
-// effective rate of the realized commission from snapshot rewards above the in-bond promise; the auction-time sam-meta value misses commission raised after the auction snapshot
+// realized not auction commission: catches raises after the snapshot; floor = what the auction credited
 fn commission_eff(
+    vote_account: &Pubkey,
+    kind: &str,
     commission_realized_dec: Option<Decimal>,
     commission_in_bond_dec: Decimal,
+    commission_floor_dec: Decimal,
 ) -> Decimal {
+    if commission_in_bond_dec < commission_floor_dec {
+        error!(
+            "Validator {vote_account} {kind} in-bond commission {commission_in_bond_dec} is below the auction floor {commission_floor_dec}, charging to the floor"
+        );
+    }
+    let in_bond = commission_in_bond_dec.max(commission_floor_dec);
     match commission_realized_dec {
-        Some(realized) if realized > commission_in_bond_dec => realized - commission_in_bond_dec,
+        Some(realized) if realized > in_bond => realized - in_bond,
         _ => Decimal::ZERO,
     }
 }

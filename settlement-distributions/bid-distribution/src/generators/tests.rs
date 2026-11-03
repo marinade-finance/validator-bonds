@@ -1050,6 +1050,225 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
     );
 }
 
+fn i64_min_bps_dec() -> Decimal {
+    Decimal::new(i64::MIN, 4)
+}
+
+fn floored_commission_params() -> CommissionParams {
+    CommissionParams {
+        minimal_commission: Some(Decimal::from(-5)),
+        ..CommissionParams::new(0.0, 0.0)
+    }
+}
+
+// validator 1 is the one under test, validator 2 is a regular one that must always settle
+fn run_two_validator_bid_settlements(
+    commissions: CommissionDetails,
+    rewards: RewardsParams,
+) -> Vec<Settlement> {
+    let epoch = 100;
+    let attacked = test_vote_account(1);
+    let regular = test_vote_account(2);
+
+    let stake_meta_collection = StakeMetaCollection {
+        epoch,
+        slot: 1000,
+        stake_metas: [(attacked, 1), (regular, 2)]
+            .into_iter()
+            .flat_map(|(vote_account, seed)| {
+                [
+                    create_stake_meta(
+                        test_stake_account(seed),
+                        vote_account,
+                        test_withdraw_authority(seed),
+                        test_stake_authority(seed),
+                        100 * LAMPORTS_PER_SOL,
+                    ),
+                    create_stake_meta(
+                        test_stake_account(100 + seed),
+                        vote_account,
+                        TEST_PUBKEY_MARINADE,
+                        TEST_PUBKEY_MARINADE,
+                        LAMPORTS_PER_SOL,
+                    ),
+                ]
+            })
+            .collect(),
+    };
+    let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
+
+    let sam_metas = [
+        SamMetaParams::new(attacked, epoch as u32)
+            .auction_values(commissions)
+            .build(),
+        SamMetaParams::new(regular, epoch as u32)
+            .auction_values(
+                CommissionParams {
+                    minimal_commission: Some(Decimal::from(-5)),
+                    ..CommissionParams::new(0.0, -0.6)
+                }
+                .as_commission_details(),
+            )
+            .build(),
+    ];
+
+    let mut rewards_map = HashMap::new();
+    rewards_map.insert(attacked, rewards.build());
+    rewards_map.insert(
+        regular,
+        RewardsParams::new(regular)
+            .block_rewards(2 * LAMPORTS_PER_SOL)
+            .jito(3 * LAMPORTS_PER_SOL)
+            .build(),
+    );
+    let rewards_collection = RewardsCollection {
+        epoch,
+        rewards_by_vote_account: rewards_map,
+    };
+
+    generate_bid_settlements(
+        &stake_meta_index,
+        &sam_metas,
+        &rewards_collection,
+        &create_test_settlement_config(),
+        &create_test_fee_config(950, 500),
+        &accept_all,
+        &|_| false,
+        Some(Decimal::ZERO),
+        Decimal::ZERO,
+        BisectMode::TargetStakerPmpe,
+    )
+    .unwrap()
+    .settlements
+}
+
+fn bidding_claim(settlements: &[Settlement], vote_account: Pubkey, claim: &str) -> Decimal {
+    let settlement = settlements
+        .iter()
+        .find(|s| s.vote_account == vote_account && matches!(s.reason, SettlementReason::Bidding))
+        .unwrap_or_else(|| panic!("no bidding settlement for {vote_account}"));
+    serde_json::from_value(bidding_details(settlement).settlement_claims[claim].clone()).unwrap()
+}
+
+fn assert_regular_validator_settled(settlements: &[Settlement]) {
+    assert_eq!(
+        bidding_claim(settlements, test_vote_account(2), "block_commission_claim"),
+        Decimal::from(2 * LAMPORTS_PER_SOL) * Decimal::from_str("0.1").unwrap(),
+        "The regular validator must settle as if alone in the epoch"
+    );
+}
+
+#[test]
+fn test_i64_min_block_in_bond_commission_floored() {
+    assert_eq!(
+        i64_min_bps_dec(),
+        Decimal::from(i64::MIN) / Decimal::from(10_000)
+    );
+    let block_rewards = 2 * LAMPORTS_PER_SOL;
+    let commissions = CommissionParams {
+        block_rewards_in_bond: Some(i64_min_bps_dec()),
+        ..floored_commission_params()
+    }
+    .as_commission_details();
+    assert_eq!(commissions.block_rewards_commission_dec, Decimal::from(-5));
+
+    let settlements = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1))
+            .block_rewards(block_rewards)
+            .jito(3 * LAMPORTS_PER_SOL),
+    );
+
+    assert_eq!(
+        settlements
+            .iter()
+            .filter(|s| matches!(s.reason, SettlementReason::Bidding))
+            .count(),
+        2
+    );
+    // realized (2 - 3) / 2 = -0.5, charged down to the floor -5.0 only
+    assert_eq!(
+        bidding_claim(&settlements, test_vote_account(1), "block_commission_claim"),
+        Decimal::from(block_rewards) * Decimal::from_str("4.5").unwrap()
+    );
+    assert_regular_validator_settled(&settlements);
+}
+
+#[test]
+fn test_i64_min_inflation_in_bond_commission_floored() {
+    let inflation_rewards = 20 * LAMPORTS_PER_SOL;
+    let commissions = CommissionParams {
+        inflation_in_bond: Some(i64_min_bps_dec()),
+        ..floored_commission_params()
+    }
+    .as_commission_details();
+    assert_eq!(commissions.inflation_commission_dec, Decimal::from(-5));
+
+    let settlements = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1))
+            .inflation(inflation_rewards)
+            .onchain_commissions(0.05, 0.05),
+    );
+
+    assert_eq!(
+        bidding_claim(
+            &settlements,
+            test_vote_account(1),
+            "inflation_commission_claim"
+        ),
+        Decimal::from(inflation_rewards) * Decimal::from_str("5.05").unwrap()
+    );
+    assert_regular_validator_settled(&settlements);
+}
+
+#[test]
+fn test_i64_min_mev_in_bond_commission_floored() {
+    let mev_rewards = 10 * LAMPORTS_PER_SOL;
+    let commissions = CommissionParams {
+        mev_in_bond: Some(i64_min_bps_dec()),
+        ..floored_commission_params()
+    }
+    .as_commission_details();
+    assert_eq!(commissions.mev_commission_dec, Decimal::from(-5));
+
+    let settlements = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1))
+            .mev(mev_rewards)
+            .onchain_commissions(0.05, 0.08),
+    );
+
+    assert_eq!(
+        bidding_claim(&settlements, test_vote_account(1), "mev_commission_claim"),
+        Decimal::from(mev_rewards) * Decimal::from_str("5.08").unwrap()
+    );
+    assert_regular_validator_settled(&settlements);
+}
+
+#[test]
+fn test_block_commission_override_above_in_bond_charged_to_override() {
+    let block_rewards = 2 * LAMPORTS_PER_SOL;
+    let override_dec = Decimal::from_str("0.05").unwrap();
+    let commissions = CommissionDetails {
+        block_rewards_commission_override_dec: Some(override_dec),
+        block_rewards_commission_dec: override_dec,
+        ..CommissionParams::new(0.0, 0.0).as_commission_details()
+    };
+
+    let settlements = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1)).block_rewards(block_rewards),
+    );
+
+    // the auction credited the override, so the realized 1.0 is charged down to it
+    assert_eq!(
+        bidding_claim(&settlements, test_vote_account(1), "block_commission_claim"),
+        Decimal::from(block_rewards) * Decimal::from_str("0.95").unwrap()
+    );
+    assert_regular_validator_settled(&settlements);
+}
+
 #[test]
 fn test_activating_bid_charge_basic() {
     // activating_stake_pmpe=100, activating marinade stake=2 SOL
