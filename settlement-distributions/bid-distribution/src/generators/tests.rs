@@ -998,7 +998,11 @@ fn test_negative_block_commission_charged_against_negative_in_bond() {
     };
     let stake_meta_index = StakeMetaIndex::new(&stake_meta_collection);
 
-    let commissions = CommissionParams::new(0.0, -0.6).as_commission_details();
+    let commissions = CommissionParams {
+        minimal_commission: Some(Decimal::from(-5)),
+        ..CommissionParams::new(0.0, -0.6)
+    }
+    .as_commission_details();
     let sam_meta = SamMetaParams::new(vote_account, epoch as u32)
         .auction_values(commissions)
         .build();
@@ -1972,6 +1976,7 @@ struct CommissionParams {
     mev_in_bond: Option<Decimal>,
     block_rewards_final: Decimal,
     block_rewards_in_bond: Option<Decimal>,
+    minimal_commission: Option<Decimal>,
 }
 
 impl CommissionParams {
@@ -1985,14 +1990,26 @@ impl CommissionParams {
             mev_in_bond: Some(bonds_dec),
             block_rewards_final: final_dec,
             block_rewards_in_bond: Some(bonds_dec),
+            minimal_commission: None,
         }
     }
 
+    // effective commission derived as ds-sam's data provider exports it
     fn as_commission_details(&self) -> CommissionDetails {
+        let floor = |d: Decimal| self.minimal_commission.map_or(d, |mc| d.max(mc));
         CommissionDetails {
-            inflation_commission_dec: self.inflation_final,
-            mev_commission_dec: self.mev_final,
-            block_rewards_commission_dec: self.block_rewards_final,
+            inflation_commission_dec: floor(
+                self.inflation_in_bond
+                    .map_or(self.inflation_final, |b| b.min(self.inflation_final)),
+            ),
+            mev_commission_dec: floor(
+                self.mev_in_bond
+                    .map_or(self.mev_final, |b| b.min(self.mev_final)),
+            ),
+            block_rewards_commission_dec: floor(
+                self.block_rewards_in_bond
+                    .unwrap_or(self.block_rewards_final),
+            ),
             inflation_commission_in_bond_dec: self.inflation_in_bond,
             inflation_commission_override_dec: None,
             mev_commission_in_bond_dec: self.mev_in_bond,
@@ -2394,9 +2411,9 @@ fn test_generate_settlements_from_json_values() {
               "bondRiskFeeSol": 0,
               "samBlacklisted": false,
               "commissions": {
-                "inflationCommissionDec": 0.05,
-                "mevCommissionDec": 0.10,
-                "blockRewardsCommissionDec": 0.15,
+                "inflationCommissionDec": 0.03,
+                "mevCommissionDec": 0.05,
+                "blockRewardsCommissionDec": 0.10,
                 "inflationCommissionOnchainDec": 0.08,
                 "mevCommissionOnchainDec": 0.12,
                 "inflationCommissionInBondDec": 0.03,
