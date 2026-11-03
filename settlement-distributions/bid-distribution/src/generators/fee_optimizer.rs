@@ -12,7 +12,7 @@ use solana_sdk::pubkey::Pubkey;
 use std::collections::HashSet;
 
 use super::bidding::{
-    build_staker_stake_groups, generate_bid_settlements_worker, StakerStakeGroup,
+    build_staker_stake_groups, generate_bid_settlements_worker, BidWorkerOutput, StakerStakeGroup,
 };
 
 const MAX_ADJ_ITER: u32 = 20;
@@ -20,6 +20,7 @@ const MAX_ADJ_ITER: u32 = 20;
 #[derive(Serialize)]
 pub struct BidSettlementValues {
     pub settlements: Vec<Settlement>,
+    pub skipped_validators: Vec<Pubkey>,
     pub adj_max_fee_bps: u64,
     pub adj_min_fee_bps: u64,
 }
@@ -114,8 +115,8 @@ pub fn generate_bid_settlements(
     // adj_phase1 stores the Phase 1 result when switching to Phase 2.
     // In PMPE mode this is the max_fee result; in SOL mode the min_fee result.
     let mut adj_phase1 = overshoot;
-    let mut best: Option<Vec<Settlement>> = None;
-    let mut fallback: Option<Vec<Settlement>> = None;
+    let mut best: Option<BidWorkerOutput> = None;
+    let mut fallback: Option<BidWorkerOutput> = None;
     let mut fc = fee_config.clone();
     let target_pmpe = target_pmpe.unwrap_or(Decimal::ZERO);
     // Stake-account grouping depends only on the stake metas, not on the fee caps the
@@ -135,7 +136,7 @@ pub fn generate_bid_settlements(
         } else {
             fc.min_fee_bps = current;
         }
-        let settlements = generate_bid_settlements_worker(
+        let output = generate_bid_settlements_worker(
             &validator_groups,
             epoch,
             rewards_collection,
@@ -145,7 +146,7 @@ pub fn generate_bid_settlements(
             exiting_stake_authority_filter,
             target_pmpe,
         )?;
-        let totals = calculate_bid_settlement_totals(&settlements);
+        let totals = calculate_bid_settlement_totals(&output.settlements);
         let post_fee = if totals.stake.is_zero() {
             Decimal::ZERO
         } else {
@@ -161,10 +162,10 @@ pub fn generate_bid_settlements(
         };
         if feasible {
             overshoot = current;
-            best = Some(settlements);
+            best = Some(output);
         } else {
             undershoot = current;
-            fallback = Some(settlements);
+            fallback = Some(output);
         }
         let next = (overshoot.saturating_add(undershoot) / 2).clamp(min_cap, max_cap);
         if next != current {
@@ -221,8 +222,10 @@ pub fn generate_bid_settlements(
         fc.min_fee_bps
     };
     info!("adj_max_fee_bps: {adj_max_fee_bps}, adj_min_fee_bps: {adj_min_fee_bps}");
+    let chosen = best.or(fallback).expect("MAX_ADJ_ITER = 0");
     Ok(BidSettlementValues {
-        settlements: best.or(fallback).expect("MAX_ADJ_ITER = 0"),
+        settlements: chosen.settlements,
+        skipped_validators: chosen.skipped_validators,
         adj_max_fee_bps,
         adj_min_fee_bps,
     })

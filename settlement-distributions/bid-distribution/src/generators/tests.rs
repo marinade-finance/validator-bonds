@@ -1,5 +1,5 @@
 use crate::generators::fee_optimizer::{
-    calculate_bid_settlement_totals, generate_bid_settlements, BisectMode,
+    calculate_bid_settlement_totals, generate_bid_settlements, BidSettlementValues, BisectMode,
 };
 use crate::generators::psr_events::generate_psr_settlements;
 use crate::generators::sam_penalties::{calculate_total_penalties, generate_penalty_settlements};
@@ -1065,7 +1065,7 @@ fn floored_commission_params() -> CommissionParams {
 fn run_two_validator_bid_settlements(
     commissions: CommissionDetails,
     rewards: RewardsParams,
-) -> Vec<Settlement> {
+) -> BidSettlementValues {
     let epoch = 100;
     let attacked = test_vote_account(1);
     let regular = test_vote_account(2);
@@ -1139,7 +1139,6 @@ fn run_two_validator_bid_settlements(
         BisectMode::TargetStakerPmpe,
     )
     .unwrap()
-    .settlements
 }
 
 fn bidding_claim(settlements: &[Settlement], vote_account: Pubkey, claim: &str) -> Decimal {
@@ -1172,12 +1171,14 @@ fn test_i64_min_block_in_bond_commission_floored() {
     .as_commission_details();
     assert_eq!(commissions.block_rewards_commission_dec, Decimal::from(-5));
 
-    let settlements = run_two_validator_bid_settlements(
+    let values = run_two_validator_bid_settlements(
         commissions,
         RewardsParams::new(test_vote_account(1))
             .block_rewards(block_rewards)
             .jito(3 * LAMPORTS_PER_SOL),
     );
+    assert!(values.skipped_validators.is_empty());
+    let settlements = values.settlements;
 
     assert_eq!(
         settlements
@@ -1204,12 +1205,14 @@ fn test_i64_min_inflation_in_bond_commission_floored() {
     .as_commission_details();
     assert_eq!(commissions.inflation_commission_dec, Decimal::from(-5));
 
-    let settlements = run_two_validator_bid_settlements(
+    let values = run_two_validator_bid_settlements(
         commissions,
         RewardsParams::new(test_vote_account(1))
             .inflation(inflation_rewards)
             .onchain_commissions(0.05, 0.05),
     );
+    assert!(values.skipped_validators.is_empty());
+    let settlements = values.settlements;
 
     assert_eq!(
         bidding_claim(
@@ -1232,12 +1235,14 @@ fn test_i64_min_mev_in_bond_commission_floored() {
     .as_commission_details();
     assert_eq!(commissions.mev_commission_dec, Decimal::from(-5));
 
-    let settlements = run_two_validator_bid_settlements(
+    let values = run_two_validator_bid_settlements(
         commissions,
         RewardsParams::new(test_vote_account(1))
             .mev(mev_rewards)
             .onchain_commissions(0.05, 0.08),
     );
+    assert!(values.skipped_validators.is_empty());
+    let settlements = values.settlements;
 
     assert_eq!(
         bidding_claim(&settlements, test_vote_account(1), "mev_commission_claim"),
@@ -1256,10 +1261,12 @@ fn test_block_commission_override_above_in_bond_charged_to_override() {
         ..CommissionParams::new(0.0, 0.0).as_commission_details()
     };
 
-    let settlements = run_two_validator_bid_settlements(
+    let values = run_two_validator_bid_settlements(
         commissions,
         RewardsParams::new(test_vote_account(1)).block_rewards(block_rewards),
     );
+    assert!(values.skipped_validators.is_empty());
+    let settlements = values.settlements;
 
     // the auction credited the override, so the realized 1.0 is charged down to it
     assert_eq!(
@@ -1267,6 +1274,28 @@ fn test_block_commission_override_above_in_bond_charged_to_override() {
         Decimal::from(block_rewards) * Decimal::from_str("0.95").unwrap()
     );
     assert_regular_validator_settled(&settlements);
+}
+
+#[test]
+fn test_failing_validator_skipped_other_settled() {
+    // in-bond equals the floor, so the legit 6.0 gap on 5e18 lamports overflows u64
+    let commissions = CommissionParams {
+        minimal_commission: Some(Decimal::from(-5)),
+        ..CommissionParams::new(0.0, -5.0)
+    }
+    .as_commission_details();
+
+    let values = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1)).block_rewards(5_000_000_000_000_000_000),
+    );
+
+    assert_eq!(values.skipped_validators, vec![test_vote_account(1)]);
+    assert!(values
+        .settlements
+        .iter()
+        .all(|s| s.vote_account == test_vote_account(2)));
+    assert_regular_validator_settled(&values.settlements);
 }
 
 #[test]
@@ -4560,7 +4589,8 @@ fn test_redelegation_only_takes_yield_capped_fee_not_max() {
         &|_| false,
         Decimal::try_from(28.0).unwrap(),
     )
-    .unwrap();
+    .unwrap()
+    .settlements;
 
     let marinade_fee =
         sum_claims_for_authority(&settlements, &TEST_PUBKEY_MARINADE, &TEST_PUBKEY_MARINADE);

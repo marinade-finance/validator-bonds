@@ -33,7 +33,13 @@ use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use {clap::Parser, log::info};
+use {
+    clap::Parser,
+    log::{error, info},
+};
+
+// soft_fail in .buildkite/prepare-bid-distribution.yml keys on this exit code
+const SKIPPED_VALIDATORS_EXIT_CODE: i32 = 2;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -172,6 +178,7 @@ fn main() -> anyhow::Result<()> {
     let mut adj_max_fee_bps: Option<u64> = None;
     let mut adj_min_fee_bps: Option<u64> = None;
     let mut collection_ssr_pmpe: Option<f64> = None;
+    let mut skipped_validators = vec![];
 
     // ===== PSR Settlements (Protected Events) =====
     let psr_configs = bid_distribution_config.psr_settlements();
@@ -419,6 +426,7 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
+        skipped_validators = bid.skipped_validators;
         all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
@@ -458,6 +466,14 @@ fn main() -> anyhow::Result<()> {
         ),
     )?;
 
+    if !skipped_validators.is_empty() {
+        error!(
+            "Settlement computation failed for {} validator(s), output written without them: {:?}",
+            skipped_validators.len(),
+            skipped_validators
+        );
+        std::process::exit(SKIPPED_VALIDATORS_EXIT_CODE);
+    }
     info!("Finished.");
     Ok(())
 }
