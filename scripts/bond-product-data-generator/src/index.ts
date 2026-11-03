@@ -57,20 +57,14 @@ async function generateBondProductData({
   config: PublicKey
   bond: PublicKey
   voteAccount: PublicKey
-  inflationBps: number | null
-  mevBps: number | null
-  blockBps: number | null
+  inflationBps: BN | null
+  mevBps: BN | null
+  blockBps: BN | null
   bump: number
   productType: ProductType
   format: OutputFormat
 }): Promise<{ base64?: string; hex?: string; numbers?: string }> {
-  const commissionConfig = {
-    inflationBps: inflationBps !== null ? new BN(inflationBps) : null,
-    mevBps: mevBps !== null ? new BN(mevBps) : null,
-    blockBps: blockBps !== null ? new BN(blockBps) : null,
-  }
-
-  validateCommissionProductArgs(commissionConfig)
+  validateCommissionProductArgs({ inflationBps, mevBps, blockBps })
 
   // Note: BorshAccountsCoder expects field names to match the JSON IDL exactly:
   // - Struct fields use snake_case (vote_account, not voteAccount)
@@ -84,9 +78,9 @@ async function generateBondProductData({
     config_data: {
       Commission: [
         {
-          inflation_bps: inflationBps !== null ? new BN(inflationBps) : null,
-          mev_bps: mevBps !== null ? new BN(mevBps) : null,
-          block_bps: blockBps !== null ? new BN(blockBps) : null,
+          inflation_bps: inflationBps,
+          mev_bps: mevBps,
+          block_bps: blockBps,
         },
       ],
     },
@@ -118,14 +112,16 @@ program
       .default('mainnet')
       .env('RPC_URL'),
   )
-  .option('--inflation <bps>', 'Inflation commission in basis points', val =>
-    parseInt(val, 10),
+  .option(
+    '--inflation <bps>',
+    'Inflation commission in basis points',
+    val => new BN(val),
   )
-  .option('--mev <bps>', 'MEV commission in basis points', val =>
-    parseInt(val, 10),
-  )
-  .option('--block <bps>', 'Block commission in basis points', val =>
-    parseInt(val, 10),
+  .option('--mev <bps>', 'MEV commission in basis points', val => new BN(val))
+  .option(
+    '--block <bps>',
+    'Block commission in basis points',
+    val => new BN(val),
   )
   .option(
     '--config <pubkey>',
@@ -150,11 +146,9 @@ program
         command.help()
       }
 
-      const inflationBps =
-        options.inflation !== undefined ? Number(options.inflation) : null
-      const mevBps = options.mev !== undefined ? Number(options.mev) : null
-      const blockBps =
-        options.block !== undefined ? Number(options.block) : null
+      const inflationBps: BN | null = options.inflation ?? null
+      const mevBps: BN | null = options.mev ?? null
+      const blockBps: BN | null = options.block ?? null
 
       let bond: PublicKey
       let voteAccount: PublicKey
@@ -225,9 +219,9 @@ program
         console.log(`  Config: ${config.toBase58()}`)
         console.log(`  Bond: ${bond.toBase58()}`)
         console.log(`  Vote Account: ${voteAccount.toBase58()}`)
-        console.log(`  Inflation BPS: ${inflationBps ?? 'None'}`)
-        console.log(`  MEV BPS: ${mevBps ?? 'None'}`)
-        console.log(`  Block BPS: ${blockBps ?? 'None'}`)
+        console.log(`  Inflation BPS: ${inflationBps?.toString() ?? 'None'}`)
+        console.log(`  MEV BPS: ${mevBps?.toString() ?? 'None'}`)
+        console.log(`  Block BPS: ${blockBps?.toString() ?? 'None'}`)
         console.log(`  PDA bump: ${calculatedBump}`)
       }
     } catch (error) {
