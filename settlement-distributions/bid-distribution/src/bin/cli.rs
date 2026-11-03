@@ -1,4 +1,5 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
+use bid_distribution::generators::bidding::log_floored_commissions;
 use bid_distribution::generators::fee_optimizer::{
     calculate_bid_settlement_totals, generate_bid_settlements, BisectMode,
 };
@@ -350,6 +351,7 @@ fn main() -> anyhow::Result<()> {
             metas_epochs.iter().all(|v| *v == stake_meta_epoch),
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
+        log_floored_commissions(&sam_validator_metas);
 
         // Generate penalty settlements first — total_staker_penalties is needed for target_pmpe derivation.
         info!("Generating penalty settlements...");
