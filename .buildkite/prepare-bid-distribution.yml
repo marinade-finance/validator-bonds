@@ -200,7 +200,7 @@ steps:
         --output-settlement-collection "./bid-distribution-settlements.json" \
         --output-protected-event-collection "./protected-events.json"
     soft_fail:
-    - exit_status: 2
+    - exit_status: 3
     artifact_paths:
     - "./bid-distribution-settlements.json"
     - "./protected-events.json"

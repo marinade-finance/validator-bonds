@@ -39,8 +39,8 @@ use {
     log::{error, info},
 };
 
-// soft_fail in .buildkite/prepare-bid-distribution.yml keys on this exit code
-const SKIPPED_VALIDATORS_EXIT_CODE: i32 = 2;
+// prepare-bid-distribution.yml soft-fails on it; clap usage errors exit 2, anyhow 1, panics 101
+const SKIPPED_VALIDATORS_EXIT_CODE: i32 = 3;
 
 #[derive(Parser, Debug)]
 #[command(
