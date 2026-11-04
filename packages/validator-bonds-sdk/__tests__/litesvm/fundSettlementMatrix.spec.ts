@@ -9,6 +9,7 @@ import {
 import BN from 'bn.js'
 
 import {
+  CLUSTER_EFFECTIVE_STAKE,
   currentEpoch,
   executeIx,
   initLiteSvmTest,
@@ -52,7 +53,12 @@ const SOL = LAMPORTS_PER_SOL
 const PINNED_RESERVE = STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE
 
 type SourceState =
-  'activating' | 'active' | 'deactivating' | 'inactive' | 'inactiveUnderwater'
+  | 'activating'
+  | 'active'
+  | 'deactivating'
+  | 'cooling'
+  | 'inactive'
+  | 'inactiveUnderwater'
 
 // sizes that depend on rent, the config and the remaining claim
 type Size =
@@ -215,6 +221,20 @@ describe('Validator Bonds fund settlement matrix', () => {
         await warpToNextEpoch(provider)
         await deactivate()
         break
+      case 'cooling': {
+        await warpToNextEpoch(provider)
+        await deactivate()
+        // the cluster deactivates enough in this epoch to leave about 1.5 SOL of the stake effective
+        const stake = BigInt(source.lamports - rent)
+        const deactivationEpoch = await currentEpoch(provider)
+        warpToEpoch(provider, deactivationEpoch + 1n, {
+          epoch: deactivationEpoch,
+          deactivating:
+            (CLUSTER_EFFECTIVE_STAKE * 9n * stake) /
+            (100n * (stake - 1_500_000_000n)),
+        })
+        break
+      }
       case 'inactive':
         await warpToNextEpoch(provider)
         await deactivate()
@@ -364,6 +384,12 @@ describe('Validator Bonds fund settlement matrix', () => {
       name: 'deactivating (this epoch): split, not deactivated again',
       maxTotalClaim: 10 * SOL,
       source: { state: 'deactivating', lamports: 50 * SOL },
+      path: 'split',
+    },
+    {
+      name: 'cooling down over several epochs, little stake still effective: split',
+      maxTotalClaim: 10 * SOL,
+      source: { state: 'cooling', lamports: 50 * SOL },
       path: 'split',
     },
     {
@@ -570,12 +596,14 @@ describe('Validator Bonds fund settlement matrix', () => {
   }
 
   // the split path the program model predicts for this source and claim
-  function splitModel(before: StakeSnapshot, claim: number, epoch: bigint) {
+  function splitModel(
+    before: StakeSnapshot,
+    claim: number,
+    epoch: bigint,
+    inactive: boolean,
+  ) {
     const leftoverLamports = before.lamports - (claim + minSize) - rent
     // S1: a fully inactive account stakes nothing, whatever stake it still records
-    const inactive =
-      before.activationEpoch === before.deactivationEpoch ||
-      before.deactivationEpoch < epoch
     const nonDelegated = before.lamports - (inactive ? 0 : before.stake)
     const maxNonDelegated = claim + PINNED_RESERVE
     const withdrawn =
@@ -710,7 +738,12 @@ describe('Validator Bonds fund settlement matrix', () => {
 
   it.each(splits)('split: $name', async c => {
     const prepared = await prepare(c)
-    const model = splitModel(prepared.before, prepared.claim, prepared.epoch)
+    const model = splitModel(
+      prepared.before,
+      prepared.claim,
+      prepared.epoch,
+      c.source.state === 'inactive' || c.source.state === 'inactiveUnderwater',
+    )
     expect(model.path).toEqual(c.path)
     const settled = await settle(prepared)
     expectFundedShape(prepared, settled, c.maxTotalClaim)

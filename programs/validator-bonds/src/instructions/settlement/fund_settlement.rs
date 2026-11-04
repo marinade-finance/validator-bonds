@@ -237,17 +237,16 @@ impl FundSettlement<'_> {
                 // A portion of the undelegated lamports may need to be moved to the split account before splitting.
                 // See: https://github.com/anza-xyz/agave/blob/v2.0.9/programs/stake/src/stake_state.rs#L504
 
-                // staked as the stake program counts it on withdraw, so an inactive account is withdrawable down to rent
+                // a fully inactive account is withdrawable down to rent, whatever stake it still records
                 let epoch = ctx.accounts.clock.epoch;
-                let lamports_staked = if epoch >= stake_delegation.deactivation_epoch {
+                let fully_inactive = epoch >= stake_delegation.deactivation_epoch
                     // the stake program computes warmup and cooldown with the new rate since epoch 0
-                    stake_delegation
+                    && stake_delegation
                         .stake_activating_and_deactivating(epoch, &StakeHistorySysvar(epoch), Some(0))
                         .effective
-                } else {
-                    stake_delegation.stake
-                };
-                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() - lamports_staked;
+                        == 0;
+                let lamports_staked = if fully_inactive { 0 } else { stake_delegation.stake };
+                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports().saturating_sub(lamports_staked);
                 let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
                     - ctx.accounts.settlement.lamports_funded + stake_meta.rent_exempt_reserve;
 
