@@ -1261,6 +1261,33 @@ fn test_i64_min_mev_in_bond_commission_floored() {
 }
 
 #[test]
+fn test_i64_min_in_bond_commission_without_auction_floor_bounded_locally() {
+    let block_rewards = 2 * LAMPORTS_PER_SOL;
+    let commissions = CommissionParams {
+        block_rewards_in_bond: Some(i64_min_bps_dec()),
+        ..CommissionParams::new(0.0, 0.0)
+    }
+    .as_commission_details();
+    assert_eq!(commissions.block_rewards_commission_dec, i64_min_bps_dec());
+
+    let values = run_two_validator_bid_settlements(
+        commissions,
+        RewardsParams::new(test_vote_account(1))
+            .block_rewards(block_rewards)
+            .jito(3 * LAMPORTS_PER_SOL),
+    );
+    assert!(values.skipped_validators.is_empty());
+    let settlements = values.settlements;
+
+    // realized (2 - 3) / 2 = -0.5, charged down to the local floor -10 only
+    assert_eq!(
+        bidding_claim(&settlements, test_vote_account(1), "block_commission_claim"),
+        Decimal::from(block_rewards) * Decimal::from_str("9.5").unwrap()
+    );
+    assert_regular_validator_settled(&settlements);
+}
+
+#[test]
 fn test_block_commission_override_above_in_bond_charged_to_override() {
     let block_rewards = 2 * LAMPORTS_PER_SOL;
     let override_dec = Decimal::from_str("0.05").unwrap();
@@ -1299,7 +1326,14 @@ fn test_failing_validator_skipped_other_settled() {
         RewardsParams::new(test_vote_account(1)).block_rewards(5_000_000_000_000_000_000),
     );
 
-    assert_eq!(values.skipped_validators, vec![test_vote_account(1)]);
+    let [(skipped, cause)] = values.skipped_validators.as_slice() else {
+        panic!(
+            "expected one skipped validator: {:?}",
+            values.skipped_validators
+        );
+    };
+    assert_eq!(*skipped, test_vote_account(1));
+    assert!(cause.contains("u64"), "unexpected skip cause: {cause}");
     assert!(values
         .settlements
         .iter()

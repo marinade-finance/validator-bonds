@@ -432,7 +432,7 @@ fn push_fee_deposit(
 
 pub(crate) struct BidWorkerOutput {
     pub settlements: Vec<Settlement>,
-    pub skipped_validators: Vec<Pubkey>,
+    pub skipped_validators: Vec<(Pubkey, String)>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -495,13 +495,7 @@ pub(crate) fn generate_bid_settlements_worker(
             target_pmpe,
         ) {
             Ok(settlements) => settlement_claim_collections.extend(settlements),
-            Err(err) => {
-                error!(
-                    "Skipping validator {}: settlement computation failed: {err:#}",
-                    validator.vote_account
-                );
-                skipped_validators.push(validator.vote_account);
-            }
+            Err(err) => skipped_validators.push((validator.vote_account, format!("{err:#}"))),
         }
     }
     Ok(BidWorkerOutput {
@@ -683,13 +677,18 @@ fn settle_validator(
     Ok(settlements)
 }
 
+// below ds-sam's minimalCommission (-5.0 = -500%); bounds the claim if ds-sam applies no floor
+const MIN_IN_BOND_COMMISSION_DEC: Decimal = Decimal::from_parts(10, 0, 0, true, 0);
+
 // realized not auction commission: catches raises after the snapshot; floor = what the auction credited
 fn commission_eff(
     commission_realized_dec: Option<Decimal>,
     commission_in_bond_dec: Decimal,
     commission_floor_dec: Decimal,
 ) -> Decimal {
-    let in_bond = commission_in_bond_dec.max(commission_floor_dec);
+    let in_bond = commission_in_bond_dec
+        .max(commission_floor_dec)
+        .max(MIN_IN_BOND_COMMISSION_DEC);
     match commission_realized_dec {
         Some(realized) if realized > in_bond => realized - in_bond,
         _ => Decimal::ZERO,
@@ -718,9 +717,10 @@ pub fn log_floored_commissions(sam_validator_metas: &[ValidatorSamMeta]) {
                 c.block_rewards_commission_dec,
             ),
         ] {
+            let floor = floor.max(MIN_IN_BOND_COMMISSION_DEC);
             if let Some(in_bond) = in_bond.filter(|in_bond| *in_bond < floor) {
                 error!(
-                    "Validator {} {kind} in-bond commission {in_bond} is below the auction commission {floor}, charging to {floor}",
+                    "Validator {} {kind} in-bond commission {in_bond} is below the commission floor {floor}, charging to {floor}",
                     validator.vote_account
                 );
             }

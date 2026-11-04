@@ -20,7 +20,7 @@ const MAX_ADJ_ITER: u32 = 20;
 #[derive(Serialize)]
 pub struct BidSettlementValues {
     pub settlements: Vec<Settlement>,
-    pub skipped_validators: Vec<Pubkey>,
+    pub skipped_validators: Vec<(Pubkey, String)>,
     pub adj_max_fee_bps: u64,
     pub adj_min_fee_bps: u64,
 }

@@ -107,7 +107,8 @@ is not yet withdrawable; it succeeds in the next epoch.
 
 A BondProduct commission is checked only against its upper bound, so it may be any negative value,
 down to `i64::MIN`. Such a value is a misconfiguration of the bond owner's own bond, not a security
-issue: settlements charge it only down to the auction's minimal commission and log it, and a
+issue: settlements charge it only down to the auction's minimal commission (-500% in production,
+with a local -1000% backstop) and log it, and a
 validator whose settlement cannot be computed is skipped while the rest of the epoch settles.
 
 ## Contract Audits

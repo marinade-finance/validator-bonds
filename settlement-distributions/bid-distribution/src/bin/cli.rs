@@ -469,10 +469,12 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     if !skipped_validators.is_empty() {
+        for (vote_account, err) in &skipped_validators {
+            error!("Skipped validator {vote_account}: settlement computation failed: {err}");
+        }
         error!(
-            "Settlement computation failed for {} validator(s), output written without them: {:?}",
-            skipped_validators.len(),
-            skipped_validators
+            "Settlement computation failed for {} validator(s), output written without them",
+            skipped_validators.len()
         );
         std::process::exit(SKIPPED_VALIDATORS_EXIT_CODE);
     }
