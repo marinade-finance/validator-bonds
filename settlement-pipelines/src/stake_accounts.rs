@@ -9,7 +9,7 @@ use solana_sdk::sysvar::clock::ID as clock_sysvar_id;
 use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
 use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::stake_history::StakeHistoryEntry;
-use solana_stake_interface::state::{Delegation, Stake, StakeStateV2};
+use solana_stake_interface::state::StakeStateV2;
 use solana_transaction_builder::TransactionBuilder;
 use std::cmp::Ordering;
 use std::str::FromStr;
@@ -127,46 +127,6 @@ pub fn get_delegated_amount(
     } else {
         0
     }
-}
-
-/// State fund_settlement gives the split leftover; mirrors the program's withdraw-or-split choice.
-pub fn split_leftover_state(
-    destination: &StakeStateV2,
-    destination_lamports: u64,
-    amount_to_fund: u64,
-    leftover_lamports: u64,
-    split_rent_exempt: u64,
-    stake_activation: &StakeActivation,
-) -> StakeStateV2 {
-    let StakeStateV2::Stake(meta, stake, flags) = destination else {
-        return *destination;
-    };
-    let non_delegated =
-        destination_lamports.saturating_sub(get_delegated_amount(destination, stake_activation));
-    let withdrawn = non_delegated.saturating_sub(amount_to_fund + meta.rent_exempt_reserve);
-    let moved = leftover_lamports.saturating_sub(split_rent_exempt);
-    let delegation = if withdrawn >= moved {
-        // everything the leftover gets is withdrawn, so the program initializes and delegates it afresh
-        Delegation {
-            stake: moved,
-            activation_epoch: stake_activation.epoch(),
-            deactivation_epoch: u64::MAX,
-            ..stake.delegation
-        }
-    } else {
-        Delegation {
-            stake: moved - withdrawn,
-            ..stake.delegation
-        }
-    };
-    StakeStateV2::Stake(
-        *meta,
-        Stake {
-            delegation,
-            ..*stake
-        },
-        *flags,
-    )
 }
 
 /// Ordering key for define priority of stake accounts for claiming
@@ -501,82 +461,5 @@ mod tests {
     fn delegated_amount_of_a_non_delegated_account_is_zero() {
         let state = initialized_stake(Pubkey::new_unique(), Pubkey::new_unique());
         assert_eq!(get_delegated_amount(&state, &at_epoch()), 0);
-    }
-
-    const LIVE_RENT: u64 = 1_666_240;
-
-    fn bond_stake(stake: u64, activation_epoch: u64, deactivation_epoch: u64) -> StakeStateV2 {
-        StakeStateV2::Stake(
-            Meta {
-                rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
-                ..Meta::default()
-            },
-            Stake {
-                delegation: Delegation {
-                    stake,
-                    activation_epoch,
-                    deactivation_epoch,
-                    ..Delegation::default()
-                },
-                ..Stake::default()
-            },
-            StakeFlags::empty(),
-        )
-    }
-
-    fn leftover_delegation(
-        destination: &StakeStateV2,
-        destination_lamports: u64,
-        amount_to_fund: u64,
-    ) -> (u64, Delegation) {
-        let leftover_lamports = destination_lamports - amount_to_fund - MIN;
-        let state = split_leftover_state(
-            destination,
-            destination_lamports,
-            amount_to_fund,
-            leftover_lamports,
-            LIVE_RENT,
-            &at_epoch(),
-        );
-        (leftover_lamports, state.delegation().unwrap())
-    }
-
-    #[test]
-    fn split_leftover_of_an_active_account_keeps_its_epochs() {
-        let destination = bond_stake(50 * SOL - LIVE_RENT, EPOCH - 1, u64::MAX);
-        let (leftover_lamports, delegation) = leftover_delegation(&destination, 50 * SOL, 10 * SOL);
-        assert_eq!(delegation.stake, leftover_lamports - LIVE_RENT);
-        assert_eq!(delegation.activation_epoch, EPOCH - 1);
-        assert_eq!(delegation.deactivation_epoch, u64::MAX);
-    }
-
-    #[test]
-    fn split_leftover_takes_the_withdrawn_surplus_first() {
-        // 15 SOL surplus: 5 SOL + live rent - pinned reserve above the claim is withdrawn, the rest split
-        let destination = bond_stake(20 * SOL - LIVE_RENT, EPOCH - 1, u64::MAX);
-        let (leftover_lamports, delegation) = leftover_delegation(&destination, 35 * SOL, 10 * SOL);
-        let withdrawn = 5 * SOL + LIVE_RENT - STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
-        assert_eq!(delegation.stake, leftover_lamports - LIVE_RENT - withdrawn);
-        assert_eq!(delegation.activation_epoch, EPOCH - 1);
-    }
-
-    #[test]
-    fn split_leftover_is_delegated_afresh_when_the_surplus_covers_it() {
-        let destination = bond_stake(SOL, EPOCH - 1, u64::MAX);
-        let (leftover_lamports, delegation) =
-            leftover_delegation(&destination, SOL + LIVE_RENT + 30 * SOL, 10 * SOL);
-        assert_eq!(delegation.stake, leftover_lamports - LIVE_RENT);
-        assert_eq!(delegation.activation_epoch, EPOCH);
-        assert_eq!(delegation.deactivation_epoch, u64::MAX);
-    }
-
-    #[test]
-    fn split_leftover_of_an_inactive_account_is_delegated_afresh() {
-        // recorded stake above the lamports: the stale delegation must not reach the leftover
-        let destination = bond_stake(60 * SOL, EPOCH - 3, EPOCH - 2);
-        let (leftover_lamports, delegation) = leftover_delegation(&destination, 50 * SOL, 10 * SOL);
-        assert_eq!(delegation.stake, leftover_lamports - LIVE_RENT);
-        assert_eq!(delegation.activation_epoch, EPOCH);
-        assert_eq!(delegation.deactivation_epoch, u64::MAX);
     }
 }

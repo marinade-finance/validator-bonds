@@ -24,9 +24,9 @@ use settlement_pipelines::settlement_data::{
     SettlementRecord,
 };
 use settlement_pipelines::stake_accounts::{
-    fetch_stake_account_rent, get_delegated_amount, get_stake_state_type,
-    prepare_merge_instructions, settlement_funded_claimable_lamports, split_leftover_state,
-    StakeAccountStateType, STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
+    get_delegated_amount, get_stake_state_type, prepare_merge_instructions,
+    settlement_funded_claimable_lamports, StakeAccountStateType,
+    STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -229,10 +229,6 @@ async fn prepare_funding(
         .map_err(CliError::retry_able)?;
     let minimal_stake_lamports =
         config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
-    // what the on-chain `split_stake_account` will be created with, mirroring Anchor's `init`
-    let split_stake_rent_exempt = fetch_stake_account_rent(rpc_client.clone())
-        .await
-        .map_err(CliError::retry_able)?;
 
     let mut fund_bond_stake_accounts = get_on_chain_bond_stake_accounts(
         &all_stake_accounts,
@@ -386,9 +382,6 @@ async fn prepare_funding(
                     account.lamports.saturating_sub(delegated_amount)
                 });
                 funding_stake_accounts.reverse();
-                let fundable_stake_accounts = funding_stake_accounts
-                    .iter()
-                    .collect::<Vec<&FundBondStakeAccount>>();
                 info!(
                         "Settlement {} (vote account {}, bond {}, reason {}, max claim {} SOLS, epoch {}) is to be funded by validator by {} SOLs. Available {} stake accounts ({}) with {} SOLs.",
                         settlement_record.settlement_address,
@@ -398,13 +391,13 @@ async fn prepare_funding(
                         build_balance_message(settlement_record.max_total_claim_sum, false, false),
                         epoch,
                         build_balance_message(amount_to_fund, false, false),
-                        fundable_stake_accounts.len(),
-                    fundable_stake_accounts
+                        funding_stake_accounts.len(),
+                    funding_stake_accounts
                         .iter()
                         .map(|s| s.stake_account.to_string())
                         .collect::<Vec<String>>()
                         .join(","),
-                        build_balance_message(fundable_stake_accounts
+                        build_balance_message(funding_stake_accounts
                         .iter()
                         .map(|s| s.lamports)
                         .sum::<u64>(), false, false)
@@ -428,8 +421,6 @@ async fn prepare_funding(
                 if let Some((
                     FundBondStakeAccount {
                         stake_account: destination_stake,
-                        split_stake_account: destination_split_stake,
-                        state: destination_stake_state,
                         ..
                     },
                     destination_stake_state_type,
@@ -480,7 +471,6 @@ async fn prepare_funding(
                         );
                         validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: destination_stake,
-                            split_stake_account: destination_split_stake.clone(),
                         });
                     } else {
                         reporting.warning().with_msg(format!(
@@ -517,7 +507,6 @@ async fn prepare_funding(
                             lamports.saturating_sub(minimal_stake_lamports);
                         validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: stake_account_address,
-                            split_stake_account: Arc::new(Keypair::new()),
                         });
                     }
 
@@ -537,35 +526,8 @@ async fn prepare_funding(
                                 build_balance_message(funding_lamports_accumulated, false, false)
                             )).with_vote(settlement_record.vote_account_address).add();
                         }
-                        Ordering::Equal => {}
-                        Ordering::Greater => {
-                            // the stake account has got (or having after merging) more lamports than needed for the settlement in the current for-loop,
-                            // the rest of lamports will be available in the split stake account
-                            // and that can be used as a source for funding of next settlement when vote account is part of multiple settlements
-                            // WARN: this REQUIRES that the merge stake transactions are executed in sequence!
-                            let lamports_available_after_split = destination_merged_lamports
-                                .saturating_sub(amount_to_fund)
-                                .saturating_sub(minimal_stake_lamports);
-                            // the program splits only when the leftover also covers the split account's own rent
-                            if fund_destination
-                                && lamports_available_after_split
-                                    >= minimal_stake_lamports + split_stake_rent_exempt
-                            {
-                                funding_stake_accounts.push(FundBondStakeAccount {
-                                    lamports: lamports_available_after_split,
-                                    stake_account: destination_split_stake.pubkey(),
-                                    split_stake_account: Arc::new(Keypair::new()),
-                                    state: split_leftover_state(
-                                        &destination_stake_state,
-                                        destination_merged_lamports,
-                                        amount_to_fund,
-                                        lamports_available_after_split,
-                                        split_stake_rent_exempt,
-                                        &stake_activation,
-                                    ),
-                                });
-                            }
-                        }
+                        // a leftover split off the destination is funded by a later run, once it exists on chain
+                        Ordering::Equal | Ordering::Greater => {}
                     }
                     let published_funding = published_funding_lamports.min(amount_to_fund);
                     if published_funding > 0 {
@@ -642,7 +604,6 @@ fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
         SettlementFunderType::ValidatorBond(data) => data.iter().any(
             |SettlementFunderValidatorBond {
                  stake_account_to_fund,
-                 ..
              }| *stake_account_to_fund != Pubkey::default(),
         ),
     }
@@ -724,10 +685,11 @@ async fn fund_settlements(
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
                     stake_account_to_fund,
-                    split_stake_account: split_stake_account_keypair,
+                    ..
                 } in validator_bonds_funders
                 {
                     // Settlement funding could be of two types: from validator bond or from operator wallet
+                    let split_stake_account_keypair = Arc::new(Keypair::new());
                     let req = program
                         .request()
                         .accounts(validator_bonds::accounts::FundSettlement {
@@ -752,7 +714,7 @@ async fn fund_settlements(
                             event_authority: find_event_authority().0,
                         })
                         .args(validator_bonds::instruction::FundSettlement {});
-                    transaction_builder.add_signer_checked(split_stake_account_keypair);
+                    transaction_builder.add_signer_checked(&split_stake_account_keypair);
                     add_instruction_to_builder(
                         &mut transaction_builder,
                         &req,
@@ -799,7 +761,6 @@ async fn fund_settlements(
 struct FundBondStakeAccount {
     lamports: u64,
     stake_account: Pubkey,
-    split_stake_account: Arc<Keypair>,
     state: StakeStateV2,
 }
 
@@ -865,7 +826,6 @@ async fn get_on_chain_bond_stake_accounts(
                     .map(|(stake_account, lamports, state)| FundBondStakeAccount {
                         lamports,
                         stake_account,
-                        split_stake_account: Arc::new(Keypair::new()),
                         state,
                     })
                     .collect(),
@@ -1271,7 +1231,6 @@ mod tests {
         FundBondStakeAccount {
             lamports,
             stake_account: Pubkey::new_unique(),
-            split_stake_account: Arc::new(Keypair::new()),
             state: StakeStateV2::Stake(
                 Meta::default(),
                 Stake {

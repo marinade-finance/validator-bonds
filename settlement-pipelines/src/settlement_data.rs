@@ -4,12 +4,10 @@ use log::debug;
 use merkle_tree::psr_claim::TreeNode;
 use settlement_common::merkle_tree_collection::MerkleTreeCollection;
 use settlement_common::settlement_collection::{SettlementFunder, SettlementReason};
-use solana_sdk::signature::Keypair;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
-use std::sync::Arc;
 use validator_bonds::state::bond::Bond;
 use validator_bonds::state::settlement::{find_settlement_staker_authority, Settlement};
 
@@ -65,8 +63,6 @@ impl Eq for SettlementRecord {}
 #[derive(Debug, Clone)]
 pub struct SettlementFunderValidatorBond {
     pub stake_account_to_fund: Pubkey,
-    // the leftover of a split is created at this address, which a later settlement of the same run may fund
-    pub split_stake_account: Arc<Keypair>,
 }
 
 #[derive(Debug, Clone)]
