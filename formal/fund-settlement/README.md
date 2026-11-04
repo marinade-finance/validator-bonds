@@ -14,4 +14,4 @@ Expected results, each mirrored by a case of `packages/validator-bonds-sdk/__tes
 
 - `current.cfg` violates `NoPanic`: a bond account between the live-rent minimum and the minimal size panics at `fund_settlement.rs:200`. With size 3 removed it panics at `:233` on an account handed over underwater, and without `NoPanic` it violates `NoProgramMadeUnderwater` through the leftover cloned from an inactive source.
 - `new.cfg` finds no error (about 36M distinct states, two minutes).
-- `new-withdraw-requests.cfg` violates `NoProgramMadeUnderwater`: `claim_withdraw_request` splits an inactive bond account and the leftover kept by the bond inherits the full recorded stake.
+- `new-withdraw-requests.cfg` violates `NoProgramMadeUnderwater`: `claim_withdraw_request` splits an inactive bond account and the leftover kept by the bond inherits the full recorded stake. With the fix that leftover is still fully fundable, so `NoProgramMadeUnderwater` is stricter than what funding needs.
