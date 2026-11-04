@@ -33,10 +33,15 @@ pnpm fix                             # prettier + eslint + cargo fmt + clippy --
 cargo test --features no-entrypoint -- --nocapture    # unit (fast)
 pnpm test:unit                       # TS unit tests (sanity-check, cli-core, bonds-eventing)
 pnpm test:bankrun                    # bankrun JS tests (builds anchor first)
+pnpm test:litesvm                    # LiteSVM JS tests on the pinned mainnet stake program and features (builds anchor first)
 pnpm test:validator                  # anchor test (full, slow)
 
-# Run a single bankrun test file
+# Run a single bankrun or LiteSVM test file
 FILE=path/to/test.spec.ts pnpm test:bankrun
+FILE=path/to/test.spec.ts pnpm test:litesvm
+
+# Pinned mainnet stake program + feature set (fixtures/mainnet/): exits 1 on drift, refresh with `bun scripts/mainnet-fixture.ts`
+RPC_URL=<mainnet rpc> pnpm check:mainnet-fixture
 
 # After on-chain program changes — sync IDL to SDK and resources
 pnpm copy:idl
