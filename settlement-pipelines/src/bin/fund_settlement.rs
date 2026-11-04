@@ -25,8 +25,8 @@ use settlement_pipelines::settlement_data::{
 };
 use settlement_pipelines::stake_accounts::{
     fetch_stake_account_rent, get_delegated_amount, get_stake_state_type,
-    prepare_merge_instructions, settlement_funded_claimable_lamports, StakeAccountStateType,
-    STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
+    prepare_merge_instructions, settlement_funded_claimable_lamports, split_leftover_state,
+    StakeAccountStateType, STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
@@ -555,7 +555,14 @@ async fn prepare_funding(
                                     lamports: lamports_available_after_split,
                                     stake_account: destination_split_stake.pubkey(),
                                     split_stake_account: Arc::new(Keypair::new()),
-                                    state: destination_stake_state,
+                                    state: split_leftover_state(
+                                        &destination_stake_state,
+                                        destination_merged_lamports,
+                                        amount_to_fund,
+                                        lamports_available_after_split,
+                                        split_stake_rent_exempt,
+                                        &stake_activation,
+                                    ),
                                 });
                             }
                         }
