@@ -388,7 +388,7 @@ async fn prepare_funding(
                 );
                 for underwater in underwater_stake_accounts.iter() {
                     reporting.warning().with_msg(format!(
-                        "Settlement {} (vote account {}, epoch {}, reason: {}): skipping stake account {} holding {} SOLs below its recorded delegation {} SOLs (deactivated with withdrawn lamports); funding it would split and underflow fund_settlement, awaiting reset",
+                        "Settlement {} (vote account {}, epoch {}, reason: {}): skipping stake account {} holding {} SOLs below its recorded delegation {} SOLs (deactivated with withdrawn lamports); funding it would split and underflow fund_settlement, only a settlement taking the whole account can fund it",
                         settlement_record.settlement_address,
                         settlement_record.vote_account_address,
                         epoch,
@@ -504,6 +504,7 @@ async fn prepare_funding(
                         );
                         validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: destination_stake,
+                            split_stake_account: destination_split_stake.clone(),
                         });
                     } else {
                         reporting.warning().with_msg(format!(
@@ -540,6 +541,7 @@ async fn prepare_funding(
                             lamports.saturating_sub(minimal_stake_lamports);
                         validator_bonds_funders.push(SettlementFunderValidatorBond {
                             stake_account_to_fund: stake_account_address,
+                            split_stake_account: Arc::new(Keypair::new()),
                         });
                     }
 
@@ -657,6 +659,7 @@ fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
         SettlementFunderType::ValidatorBond(data) => data.iter().any(
             |SettlementFunderValidatorBond {
                  stake_account_to_fund,
+                 ..
              }| *stake_account_to_fund != Pubkey::default(),
         ),
     }
@@ -738,11 +741,10 @@ async fn fund_settlements(
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
                     stake_account_to_fund,
-                    ..
+                    split_stake_account: split_stake_account_keypair,
                 } in validator_bonds_funders
                 {
                     // Settlement funding could be of two types: from validator bond or from operator wallet
-                    let split_stake_account_keypair = Arc::new(Keypair::new());
                     let req = program
                         .request()
                         .accounts(validator_bonds::accounts::FundSettlement {
@@ -767,7 +769,7 @@ async fn fund_settlements(
                             event_authority: find_event_authority().0,
                         })
                         .args(validator_bonds::instruction::FundSettlement {});
-                    transaction_builder.add_signer_checked(&split_stake_account_keypair);
+                    transaction_builder.add_signer_checked(split_stake_account_keypair);
                     add_instruction_to_builder(
                         &mut transaction_builder,
                         &req,
