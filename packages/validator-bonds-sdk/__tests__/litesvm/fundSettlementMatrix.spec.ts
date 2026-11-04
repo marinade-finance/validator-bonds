@@ -6,16 +6,28 @@ import {
   StakeProgram,
   SystemProgram,
 } from '@solana/web3.js'
+import BN from 'bn.js'
 
-import { currentEpoch, initLiteSvmTest, warpToNextEpoch } from './litesvm'
 import {
+  currentEpoch,
+  executeIx,
+  initLiteSvmTest,
+  warpToEpoch,
+  warpToNextEpoch,
+} from './litesvm'
+import {
+  MerkleTreeNode,
   STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
   bondsWithdrawerAuthority,
+  claimSettlementV2Instruction,
+  closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getRentExemptStake,
   getSettlement,
+  isEventData,
   minimalSizeStakeAccount,
+  resetStakeInstruction,
   settlementStakerAuthority,
 } from '../../src'
 import {
@@ -82,6 +94,8 @@ type Case = {
   path: Path
   // KNOWN_DEVIATION: current behaviour breaks this invariant; the funding fix flips the case
   knownDeviation?: 'F1' | 'F5'
+  // also claim the whole settlement, close it and reset the funded account
+  lifecycle?: true
 }
 
 type StakeSnapshot = {
@@ -258,7 +272,11 @@ describe('Validator Bonds fund settlement matrix', () => {
       splitStakeRentPayer: payer,
     })
     const send = () =>
-      provider.sendIx([payer, split, operatorAuthority], instruction)
+      executeIx(
+        provider,
+        [provider.wallet, payer, split, operatorAuthority],
+        instruction,
+      )
     return { payer, split: split.publicKey, send }
   }
 
@@ -278,6 +296,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     },
     {
       name: 'active, split threshold - 1 lamport: whole account, maximal overfund',
+      lifecycle: true,
       maxTotalClaim: 10 * SOL,
       source: { state: 'active', lamports: 'splitThresholdMinus1' },
       path: 'whole',
@@ -290,6 +309,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     },
     {
       name: 'active, well above the claim: split',
+      lifecycle: true,
       maxTotalClaim: 10 * SOL,
       source: { state: 'active', lamports: 50 * SOL },
       path: 'split',
@@ -309,6 +329,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     },
     {
       name: 'active at minimum delegation, large surplus: withdraw all, initialize and delegate',
+      lifecycle: true,
       maxTotalClaim: 10 * SOL,
       source: {
         state: 'active',
@@ -353,6 +374,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     },
     {
       name: 'inactive, above the claim: split clones the full recorded stake into the leftover',
+      lifecycle: true,
       maxTotalClaim: 10 * SOL,
       source: { state: 'inactive', lamports: 50 * SOL },
       path: 'splitInactiveClone',
@@ -459,6 +481,17 @@ describe('Validator Bonds fund settlement matrix', () => {
   }
 
   async function prepare(c: Case) {
+    // a single-leaf merkle tree claiming the whole settlement: the root is the leaf hash, no proof
+    const claimer = {
+      staker: Keypair.generate(),
+      withdrawer: Keypair.generate(),
+    }
+    const leaf = new MerkleTreeNode({
+      stakeAuthority: claimer.staker.publicKey,
+      withdrawAuthority: claimer.withdrawer.publicKey,
+      claim: c.maxTotalClaim,
+      index: 0,
+    })
     const { settlementAccount } = await executeInitSettlement({
       configAccount,
       program,
@@ -467,6 +500,7 @@ describe('Validator Bonds fund settlement matrix', () => {
       operatorAuthority,
       currentEpoch: await currentEpoch(provider),
       maxTotalClaim: c.maxTotalClaim,
+      merkleRoot: leaf.hashLeafNode().buffer,
     })
     if (c.preFund !== undefined) {
       const preFundAccount = await buildSource({
@@ -493,6 +527,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     const epoch = await currentEpoch(provider)
     const funding = await fund(settlementAccount, stakeAccount)
     return {
+      claimer,
       settlementAccount,
       settlementBefore,
       claim,
@@ -504,9 +539,16 @@ describe('Validator Bonds fund settlement matrix', () => {
   }
 
   async function settle(prepared: Awaited<ReturnType<typeof prepare>>) {
-    await prepared.send()
+    const { innerInstructions } = await prepared.send()
     const settlement = await getSettlement(program, prepared.settlementAccount)
     return {
+      events: innerInstructions
+        .filter(
+          ix => ix.programId.equals(program.programId) && isEventData(ix.data),
+        )
+        .map(ix =>
+          program.coder.events.decode(ix.data.subarray(8).toString('base64')),
+        ),
       after: (await snapshot(prepared.stakeAccount))!,
       leftover: await snapshot(prepared.split),
       settlement,
@@ -632,6 +674,30 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(
       Number(settled.settlement.lamportsFunded.toString()) - maxTotalClaim,
     ).toBeLessThan(minSize + rent)
+    const { settlement, funded, leftover } = settled
+    expect(settled.events).toEqual([
+      {
+        name: 'fundSettlementEvent',
+        data: {
+          bond: settlement.bond,
+          settlement: prepared.settlementAccount,
+          fundingAmount: new BN(funded),
+          stakeAccount: prepared.stakeAccount,
+          lamportsFunded: settlement.lamportsFunded,
+          lamportsClaimed: new BN(0),
+          merkleNodesClaimed: new BN(0),
+          splitStakeAccount:
+            leftover === null
+              ? null
+              : {
+                  address: prepared.split,
+                  amount: new BN(leftover.lamports),
+                },
+          splitRentCollector: settlement.splitRentCollector,
+          splitRentAmount: settlement.splitRentAmount,
+        },
+      },
+    ])
   }
 
   it.each(whole)('whole account: $name', async c => {
@@ -687,6 +753,96 @@ describe('Validator Bonds fund settlement matrix', () => {
     // F5: a leftover returning to the bond is not underwater
     expect(leftover.stake <= leftover.lamports - rent).toBe(
       c.knownDeviation !== 'F5',
+    )
+  })
+  // F4, F7, L1: claim the whole settlement, close it, reset the funded account
+  it.each(CASES.filter(c => c.lifecycle))('lifecycle: $name', async c => {
+    const prepared = await prepare(c)
+    const settled = await settle(prepared)
+    const { before, claimer, settlementAccount, stakeAccount } = prepared
+    const settlementData = await getSettlement(program, settlementAccount)
+
+    await warpToNextEpoch(provider)
+    const { stakeAccount: claimTo } = await delegatedStakeAccount({
+      provider,
+      voteAccountToDelegate: voteAccount,
+      staker: claimer.staker,
+      withdrawer: claimer.withdrawer,
+    })
+    const claimToLamports = (await snapshot(claimTo))!.lamports
+    const { instruction: claimIx } = await claimSettlementV2Instruction({
+      program,
+      claimAmount: c.maxTotalClaim,
+      index: 0,
+      merkleProof: [],
+      stakeAccountFrom: stakeAccount,
+      stakeAccountTo: claimTo,
+      stakeAccountStaker: claimer.staker.publicKey,
+      stakeAccountWithdrawer: claimer.withdrawer.publicKey,
+      settlementAccount,
+    })
+    await provider.sendIx([], claimIx)
+    const claimed = (await snapshot(stakeAccount))!
+    expect((await snapshot(claimTo))!.lamports).toEqual(
+      claimToLamports + c.maxTotalClaim,
+    )
+    expect(claimed.lamports).toEqual(settled.after.lamports - c.maxTotalClaim)
+    // F4: after paying the claim the funded account still keeps the minimal size
+    expect(claimed.lamports).toBeGreaterThanOrEqual(minSize)
+
+    warpToEpoch(
+      provider,
+      BigInt(settlementData.epochCreatedFor.toString()) + 4n,
+    )
+    const { instruction: closeIx } = await closeSettlementV2Instruction({
+      program,
+      settlementAccount,
+      splitRentRefundAccount: stakeAccount,
+    })
+    await provider.sendIx([], closeIx)
+    expect(
+      await provider.connection.getAccountInfo(settlementAccount),
+    ).toBeNull()
+    // F7: the split rent payer gets the rent back on close
+    expect(
+      (await provider.connection.getAccountInfo(prepared.payer.publicKey))
+        ?.lamports,
+    ).toEqual(SOL)
+
+    const { instruction: resetIx } = await resetStakeInstruction({
+      program,
+      stakeAccount,
+      settlementAccount,
+      configAccount,
+      voteAccount,
+    })
+    await provider.sendIx([], resetIx)
+    const reset = (await snapshot(stakeAccount))!
+    const leftover = await snapshot(prepared.split)
+    // reset re-delegates the funded account, so its recorded stake is rewritten from its lamports
+    expect({
+      staker: reset.staker,
+      withdrawer: reset.withdrawer,
+      voter: reset.voter,
+      stake: reset.stake,
+      activationEpoch: reset.activationEpoch,
+      deactivationEpoch: reset.deactivationEpoch,
+    }).toEqual({
+      staker: bondsAuthority,
+      withdrawer: bondsAuthority,
+      voter: voteAccount,
+      stake: reset.lamports - rent,
+      activationEpoch: await currentEpoch(provider),
+      deactivationEpoch: BigInt(U64_MAX.toString()),
+    })
+    // no instruction touches the leftover after funding: an underwater one stays underwater
+    expect(leftover).toEqual(settled.leftover)
+    expect(
+      leftover === null || leftover.stake <= leftover.lamports - rent,
+    ).toBe(c.knownDeviation !== 'F5')
+    // L1: bond custody lost exactly the claim
+    expect(reset.lamports + (leftover?.lamports ?? 0)).toEqual(
+      before.lamports - c.maxTotalClaim,
     )
   })
 })

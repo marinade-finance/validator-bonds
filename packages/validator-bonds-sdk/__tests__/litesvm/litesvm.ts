@@ -199,7 +199,7 @@ function toKitTransaction(tx: Transaction): KitTransaction {
 
 /**
  * Sends the instructions in one transaction signed by `signers`; the first one pays the fee.
- * @returns logs and return data of the successful transaction
+ * @returns logs, return data and inner instructions of the successful transaction
  * @throws SendTransactionError carrying the program logs when the transaction fails
  */
 export async function executeIx(
@@ -208,7 +208,11 @@ export async function executeIx(
   ...ixes: (
     Transaction | TransactionInstruction | TransactionInstructionCtorFields
   )[]
-): Promise<{ logMessages: string[]; returnData: Buffer }> {
+): Promise<{
+  logMessages: string[]
+  returnData: Buffer
+  innerInstructions: { programId: PublicKey; data: Buffer }[]
+}> {
   const tx = new Transaction({
     feePayer: provider.wallet.publicKey,
     blockhash: provider.svm.latestBlockhash(),
@@ -232,9 +236,20 @@ export async function executeIx(
       logs: result.meta().logs(),
     })
   }
+  const accountKeys = tx.compileMessage().accountKeys
   return {
     logMessages: result.logs(),
     returnData: Buffer.from(result.returnData().data()),
+    innerInstructions: result
+      .innerInstructions()
+      .flat()
+      .map(inner => {
+        const ix = inner.instruction()
+        return {
+          programId: accountKeys[ix.programIdIndex()]!,
+          data: Buffer.from(ix.data()),
+        }
+      }),
   }
 }
 
