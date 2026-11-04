@@ -2,13 +2,6 @@ import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
 import {
-  assertNotExist,
-  bankrunExecuteIx,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
   U64_MAX,
   createUserAndFund,
   pubkey,
@@ -22,7 +15,15 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
-import { initBankrunTest, delegateAndFund } from './bankrun'
+import {
+  assertNotExist,
+  currentEpoch,
+  delegateAndFund,
+  executeIx,
+  initLiteSvmTest,
+  warpOffsetEpoch,
+  warpToNextEpoch,
+} from './litesvm'
 import {
   Errors,
   closeSettlementV2Instruction,
@@ -49,13 +50,13 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram, Config, Settlement } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds fund settlement', () => {
   const epochsToClaimSettlement = 3
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let config: Config
@@ -69,7 +70,7 @@ describe('Validator Bonds fund settlement', () => {
   let stakeAccountMinimalAmount: number
 
   beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
     rentExemptStake = await getRentExemptStake(provider)
   })
 
@@ -190,7 +191,7 @@ describe('Validator Bonds fund settlement', () => {
       splitStakeRentPayer: splitRentPayer,
       splitStakeAccount,
     })
-    const txLog = await bankrunExecuteIx(
+    const txLog = await executeIx(
       provider,
       [
         provider.wallet,
@@ -419,7 +420,7 @@ describe('Validator Bonds fund settlement', () => {
         stakeAccount: stakeAccount3,
         splitStakeRentPayer: payer2,
       })
-    const txLog = await bankrunExecuteIx(
+    const txLog = await executeIx(
       provider,
       [provider.wallet, signer(payer2), signer(split3), operatorAuthority],
       ix3,
@@ -481,7 +482,7 @@ describe('Validator Bonds fund settlement', () => {
     const encoded = await program.coder.accounts.encode('settlement', decoded)
     const data = Buffer.alloc(settlementInfo.data.length)
     encoded.copy(data)
-    provider.context.setAccount(settlementAccount, {
+    provider.setAccount(settlementAccount, {
       lamports: settlementInfo.lamports,
       data,
       owner: program.programId,
