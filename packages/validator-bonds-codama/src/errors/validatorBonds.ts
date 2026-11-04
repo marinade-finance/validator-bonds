@@ -180,6 +180,8 @@ export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_L
 export const VALIDATOR_BONDS_ERROR__MARINADE_LIQUID_ACCOUNTS_MISSING = 0x17c1 // 6081
 /** InvalidMarinadeLiquidAccount: Marinade liquid State or stake list account is invalid */
 export const VALIDATOR_BONDS_ERROR__INVALID_MARINADE_LIQUID_ACCOUNT = 0x17c2 // 6082
+/** StakeAccountNotBigEnoughToFund: Stake account is not big enough to be funded to settlement */
+export const VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND = 0x17c3 // 6083
 
 export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__ALREADY_PAUSED
@@ -246,6 +248,7 @@ export type ValidatorBondsError =
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING
   | typeof VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT
+  | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT
   | typeof VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_LIST
@@ -333,6 +336,7 @@ if (process.env['NODE_ENV'] !== 'production') {
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_NOT_READY_FOR_CLAIMING]: `Settlement slots to start claiming not expired yet`,
     [VALIDATOR_BONDS_ERROR__SETTLEMENT_SPLIT_RENT_COLLECTOR_ALREADY_SET]: `Settlement split rent collector is already set`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_IS_FUNDED_TO_SETTLEMENT]: `Provided stake account has been already funded to a settlement`,
+    [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_FUND]: `Stake account is not big enough to be funded to settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_BIG_ENOUGH_TO_SPLIT]: `Stake account is not big enough to be split`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_FUNDED_TO_SETTLEMENT]: `Provided stake account is not funded under the settlement`,
     [VALIDATOR_BONDS_ERROR__STAKE_ACCOUNT_NOT_IN_MARINADE_LIQUID_STAKE_LIST]: `Stake account to claim into is not in the Marinade liquid stake list`,

@@ -3761,6 +3761,11 @@ export type ValidatorBonds = {
       "code": 6082,
       "name": "invalidMarinadeLiquidAccount",
       "msg": "Marinade liquid State or stake list account is invalid"
+    },
+    {
+      "code": 6083,
+      "name": "stakeAccountNotBigEnoughToFund",
+      "msg": "Stake account is not big enough to be funded to settlement"
     }
   ],
   "types": [

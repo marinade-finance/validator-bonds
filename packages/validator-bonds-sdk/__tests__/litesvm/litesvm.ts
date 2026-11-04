@@ -55,7 +55,7 @@ const METAPLEX_PROGRAM_ID = new PublicKey(
 const SLOTS_PER_EPOCH = 32n
 const STAKE_HISTORY_MAX_ENTRIES = 512n
 // cluster-wide stake large enough that any test stake warms up or cools down within one epoch
-const CLUSTER_EFFECTIVE_STAKE = 400_000_000n * BigInt(LAMPORTS_PER_SOL)
+export const CLUSTER_EFFECTIVE_STAKE = 400_000_000n * BigInt(LAMPORTS_PER_SOL)
 const CLUSTER_CHANGING_STAKE = 1_000_000n * BigInt(LAMPORTS_PER_SOL)
 
 type StakeProgramManifest = {
@@ -345,7 +345,12 @@ export function currentEpoch(provider: LiteSvmProvider): Promise<bigint> {
  * Moves the clock to the first slot of `epoch` and rewrites the stake history
  * as a gap-free run ending at `epoch - 1`, the layout the stake program reads by offset.
  */
-export function warpToEpoch(provider: LiteSvmProvider, epoch: bigint) {
+export function warpToEpoch(
+  provider: LiteSvmProvider,
+  epoch: bigint,
+  // cluster stake deactivating in one epoch; above 9% of the effective stake, cooldown spans epochs
+  slowCooldown?: { epoch: bigint; deactivating: bigint },
+) {
   const { svm } = provider
   svm.warpToSlot(epoch * SLOTS_PER_EPOCH)
   const clock = svm.getClock()
@@ -361,7 +366,9 @@ export function warpToEpoch(provider: LiteSvmProvider, epoch: bigint) {
       new StakeHistoryEntry(
         CLUSTER_EFFECTIVE_STAKE,
         CLUSTER_CHANGING_STAKE,
-        CLUSTER_CHANGING_STAKE,
+        e === slowCooldown?.epoch
+          ? slowCooldown.deactivating
+          : CLUSTER_CHANGING_STAKE,
       ),
     )
   }
