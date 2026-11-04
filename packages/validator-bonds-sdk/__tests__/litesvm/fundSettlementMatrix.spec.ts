@@ -20,6 +20,7 @@ import {
   STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
   bondsWithdrawerAuthority,
   claimSettlementV2Instruction,
+  claimWithdrawRequestInstruction,
   closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
@@ -40,6 +41,7 @@ import {
   executeInitBondInstruction,
   executeInitConfigInstruction,
   executeInitSettlement,
+  executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
 
 import type { LiteSvmProvider } from './litesvm'
@@ -116,6 +118,8 @@ describe('Validator Bonds fund settlement matrix', () => {
   let configAccount: PublicKey
   let operatorAuthority: Keypair
   let voteAccount: PublicKey
+  let validatorIdentity: Keypair
+  let bondAccount: PublicKey
   let bondsAuthority: PublicKey
 
   // split threshold: the leftover must reach the minimal size plus the split rent
@@ -132,17 +136,16 @@ describe('Validator Bonds fund settlement matrix', () => {
     ))
     const config = await getConfig(program, configAccount)
     minSize = minimalSizeStakeAccount(config.minimumStakeLamports).toNumber()
-    let validatorIdentity: Keypair | undefined
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
-    await executeInitBondInstruction({
+    ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
       configAccount,
       voteAccount,
       validatorIdentity,
-    })
+    }))
     ;[bondsAuthority] = bondsWithdrawerAuthority(
       configAccount,
       program.programId,
@@ -844,5 +847,66 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(reset.lamports + (leftover?.lamports ?? 0)).toEqual(
       before.lamports - c.maxTotalClaim,
     )
+  })
+  // TLA+ counterexample (new-withdraw-requests.cfg): the leftover of a withdraw request split stays in the bond
+  it('claim withdraw request: split of an inactive bond account leaves an underwater leftover (KNOWN_DEVIATION L2)', async () => {
+    const stakeAccount = await buildSource({
+      state: 'inactive',
+      lamports: 13 * SOL,
+    })
+    const before = (await snapshot(stakeAccount))!
+    const amount = 4 * SOL
+    const { withdrawRequestAccount } =
+      await executeInitWithdrawRequestInstruction({
+        program,
+        provider,
+        bondAccount,
+        configAccount,
+        validatorIdentity,
+        amount,
+      })
+    const config = await getConfig(program, configAccount)
+    warpToEpoch(
+      provider,
+      (await currentEpoch(provider)) +
+        BigInt(config.withdrawLockupEpochs.toString()) +
+        1n,
+    )
+    const user = Keypair.generate().publicKey
+    const { instruction, splitStakeAccount } =
+      await claimWithdrawRequestInstruction({
+        program,
+        withdrawRequestAccount,
+        bondAccount,
+        configAccount,
+        voteAccount,
+        stakeAccount,
+        authority: validatorIdentity,
+        withdrawer: user,
+      })
+    await provider.sendIx([validatorIdentity, splitStakeAccount], instruction)
+
+    const paid = (await snapshot(stakeAccount))!
+    const leftover = (await snapshot(splitStakeAccount.publicKey))!
+    expect({
+      lamports: paid.lamports,
+      staker: paid.staker,
+      withdrawer: paid.withdrawer,
+    }).toEqual({ lamports: amount, staker: user, withdrawer: user })
+    // the inactive split clones the full recorded stake into the leftover kept by the bond
+    expect({
+      lamports: leftover.lamports,
+      stake: leftover.stake,
+      staker: leftover.staker,
+      withdrawer: leftover.withdrawer,
+      deactivationEpoch: leftover.deactivationEpoch,
+    }).toEqual({
+      lamports: before.lamports - amount + rent,
+      stake: before.stake,
+      staker: bondsAuthority,
+      withdrawer: bondsAuthority,
+      deactivationEpoch: before.deactivationEpoch,
+    })
+    expect(leftover.stake <= leftover.lamports - rent).toBe(false)
   })
 })
