@@ -239,6 +239,21 @@ export async function executeIx(
 }
 
 /**
+ * Builds the feature set active on mainnet when the fixture was taken.
+ * The fixture is refreshed by `bun scripts/mainnet-fixture.ts`.
+ */
+export function mainnetFeatureSet(): FeatureSet {
+  const { activated } = JSON.parse(
+    readFileSync(join(MAINNET_FIXTURE_DIR, 'features.json'), 'utf8'),
+  ) as { activated: Record<string, number> }
+  const featureSet = new FeatureSet()
+  for (const [feature, slot] of Object.entries(activated)) {
+    featureSet.activate(new PublicKey(feature).toBytes(), BigInt(slot))
+  }
+  return featureSet
+}
+
+/**
  * Loads the pinned mainnet stake program, refusing a binary that differs from its manifest.
  * The fixture is refreshed by `bun scripts/mainnet-fixture.ts`.
  */
@@ -278,7 +293,7 @@ export function initLiteSvmTest(): {
   provider: LiteSvmProvider
 } {
   const svm = LiteSVM.default()
-    .withFeatureSet(FeatureSet.allEnabled())
+    .withFeatureSet(mainnetFeatureSet())
     .withSysvars()
     .withBuiltins()
     .withPrecompiles()

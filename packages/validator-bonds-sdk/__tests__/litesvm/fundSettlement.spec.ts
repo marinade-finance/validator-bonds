@@ -34,6 +34,8 @@ import {
   bondsWithdrawerAuthority,
   deserializeStakeState,
   getRentExemptStake,
+  minimalSizeStakeAccount,
+  STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 } from '../../src'
 import {
   StakeStates,
@@ -95,8 +97,9 @@ describe('Validator Bonds fund settlement', () => {
     }))
     settlementEpoch = await currentEpoch(provider)
     rentCollector = Keypair.generate()
-    stakeAccountMinimalAmount =
-      rentExemptStake + config.minimumStakeLamports.toNumber()
+    stakeAccountMinimalAmount = minimalSizeStakeAccount(
+      config.minimumStakeLamports,
+    ).toNumber()
   })
 
   it('fund settlement fully with precise amount', async () => {
@@ -837,18 +840,13 @@ describe('Validator Bonds fund settlement', () => {
     // then there has to be enough lamports after withdrawing all claiming that the stake account may still exist
     // then there is left rent exempt lamports to be returned to the payer of rent for splitting stake account
     expect(stakeAccountData?.lamports).toEqual(
-      maxTotalClaim +
-        config.minimumStakeLamports.toNumber() +
-        2 * rentExemptStake,
+      maxTotalClaim + stakeAccountMinimalAmount + rentExemptStake,
     )
     // as the split uses the original stake account then the non-delegated lamports should be available
     // in the settlement funded stake account
     // for the stake amount is not calculated the rent-exempt lamports for particular stake account
     expect(stakeState.Stake!.stake.delegation.stake).toEqual(
-      maxTotalClaim +
-        config.minimumStakeLamports.toNumber() +
-        rentExemptStake -
-        additionalSolTransfer,
+      maxTotalClaim + stakeAccountMinimalAmount - additionalSolTransfer,
     )
     // check if split stake mount matches what was original in stake account
     // minus what was funded to the settlement
@@ -857,8 +855,7 @@ describe('Validator Bonds fund settlement', () => {
       stakedLamports +
         additionalSolTransfer -
         maxTotalClaim -
-        config.minimumStakeLamports.toNumber() -
-        rentExemptStake,
+        stakeAccountMinimalAmount,
     )
     // check the stake account is delegated to settlement
     const [bondsAuthority] = bondsWithdrawerAuthority(
@@ -948,16 +945,13 @@ describe('Validator Bonds fund settlement', () => {
       )
 
       expect(stakeAccountData?.lamports).toEqual(
-        maxTotalClaim +
-          2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-          config.minimumStakeLamports.toNumber(),
+        maxTotalClaim + stakeAccountMinimalAmount + rentExemptStake, // returning rent exempt for split stake account
       )
       expect(splitStakeAccountData?.lamports).toEqual(
         lamportsToFund +
           stakeAccountTransferredLamports -
           maxTotalClaim -
-          config.minimumStakeLamports.toNumber() -
-          rentExemptStake,
+          stakeAccountMinimalAmount,
       )
       expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
     },
@@ -1022,16 +1016,13 @@ describe('Validator Bonds fund settlement', () => {
       )
 
       expect(stakeAccountData?.lamports).toEqual(
-        maxTotalClaim +
-          2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-          config.minimumStakeLamports.toNumber(),
+        maxTotalClaim + stakeAccountMinimalAmount + rentExemptStake, // returning rent exempt for split stake account
       )
       expect(splitStakeAccountData?.lamports).toEqual(
         lamportsToFund +
           stakeAccountTransferredLamports -
           maxTotalClaim -
-          config.minimumStakeLamports.toNumber() -
-          rentExemptStake,
+          stakeAccountMinimalAmount,
       )
       expect(settlementData.lamportsFunded).toEqual(maxTotalClaim)
       await getAndCheckStakeAccount(
@@ -1113,9 +1104,11 @@ describe('Validator Bonds fund settlement', () => {
     await provider.sendIx([signer(split1), operatorAuthority], ixFund1)
     await assertNotExist(provider, pubkey(split1))
     settlementData = await getSettlement(program, settlementAccount)
-    expect(settlementData.lamportsFunded).toEqual(
-      stakeAccountTransferredLamports1,
-    )
+    // created at the live-rent minimum, the account still keeps the pinned reserve the program counts
+    const fundedFromStakeAccount1 =
+      stakeAccountTransferredLamports1 -
+      (STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE - rentExemptStake)
+    expect(settlementData.lamportsFunded).toEqual(fundedFromStakeAccount1)
 
     const { instruction: ixFund2, splitStakeAccount: split2 } =
       await fundSettlementInstruction({
@@ -1141,13 +1134,15 @@ describe('Validator Bonds fund settlement', () => {
     )
     expect(stakeAccountData2?.lamports).toEqual(
       maxTotalClaim -
-        stakeAccountTransferredLamports1 +
-        2 * rentExemptStake + // rent for stake account + for returning rent exempt for split stake account
-        config.minimumStakeLamports.toNumber(),
+        fundedFromStakeAccount1 +
+        stakeAccountMinimalAmount +
+        rentExemptStake, // returning rent exempt for split stake account
     )
     expect(splitStakeAccountData2?.lamports).toEqual(
-      stakeAccountTransferredLamports2 -
-        (maxTotalClaim - stakeAccountTransferredLamports1),
+      lamportsToFund +
+        stakeAccountTransferredLamports2 -
+        (maxTotalClaim - fundedFromStakeAccount1) -
+        stakeAccountMinimalAmount,
     )
     await getAndCheckStakeAccount(
       provider,
