@@ -254,4 +254,7 @@ pub enum ErrorCode {
 
     #[msg("Marinade liquid State or stake list account is invalid")]
     InvalidMarinadeLiquidAccount, // 6082 0x17c2
+
+    #[msg("Stake account is not big enough to be funded to settlement")]
+    StakeAccountNotBigEnoughToFund, // 6083 0x17c3
 }

@@ -79,7 +79,6 @@ type Path =
   | 'split'
   | 'splitWithdraw'
   | 'splitInitialize'
-  | 'splitInactiveClone'
   | 'noop'
   | { error: number; message: string }
   | { panic: number }
@@ -94,8 +93,6 @@ type Case = {
   source: Source
   guard?: Guard
   path: Path
-  // KNOWN_DEVIATION: current behaviour breaks this invariant; the funding fix flips the case
-  knownDeviation?: 'F1' | 'F5'
   // also claim the whole settlement, close it and reset the funded account
   lifecycle?: true
 }
@@ -376,12 +373,11 @@ describe('Validator Bonds fund settlement matrix', () => {
       path: 'whole',
     },
     {
-      name: 'inactive, above the claim: split clones the full recorded stake into the leftover',
+      name: 'inactive, above the claim: withdraw all, initialize and delegate a healthy leftover',
       lifecycle: true,
       maxTotalClaim: 10 * SOL,
       source: { state: 'inactive', lamports: 50 * SOL },
-      path: 'splitInactiveClone',
-      knownDeviation: 'F5',
+      path: 'splitInitialize',
     },
     {
       name: 'inactive underwater, below the claim: whole account',
@@ -394,36 +390,33 @@ describe('Validator Bonds fund settlement matrix', () => {
       path: 'whole',
     },
     {
-      name: 'inactive underwater, above the claim: panics on lamports - delegation.stake',
+      name: 'inactive underwater, above the claim: withdraw all, initialize and delegate a healthy leftover',
       maxTotalClaim: 10 * SOL,
       source: {
         state: 'inactiveUnderwater',
         lamports: 50 * SOL,
         withdraw: 20 * SOL,
       },
-      path: { panic: 233 },
-      knownDeviation: 'F1',
+      path: 'splitInitialize',
     },
     // rent gap window: live minimum <= lamports < minimal size counted with the pinned reserve
     {
-      name: 'rent gap, live minimum (1 SOL + live rent): panics on lamports - min_size',
+      name: 'rent gap, live minimum (1 SOL + live rent): not big enough to fund',
       maxTotalClaim: 10 * SOL,
       source: { state: 'active', lamports: 'minimumDelegation' },
-      path: { panic: 200 },
-      knownDeviation: 'F1',
+      path: { error: 6083, message: 'not big enough to be funded' },
     },
     {
-      name: 'rent gap, minimal size - 1 lamport: panics on lamports - min_size',
+      name: 'rent gap, minimal size - 1 lamport: not big enough to fund',
       maxTotalClaim: 10 * SOL,
       source: { state: 'active', lamports: 'minSizeMinus1' },
-      path: { panic: 200 },
-      knownDeviation: 'F1',
+      path: { error: 6083, message: 'not big enough to be funded' },
     },
     {
-      name: 'exactly the minimal size: whole account funds 0 lamports (step 4 rejects it, error 6083)',
+      name: 'exactly the minimal size: nothing to fund',
       maxTotalClaim: 10 * SOL,
       source: { state: 'active', lamports: 'minSize' },
-      path: 'whole',
+      path: { error: 6083, message: 'not big enough to be funded' },
     },
     {
       name: 'minimal size + 1 lamport: whole account funds 1 lamport',
@@ -579,14 +572,16 @@ describe('Validator Bonds fund settlement matrix', () => {
   // the split path the program model predicts for this source and claim
   function splitModel(before: StakeSnapshot, claim: number, epoch: bigint) {
     const leftoverLamports = before.lamports - (claim + minSize) - rent
-    const nonDelegated = before.lamports - before.stake
+    // S1: a fully inactive account stakes nothing, whatever stake it still records
+    const inactive =
+      before.activationEpoch === before.deactivationEpoch ||
+      before.deactivationEpoch < epoch
+    const nonDelegated = before.lamports - (inactive ? 0 : before.stake)
     const maxNonDelegated = claim + PINNED_RESERVE
     const withdrawn =
       nonDelegated > maxNonDelegated ? nonDelegated - maxNonDelegated : 0
-    const inactive = before.deactivationEpoch < epoch
-    const path: Path = inactive
-      ? 'splitInactiveClone'
-      : withdrawn === 0
+    const path: Path =
+      withdrawn === 0
         ? 'split'
         : withdrawn < leftoverLamports
           ? 'splitWithdraw'
@@ -596,13 +591,8 @@ describe('Validator Bonds fund settlement matrix', () => {
     return {
       path,
       leftoverLamports,
-      sourceStake:
-        inactive || initialized ? before.stake : before.stake - splitMoved,
-      leftoverStake: inactive
-        ? before.stake
-        : initialized
-          ? leftoverLamports
-          : splitMoved,
+      sourceStake: initialized ? before.stake : before.stake - splitMoved,
+      leftoverStake: initialized ? leftoverLamports : splitMoved,
       leftoverActivationEpoch: initialized ? epoch : before.activationEpoch,
       leftoverDeactivationEpoch: initialized
         ? BigInt(U64_MAX.toString())
@@ -754,9 +744,7 @@ describe('Validator Bonds fund settlement matrix', () => {
       leftoverVoter: voteAccount,
     })
     // F5: a leftover returning to the bond is not underwater
-    expect(leftover.stake <= leftover.lamports - rent).toBe(
-      c.knownDeviation !== 'F5',
-    )
+    expect(leftover.stake).toBeLessThanOrEqual(leftover.lamports - rent)
   })
   // F4, F7, L1: claim the whole settlement, close it, reset the funded account
   it.each(CASES.filter(c => c.lifecycle))('lifecycle: $name', async c => {
@@ -842,14 +830,14 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(leftover).toEqual(settled.leftover)
     expect(
       leftover === null || leftover.stake <= leftover.lamports - rent,
-    ).toBe(c.knownDeviation !== 'F5')
+    ).toBe(true)
     // L1: bond custody lost exactly the claim
     expect(reset.lamports + (leftover?.lamports ?? 0)).toEqual(
       before.lamports - c.maxTotalClaim,
     )
   })
   // TLA+ counterexample (new-withdraw-requests.cfg): the leftover of a withdraw request split stays in the bond
-  it('claim withdraw request: split of an inactive bond account leaves an underwater leftover (KNOWN_DEVIATION L2)', async () => {
+  it('claim withdraw request: the underwater leftover of an inactive bond account is still fully fundable', async () => {
     const stakeAccount = await buildSource({
       state: 'inactive',
       lamports: 13 * SOL,
@@ -907,6 +895,36 @@ describe('Validator Bonds fund settlement matrix', () => {
       withdrawer: bondsAuthority,
       deactivationEpoch: before.deactivationEpoch,
     })
-    expect(leftover.stake <= leftover.lamports - rent).toBe(false)
+    expect(leftover.stake).toBeGreaterThan(leftover.lamports - rent)
+
+    const claim = 2 * SOL
+    const { settlementAccount } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: await currentEpoch(provider),
+      maxTotalClaim: claim,
+    })
+    const funding = await fund(settlementAccount, splitStakeAccount.publicKey)
+    await funding.send()
+    const funded = (await snapshot(splitStakeAccount.publicKey))!
+    const fundedLeftover = (await snapshot(funding.split))!
+    expect(
+      (await getSettlement(program, settlementAccount)).lamportsFunded,
+    ).toEqual(claim)
+    expect(funded.lamports).toEqual(claim + minSize + rent)
+    expect({
+      lamports: fundedLeftover.lamports,
+      stake: fundedLeftover.stake,
+      staker: fundedLeftover.staker,
+      deactivationEpoch: fundedLeftover.deactivationEpoch,
+    }).toEqual({
+      lamports: leftover.lamports - claim - minSize,
+      stake: leftover.lamports - claim - minSize - rent,
+      staker: bondsAuthority,
+      deactivationEpoch: BigInt(U64_MAX.toString()),
+    })
   })
 })

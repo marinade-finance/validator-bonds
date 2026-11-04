@@ -17,7 +17,7 @@ use anchor_spl::stake::{
     Withdraw,
 };
 use solana_sdk_ids::vote::ID as vote_program_id;
-use solana_stake_interface::sysvar::stake_history;
+use solana_stake_interface::sysvar::stake_history::{self, StakeHistorySysvar};
 use solana_stake_interface::{
     self as stake,
     state::{StakeAuthorize, StakeStateV2},
@@ -192,11 +192,17 @@ impl FundSettlement<'_> {
         let left_over_splittable = amount_available > amount_needed
             && amount_available - amount_needed >= stake_account_min_size + split_stake_rent_exempt;
 
+        // the stake account must hold more than the minimal size, otherwise there is nothing to fund
+        require_gt!(
+            amount_available,
+            stake_account_min_size,
+            ErrorCode::StakeAccountNotBigEnoughToFund
+        );
+
         let (funding_amount, is_split) =
             // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
-                // caller must provide a stake account above stake_account_min_size, otherwise this underflows
                 let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, no splitting - closing and returning rent
@@ -230,7 +236,18 @@ impl FundSettlement<'_> {
                 // For the 'stake_account' to stay in the "delegated" state, a minimum stake must remain delegated.
                 // A portion of the undelegated lamports may need to be moved to the split account before splitting.
                 // See: https://github.com/anza-xyz/agave/blob/v2.0.9/programs/stake/src/stake_state.rs#L504
-                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() -  stake_delegation.stake;
+
+                // staked as the stake program counts it on withdraw, so an inactive account is withdrawable down to rent
+                let epoch = ctx.accounts.clock.epoch;
+                let lamports_staked = if epoch >= stake_delegation.deactivation_epoch {
+                    // the stake program computes warmup and cooldown with the new rate since epoch 0
+                    stake_delegation
+                        .stake_activating_and_deactivating(epoch, &StakeHistorySysvar(epoch), Some(0))
+                        .effective
+                } else {
+                    stake_delegation.stake
+                };
+                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() - lamports_staked;
                 let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
                     - ctx.accounts.settlement.lamports_funded + stake_meta.rent_exempt_reserve;
 
