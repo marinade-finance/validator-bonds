@@ -18,6 +18,7 @@ CONSTANTS
     HandoverWithdraw,  \* lamports withdrawn from it while inactive, before the handover
     Claims,            \* max_total_claim of the settlement
     WithdrawAmounts,   \* amounts of withdraw requests
+    Transfers,         \* lamports anyone sends to a bond stake account (transfer, MEV tips)
     MaxEpoch,
     MaxCustody,        \* bound on lamports brought into the bond, keeps the state space finite
     ClaimWindow,       \* config.epochs_to_claim_settlement
@@ -126,6 +127,14 @@ DeactivateDelinquent(a) ==
     /\ acc[a].deact = Inf
     /\ acc' = [acc EXCEPT ![a].deact = epoch]
     /\ UNCHANGED <<epoch, stl, panicked, custody>>
+
+\* plain lamports land on a bond stake account as non-delegated surplus
+Transfer(a, amount) ==
+    /\ BondFree(a)
+    /\ custody + amount <= MaxCustody
+    /\ acc' = [acc EXCEPT ![a].lamports = @ + amount]
+    /\ custody' = custody + amount
+    /\ UNCHANGED <<epoch, stl, panicked>>
 
 AdvanceEpoch ==
     /\ epoch < MaxEpoch
@@ -268,6 +277,7 @@ Next ==
     \/ \E a \in Accounts, s \in HandoverSizes, w \in HandoverWithdraw :
          HandoverUnderwater(a, s, w)
     \/ \E a \in Accounts : DeactivateDelinquent(a)
+    \/ \E a \in Accounts, x \in Transfers : Transfer(a, x)
     \/ AdvanceEpoch
     \/ \E c \in Claims : InitSettlement(c)
     \/ \E a \in Accounts : FundSettlement(a)
@@ -304,6 +314,14 @@ ClaimsPayable ==
         payable == SumLamports({a \in Accounts : Funded(a)})
                    - MinSize * Cardinality({a \in Accounts : Funded(a)})
     IN payable >= owed - stl.claimed
+
+\* L3 (safety form): an open underfunded settlement can be funded from any bond account above
+\* the minimal size; a fund_settlement that fails deterministically stalls every pipeline run
+FundingPossible ==
+    \A a \in Accounts :
+        (stl.state = "open" /\ stl.funded < stl.max /\ ~panicked /\ Free # {}
+         /\ BondFree(a) /\ acc[a].lamports > MinSize)
+        => ENABLED FundSettlement(a)
 
 \* F7: the split rent can be refunded on close
 RefundAvailable ==
