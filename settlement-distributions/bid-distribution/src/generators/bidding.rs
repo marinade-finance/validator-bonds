@@ -1,12 +1,14 @@
 use crate::rewards::{RewardsCollection, VoteAccountRewards};
 use crate::sam_meta::{AuctionValidatorValues, ValidatorSamMeta};
-use crate::settlement_config::{FeeConfig, FeePercentages, SettlementConfig};
+use crate::settlement_config::{FeeAuthorities, FeeConfig, FeePercentages, SettlementConfig};
 use anyhow::{anyhow, ensure};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use rust_decimal::prelude::*;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use settlement_common::settlement_collection::{Settlement, SettlementClaim, SettlementReason};
+use settlement_common::settlement_collection::{
+    Settlement, SettlementClaim, SettlementFunder, SettlementReason,
+};
 use settlement_common::settlement_details::{
     BidSettlementDetails, PriorityFeeSettlementDetails, SettlementDetails,
 };
@@ -208,18 +210,21 @@ fn build_result_claims(
             settlement_claim.inflation_commission_claim = mr.inflation.mul(commission_eff(
                 rewards.realized_inflation_commission_dec(),
                 in_bond,
+                commissions.inflation_commission_dec,
             ));
         }
         if let Some(in_bond) = commissions.mev_commission_in_bond_dec {
             settlement_claim.mev_commission_claim = mr.mev.mul(commission_eff(
                 rewards.realized_mev_commission_dec(),
                 in_bond,
+                commissions.mev_commission_dec,
             ));
         }
         if let Some(in_bond) = commissions.block_rewards_commission_in_bond_dec {
             settlement_claim.block_commission_claim = mr.block.mul(commission_eff(
                 rewards.realized_block_commission_dec(),
                 in_bond,
+                commissions.block_rewards_commission_dec,
             ));
         }
     }
@@ -425,6 +430,11 @@ fn push_fee_deposit(
     }
 }
 
+pub(crate) struct BidWorkerOutput {
+    pub settlements: Vec<Settlement>,
+    pub skipped_validators: Vec<(Pubkey, String)>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn generate_bid_settlements_worker(
     validator_groups: &[(&ValidatorSamMeta, Vec<StakerStakeGroup>)],
@@ -435,12 +445,13 @@ pub(crate) fn generate_bid_settlements_worker(
     stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     exiting_stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
     target_pmpe: Decimal,
-) -> anyhow::Result<Vec<Settlement>> {
+) -> anyhow::Result<BidWorkerOutput> {
     info!("Generating bid settlements in epoch {epoch}...");
     let fee_percentages = fee_config.fee_percentages();
     let authorities = fee_config.fee_authorities();
     let funder = settlement_config.meta().funder.clone();
     let mut settlement_claim_collections = vec![];
+    let mut skipped_validators = vec![];
 
     for (validator, staker_stake_groups) in validator_groups {
         let validator = *validator;
@@ -472,176 +483,248 @@ pub(crate) fn generate_bid_settlements_worker(
             }
         };
 
-        let mr = marinade_reward_shares(rewards, &totals, &validator.vote_account);
-        let (settlement_claim, auction_effective_static_bid) =
-            build_result_claims(validator, rewards, &mr, &totals);
-        let sr = staker_rewards_breakdown(validator, &mr, &settlement_claim, &totals);
-        let total_marinade_stakers_rewards =
-            sr.active_total + settlement_claim.activating_bid_claim;
-        info!(
-            "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
-            validator.vote_account,
-            total_marinade_stakers_rewards,
-            mr.inflation,
-            mr.mev,
-            mr.block,
-            sr.bid,
-            settlement_claim
-        );
-
-        let fee = split_distributor_fee(
-            &settlement_claim,
-            total_marinade_stakers_rewards,
+        match settle_validator(
+            validator,
+            staker_stake_groups,
             &totals,
+            rewards,
             &fee_percentages,
+            &authorities,
+            &funder,
+            stake_authority_filter,
             target_pmpe,
-            &validator.vote_account,
-        )?;
-
-        let (mut bidding_claims, mut bidding_claims_amount) = distribute_pool(
-            staker_stake_groups,
-            stake_authority_filter,
-            PoolKind::Active,
-            fee.active_pool,
-            totals.marinade_active,
-            &validator.vote_account,
-        )?;
-        let (mut priority_fee_claims, mut priority_fee_claims_amount) = distribute_pool(
-            staker_stake_groups,
-            stake_authority_filter,
-            PoolKind::Activating,
-            fee.activating_pool,
-            totals.marinade_activating,
-            &validator.vote_account,
-        )?;
-        ensure!(
-            bidding_claims_amount + priority_fee_claims_amount <= fee.stakers_total_claim,
-            "Claims amount {} exceeded stakers total claim {} for validator {}",
-            bidding_claims_amount + priority_fee_claims_amount,
-            fee.stakers_total_claim,
-            validator.vote_account
-        );
-
-        // Split fee claims proportionally between active and activating pools
-        let activating_fee_fraction = checked_fraction(
-            Decimal::from(fee.activating_pool),
-            Decimal::from(fee.stakers_total_claim),
-        )
-        .unwrap_or(if fee.settlement_claim_sum > 0 {
-            fee.activating_fraction
-        } else {
-            Decimal::ZERO
-        });
-        let (marinade_fee_for_priority, marinade_fee_for_bidding) =
-            split_by_fraction(fee.marinade_fee, activating_fee_fraction);
-        let (dao_fee_for_priority, dao_fee_for_bidding) =
-            split_by_fraction(fee.dao_fee, activating_fee_fraction);
-
-        push_fee_deposit(
-            &mut bidding_claims,
-            &mut bidding_claims_amount,
-            authorities.marinade_withdraw,
-            authorities.marinade_stake,
-            marinade_fee_for_bidding,
-        );
-        push_fee_deposit(
-            &mut bidding_claims,
-            &mut bidding_claims_amount,
-            authorities.dao_withdraw,
-            authorities.dao_stake,
-            dao_fee_for_bidding,
-        );
-        ensure!(
-            bidding_claims_amount <= fee.settlement_claim_sum,
-            "The sum of bidding claims {} exceeds the total claim amount {} after adding bidding fees for validator {}",
-            bidding_claims_amount,
-            fee.settlement_claim_sum,
-            validator.vote_account
-        );
-        push_fee_deposit(
-            &mut priority_fee_claims,
-            &mut priority_fee_claims_amount,
-            authorities.marinade_withdraw,
-            authorities.marinade_stake,
-            marinade_fee_for_priority,
-        );
-        push_fee_deposit(
-            &mut priority_fee_claims,
-            &mut priority_fee_claims_amount,
-            authorities.dao_withdraw,
-            authorities.dao_stake,
-            dao_fee_for_priority,
-        );
-        ensure!(
-            bidding_claims_amount + priority_fee_claims_amount <= fee.settlement_claim_sum,
-            "The sum of total claims {} exceeds the total claim amount {} after adding priority fees for validator {}",
-            bidding_claims_amount + priority_fee_claims_amount,
-            fee.settlement_claim_sum,
-            validator.vote_account
-        );
-
-        let settlement_details = BidSettlementDetails {
-            total_active_stake: totals.total_active,
-            total_marinade_active_stake: totals.marinade_active,
-            total_marinade_redelegation_stake: totals.marinade_redelegation,
-            auction_effective_static_bid: auction_effective_static_bid.to_string(),
-            marinade_stake_share: mr.stake_share.to_string(),
-            marinade_inflation_rewards: mr.inflation.to_string(),
-            marinade_mev_rewards: mr.mev.to_string(),
-            marinade_block_rewards: mr.block.to_string(),
-            staker_inflation_rewards: sr.inflation.map(|d| d.to_string()),
-            staker_mev_rewards: sr.mev.map(|d| d.to_string()),
-            staker_block_rewards: sr.block.map(|d| d.to_string()),
-            staker_bid_rewards: sr.bid.map(|d| d.to_string()),
-            total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
-            settlement_claims: serde_json::to_value(&settlement_claim)?,
-            stakers_total_claim: fee.stakers_total_claim,
-            marinade_fee_claim: marinade_fee_for_bidding,
-            dao_fee_claim: dao_fee_for_bidding,
-        };
-        let priority_fee_details = PriorityFeeSettlementDetails {
-            total_marinade_active_stake: totals.marinade_active,
-            total_marinade_activating_stake: totals.marinade_activating,
-            activating_stake_pmpe: validator
-                .rev_share
-                .activating_stake_pmpe
-                .unwrap_or(Decimal::ZERO)
-                .to_string(),
-            activating_bid_claim: settlement_claim.activating_bid_claim.to_string(),
-            activating_stakers_pool: fee.activating_pool,
-            marinade_fee_claim: marinade_fee_for_priority,
-            dao_fee_claim: dao_fee_for_priority,
-        };
-        add_to_settlement_collection(
-            &mut settlement_claim_collections,
-            priority_fee_claims,
-            priority_fee_claims_amount,
-            SettlementReason::PriorityFee,
-            validator.vote_account,
-            funder.clone(),
-            Some(SettlementDetails::PriorityFee(priority_fee_details)),
-        );
-        add_to_settlement_collection(
-            &mut settlement_claim_collections,
-            bidding_claims,
-            bidding_claims_amount,
-            SettlementReason::Bidding,
-            validator.vote_account,
-            funder.clone(),
-            Some(SettlementDetails::Bidding(Box::new(settlement_details))),
-        );
+        ) {
+            Ok(settlements) => settlement_claim_collections.extend(settlements),
+            Err(err) => skipped_validators.push((validator.vote_account, format!("{err:#}"))),
+        }
     }
-    Ok(settlement_claim_collections)
+    Ok(BidWorkerOutput {
+        settlements: settlement_claim_collections,
+        skipped_validators,
+    })
 }
 
-// effective rate of the realized commission from snapshot rewards above the in-bond promise; the auction-time sam-meta value misses commission raised after the auction snapshot
+#[allow(clippy::too_many_arguments)]
+fn settle_validator(
+    validator: &ValidatorSamMeta,
+    staker_stake_groups: &[StakerStakeGroup],
+    totals: &StakeTotals,
+    rewards: &VoteAccountRewards,
+    fee_percentages: &FeePercentages,
+    authorities: &FeeAuthorities,
+    funder: &SettlementFunder,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+    target_pmpe: Decimal,
+) -> anyhow::Result<Vec<Settlement>> {
+    let mut settlements = vec![];
+    let mr = marinade_reward_shares(rewards, totals, &validator.vote_account);
+    let (settlement_claim, auction_effective_static_bid) =
+        build_result_claims(validator, rewards, &mr, totals);
+    let sr = staker_rewards_breakdown(validator, &mr, &settlement_claim, totals);
+    let total_marinade_stakers_rewards = sr.active_total + settlement_claim.activating_bid_claim;
+    info!(
+        "{} total stakers rewards: {} (inflation: {:?}, mev: {:?}, block: {:?}, bid: {:?}), claims: {}",
+        validator.vote_account,
+        total_marinade_stakers_rewards,
+        mr.inflation,
+        mr.mev,
+        mr.block,
+        sr.bid,
+        settlement_claim
+    );
+
+    let fee = split_distributor_fee(
+        &settlement_claim,
+        total_marinade_stakers_rewards,
+        totals,
+        fee_percentages,
+        target_pmpe,
+        &validator.vote_account,
+    )?;
+
+    let (mut bidding_claims, mut bidding_claims_amount) = distribute_pool(
+        staker_stake_groups,
+        stake_authority_filter,
+        PoolKind::Active,
+        fee.active_pool,
+        totals.marinade_active,
+        &validator.vote_account,
+    )?;
+    let (mut priority_fee_claims, mut priority_fee_claims_amount) = distribute_pool(
+        staker_stake_groups,
+        stake_authority_filter,
+        PoolKind::Activating,
+        fee.activating_pool,
+        totals.marinade_activating,
+        &validator.vote_account,
+    )?;
+    ensure!(
+        bidding_claims_amount + priority_fee_claims_amount <= fee.stakers_total_claim,
+        "Claims amount {} exceeded stakers total claim {} for validator {}",
+        bidding_claims_amount + priority_fee_claims_amount,
+        fee.stakers_total_claim,
+        validator.vote_account
+    );
+
+    // Split fee claims proportionally between active and activating pools
+    let activating_fee_fraction = checked_fraction(
+        Decimal::from(fee.activating_pool),
+        Decimal::from(fee.stakers_total_claim),
+    )
+    .unwrap_or(if fee.settlement_claim_sum > 0 {
+        fee.activating_fraction
+    } else {
+        Decimal::ZERO
+    });
+    let (marinade_fee_for_priority, marinade_fee_for_bidding) =
+        split_by_fraction(fee.marinade_fee, activating_fee_fraction);
+    let (dao_fee_for_priority, dao_fee_for_bidding) =
+        split_by_fraction(fee.dao_fee, activating_fee_fraction);
+
+    push_fee_deposit(
+        &mut bidding_claims,
+        &mut bidding_claims_amount,
+        authorities.marinade_withdraw,
+        authorities.marinade_stake,
+        marinade_fee_for_bidding,
+    );
+    push_fee_deposit(
+        &mut bidding_claims,
+        &mut bidding_claims_amount,
+        authorities.dao_withdraw,
+        authorities.dao_stake,
+        dao_fee_for_bidding,
+    );
+    ensure!(
+        bidding_claims_amount <= fee.settlement_claim_sum,
+        "The sum of bidding claims {} exceeds the total claim amount {} after adding bidding fees for validator {}",
+        bidding_claims_amount,
+        fee.settlement_claim_sum,
+        validator.vote_account
+    );
+    push_fee_deposit(
+        &mut priority_fee_claims,
+        &mut priority_fee_claims_amount,
+        authorities.marinade_withdraw,
+        authorities.marinade_stake,
+        marinade_fee_for_priority,
+    );
+    push_fee_deposit(
+        &mut priority_fee_claims,
+        &mut priority_fee_claims_amount,
+        authorities.dao_withdraw,
+        authorities.dao_stake,
+        dao_fee_for_priority,
+    );
+    ensure!(
+        bidding_claims_amount + priority_fee_claims_amount <= fee.settlement_claim_sum,
+        "The sum of total claims {} exceeds the total claim amount {} after adding priority fees for validator {}",
+        bidding_claims_amount + priority_fee_claims_amount,
+        fee.settlement_claim_sum,
+        validator.vote_account
+    );
+
+    let settlement_details = BidSettlementDetails {
+        total_active_stake: totals.total_active,
+        total_marinade_active_stake: totals.marinade_active,
+        total_marinade_redelegation_stake: totals.marinade_redelegation,
+        auction_effective_static_bid: auction_effective_static_bid.to_string(),
+        marinade_stake_share: mr.stake_share.to_string(),
+        marinade_inflation_rewards: mr.inflation.to_string(),
+        marinade_mev_rewards: mr.mev.to_string(),
+        marinade_block_rewards: mr.block.to_string(),
+        staker_inflation_rewards: sr.inflation.map(|d| d.to_string()),
+        staker_mev_rewards: sr.mev.map(|d| d.to_string()),
+        staker_block_rewards: sr.block.map(|d| d.to_string()),
+        staker_bid_rewards: sr.bid.map(|d| d.to_string()),
+        total_marinade_stakers_rewards: total_marinade_stakers_rewards.to_string(),
+        settlement_claims: serde_json::to_value(&settlement_claim)?,
+        stakers_total_claim: fee.stakers_total_claim,
+        marinade_fee_claim: marinade_fee_for_bidding,
+        dao_fee_claim: dao_fee_for_bidding,
+    };
+    let priority_fee_details = PriorityFeeSettlementDetails {
+        total_marinade_active_stake: totals.marinade_active,
+        total_marinade_activating_stake: totals.marinade_activating,
+        activating_stake_pmpe: validator
+            .rev_share
+            .activating_stake_pmpe
+            .unwrap_or(Decimal::ZERO)
+            .to_string(),
+        activating_bid_claim: settlement_claim.activating_bid_claim.to_string(),
+        activating_stakers_pool: fee.activating_pool,
+        marinade_fee_claim: marinade_fee_for_priority,
+        dao_fee_claim: dao_fee_for_priority,
+    };
+    add_to_settlement_collection(
+        &mut settlements,
+        priority_fee_claims,
+        priority_fee_claims_amount,
+        SettlementReason::PriorityFee,
+        validator.vote_account,
+        funder.clone(),
+        Some(SettlementDetails::PriorityFee(priority_fee_details)),
+    );
+    add_to_settlement_collection(
+        &mut settlements,
+        bidding_claims,
+        bidding_claims_amount,
+        SettlementReason::Bidding,
+        validator.vote_account,
+        funder.clone(),
+        Some(SettlementDetails::Bidding(Box::new(settlement_details))),
+    );
+    Ok(settlements)
+}
+
+// below ds-sam's minimalCommission (-5.0 = -500%); bounds the claim if ds-sam applies no floor
+const MIN_IN_BOND_COMMISSION_DEC: Decimal = Decimal::from_parts(10, 0, 0, true, 0);
+
+// realized not auction commission: catches raises after the snapshot; floor = what the auction credited
 fn commission_eff(
     commission_realized_dec: Option<Decimal>,
     commission_in_bond_dec: Decimal,
+    commission_floor_dec: Decimal,
 ) -> Decimal {
+    let in_bond = commission_in_bond_dec
+        .max(commission_floor_dec)
+        .max(MIN_IN_BOND_COMMISSION_DEC);
     match commission_realized_dec {
-        Some(realized) if realized > commission_in_bond_dec => realized - commission_in_bond_dec,
+        Some(realized) if realized > in_bond => realized - in_bond,
         _ => Decimal::ZERO,
+    }
+}
+
+pub fn log_floored_commissions(sam_validator_metas: &[ValidatorSamMeta]) {
+    for validator in sam_validator_metas {
+        let Some(AuctionValidatorValues {
+            commissions: Some(c),
+            ..
+        }) = &validator.values
+        else {
+            continue;
+        };
+        for (kind, in_bond, floor) in [
+            (
+                "inflation",
+                c.inflation_commission_in_bond_dec,
+                c.inflation_commission_dec,
+            ),
+            ("mev", c.mev_commission_in_bond_dec, c.mev_commission_dec),
+            (
+                "block",
+                c.block_rewards_commission_in_bond_dec,
+                c.block_rewards_commission_dec,
+            ),
+        ] {
+            let floor = floor.max(MIN_IN_BOND_COMMISSION_DEC);
+            if let Some(in_bond) = in_bond.filter(|in_bond| *in_bond < floor) {
+                error!(
+                    "Validator {} {kind} in-bond commission {in_bond} is below the commission floor {floor}, charging to {floor}",
+                    validator.vote_account
+                );
+            }
+        }
     }
 }
 

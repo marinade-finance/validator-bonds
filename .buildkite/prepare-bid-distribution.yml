@@ -190,6 +190,8 @@ steps:
     - 'chmod +x target/release/bid-distribution-cli'
     - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
     - |
+      set -o pipefail
+      exit_code=0
       ./target/release/bid-distribution-cli $$leader_schedule_arg \
         --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
@@ -198,7 +200,15 @@ steps:
         --validator-meta-collection ./validators.json \
         --revenue-expectation-collection ./evaluation.json \
         --output-settlement-collection "./bid-distribution-settlements.json" \
-        --output-protected-event-collection "./protected-events.json"
+        --output-protected-event-collection "./protected-events.json" \
+        2>&1 | tee ./generate-settlements.log || exit_code=$$?
+      if [[ $$exit_code -eq 3 ]]; then
+        grep "Skipped validator" ./generate-settlements.log \
+          | buildkite-agent annotate --style error --context "skipped-validators"
+      fi
+      exit $$exit_code
+    soft_fail:
+    - exit_status: 3
     artifact_paths:
     - "./bid-distribution-settlements.json"
     - "./protected-events.json"

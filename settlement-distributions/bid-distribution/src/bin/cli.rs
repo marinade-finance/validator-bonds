@@ -1,4 +1,5 @@
 use bid_distribution::apy_api::fetch_ssr_pmpe;
+use bid_distribution::generators::bidding::log_floored_commissions;
 use bid_distribution::generators::fee_optimizer::{
     calculate_bid_settlement_totals, generate_bid_settlements, BisectMode,
 };
@@ -33,7 +34,13 @@ use snapshot_parser_validator_cli::validator_meta::ValidatorMetaCollection;
 use solana_sdk::native_token::LAMPORTS_PER_SOL;
 use std::collections::HashSet;
 use std::path::PathBuf;
-use {clap::Parser, log::info};
+use {
+    clap::Parser,
+    log::{error, info},
+};
+
+// prepare-bid-distribution.yml soft-fails on it; clap usage errors exit 2, anyhow 1, panics 101
+const SKIPPED_VALIDATORS_EXIT_CODE: i32 = 3;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -172,6 +179,7 @@ fn main() -> anyhow::Result<()> {
     let mut adj_max_fee_bps: Option<u64> = None;
     let mut adj_min_fee_bps: Option<u64> = None;
     let mut collection_ssr_pmpe: Option<f64> = None;
+    let mut skipped_validators = vec![];
 
     // ===== PSR Settlements (Protected Events) =====
     let psr_configs = bid_distribution_config.psr_settlements();
@@ -343,6 +351,7 @@ fn main() -> anyhow::Result<()> {
             metas_epochs.iter().all(|v| *v == stake_meta_epoch),
             "Epoch mismatch between SAM metas ({metas_epochs:?}) and stake meta collection ({stake_meta_epoch})",
         );
+        log_floored_commissions(&sam_validator_metas);
 
         // Generate penalty settlements first — total_staker_penalties is needed for target_pmpe derivation.
         info!("Generating penalty settlements...");
@@ -419,6 +428,7 @@ fn main() -> anyhow::Result<()> {
         info!("Generated {} bid settlements", bid.settlements.len());
         adj_max_fee_bps = Some(bid.adj_max_fee_bps);
         adj_min_fee_bps = Some(bid.adj_min_fee_bps);
+        skipped_validators = bid.skipped_validators;
         all_settlements.extend(bid.settlements);
     } else {
         // No SAM configs — fail if SAM inputs were partially provided (likely a mistake)
@@ -458,6 +468,16 @@ fn main() -> anyhow::Result<()> {
         ),
     )?;
 
+    if !skipped_validators.is_empty() {
+        for (vote_account, err) in &skipped_validators {
+            error!("Skipped validator {vote_account}: settlement computation failed: {err}");
+        }
+        error!(
+            "Settlement computation failed for {} validator(s), output written without them",
+            skipped_validators.len()
+        );
+        std::process::exit(SKIPPED_VALIDATORS_EXIT_CODE);
+    }
     info!("Finished.");
     Ok(())
 }

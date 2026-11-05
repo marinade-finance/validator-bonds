@@ -588,13 +588,21 @@ mod tests {
         let properties = &schema["properties"];
         let serialized = serde_json::to_value(sample_record(Some(800))).unwrap();
 
-        for commissions in [None, Some(800)] {
+        for commissions in [None, Some(800), Some(i64::MIN)] {
             assert_shape_matches(
                 &docs,
                 schema,
                 &serde_json::to_value(sample_record(commissions)).unwrap(),
                 "ValidatorBondRecordSchema",
             );
+        }
+        let extreme = serde_json::to_value(sample_record(Some(i64::MIN))).unwrap();
+        for field in [
+            "inflation_commission_bps",
+            "mev_commission_bps",
+            "block_commission_bps",
+        ] {
+            assert_eq!(extreme[field].as_i64(), Some(i64::MIN), "{field}");
         }
 
         for field in NUMERIC_FIELDS {
