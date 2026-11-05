@@ -4,7 +4,9 @@
 (* lamports between them. Lamports are small integers; warmup and cooldown *)
 (* take one epoch. Fund = "current" models fund_settlement as deployed,    *)
 (* Fund = "new" models the planned fix (withdrawable per the stake         *)
-(* program, rejecting accounts not above the minimal size).                *)
+(* program, rejecting accounts not above the minimal size, keeping a       *)
+(* leftover below the minimum delegation instead of splitting it, funding  *)
+(* the whole account when the withdrawn surplus cannot be delegated).      *)
 (***************************************************************************)
 EXTENDS Integers, FiniteSets, TLC
 
@@ -28,6 +30,7 @@ CONSTANTS
 Inf == 1000
 MinSize == MinStake + Pinned          \* minimal_size_stake_account
 SplitRent == Rent                     \* Anchor `init` pays live rent for the split account
+Min(x, y) == IF x <= y THEN x ELSE y
 
 VARIABLES
     acc,       \* [Accounts -> account record]
@@ -163,8 +166,18 @@ FundSettlement(a) ==
            claim == stl.max - stl.funded
            need == claim + MinSize
            splittable == L > need /\ L - need >= MinSize + SplitRent
+           delegated == IF Fund = "new" /\ Inactive(a) THEN 0 ELSE acc[a].stake
+           nonDelegated == L - delegated
+           leftover0 == L - need - SplitRent
+           excess == IF nonDelegated > claim + Pinned THEN nonDelegated - claim - Pinned ELSE 0
+           withdrawn == Min(excess, leftover0)
+           \* the stake program rejects an active split below the minimum delegation
+           leftover == IF Fund = "new" /\ leftover0 - withdrawn < MinStake
+                       THEN 0 ELSE leftover0 - withdrawn
+           delegatable == leftover > 0 \/ SplitRent + withdrawn - Rent >= MinStake
+           whole == ~splittable \/ (Fund = "new" /\ ~delegatable)
        IN
-       IF ~splittable THEN
+       IF whole THEN
            \* whole account
            IF Fund = "current" /\ L < MinSize THEN Panic                   \* :200
            ELSE IF Fund = "new" /\ L <= MinSize THEN FALSE                  \* error 6083
@@ -174,14 +187,6 @@ FundSettlement(a) ==
        ELSE IF stl.collector THEN FALSE                                     \* error 6079
        ELSE IF Fund = "current" /\ L < acc[a].stake THEN Panic              \* :233
        ELSE
-       LET delegated == IF Fund = "new" /\ Inactive(a) THEN 0 ELSE acc[a].stake
-           nonDelegated == L - delegated
-           maxNonDelegated == claim + Pinned
-           leftover0 == L - need - SplitRent
-           excess == IF nonDelegated > maxNonDelegated THEN nonDelegated - maxNonDelegated ELSE 0
-           withdrawn == IF excess = 0 THEN 0 ELSE IF leftover0 >= excess THEN excess ELSE leftover0
-           leftover == leftover0 - withdrawn
-       IN
        /\ withdrawn <= Withdrawable(a)
        /\ \E b \in Free :
            LET dests ==
@@ -200,7 +205,8 @@ FundSettlement(a) ==
                                         THEN SplitSourceStake(a, leftover)
                                         ELSE acc[a].stake]),
                      ![b] = [dest EXCEPT !.staker = "bond", !.withdrawer = "bond"]]
-              /\ stl' = [stl EXCEPT !.funded = stl.max, !.collector = TRUE,
+              /\ stl' = [stl EXCEPT !.collector = TRUE,
+                                    !.funded = stl.funded + L - withdrawn - leftover - MinSize - SplitRent,
                                     !.splitRent = SplitRent]
               /\ custody' = custody + SplitRent
               /\ UNCHANGED <<epoch, panicked>>
@@ -301,7 +307,9 @@ NoProgramMadeUnderwater ==
     \A a \in Accounts : BondFree(a) /\ acc[a].origin = "program" => Healthy(a)
 
 \* F2
-OverfundBounded == stl.state = "none" \/ stl.funded - stl.max < MinSize + SplitRent
+OverfundBounded ==
+    stl.state = "none" \/
+    stl.funded - stl.max < (IF Fund = "new" THEN 2 * MinStake ELSE MinSize) + SplitRent
 
 \* L1
 CustodyConserved ==
