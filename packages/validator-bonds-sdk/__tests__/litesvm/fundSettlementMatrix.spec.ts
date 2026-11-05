@@ -69,13 +69,14 @@ type Size =
   | 'minSizeMinus1'
   | 'minSize'
   | 'minSizePlus1'
+  | 'withdrawsMinimumDelegation'
 
 type Source = {
   state: SourceState
   // lamports the stake account is created and delegated with
   lamports: number | Size
   // lamports transferred on top after delegation, never delegated
-  surplus?: number
+  surplus?: number | Size
   // lamports withdrawn once inactive, leaving the account below its recorded stake
   withdraw?: number
 }
@@ -118,6 +119,7 @@ describe('Validator Bonds fund settlement matrix', () => {
   let program: ValidatorBondsProgram
   let rent: number
   let minSize: number
+  let minStake: number
   let configAccount: PublicKey
   let operatorAuthority: Keypair
   let voteAccount: PublicKey
@@ -139,6 +141,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     ))
     const config = await getConfig(program, configAccount)
     minSize = minimalSizeStakeAccount(config.minimumStakeLamports).toNumber()
+    minStake = config.minimumStakeLamports.toNumber()
     ;({ voteAccount, validatorIdentity } = await createVoteAccount({
       provider,
     }))
@@ -180,7 +183,7 @@ describe('Validator Bonds fund settlement matrix', () => {
   }
 
   async function buildSource(
-    source: Source & { lamports: number },
+    source: Source & { lamports: number; surplus?: number },
     guard?: Guard,
     settlementAccount?: PublicKey,
   ): Promise<PublicKey> {
@@ -358,6 +361,39 @@ describe('Validator Bonds fund settlement matrix', () => {
       },
       path: 'splitInitialize',
     },
+    // below twice the minimum delegation the stake program cannot split an active account
+    {
+      name: 'active below twice the minimum delegation, large surplus: withdraw the surplus, initialize and delegate',
+      lifecycle: true,
+      maxTotalClaim: 0.3 * SOL,
+      source: { state: 'active', lamports: 1.5 * SOL, surplus: 3 * SOL },
+      path: 'splitInitialize',
+    },
+    {
+      name: 'active below twice the minimum delegation, surplus leaves exactly the minimum delegation: delegate it',
+      lifecycle: true,
+      maxTotalClaim: 0.1 * SOL,
+      source: {
+        state: 'active',
+        lamports: 1.5 * SOL,
+        surplus: 'withdrawsMinimumDelegation',
+      },
+      path: 'splitInitialize',
+    },
+    {
+      name: 'active below twice the minimum delegation, small surplus: whole account',
+      lifecycle: true,
+      maxTotalClaim: 0.1 * SOL,
+      source: { state: 'active', lamports: 1.5 * SOL, surplus: 0.8 * SOL },
+      path: 'whole',
+    },
+    {
+      name: 'cooling below twice the minimum delegation, large surplus: withdraw the surplus, initialize and delegate',
+      lifecycle: true,
+      maxTotalClaim: 0.3 * SOL,
+      source: { state: 'cooling', lamports: 1.8 * SOL, surplus: 3 * SOL },
+      path: 'splitInitialize',
+    },
     // settlement state
     {
       name: 'partially funded settlement: split funds the remaining claim',
@@ -497,6 +533,9 @@ describe('Validator Bonds fund settlement matrix', () => {
         return minSize
       case 'minSizePlus1':
         return minSize + 1
+      // a surplus whose excess over the claim and the pinned reserve is the minimum delegation
+      case 'withdrawsMinimumDelegation':
+        return minStake + claim + PINNED_RESERVE - rent
       default:
         return lamports
     }
@@ -541,7 +580,14 @@ describe('Validator Bonds fund settlement matrix', () => {
     const claim =
       c.maxTotalClaim - Number(settlementBefore.lamportsFunded.toString())
     const stakeAccount = await buildSource(
-      { ...c.source, lamports: resolveLamports(c.source.lamports, claim) },
+      {
+        ...c.source,
+        lamports: resolveLamports(c.source.lamports, claim),
+        surplus:
+          c.source.surplus === undefined
+            ? undefined
+            : resolveLamports(c.source.surplus, claim),
+      },
       c.guard,
       settlementAccount,
     )
@@ -602,25 +648,30 @@ describe('Validator Bonds fund settlement matrix', () => {
     epoch: bigint,
     inactive: boolean,
   ) {
-    const leftoverLamports = before.lamports - (claim + minSize) - rent
+    const leftover0 = before.lamports - (claim + minSize) - rent
     // S1: a fully inactive account stakes nothing, whatever stake it still records
     const nonDelegated = before.lamports - (inactive ? 0 : before.stake)
-    const maxNonDelegated = claim + PINNED_RESERVE
-    const withdrawn =
-      nonDelegated > maxNonDelegated ? nonDelegated - maxNonDelegated : 0
+    const excess = Math.max(0, nonDelegated - (claim + PINNED_RESERVE))
+    const withdrawn = Math.min(excess, leftover0)
+    // S2: an active split below the minimum delegation fails, the funded account keeps it
+    const splitMoved =
+      leftover0 - withdrawn < minStake ? 0 : leftover0 - withdrawn
     const path: Path =
-      withdrawn === 0
-        ? 'split'
-        : withdrawn < leftoverLamports
-          ? 'splitWithdraw'
-          : 'splitInitialize'
-    const splitMoved = leftoverLamports - Math.min(withdrawn, leftoverLamports)
+      splitMoved === 0 && withdrawn < minStake
+        ? 'whole'
+        : excess === 0
+          ? 'split'
+          : splitMoved > 0
+            ? 'splitWithdraw'
+            : 'splitInitialize'
+    const leftoverLamports = withdrawn + splitMoved
     const initialized = path === 'splitInitialize'
     return {
       path,
       leftoverLamports,
+      sourceLamports: before.lamports - leftoverLamports,
       sourceStake: initialized ? before.stake : before.stake - splitMoved,
-      leftoverStake: initialized ? leftoverLamports : splitMoved,
+      leftoverStake: initialized ? withdrawn : splitMoved,
       leftoverActivationEpoch: initialized ? epoch : before.activationEpoch,
       leftoverDeactivationEpoch: initialized
         ? BigInt(U64_MAX.toString())
@@ -668,6 +719,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     prepared: Awaited<ReturnType<typeof prepare>>,
     settled: Awaited<ReturnType<typeof settle>>,
     maxTotalClaim: number,
+    overfundBound = minSize + rent,
   ) {
     const { before, epoch } = prepared
     const [settlementStaker] = settlementStakerAuthority(
@@ -694,7 +746,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     // F2: overfunding bounded by the minimal size plus the split rent
     expect(
       Number(settled.settlement.lamportsFunded.toString()) - maxTotalClaim,
-    ).toBeLessThan(minSize + rent)
+    ).toBeLessThan(overfundBound)
     const { settlement, funded, leftover } = settled
     expect(settled.events).toEqual([
       {
@@ -723,9 +775,26 @@ describe('Validator Bonds fund settlement matrix', () => {
 
   it.each(whole)('whole account: $name', async c => {
     const prepared = await prepare(c)
+    const { before, claim, epoch } = prepared
+    // splittable, but the split could not be delegated: whole-account fallback
+    const fallback = before.lamports >= splitThreshold(claim)
+    const modelPath = fallback
+      ? splitModel(
+          before,
+          claim,
+          epoch,
+          c.source.state === 'inactive' ||
+            c.source.state === 'inactiveUnderwater',
+        ).path
+      : 'whole'
+    expect(modelPath).toEqual('whole')
     const settled = await settle(prepared)
-    expectFundedShape(prepared, settled, c.maxTotalClaim)
-    const { before } = prepared
+    expectFundedShape(
+      prepared,
+      settled,
+      c.maxTotalClaim,
+      fallback ? 2 * minStake + rent : minSize + rent,
+    )
     expect(settled.funded).toEqual(before.lamports - minSize)
     expect(settled.after.lamports).toEqual(before.lamports)
     expect(settled.after.stake).toEqual(before.stake)
@@ -754,7 +823,10 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(settlement.splitRentCollector).toEqual(payer.publicKey)
     expect(settlement.splitRentAmount).toEqual(rent)
     expect(settled.payerLamports).toEqual(SOL - rent)
-    expect(after.lamports).toEqual(claim + minSize + rent)
+    expect(after.lamports).toEqual(model.sourceLamports)
+    // a leftover below the minimum delegation stays in the funded account
+    expect(after.lamports - (claim + minSize + rent)).toBeGreaterThanOrEqual(0)
+    expect(after.lamports - (claim + minSize + rent)).toBeLessThan(minStake)
     // F3: nothing leaves bond custody, the split rent is the only lamports added
     expect(after.lamports + leftover.lamports).toEqual(before.lamports + rent)
     expect({
