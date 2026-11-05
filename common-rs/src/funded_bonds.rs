@@ -3,10 +3,11 @@ use crate::cli_result::CliError;
 use crate::{
     bonds::get_bonds_for_config,
     settlements::get_settlements_for_config,
-    stake_accounts::{collect_stake_accounts, get_clock},
+    stake_accounts::{collect_stake_accounts, get_clock, is_locked, CollectedStakeAccounts},
     withdraw_requests::get_withdraw_requests,
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::clock::Clock;
 use solana_sdk::pubkey::Pubkey;
 use std::{collections::HashMap, sync::Arc};
 use validator_bonds::state::bond_product::{
@@ -30,6 +31,24 @@ fn outstanding_withdraw_amount(requested: u64, withdrawn: u64, available: u64) -
         return available;
     }
     requested.saturating_sub(withdrawn)
+}
+
+// The program refuses locked stake for funding settlements and for withdrawing, so it backs nothing.
+fn delegated_unlocked_stake(
+    stake_accounts: CollectedStakeAccounts,
+    clock: &Clock,
+) -> Vec<(Pubkey, u64)> {
+    let mut delegated_stake: Vec<(Pubkey, u64)> = vec![];
+    for (pubkey, lamports_available, stake_account) in stake_accounts {
+        if is_locked(&stake_account, clock) {
+            log::warn!("Lockup is in force {pubkey}, not counted as bond funds");
+            continue;
+        }
+        if let Some(delegation) = stake_account.delegation() {
+            delegated_stake.push((delegation.voter_pubkey, lamports_available));
+        }
+    }
+    delegated_stake
 }
 
 fn aggregate_funds(
@@ -116,17 +135,7 @@ pub async fn collect_validator_bonds_with_funds(
     let clock = get_clock(rpc_client.clone())
         .await
         .map_err(CliError::retry_able)?;
-    let mut delegated_stake: Vec<(Pubkey, u64)> = vec![];
-    for (pubkey, lamports_available, stake_account) in stake_accounts {
-        if let Some(lockup) = stake_account.lockup() {
-            if lockup.is_in_force(&clock, None) {
-                log::warn!("Lockup is in force {pubkey}");
-            }
-        }
-        if let Some(delegation) = stake_account.delegation() {
-            delegated_stake.push((delegation.voter_pubkey, lamports_available));
-        }
-    }
+    let delegated_stake = delegated_unlocked_stake(stake_accounts, &clock);
 
     let withdraw_request_amounts: Vec<(Pubkey, u64, u64)> = withdraw_requests
         .into_iter()
@@ -177,8 +186,59 @@ pub async fn collect_validator_bonds_with_funds(
 
 #[cfg(test)]
 mod tests {
-    use super::{aggregate_funds, outstanding_withdraw_amount};
+    use super::{aggregate_funds, delegated_unlocked_stake, outstanding_withdraw_amount};
+    use solana_sdk::clock::Clock;
     use solana_sdk::pubkey::Pubkey;
+    use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::state::{Delegation, Meta, Stake, StakeStateV2};
+
+    const EPOCH: u64 = 1078;
+
+    fn delegated(vote_account: Pubkey, lockup_epoch: u64) -> StakeStateV2 {
+        let mut meta = Meta::default();
+        meta.lockup.epoch = lockup_epoch;
+        StakeStateV2::Stake(
+            meta,
+            Stake {
+                delegation: Delegation {
+                    voter_pubkey: vote_account,
+                    ..Default::default()
+                },
+                credits_observed: 0,
+            },
+            StakeFlags::empty(),
+        )
+    }
+
+    fn clock() -> Clock {
+        Clock {
+            epoch: EPOCH,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn locked_stake_is_not_counted_as_bond_funds() {
+        let vote_account = Pubkey::new_unique();
+        let stake = delegated_unlocked_stake(
+            vec![
+                (Pubkey::new_unique(), 100, delegated(vote_account, 0)),
+                (Pubkey::new_unique(), 40, delegated(vote_account, EPOCH + 1)),
+            ],
+            &clock(),
+        );
+        assert_eq!(stake, vec![(vote_account, 100)]);
+    }
+
+    #[test]
+    fn stake_with_an_expired_lockup_is_counted() {
+        let vote_account = Pubkey::new_unique();
+        let stake = delegated_unlocked_stake(
+            vec![(Pubkey::new_unique(), 100, delegated(vote_account, EPOCH))],
+            &clock(),
+        );
+        assert_eq!(stake, vec![(vote_account, 100)]);
+    }
 
     // Stake funded to a settlement keeps the bonds withdrawer authority, so it is counted into
     // `funded_amount`, but `claim_withdraw_request` refuses to withdraw it
