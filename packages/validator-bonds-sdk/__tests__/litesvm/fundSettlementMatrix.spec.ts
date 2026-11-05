@@ -70,6 +70,9 @@ type Size =
   | 'minSize'
   | 'minSizePlus1'
   | 'withdrawsMinimumDelegation'
+  | 'withdrawsMinimumDelegationMinus1'
+  | 'splitsMinimumDelegation'
+  | 'splitsMinimumDelegationMinus1'
 
 type Source = {
   state: SourceState
@@ -381,6 +384,39 @@ describe('Validator Bonds fund settlement matrix', () => {
       path: 'splitInitialize',
     },
     {
+      name: 'active below twice the minimum delegation, surplus leaves 1 lamport below the minimum delegation: whole account',
+      lifecycle: true,
+      maxTotalClaim: 0.1 * SOL,
+      source: {
+        state: 'active',
+        lamports: 1.5 * SOL,
+        surplus: 'withdrawsMinimumDelegationMinus1',
+      },
+      path: 'whole',
+    },
+    {
+      name: 'active, large surplus, split after the withdraw is exactly the minimum delegation: split',
+      lifecycle: true,
+      maxTotalClaim: 0.3 * SOL,
+      source: {
+        state: 'active',
+        lamports: 'splitsMinimumDelegation',
+        surplus: 3 * SOL,
+      },
+      path: 'splitWithdraw',
+    },
+    {
+      name: 'active, large surplus, split after the withdraw is 1 lamport below the minimum delegation: keep it, delegate the surplus',
+      lifecycle: true,
+      maxTotalClaim: 0.3 * SOL,
+      source: {
+        state: 'active',
+        lamports: 'splitsMinimumDelegationMinus1',
+        surplus: 3 * SOL,
+      },
+      path: 'splitInitialize',
+    },
+    {
       name: 'active below twice the minimum delegation, small surplus: whole account',
       lifecycle: true,
       maxTotalClaim: 0.1 * SOL,
@@ -536,6 +572,13 @@ describe('Validator Bonds fund settlement matrix', () => {
       // a surplus whose excess over the claim and the pinned reserve is the minimum delegation
       case 'withdrawsMinimumDelegation':
         return minStake + claim + PINNED_RESERVE - rent
+      case 'withdrawsMinimumDelegationMinus1':
+        return minStake + claim + PINNED_RESERVE - rent - 1
+      // a delegated account whose split after the surplus withdraw is the minimum delegation
+      case 'splitsMinimumDelegation':
+        return 2 * minStake + 2 * rent
+      case 'splitsMinimumDelegationMinus1':
+        return 2 * minStake + 2 * rent - 1
       default:
         return lamports
     }
