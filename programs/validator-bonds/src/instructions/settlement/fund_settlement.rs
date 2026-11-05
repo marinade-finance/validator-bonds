@@ -262,11 +262,8 @@ impl FundSettlement<'_> {
                 // stake_account gains:
                 // --  amount_needed
                 // --    "+" what is needed to be paid back to split rent payer on close
-                // split_stake_account gains (i.e., fund_split_leftover):
-                // -- what overflows from funding:
-                // --  lamports available (delegated and non-delegated)
-                // --    "-" amount needed
-                // --    "-" what is needed to be paid back to split rent payer on close
+                // split_stake_account gains:
+                // --  lamports_to_transfer (withdrawn) "+" fund_split_leftover (split)
 
                 // For the 'stake_account' to stay in the "delegated" state, a minimum stake must remain delegated.
                 // A portion of the undelegated lamports may need to be moved to the split account before splitting.
