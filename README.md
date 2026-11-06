@@ -105,7 +105,10 @@ A partial `claim_withdraw_request` splits by delegated stake only, so it can fai
 `InsufficientDelegation`; withdrawing the whole stake account works around it
 (https://github.com/marinade-finance/validator-bonds/pull/159).
 `cancel_settlement` fails in the epoch its settlement was funded by a split, because the split stake
-is not yet withdrawable; it succeeds in the next epoch.
+is not yet withdrawable; it succeeds in the next epoch. `close_settlement_v2` refunds the split rent
+from whichever funded stake account its permissionless caller passes; taken from an account near the
+minimal size it leaves too little to delegate, so `reset_stake` with a live vote account fails with
+`InsufficientDelegation` until another stake account is merged into it.
 
 A BondProduct commission is checked only against its upper bound, so it may be any negative value,
 down to `i64::MIN`. Such a value is a misconfiguration of the bond owner's own bond, not a security
@@ -117,6 +120,20 @@ A settlement claim whose amount equals the funded stake account's whole balance 
 entirely, minimum-size reserve included, and closes the account. Each claim stays capped by its
 merkle leaf and the settlement's `max_total_claim`, so no claimant is paid more than the settlement
 owes.
+
+A bond whose vote account is closed (gone, system-owned, vote-owned with zeroed data, or re-created
+under another owner) is still funded. Split and withdraw never read the vote account, so the stake
+account splits as usual and the leftover stays delegated to the closed address, fundable by the
+bond's other settlements. Only a split whose withdrawn surplus would need a new delegation funds the
+whole stake account instead. `reset_stake` returns the stake to the bond without re-delegating it,
+and any overfunded excess returns to the bond once the settlement closes. A live vote account is
+funded and reset as before. A returned account can still be cooling down while holding fewer
+lamports than its recorded stake, because claims withdrew from it; funding it then may pick a split
+the stake program rejects, and it funds normally once fully inactive.
+
+`config.minimum_stake_lamports` is set by the admin and must not be below the stake program's
+minimum delegation (1 SOL on mainnet). A lower value makes the delegated split in `fund_settlement`
+and the re-delegation in `reset_stake` fail; setting it correctly is the admin's responsibility.
 
 ## Contract Audits
 

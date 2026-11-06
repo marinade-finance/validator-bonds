@@ -1,6 +1,6 @@
 use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
-    check_stake_valid_delegation,
+    check_stake_valid_delegation, is_vote_account_delegatable,
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -16,7 +16,6 @@ use anchor_spl::stake::{
     authorize, deactivate_stake, withdraw, Authorize, DeactivateStake, Stake, StakeAccount,
     Withdraw,
 };
-use solana_sdk_ids::vote::ID as vote_program_id;
 use solana_stake_interface::sysvar::stake_history::{self, StakeHistorySysvar};
 use solana_stake_interface::{
     self as stake,
@@ -47,9 +46,6 @@ pub struct FundSettlement<'info> {
     pub bond: Box<Account<'info, Bond>>,
 
     /// CHECK: the validator vote account to which the stake account is delegated, linked to bond
-    #[account(
-        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
-    )]
     pub vote_account: UncheckedAccount<'info>,
 
     #[account(
@@ -235,11 +231,21 @@ impl FundSettlement<'_> {
         };
         let split_delegatable = fund_split_leftover > 0
             || lamports_to_transfer >= ctx.accounts.config.minimum_stake_lamports;
+        let vote_account_delegatable = is_vote_account_delegatable(&ctx.accounts.vote_account);
+        let split_possible = left_over_splittable && split_delegatable;
+        let whole_forced_by_vote =
+            split_possible && fund_split_leftover == 0 && !vote_account_delegatable;
+        if whole_forced_by_vote {
+            msg!(
+                "Vote account {} cannot be delegated to, funding the whole stake account",
+                ctx.accounts.vote_account.key()
+            );
+        }
 
         let (funding_amount, is_split) =
             // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
-            if amount_available <= amount_needed || !left_over_splittable || !split_delegatable {
+            if !split_possible || whole_forced_by_vote {
                 let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, no splitting - closing and returning rent
