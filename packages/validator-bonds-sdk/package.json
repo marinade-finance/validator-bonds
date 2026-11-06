@@ -29,7 +29,8 @@
     "build": "tsc --build",
     "test:validator": "pnpm jest --config ../../jest.config.test-validator.js --testPathPattern=\"$(pwd)\"",
     "test:bankrun": "pnpm jest --config ../../jest.config.bankrun.js --testPathPattern=\"$(pwd)\"",
-    "test": "pnpm test:bankrun && pnpm test:validator"
+    "test:litesvm": "pnpm jest --config ../../jest.config.litesvm.js --testPathPattern=\"$(pwd)\"",
+    "test": "pnpm test:bankrun && pnpm test:litesvm && pnpm test:validator"
   },
   "devDependencies": {
     "@coral-xyz/anchor": "npm:@anchor-lang/core@^1.2.1",
@@ -50,6 +51,7 @@
     "bs58": "6.0.0",
     "class-transformer": "0.5.1",
     "jsbi": "4.3.2",
+    "litesvm": "1.6.1",
     "reflect-metadata": "0.2.2",
     "solana-bankrun": "0.2.0",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11"
