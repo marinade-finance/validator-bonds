@@ -33,10 +33,13 @@ import {
   settlementStakerAuthority,
 } from '../../src'
 import {
+  CLOSED_VOTE_VARIANTS,
   authorizeStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
   getAndCheckStakeAccount,
+  reopenVoteAccount,
+  setVoteAccountVariant,
 } from '../utils/staking'
 import {
   executeInitBondInstruction,
@@ -47,6 +50,7 @@ import {
 
 import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
+import type { VoteAccountVariant } from '../utils/staking'
 import type { PublicKey } from '@solana/web3.js'
 
 const SOL = LAMPORTS_PER_SOL
@@ -105,7 +109,14 @@ type Case = {
   path: Path
   // also claim the whole settlement, close it and reset the funded account
   lifecycle?: true
+  // the vote account is moved into this variant after the source is delegated
+  vote?: VoteAccountVariant
+  // the path of the same case with a live vote account
+  basePath?: Path
 }
+
+const CLOSED_VOTE_LOG =
+  'cannot be delegated to, funding the whole stake account'
 
 type StakeSnapshot = {
   lamports: number
@@ -126,6 +137,8 @@ describe('Validator Bonds fund settlement matrix', () => {
   let configAccount: PublicKey
   let operatorAuthority: Keypair
   let voteAccount: PublicKey
+  let voteKeypair: Keypair
+  let authorizedWithdrawer: Keypair
   let validatorIdentity: Keypair
   let bondAccount: PublicKey
   let bondsAuthority: PublicKey
@@ -145,9 +158,9 @@ describe('Validator Bonds fund settlement matrix', () => {
     const config = await getConfig(program, configAccount)
     minSize = minimalSizeStakeAccount(config.minimumStakeLamports).toNumber()
     minStake = config.minimumStakeLamports.toNumber()
-    ;({ voteAccount, validatorIdentity } = await createVoteAccount({
-      provider,
-    }))
+    voteKeypair = Keypair.generate()
+    ;({ voteAccount, validatorIdentity, authorizedWithdrawer } =
+      await createVoteAccount({ provider, voteAccount: voteKeypair }))
     ;({ bondAccount } = await executeInitBondInstruction({
       program,
       provider,
@@ -634,6 +647,14 @@ describe('Validator Bonds fund settlement matrix', () => {
       c.guard,
       settlementAccount,
     )
+    if (c.vote !== undefined) {
+      await setVoteAccountVariant({
+        provider,
+        voteAccount: voteKeypair,
+        authorizedWithdrawer,
+        variant: c.vote,
+      })
+    }
     const before = (await snapshot(stakeAccount))!
     const epoch = await currentEpoch(provider)
     const funding = await fund(settlementAccount, stakeAccount)
@@ -650,9 +671,10 @@ describe('Validator Bonds fund settlement matrix', () => {
   }
 
   async function settle(prepared: Awaited<ReturnType<typeof prepare>>) {
-    const { innerInstructions } = await prepared.send()
+    const { innerInstructions, logMessages } = await prepared.send()
     const settlement = await getSettlement(program, prepared.settlementAccount)
     return {
+      logs: logMessages.join('\n'),
       events: innerInstructions
         .filter(
           ix => ix.programId.equals(program.programId) && isEventData(ix.data),
@@ -727,6 +749,28 @@ describe('Validator Bonds fund settlement matrix', () => {
       ? { ...path, message: expect.stringContaining(path.message) }
       : path
   }
+
+  // a closed vote account turns only the initialize+delegate split into a whole funding
+  const pathUnderVote = (path: Path, vote: VoteAccountVariant): Path =>
+    CLOSED_VOTE_VARIANTS.includes(vote) && path === 'splitInitialize'
+      ? 'whole'
+      : path
+  const VOTE_VARIANTS: VoteAccountVariant[] = [
+    ...CLOSED_VOTE_VARIANTS,
+    'reopened',
+    'reopenedZeroed',
+  ]
+  CASES.push(
+    ...CASES.flatMap(({ lifecycle: _lifecycle, ...c }) =>
+      VOTE_VARIANTS.map(vote => ({
+        ...c,
+        name: `${c.name} [vote ${vote}]`,
+        vote,
+        basePath: c.path,
+        path: pathUnderVote(c.path, vote),
+      })),
+    ),
+  )
 
   const failing = CASES.filter(c => typeof c.path === 'object')
   const whole = CASES.filter(c => c.path === 'whole')
@@ -830,14 +874,25 @@ describe('Validator Bonds fund settlement matrix', () => {
             c.source.state === 'inactiveUnderwater',
         ).path
       : 'whole'
-    expect(modelPath).toEqual('whole')
+    // with a live vote account the model predicts the whole account; otherwise the live-case path
+    expect(modelPath).toEqual(c.basePath ?? 'whole')
+    const forcedByVote = modelPath !== 'whole'
     const settled = await settle(prepared)
+    const totalFunded =
+      Number(prepared.settlementBefore.lamportsFunded.toString()) +
+      before.lamports -
+      minSize
     expectFundedShape(
       prepared,
       settled,
       c.maxTotalClaim,
-      fallback ? 2 * minStake + rent : minSize + rent,
+      forcedByVote
+        ? totalFunded - c.maxTotalClaim + 1
+        : fallback
+          ? 2 * minStake + rent
+          : minSize + rent,
     )
+    expect(settled.logs.includes(CLOSED_VOTE_LOG)).toEqual(forcedByVote)
     expect(settled.funded).toEqual(before.lamports - minSize)
     expect(settled.after.lamports).toEqual(before.lamports)
     expect(settled.after.stake).toEqual(before.stake)
@@ -859,6 +914,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(model.path).toEqual(c.path)
     const settled = await settle(prepared)
     expectFundedShape(prepared, settled, c.maxTotalClaim)
+    expect(settled.logs).not.toContain(CLOSED_VOTE_LOG)
     const { before, claim, payer } = prepared
     const { after, settlement } = settled
     const leftover = settled.leftover!
@@ -983,6 +1039,212 @@ describe('Validator Bonds fund settlement matrix', () => {
     expect(reset.lamports + (leftover?.lamports ?? 0)).toEqual(
       before.lamports - c.maxTotalClaim,
     )
+  })
+  // the vote account changes after funding: closed, or a closed one reopened before the reset
+  const LIFECYCLE_VOTE_CASES: {
+    name: string
+    base?: string
+    voteAtFund: VoteAccountVariant
+    voteAtReset: VoteAccountVariant | 'reopen'
+  }[] = [
+    {
+      name: 'split while live, closed before reset',
+      voteAtFund: 'live',
+      voteAtReset: 'closed',
+    },
+    ...CLOSED_VOTE_VARIANTS.map(v => ({
+      name: `split while ${v}, still ${v} at reset`,
+      voteAtFund: v,
+      voteAtReset: v,
+    })),
+    {
+      name: 'split while closed, reopened before reset',
+      voteAtFund: 'closed',
+      voteAtReset: 'reopen',
+    },
+    {
+      name: 'split while zeroed, re-initialized before reset',
+      voteAtFund: 'zeroed',
+      voteAtReset: 'reopen',
+    },
+    {
+      name: 'whole while closed (inactive source), still closed at reset',
+      base: 'inactive, above the claim: withdraw all, initialize and delegate a healthy leftover',
+      voteAtFund: 'closed',
+      voteAtReset: 'closed',
+    },
+  ]
+
+  it.each(LIFECYCLE_VOTE_CASES)(
+    'lifecycle with vote account: $name',
+    async ({
+      base: baseName = 'active, well above the claim: split',
+      voteAtFund,
+      voteAtReset,
+    }) => {
+      const base = CASES.find(c => c.name === baseName)!
+      const prepared = await prepare({ ...base, vote: voteAtFund })
+      const settled = await settle(prepared)
+      const { before, claimer, settlementAccount, stakeAccount } = prepared
+      const wholeFunded =
+        base.path === 'splitInitialize' &&
+        CLOSED_VOTE_VARIANTS.includes(voteAtFund)
+      expect(settled.logs.includes(CLOSED_VOTE_LOG)).toEqual(wholeFunded)
+      expect(settled.leftover === null).toEqual(wholeFunded)
+      expect(settled.leftover?.voter ?? null).toEqual(
+        wholeFunded ? null : voteAccount,
+      )
+      expect(settled.funded).toEqual(
+        wholeFunded ? before.lamports - minSize : base.maxTotalClaim,
+      )
+      const settlementData = await getSettlement(program, settlementAccount)
+
+      await warpToNextEpoch(provider)
+      // the claimed-to account must not depend on the bond's vote account
+      const { stakeAccount: claimTo } = await delegatedStakeAccount({
+        provider,
+        staker: claimer.staker,
+        withdrawer: claimer.withdrawer,
+      })
+      const { instruction: claimIx } = await claimSettlementV2Instruction({
+        program,
+        claimAmount: base.maxTotalClaim,
+        index: 0,
+        merkleProof: [],
+        stakeAccountFrom: stakeAccount,
+        stakeAccountTo: claimTo,
+        stakeAccountStaker: claimer.staker.publicKey,
+        stakeAccountWithdrawer: claimer.withdrawer.publicKey,
+        settlementAccount,
+      })
+      await provider.sendIx([], claimIx)
+      const claimed = (await snapshot(stakeAccount))!
+      expect(claimed.lamports).toEqual(
+        settled.after.lamports - base.maxTotalClaim,
+      )
+      expect(claimed.lamports).toBeGreaterThanOrEqual(minSize)
+
+      warpToEpoch(
+        provider,
+        BigInt(settlementData.epochCreatedFor.toString()) + 4n,
+      )
+      const { instruction: closeIx } = await closeSettlementV2Instruction({
+        program,
+        settlementAccount,
+        splitRentRefundAccount: stakeAccount,
+      })
+      await provider.sendIx([], closeIx)
+      expect(
+        await provider.connection.getAccountInfo(settlementAccount),
+      ).toBeNull()
+      expect(
+        (await provider.connection.getAccountInfo(prepared.payer.publicKey))
+          ?.lamports,
+      ).toEqual(SOL)
+      const closed = (await snapshot(stakeAccount))!
+
+      if (voteAtReset === 'reopen') {
+        await reopenVoteAccount({
+          provider,
+          voteAccount: voteKeypair,
+          authorizedWithdrawer,
+        })
+      } else if (voteAtReset !== voteAtFund) {
+        await setVoteAccountVariant({
+          provider,
+          voteAccount: voteKeypair,
+          authorizedWithdrawer,
+          variant: voteAtReset,
+        })
+      }
+      const { instruction: resetIx } = await resetStakeInstruction({
+        program,
+        stakeAccount,
+        settlementAccount,
+        configAccount,
+        voteAccount,
+      })
+      await provider.sendIx([], resetIx)
+      const reset = (await snapshot(stakeAccount))!
+      const leftover = await snapshot(prepared.split)
+      const redelegated = voteAtReset === 'reopen'
+      expect(reset).toEqual({
+        ...closed,
+        staker: bondsAuthority,
+        ...(redelegated
+          ? {
+              stake: closed.lamports - rent,
+              activationEpoch: await currentEpoch(provider),
+              deactivationEpoch: BigInt(U64_MAX.toString()),
+            }
+          : {}),
+      })
+      expect(reset.voter).toEqual(voteAccount)
+      // the split leftover is untouched by the claim, the close and the vote account changes
+      expect(leftover).toEqual(settled.leftover)
+      // L1: bond custody lost exactly the claim
+      expect(reset.lamports + (leftover?.lamports ?? 0)).toEqual(
+        before.lamports - base.maxTotalClaim,
+      )
+    },
+  )
+
+  it('sibling settlement: under a closed vote account the split leftover funds a second settlement of the bond', async () => {
+    const base = CASES.find(
+      c => c.name === 'active, well above the claim: split',
+    )!
+    const { settlementAccount: sibling } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: await currentEpoch(provider),
+      maxTotalClaim: base.maxTotalClaim,
+    })
+    const first = await prepare({ ...base, vote: 'closed' })
+    const settledFirst = await settle(first)
+    expect(settledFirst.logs).not.toContain(CLOSED_VOTE_LOG)
+    expect(settledFirst.funded).toEqual(base.maxTotalClaim)
+    const leftover = settledFirst.leftover!
+    expect(leftover.voter).toEqual(voteAccount)
+    expect(leftover.staker).toEqual(bondsAuthority)
+    expect(await provider.connection.getAccountInfo(voteAccount)).toBeNull()
+    const siblingBefore = await getSettlement(program, sibling)
+    expect(siblingBefore.epochCreatedFor).toEqual(
+      first.settlementBefore.epochCreatedFor,
+    )
+
+    const second = {
+      ...first,
+      settlementAccount: sibling,
+      settlementBefore: siblingBefore,
+      claim: base.maxTotalClaim,
+      stakeAccount: first.split,
+      before: leftover,
+      epoch: await currentEpoch(provider),
+      ...(await fund(sibling, first.split)),
+    }
+    expect(
+      splitModel(leftover, base.maxTotalClaim, second.epoch, false).path,
+    ).toEqual('split')
+    const settledSecond = await settle(second)
+    expectFundedShape(second, settledSecond, base.maxTotalClaim)
+    expect(settledSecond.logs).not.toContain(CLOSED_VOTE_LOG)
+    expect(settledSecond.funded).toEqual(base.maxTotalClaim)
+    expect(settledSecond.leftover!.voter).toEqual(voteAccount)
+    expect(settledSecond.leftover!.staker).toEqual(bondsAuthority)
+
+    expect(await snapshot(first.stakeAccount)).toEqual(settledFirst.after)
+    expect(
+      (await getSettlement(program, first.settlementAccount)).lamportsFunded,
+    ).toEqual(settledFirst.settlement.lamportsFunded)
+    // F3: both fundings keep the bond's lamports, each adds only its split rent
+    expect(
+      settledFirst.after.lamports +
+        settledSecond.after.lamports +
+        settledSecond.leftover!.lamports,
+    ).toEqual(first.before.lamports + 2 * rent)
   })
   // TLA+ counterexample (new-withdraw-requests.cfg): the leftover of a withdraw request split stays in the bond
   it('claim withdraw request: the underwater leftover of an inactive bond account is still fully fundable', async () => {
