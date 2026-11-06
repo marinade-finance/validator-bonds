@@ -111,6 +111,11 @@ issue: settlements charge it only down to the auction's minimal commission (-500
 with a local -1000% backstop) and log it, and a
 validator whose settlement cannot be computed is skipped while the rest of the epoch settles.
 
+A settlement claim whose amount equals the funded stake account's whole balance withdraws it
+entirely, minimum-size reserve included, and closes the account. Each claim stays capped by its
+merkle leaf and the settlement's `max_total_claim`, so no claimant is paid more than the settlement
+owes.
+
 ## Contract Audits
 
 - [Neodyme](https://neodyme.io), tag [`contract-v1.4.0`](https://github.com/marinade-finance/validator-bonds/tree/contract-v1.4.0),
