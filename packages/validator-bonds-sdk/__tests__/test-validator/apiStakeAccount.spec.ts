@@ -255,7 +255,7 @@ describe('Validator Bonds api call to stake accounts', () => {
     const { settlementAccount } = await executeInitSettlement({
       program,
       provider,
-      voteAccount: randomStakeAccount.voter!,
+      voteAccount: inputData[randomIndex]!.voteAccount,
       configAccount,
       bondAccount: inputData[randomIndex]?.bondAccount,
       operatorAuthority,
@@ -266,7 +266,7 @@ describe('Validator Bonds api call to stake accounts', () => {
       provider,
       configAccount,
       settlementAccount,
-      voteAccount: randomStakeAccount.voter!,
+      voteAccount: inputData[randomIndex]!.voteAccount,
       lamports: settlementLamports,
     })
     ;({
@@ -290,7 +290,7 @@ describe('Validator Bonds api call to stake accounts', () => {
     const { stakeAccount: foreignStakeAccount, withdrawer: foreignWithdrawer } =
       await delegatedStakeAccount({
         provider,
-        voteAccountToDelegate: randomStakeAccount.voter!,
+        voteAccountToDelegate: inputData[randomIndex]!.voteAccount,
         lamports: LAMPORTS_PER_SOL * 3,
       })
     await authorizeStakeAccount({
