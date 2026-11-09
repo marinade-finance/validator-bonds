@@ -88,6 +88,7 @@ steps:
           [[ -f "$$f" ]] && settlement_sources="$$settlement_sources $$f"
         done
       - |
+        set -o pipefail
         if [[ -n "$$settlement_sources" ]]; then
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
@@ -101,9 +102,11 @@ steps:
             --max-total-claims $max_total_claims \
             --settlement-config $settlement_config \
             --fee-revenue-margin-sol $fee_revenue_margin_sol
-        fi
+        fi 2>&1 | tee sanity-check-1.log
     soft_fail:
       - exit_status: "*"
+    artifact_paths:
+      - "sanity-check-1.log"
 
   - label: ":broom: :two: Sanity Check - Historical Comparison"
     key: "sanity-check-2"
@@ -127,6 +130,7 @@ steps:
       # --score-threshold: Z-score threshold for anomaly detection (default 2.0)
       # --min-absolute-deviation: Min absolute deviation from mean to flag anomaly (default 0.05 = 5%)
       - |
+        set -o pipefail
         pnpm cli:check check-merkle-tree \
           --merkle-trees ./unified-merkle-trees.json \
           --past-merkle-trees ./past-merkle-trees/*.json \
@@ -134,11 +138,32 @@ steps:
           --score-threshold 2.0 \
           --min-absolute-deviation 0.05 \
           --epoch-hop-threshold 1.5 \
-          --max-total-claims $max_total_claims
+          --max-total-claims $max_total_claims 2>&1 | tee sanity-check-2.log
     soft_fail:
       - exit_status: "*"
+    artifact_paths:
+      - "sanity-check-2.log"
 
   - wait: ~
+
+  - label: ":robot_face: AI review of sanity checks"
+    key: "sanity-ai-review"
+    soft_fail: true
+    timeout_in_minutes: 20
+    commands:
+      - |
+        pnpm install
+        pnpm -r build
+      - |
+        export GEMINI_API_KEY=$$(aws ssm get-parameter --name "/marinade/gemini/api-key" --with-decryption --query Parameter.Value --output text)
+        timeout 10m ./scripts/sanity-ai-review.sh \
+          --epoch "$$(buildkite-agent meta-data get epoch)" \
+          --claim-type "$$(buildkite-agent meta-data get claim_type)" \
+          --steps "sanity-check-1,sanity-check-2" \
+          --integrity-steps "sanity-check-1"
+    artifact_paths:
+      - "sanity-ai-review/*"
+      - "gemini-debug-*.json"
 
   - label: ":printer: Block processing when sanity check fails"
     command: |
