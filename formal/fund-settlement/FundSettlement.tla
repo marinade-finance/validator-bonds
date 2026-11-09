@@ -6,7 +6,9 @@
 (* Fund = "new" models the planned fix (withdrawable per the stake         *)
 (* program, rejecting accounts not above the minimal size, keeping a       *)
 (* leftover below the minimum delegation instead of splitting it, funding  *)
-(* the whole account when the withdrawn surplus cannot be delegated).      *)
+(* the whole account when the withdrawn surplus cannot be delegated, or    *)
+(* would have to be while the vote account is closed, re-delegating on     *)
+(* reset only to a live one).                                              *)
 (***************************************************************************)
 EXTENDS Integers, FiniteSets, TLC
 
@@ -25,7 +27,8 @@ CONSTANTS
     MaxCustody,        \* bound on lamports brought into the bond, keeps the state space finite
     ClaimWindow,       \* config.epochs_to_claim_settlement
     Fund,              \* "current" | "new"
-    WithdrawRequests   \* TRUE enables claim_withdraw_request
+    WithdrawRequests,  \* TRUE enables claim_withdraw_request
+    VoteClosed         \* closed vote account kinds: subset of {"system", "zeroed", "foreign"}
 
 Inf == 1000
 MinSize == MinStake + Pinned          \* minimal_size_stake_account
@@ -37,13 +40,15 @@ VARIABLES
     epoch,
     stl,       \* the settlement
     panicked,  \* an arithmetic panic aborted fund_settlement
-    custody    \* ghost: lamports under bond custody per the instructions applied
+    custody,   \* ghost: lamports under bond custody per the instructions applied
+    vote       \* the bond's vote account: "live" or a kind of VoteClosed
 
-vars == <<acc, epoch, stl, panicked, custody>>
+vars == <<acc, epoch, stl, panicked, custody, vote>>
 
+\* resetSkipped: ghost, reset_stake returned the account without re-delegating it
 NoAccount == [exists |-> FALSE, lamports |-> 0, stake |-> 0, act |-> 0,
               deact |-> Inf, staker |-> "none", withdrawer |-> "none",
-              origin |-> "none"]
+              origin |-> "none", resetSkipped |-> FALSE]
 
 (*************************** stake program (S) ****************************)
 
@@ -64,20 +69,24 @@ SplitDest(a, amount) ==
     IF Inactive(a)
     THEN {[acc[a] EXCEPT !.lamports = amount]}
     ELSE IF amount >= MinStake /\ acc[a].stake - amount >= MinStake
-    THEN {[acc[a] EXCEPT !.lamports = amount, !.stake = amount]}
+    THEN {[acc[a] EXCEPT !.lamports = amount, !.stake = amount, !.resetSkipped = FALSE]}
     ELSE {}
 
 SplitSourceStake(a, amount) ==
     IF Inactive(a) THEN acc[a].stake ELSE acc[a].stake - amount
 
 \* S4 on an inactive account: a brand-new delegation of everything above rent
-Delegated(r) == [r EXCEPT !.stake = r.lamports - Rent, !.act = epoch, !.deact = Inf]
+Delegated(r) == [r EXCEPT !.stake = r.lamports - Rent, !.act = epoch, !.deact = Inf,
+                          !.resetSkipped = FALSE]
 
 (****************************** predicates ********************************)
 
 BondFree(a) == acc[a].exists /\ acc[a].staker = "bond" /\ acc[a].withdrawer = "bond"
 Funded(a) == acc[a].exists /\ acc[a].staker = "settlement" /\ acc[a].withdrawer = "bond"
 Free == {a \in Accounts : ~acc[a].exists}
+
+\* the stake program delegates only to a vote-owned account with a non-zero version tag
+Delegatable == vote = "live"
 
 RECURSIVE SumLamports(_)
 SumLamports(S) ==
@@ -94,14 +103,16 @@ Init ==
     /\ acc = [a \in Accounts |-> NoAccount]
     /\ epoch = 0
     /\ stl = [state |-> "none", max |-> 0, funded |-> 0, claimed |-> 0,
-              created |-> 0, collector |-> FALSE, splitRent |-> 0]
+              created |-> 0, collector |-> FALSE, splitRent |-> 0, wholeForced |-> FALSE]
     /\ panicked = FALSE
     /\ custody = 0
+    /\ vote = "live"
 
 (**************************** environment *********************************)
 
 \* fund_bond of a freshly delegated account
 FundBond(a, size) ==
+    /\ Delegatable
     /\ a \in Free
     /\ size - Rent >= MinStake
     /\ custody + size <= MaxCustody
@@ -109,10 +120,11 @@ FundBond(a, size) ==
                   !.stake = size - Rent, !.act = epoch, !.deact = Inf,
                   !.staker = "bond", !.withdrawer = "bond", !.origin = "program"]]
     /\ custody' = custody + size
-    /\ UNCHANGED <<epoch, stl, panicked>>
+    /\ UNCHANGED <<epoch, stl, panicked, vote>>
 
 \* delegated, deactivated in the same epoch, partly withdrawn, then authorized to the bond
 HandoverUnderwater(a, size, withdrawn) ==
+    /\ Delegatable
     /\ a \in Free
     /\ size - Rent >= MinStake
     /\ size - withdrawn >= Rent
@@ -122,14 +134,15 @@ HandoverUnderwater(a, size, withdrawn) ==
                   !.deact = epoch, !.staker = "bond", !.withdrawer = "bond",
                   !.origin = "external"]]
     /\ custody' = custody + size - withdrawn
-    /\ UNCHANGED <<epoch, stl, panicked>>
+    /\ UNCHANGED <<epoch, stl, panicked, vote>>
 
 \* stake program DeactivateDelinquent, permissionless once the validator stops voting
 DeactivateDelinquent(a) ==
+    /\ Delegatable
     /\ BondFree(a)
     /\ acc[a].deact = Inf
     /\ acc' = [acc EXCEPT ![a].deact = epoch]
-    /\ UNCHANGED <<epoch, stl, panicked, custody>>
+    /\ UNCHANGED <<epoch, stl, panicked, custody, vote>>
 
 \* plain lamports land on a bond stake account as non-delegated surplus
 Transfer(a, amount) ==
@@ -137,29 +150,30 @@ Transfer(a, amount) ==
     /\ custody + amount <= MaxCustody
     /\ acc' = [acc EXCEPT ![a].lamports = @ + amount]
     /\ custody' = custody + amount
-    /\ UNCHANGED <<epoch, stl, panicked>>
+    /\ UNCHANGED <<epoch, stl, panicked, vote>>
 
 AdvanceEpoch ==
     /\ epoch < MaxEpoch
     /\ epoch' = epoch + 1
-    /\ UNCHANGED <<acc, stl, panicked, custody>>
+    /\ UNCHANGED <<acc, stl, panicked, custody, vote>>
 
 (*************************** bonds program ********************************)
 
 InitSettlement(claim) ==
     /\ stl.state = "none"
     /\ stl' = [stl EXCEPT !.state = "open", !.max = claim, !.created = epoch]
-    /\ UNCHANGED <<acc, epoch, panicked, custody>>
+    /\ UNCHANGED <<acc, epoch, panicked, custody, vote>>
 
 Panic ==
     /\ panicked' = TRUE
-    /\ UNCHANGED <<acc, epoch, stl, custody>>
+    /\ UNCHANGED <<acc, epoch, stl, custody, vote>>
 
 \* fund_settlement.rs process(); a failed stake program CPI leaves no step
 FundSettlement(a) ==
     /\ stl.state = "open"
     /\ BondFree(a)
     /\ ~panicked
+    /\ Fund = "new" \/ vote \in {"live", "zeroed"}                  \* current: owner = vote program
     /\ IF stl.funded >= stl.max THEN UNCHANGED vars \* F9 no-op
        ELSE
        LET L == acc[a].lamports
@@ -175,15 +189,18 @@ FundSettlement(a) ==
            leftover == IF Fund = "new" /\ leftover0 - withdrawn < MinStake
                        THEN 0 ELSE leftover0 - withdrawn
            delegatable == leftover > 0 \/ SplitRent + withdrawn - Rent >= MinStake
-           whole == ~splittable \/ (Fund = "new" /\ ~delegatable)
+           \* delegating the withdrawn surplus needs a live vote account, a split does not
+           voteForced == Fund = "new" /\ splittable /\ delegatable /\ ~Delegatable /\ leftover = 0
+           whole == ~splittable \/ (Fund = "new" /\ ~delegatable) \/ voteForced
        IN
        IF whole THEN
            \* whole account
            IF Fund = "current" /\ L < MinSize THEN Panic                   \* :200
            ELSE IF Fund = "new" /\ L <= MinSize THEN FALSE                  \* error 6083
            ELSE /\ acc' = [acc EXCEPT ![a] = ToSettlement(acc[a])]
-                /\ stl' = [stl EXCEPT !.funded = stl.funded + L - MinSize]
-                /\ UNCHANGED <<epoch, panicked, custody>>
+                /\ stl' = [stl EXCEPT !.funded = stl.funded + L - MinSize,
+                                      !.wholeForced = stl.wholeForced \/ voteForced]
+                /\ UNCHANGED <<epoch, panicked, custody, vote>>
        ELSE IF stl.collector THEN FALSE                                     \* error 6079
        ELSE IF Fund = "current" /\ L < acc[a].stake THEN Panic              \* :233
        ELSE
@@ -193,7 +210,8 @@ FundSettlement(a) ==
                  IF leftover > 0
                  THEN {[d EXCEPT !.lamports = SplitRent + withdrawn + leftover]
                         : d \in SplitDest(a, leftover)}
-                 ELSE IF SplitRent + withdrawn - Rent >= MinStake
+                 \* the delegate CPI fails on a vote account that cannot be delegated to
+                 ELSE IF Delegatable /\ SplitRent + withdrawn - Rent >= MinStake
                  THEN {Delegated([acc[a] EXCEPT !.lamports = SplitRent + withdrawn,
                                   !.staker = "bond", !.origin = "program"])}
                  ELSE {}
@@ -209,7 +227,7 @@ FundSettlement(a) ==
                                     !.funded = stl.funded + L - withdrawn - leftover - MinSize - SplitRent,
                                     !.splitRent = SplitRent]
               /\ custody' = custody + SplitRent
-              /\ UNCHANGED <<epoch, panicked>>
+              /\ UNCHANGED <<epoch, panicked, vote>>
 
 \* claim_settlement_v2 paying `amount` from one funded account
 ClaimSettlement(a, amount) ==
@@ -221,7 +239,7 @@ ClaimSettlement(a, amount) ==
     /\ acc' = [acc EXCEPT ![a].lamports = @ - amount]
     /\ stl' = [stl EXCEPT !.claimed = @ + amount]
     /\ custody' = custody - amount
-    /\ UNCHANGED <<epoch, panicked>>
+    /\ UNCHANGED <<epoch, panicked, vote>>
 
 \* close_settlement_v2 refunding the split rent from a funded account
 CloseSettlement(a) ==
@@ -234,20 +252,24 @@ CloseSettlement(a) ==
             /\ custody' = custody - stl.splitRent
        ELSE UNCHANGED <<acc, custody>>
     /\ stl' = [stl EXCEPT !.state = "closed"]
-    /\ UNCHANGED <<epoch, panicked>>
+    /\ UNCHANGED <<epoch, panicked, vote>>
 
-\* reset_stake: back to the bond, re-delegated when deactivated
+\* reset_stake: back to the bond, re-delegated when deactivated and the vote account allows it
 ResetStake(a) ==
     /\ stl.state = "closed"
     /\ Funded(a)
+    /\ Fund = "new" \/ vote # "foreign"                             \* current: owner in {vote, system}
     /\ LET r == [acc[a] EXCEPT !.staker = "bond", !.origin = "program"] IN
        IF r.deact = Inf THEN acc' = [acc EXCEPT ![a] = r]
-       ELSE IF Inactive(a)
-       THEN /\ r.lamports - Rent >= MinStake
-            /\ acc' = [acc EXCEPT ![a] = Delegated(r)]
-       ELSE /\ r.lamports - Rent >= r.stake   \* S4 rescind in the deactivation epoch
-            /\ acc' = [acc EXCEPT ![a] = [r EXCEPT !.deact = Inf]]
-    /\ UNCHANGED <<epoch, stl, panicked, custody>>
+       ELSE IF Delegatable THEN
+            IF Inactive(a)
+            THEN /\ r.lamports - Rent >= MinStake
+                 /\ acc' = [acc EXCEPT ![a] = Delegated(r)]
+            ELSE /\ r.lamports - Rent >= r.stake   \* S4 rescind in the deactivation epoch
+                 /\ acc' = [acc EXCEPT ![a] = [r EXCEPT !.deact = Inf]]
+       ELSE IF Fund = "current" /\ vote = "zeroed" THEN FALSE        \* current: the delegate CPI fails
+       ELSE acc' = [acc EXCEPT ![a] = [r EXCEPT !.resetSkipped = TRUE]]
+    /\ UNCHANGED <<epoch, stl, panicked, custody, vote>>
 
 \* merge_stake (S3): fully inactive pair, or fully active pair
 MergeStake(d, s) ==
@@ -257,9 +279,10 @@ MergeStake(d, s) ==
        \/ FullyActive(d) /\ FullyActive(s)
     /\ acc' = [acc EXCEPT
            ![d] = [@ EXCEPT !.lamports = @ + acc[s].lamports,
-                            !.stake = IF Inactive(d) THEN @ ELSE @ + acc[s].stake],
+                            !.stake = IF Inactive(d) THEN @ ELSE @ + acc[s].stake,
+                            !.resetSkipped = IF Inactive(d) THEN @ ELSE @ \/ acc[s].resetSkipped],
            ![s] = NoAccount]
-    /\ UNCHANGED <<epoch, stl, panicked, custody>>
+    /\ UNCHANGED <<epoch, stl, panicked, custody, vote>>
 
 \* claim_withdraw_request: the requested amount leaves, the leftover is split off and stays
 ClaimWithdrawRequest(a, amount) ==
@@ -276,7 +299,22 @@ ClaimWithdrawRequest(a, amount) ==
                  /\ custody' = custody + SplitRent - amount
        ELSE /\ acc' = [acc EXCEPT ![a] = NoAccount]
             /\ custody' = custody - acc[a].lamports
-    /\ UNCHANGED <<epoch, stl, panicked>>
+    /\ UNCHANGED <<epoch, stl, panicked, vote>>
+
+(**************************** vote account ********************************)
+
+\* the validator closes its vote account at any time, or re-creates the address under any owner
+CloseVoteAccount(kind) ==
+    /\ kind \in VoteClosed
+    /\ kind # vote
+    /\ vote' = kind
+    /\ UNCHANGED <<acc, epoch, stl, panicked, custody>>
+
+\* the address becomes a vote account again (re-created or a zeroed one initialized)
+ReopenVoteAccount ==
+    /\ vote # "live"
+    /\ vote' = "live"
+    /\ UNCHANGED <<acc, epoch, stl, panicked, custody>>
 
 Next ==
     \/ \E a \in Accounts, s \in Sizes : FundBond(a, s)
@@ -292,6 +330,8 @@ Next ==
     \/ \E a \in Accounts : ResetStake(a)
     \/ \E d, s \in Accounts : MergeStake(d, s)
     \/ \E a \in Accounts, x \in WithdrawAmounts : ClaimWithdrawRequest(a, x)
+    \/ \E k \in VoteClosed : CloseVoteAccount(k)
+    \/ ReopenVoteAccount
 
 Spec == Init /\ [][Next]_vars
 
@@ -302,14 +342,23 @@ Perms == Permutations(Accounts)
 \* F1
 NoPanic == ~panicked
 
-\* L2: an account the program produced and left in the bond is never underwater
+\* L2: an account the program produced and left in the bond is never underwater, except one
+\* reset_stake returned without re-delegating because the vote account was closed
 NoProgramMadeUnderwater ==
-    \A a \in Accounts : BondFree(a) /\ acc[a].origin = "program" => Healthy(a)
+    \A a \in Accounts :
+        BondFree(a) /\ acc[a].origin = "program" /\ ~acc[a].resetSkipped => Healthy(a)
 
-\* F2
+\* F2: a whole account funded only because the vote account is closed may overfund without bound
 OverfundBounded ==
-    stl.state = "none" \/
+    stl.state = "none" \/ stl.wholeForced \/
     stl.funded - stl.max < (IF Fund = "new" THEN 2 * MinStake ELSE MinSize) + SplitRent
+
+\* L4: every account under bond custody keeps a delegation to the bond's vote account
+Attributed == \A a \in Accounts : acc[a].exists => acc[a].stake > 0
+
+\* L5: a closed vote account never blocks returning funded stake to the bond
+ResetPossible ==
+    \A a \in Accounts : (stl.state = "closed" /\ Funded(a) /\ ~Delegatable) => ENABLED ResetStake(a)
 
 \* L1
 CustodyConserved ==
