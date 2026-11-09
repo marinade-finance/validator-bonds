@@ -285,6 +285,36 @@ describe('Validator Bonds api call to stake accounts', () => {
     )
     expect(amountToWithdraw).toEqual(expectedAmountToWithdraw)
     expect(amountAtSettlements).toEqual(settlementLamports)
+
+    // the bonds withdrawer with a foreign staker cannot fund a settlement
+    const { stakeAccount: foreignStakeAccount, withdrawer: foreignWithdrawer } =
+      await delegatedStakeAccount({
+        provider,
+        voteAccountToDelegate: randomStakeAccount.voter!,
+        lamports: LAMPORTS_PER_SOL * 3,
+      })
+    await authorizeStakeAccount({
+      provider,
+      authority: foreignWithdrawer,
+      stakeAccount: foreignStakeAccount,
+      withdrawer: withdrawerAuthority,
+    })
+    ;({
+      amountActive,
+      amountAtSettlements,
+      amountToWithdraw,
+      expectedAmountToWithdraw,
+    } = await calculateFunding(
+      program,
+      configAccount,
+      bondAccounts,
+      voteAccounts,
+    ))
+    expect(amountActive).toEqual(
+      lamportsStakeAccounts - totalWithdrawRequestAmount,
+    )
+    expect(amountToWithdraw).toEqual(expectedAmountToWithdraw)
+    expect(amountAtSettlements).toEqual(settlementLamports)
   })
 })
 

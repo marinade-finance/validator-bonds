@@ -36,7 +36,7 @@ fn outstanding_withdraw_amount(requested: u64, withdrawn: u64, available: u64) -
     requested.saturating_sub(withdrawn)
 }
 
-// The program uses only unlocked bond-staked stake; settlement stake is kept to offset its claim.
+// Funds come only from unlocked bond-staked stake; settlement stake is counted to offset its claim.
 fn delegated_unlocked_stake(
     stake_accounts: CollectedStakeAccounts,
     clock: &Clock,
@@ -44,11 +44,15 @@ fn delegated_unlocked_stake(
     settlement_stakers: &HashSet<(Pubkey, Pubkey)>,
 ) -> Vec<(Pubkey, u64)> {
     let mut delegated_stake: Vec<(Pubkey, u64)> = vec![];
+    let mut locked_accounts = 0usize;
+    let mut locked_lamports = 0u64;
     let mut foreign_staked_accounts = 0usize;
     let mut foreign_staked_lamports = 0u64;
     for (pubkey, lamports_available, stake_account) in stake_accounts {
         if is_locked(&stake_account, clock) {
-            log::warn!("Lockup is in force {pubkey}, not counted as bond funds");
+            log::debug!("Lockup is in force {pubkey}, not counted as bond funds");
+            locked_accounts += 1;
+            locked_lamports += lamports_available;
             continue;
         }
         let (Some(authorized), Some(delegation)) =
@@ -68,6 +72,11 @@ fn delegated_unlocked_stake(
             continue;
         }
         delegated_stake.push((delegation.voter_pubkey, lamports_available));
+    }
+    if locked_accounts > 0 {
+        log::warn!(
+            "{locked_accounts} stake accounts ({locked_lamports} lamports) with a lockup in force, not counted as bond funds"
+        );
     }
     if foreign_staked_accounts > 0 {
         log::warn!(

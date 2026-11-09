@@ -812,15 +812,23 @@ export async function getBondsFunding({
           stakeAccount.account.data.staker,
         ),
     )
+  const settlementStakers = new Set<string>()
+  for (const { account } of await findSettlements({ program })) {
+    const bondData = inputData.get(account.bond.toBase58())
+    if (bondData !== undefined) {
+      settlementStakers.add(
+        `${bondData.voteAccount.toBase58()}:${account.stakerAuthority.toBase58()}`,
+      )
+    }
+  }
   const settlementsStakeAccounts = allStakeAccounts
-    // filter for the stake accounts that are IN a settlement
+    // filter for the stake accounts that are IN a live settlement of the bond
     .filter(
       stakeAccount =>
         stakeAccount.account.data.voter !== null &&
-        stakeAccount.account.data.withdrawer !== null &&
         stakeAccount.account.data.staker !== null &&
-        !stakeAccount.account.data.withdrawer.equals(
-          stakeAccount.account.data.staker,
+        settlementStakers.has(
+          `${stakeAccount.account.data.voter.toBase58()}:${stakeAccount.account.data.staker.toBase58()}`,
         ),
     )
   const bondFundedStakeAccountsMap = groupByVoter(bondFundedStakeAccounts)
