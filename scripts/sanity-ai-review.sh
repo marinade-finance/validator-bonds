@@ -115,9 +115,13 @@ INPUT="$OUT_DIR/review-input.md"
   cat "$OUT_DIR/context.md"
   for log in "$OUT_DIR"/sanity-check-*.log "$OUT_DIR"/summary.txt; do
     [[ -f "$log" ]] || continue
-    echo "# Log $(basename "$log") (last 40000 bytes)"
+    trim=tail part=last
+    [[ "$log" == */summary.txt ]] && trim=head part=first
+    echo "# Log $(basename "$log") ($part 40000 bytes, table separator lines dropped)"
     echo '```'
-    tail -c 40000 "$log"
+    # alternation, not a bracket expression: in a C locale [├┌└] also matches the lead byte of │
+    grep -vE '^(├|┌|└)' "$log" | "$trim" -c 40000 | iconv -c -f UTF-8 -t UTF-8 || true
+    echo
     echo '```'
   done
 } > "$INPUT"
