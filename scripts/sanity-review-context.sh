@@ -34,27 +34,25 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 IFS=',' read -ra SETTLEMENTS_FILES <<< "$SETTLEMENTS_FILES_ARG"
 IFS=',' read -ra CONFIG_FILES <<< "${CONFIG_FILES_ARG:-}"
 
-# one row per settlement; a ProtectedEvent reason is an object keyed by its event kind
-ROWS_JQ='.settlements[] | {
-  file: $file,
-  vote: .vote_account,
-  reason: (.reason | if type == "string" then . else (keys[0] + "/" + (.[keys[0]] | keys[0])) end),
-  funder,
-  lamports: .claims_amount,
-  claims: .claims_count,
-  marinade_stake: (.details.total_marinade_active_stake? // null),
-  effective_bid: (.details.auction_effective_static_bid? // null),
-  stakers_claim: (.details.stakers_total_claim? // null),
-  marinade_fee: (.details.marinade_fee_claim? // null),
-  dao_fee: (.details.dao_fee_claim? // null)
-}'
-
 for e in "$PREV_EPOCH" "$EPOCH"; do
   mkdir -p "$WORK_DIR/$e"
   : > "$WORK_DIR/$e/rows.jsonl"
   for f in "${SETTLEMENTS_FILES[@]}"; do
     if gcloud storage cp -q "$GS_BUCKET/$e/$f" "$WORK_DIR/$e/$f" 2>/dev/null; then
-      jq -c --arg file "$f" "$ROWS_JQ" "$WORK_DIR/$e/$f" >> "$WORK_DIR/$e/rows.jsonl"
+      # one row per settlement; a ProtectedEvent reason is an object keyed by its event kind
+      jq -c --arg file "$f" '.settlements[] | {
+        file: $file,
+        vote: .vote_account,
+        reason: (.reason | if type == "string" then . else (keys[0] + "/" + (.[keys[0]] | keys[0])) end),
+        funder,
+        lamports: .claims_amount,
+        claims: .claims_count,
+        marinade_stake: (.details.total_marinade_active_stake? // null),
+        effective_bid: (.details.auction_effective_static_bid? // null),
+        stakers_claim: (.details.stakers_total_claim? // null),
+        marinade_fee: (.details.marinade_fee_claim? // null),
+        dao_fee: (.details.dao_fee_claim? // null)
+      }' "$WORK_DIR/$e/$f" >> "$WORK_DIR/$e/rows.jsonl"
     else
       echo "> WARNING: '$f' is missing for epoch $e" >> "$WORK_DIR/missing.md"
     fi
@@ -138,7 +136,7 @@ jq -r -n --argjson top "$TOP" --slurpfile prev "$WORK_DIR/$PREV_EPOCH/rows.json"
       | ($b[.vote] // null) as $bond
       | "| \(.vote) | \(.c.reasons // "-") | \(.a.lamports | sol) → \(.c.lamports | sol) | \(.a.marinade_stake // 0 | sol) → \(.c.marinade_stake // 0 | sol) | \(.a.effective_bid // "-") → \(.c.effective_bid // "-") | "
         + (if $bond == null then "no bond data | - | - | - |"
-           else "\($bond.amountActive | amount) | \($bond.amountAtSettlements | amount) | \($bond.amountToWithdraw | amount) | \($bond.account.costPerMillePerEpoch | sub(" lamports$"; "")) |" end))
+           else "\($bond.amountActive | amount) | \($bond.amountAtSettlements | amount) | \($bond.amountToWithdraw | amount) | \($bond.account.costPerMillePerEpoch | sub(" lamports?$"; "")) |" end))
 '
 echo
 
