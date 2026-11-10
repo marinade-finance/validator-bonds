@@ -50,17 +50,19 @@ steps:
       # --score-threshold: Z-score threshold for individual field anomalies (default: 2.0)
       # --min-absolute-deviation: Min absolute change required to flag anomaly (default: 0.01 = 1%)
       - |
+        set -o pipefail
         pnpm cli:check check \
           --current "$$current_epoch_dir"/*.json \
           --past "$$past_epochs_dir"/*.json \
           --correlation-threshold 0.15 \
           --score-threshold 2.0 \
-          --min-absolute-deviation 0.01
+          --min-absolute-deviation 0.01 2>&1 | tee "$${default_dir}/sanity-check-1.log"
     soft_fail:
       - exit_status: "*"
     artifact_paths:
       - "./summary.txt"
       - "./current-epoch/institutional-payouts.json"
+      - "./sanity-check-1.log"
 
   - wait: ~
 
@@ -72,6 +74,8 @@ steps:
         mv current-epoch/institutional-payouts.json .
       - buildkite-agent artifact download --include-retried-jobs settlements.json .
       - |
+        set -o pipefail
+        {
         INSTITUTIONAL_VALIDATORS_API=$$(curl -fsS --retry 5 --retry-all-errors --retry-delay 10 --max-time 30 "$institutional_staking_api")
         INSTITUTIONAL_VALIDATORS_COUNT_API=$$(jq '.[] | length' <<< "$$INSTITUTIONAL_VALIDATORS_API")
         INSTITUTIONAL_VALIDATORS_COUNT_JSON=$$(jq '.institutionalValidators.validators | length' ./institutional-payouts.json)
@@ -79,14 +83,14 @@ steps:
           echo "Mismatch in institutional validators count: API($$INSTITUTIONAL_VALIDATORS_COUNT_API) vs JSON($$INSTITUTIONAL_VALIDATORS_COUNT_JSON)"
           exit 1
         fi
-      - |
+
         INSTITUTIONAL_PAYOUT_COUNT=$$(jq '[.validatorPayoutInfo[] | select(((.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)) > 0) | .voteAccount] | unique | length' ./institutional-payouts.json)
         SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
         if [[ "$$INSTITUTIONAL_PAYOUT_COUNT" -ne "$$SETTLEMENTS_COUNT" ]]; then
           echo "Mismatch in number of institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_COUNT) vs Settlements($$SETTLEMENTS_COUNT)"
           exit 10
         fi
-      - |
+
         # Sum in bc (arbitrary precision) — jq arithmetic runs in IEEE doubles and
         # would silently round once the totals grow past 2^53-1 lamports.
         INSTITUTIONAL_PAYOUT_SUM=$$(jq -r '.validatorPayoutInfo[] | .distributorFeeLamports, .distributeToStakersLamports' ./institutional-payouts.json | paste -sd+ - | bc)
@@ -102,8 +106,11 @@ steps:
           echo "Difference $${DIFF} lamports ($${DIFF_SOLS} SOLs) between payout sum and settlement claims sum is outside permitted 0..$${DIFF_PERMITTED_ABS}"
           exit 11
         fi
+        } 2>&1 | tee sanity-check-2.log
     soft_fail:
       - exit_status: "*"
+    artifact_paths:
+      - "./sanity-check-2.log"
 
   - label: ":broom: :three: Sanity Check - Merkle Tree & Settlement"
     key: "sanity-check-3"
@@ -119,6 +126,7 @@ steps:
       - |
         # the trees are generated from the payouts settlements plus the direct-staking split, so both
         # have to be summed here; a partial source set fails the equality check by construction
+        set -o pipefail
         if [[ -f ./institutional-direct-staking-settlements.json ]]; then
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./settlement-merkle-trees.json \
@@ -127,11 +135,31 @@ steps:
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./settlement-merkle-trees.json \
             --settlement-sources ./settlements.json
-        fi
+        fi 2>&1 | tee sanity-check-3.log
     soft_fail:
       - exit_status: "*"
+    artifact_paths:
+      - "./sanity-check-3.log"
 
   - wait: ~
+
+  - label: ":robot_face: AI review of sanity checks"
+    key: "sanity-ai-review"
+    soft_fail: true
+    timeout_in_minutes: 20
+    env:
+      RPC_URL: "$$RPC_URL"
+    commands:
+      - |
+        export GEMINI_API_KEY=$$(aws ssm get-parameter --name "/marinade/gemini/api-key" --with-decryption --query Parameter.Value --output text)
+        timeout 15m ./scripts/sanity-ai-review.sh \
+          --epoch "$$(buildkite-agent meta-data get epoch)" \
+          --claim-type "institutional-distribution" \
+          --steps "sanity-check-1,sanity-check-2,sanity-check-3" \
+          --integrity-steps "sanity-check-2,sanity-check-3"
+    artifact_paths:
+      - "sanity-ai-review/*"
+      - "gemini-debug-*.json"
 
   - label: ":thinking_face: Listing Institutional Summary"
     commands:
