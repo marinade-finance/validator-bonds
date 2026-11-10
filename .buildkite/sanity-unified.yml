@@ -97,6 +97,7 @@ steps:
             --fee-revenue-margin-sol $fee_revenue_margin_sol \
             --settlement-sources $$settlement_sources
         else
+          echo "Settlement sources are missing, skipping the cross-validation"
           pnpm cli:check check-merkle-tree \
             --merkle-trees ./unified-merkle-trees.json \
             --max-total-claims $max_total_claims \
@@ -119,7 +120,8 @@ steps:
         # Check if we have enough past merkle trees
         PAST_FILES_COUNT=$$(ls ./past-merkle-trees/*.json 2>/dev/null | wc -l || echo "0")
         if [[ "$$PAST_FILES_COUNT" -lt 3 ]]; then
-          echo "Not enough historical data (found $$PAST_FILES_COUNT, need at least 3 epochs). Skipping historical comparison."
+          echo "Not enough historical data (found $$PAST_FILES_COUNT, need at least 3 epochs). Skipping historical comparison." \
+            | tee sanity-check-2.log
           exit 0
         fi
       - |
@@ -150,13 +152,12 @@ steps:
     key: "sanity-ai-review"
     soft_fail: true
     timeout_in_minutes: 20
+    env:
+      RPC_URL: "$$RPC_URL"
     commands:
       - |
-        pnpm install
-        pnpm -r build
-      - |
         export GEMINI_API_KEY=$$(aws ssm get-parameter --name "/marinade/gemini/api-key" --with-decryption --query Parameter.Value --output text)
-        timeout 10m ./scripts/sanity-ai-review.sh \
+        timeout 15m ./scripts/sanity-ai-review.sh \
           --epoch "$$(buildkite-agent meta-data get epoch)" \
           --claim-type "$$(buildkite-agent meta-data get claim_type)" \
           --steps "sanity-check-1,sanity-check-2" \

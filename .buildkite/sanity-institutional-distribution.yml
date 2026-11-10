@@ -147,13 +147,12 @@ steps:
     key: "sanity-ai-review"
     soft_fail: true
     timeout_in_minutes: 20
+    env:
+      RPC_URL: "$$RPC_URL"
     commands:
       - |
-        pnpm install
-        pnpm -r build
-      - |
         export GEMINI_API_KEY=$$(aws ssm get-parameter --name "/marinade/gemini/api-key" --with-decryption --query Parameter.Value --output text)
-        timeout 10m ./scripts/sanity-ai-review.sh \
+        timeout 15m ./scripts/sanity-ai-review.sh \
           --epoch "$$(buildkite-agent meta-data get epoch)" \
           --claim-type "institutional-distribution" \
           --steps "sanity-check-1,sanity-check-2,sanity-check-3" \

@@ -44,9 +44,11 @@ buildkite-agent artifact download "summary.txt" "$OUT_DIR" || true
 # the model's level is advisory; these deterministic findings forbid SAFE whatever it says
 GUARDS=()
 OUTCOMES=()
+all_passed=true
 for step in "${STEPS[@]}"; do
   outcome=$(buildkite-agent step get "outcome" --step "$step" || echo unknown)
   OUTCOMES+=("- $step: $outcome")
+  [[ "$outcome" == "passed" ]] || all_passed=false
   if [[ "$outcome" != "passed" && "$outcome" != "soft_failed" ]]; then
     GUARDS+=("step $step has outcome '$outcome'")
   elif [[ "$outcome" == "soft_failed" && ! -f "$OUT_DIR/$step.log" ]]; then
@@ -56,9 +58,42 @@ for step in "${STEPS[@]}"; do
     GUARDS+=("data integrity step $step did not pass")
   fi
 done
-if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|Mismatch' "$OUT_DIR"/sanity-check-*.log; then
-  GUARDS+=("a check log reports an exceeded ceiling or a data mismatch")
+if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|Mismatch|skipping the cross-validation|Skipping historical comparison' \
+  "$OUT_DIR"/sanity-check-*.log; then
+  GUARDS+=("a check log reports a skipped check, an exceeded ceiling or a data mismatch")
 fi
+
+# an auto-approved build blocks only on a soft-failed check, so with all passed nobody reads the review
+if [[ "$PIPELINES_AUTO_APPROVAL" == "true" && "$all_passed" == "true" ]]; then
+  echo "All sanity checks passed and the build is auto-approved, skipping the AI review"
+  exit 0
+fi
+
+REVIEW_DONE=false
+annotate_without_review() {
+  [[ "$REVIEW_DONE" == "true" ]] && return
+  local guards="none"
+  [[ ${#GUARDS[@]} -gt 0 ]] && printf -v guards '%s; ' "${GUARDS[@]}"
+  {
+    echo "### AI review of sanity checks ($CLAIM_TYPE / $EPOCH)"
+    echo
+    echo "**⚠️ Recommendation: MORE VERIFICATION NEEDED, NOT CLEAR** _(the AI review did not finish, see the step log)_"
+    echo
+    echo "Deterministic guards: ${guards%; }"
+    if [[ -s "$OUT_DIR/context.md" ]]; then
+      echo
+      echo "<details><summary>Digest</summary>"
+      echo
+      cat "$OUT_DIR/context.md"
+      echo
+      echo "</details>"
+    fi
+  } | buildkite-agent annotate --style warning --context "sanity-ai-review" || true
+}
+trap annotate_without_review EXIT
+
+pnpm --dir "$SCRIPT_DIR/.." install
+pnpm --dir "$SCRIPT_DIR/.." -r build
 
 "$SCRIPT_DIR/sanity-review-context.sh" \
   --gs-bucket "${gs_bucket:?gs_bucket must name the bonds GCS bucket}" \
@@ -67,6 +102,9 @@ fi
   --config-files "$config_files" \
   --bonds-config "$("$SCRIPT_DIR/bonds-config-pubkey.sh" "$CLAIM_TYPE")" \
   --rpc-url "$RPC_URL" > "$OUT_DIR/context.md"
+if grep -q "is missing for epoch" "$OUT_DIR/context.md"; then
+  GUARDS+=("a settlements file is missing in GCS for epoch $EPOCH or $((EPOCH - 1))")
+fi
 
 INPUT="$OUT_DIR/review-input.md"
 {
@@ -148,6 +186,7 @@ $(cat "$OUT_DIR/context.md")
 
 </details>
 EOF
+REVIEW_DONE=true
 
 if [[ "$LEVEL" != "info" ]]; then
   echo "Soft failing the step due to review level: $LEVEL"

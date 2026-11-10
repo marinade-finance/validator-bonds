@@ -106,11 +106,15 @@ BONDS_JSON="$WORK_DIR/bonds.json"
 echo '[]' > "$BONDS_JSON"
 if [[ -n "$RPC_URL_ARG" ]]; then
   SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-  if ! pnpm --dir "$SCRIPT_DIR/.." --silent cli -u "$RPC_URL_ARG" show-bond --config "$BONDS_CONFIG" --with-funding -f json > "$BONDS_JSON"; then
+  if ! pnpm --dir "$SCRIPT_DIR/.." --silent cli -u "$RPC_URL_ARG" show-bond --config "$BONDS_CONFIG" --with-funding -f json > "$BONDS_JSON" \
+    || ! jq -e 'type == "array"' "$BONDS_JSON" > /dev/null 2>&1; then
     echo '[]' > "$BONDS_JSON"
     echo "> WARNING: on-chain bond funding could not be loaded"
     echo
   fi
+else
+  echo "> WARNING: no RPC URL, on-chain bond funding not loaded"
+  echo
 fi
 
 echo "##### Top $TOP validators by change of claimed amount"
@@ -145,7 +149,7 @@ if [[ $(jq 'length' "$BONDS_JSON") -gt 0 ]]; then
   echo
   jq -r -n --slurpfile cur "$WORK_DIR/$EPOCH/rows.json" --slurpfile bonds "$BONDS_JSON" "$JQ_LIB"'
     ($bonds[0] | map({key: .account.voteAccount, value: (.amountActive | amount * 1e9 | round)}) | from_entries) as $active
-    | [$cur[0] | group_by(.vote)[] | {vote: .[0].vote, claim: (map(.lamports) | add)}
+    | [$cur[0] | map(select(.funder == "ValidatorBond")) | group_by(.vote)[] | {vote: .[0].vote, claim: (map(.lamports) | add)}
         | . + {active: ($active[.vote] // 0)} | select(.claim > .active)] | sort_by(-.claim) as $short
     | if ($short | length) == 0 then "None."
       else "| vote account | claim SOL | bond active SOL |", "|---|---|---|",
