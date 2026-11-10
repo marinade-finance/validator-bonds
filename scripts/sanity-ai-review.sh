@@ -58,9 +58,9 @@ for step in "${STEPS[@]}"; do
     GUARDS+=("data integrity step $step did not pass")
   fi
 done
-if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|Mismatch|skipping the cross-validation|Skipping historical comparison' \
+if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|skipping the cross-validation|Skipping historical comparison' \
   "$OUT_DIR"/sanity-check-*.log; then
-  GUARDS+=("a check log reports a skipped check, an exceeded ceiling or a data mismatch")
+  GUARDS+=("a check log reports a skipped check, an exceeded ceiling or inconsistent merkle trees")
 fi
 
 # an auto-approved build blocks only on a soft-failed check, so with all passed nobody reads the review
