@@ -121,22 +121,33 @@ echo "Bond columns are the on-chain state now; 'active' is what a settlement can
 echo
 jq -r -n --argjson top "$TOP" --slurpfile prev "$WORK_DIR/$PREV_EPOCH/rows.json" --slurpfile cur "$WORK_DIR/$EPOCH/rows.json" \
   --slurpfile bonds "$BONDS_JSON" "$JQ_LIB"'
+  def row: "| " + join(" | ") + " |";
   def per_vote: group_by(.vote) | map({key: .[0].vote, value: {lamports: (map(.lamports) | add),
     reasons: (map(.reason) | unique | join(",")), marinade_stake: (map(.marinade_stake // empty) | first // null),
     effective_bid: (map(.effective_bid // empty) | first // null)}}) | from_entries;
   ($prev[0] | per_vote) as $p | ($cur[0] | per_vote) as $c
   | ($bonds[0] | map({key: .account.voteAccount, value: .}) | from_entries) as $b
+  | ($prev[0] + $cur[0] | any(.marinade_stake != null or .effective_bid != null)) as $bidding
   | [($p + $c) | keys[] | {vote: ., a: ($p[.] // {lamports: 0}), c: ($c[.] // {lamports: 0})}
       | . + {delta: (.c.lamports - .a.lamports)}] as $all
+  | (["vote account", "reasons now", "SOL prev → now"]
+      + (if $bidding then ["marinade stake SOL prev → now", "effective bid prev → now"] else [] end)
+      + ["bond active SOL", "bond at settlements SOL", "bond to withdraw SOL"]
+      + (if $bidding then ["bond bid (lamports per 1000 SOL)"] else [] end)) as $header
   | "Validators prev → now: \($p | length) → \($c | length); new: \([$all[] | select(.a.lamports == 0)] | length), dropped: \([$all[] | select(.c.lamports == 0)] | length)",
     "",
-    "| vote account | reasons now | SOL prev → now | marinade stake SOL prev → now | effective bid prev → now | bond active SOL | bond at settlements SOL | bond to withdraw SOL | bond bid (lamports per 1000 SOL) |",
-    "|---|---|---|---|---|---|---|---|---|",
+    ($header | row),
+    "|" + ($header | map("---") | join("|")) + "|",
     ($all | sort_by(-(.delta | if . < 0 then -. else . end)) | .[:$top][]
       | ($b[.vote] // null) as $bond
-      | "| \(.vote) | \(.c.reasons // "-") | \(.a.lamports | sol) → \(.c.lamports | sol) | \(.a.marinade_stake // 0 | sol) → \(.c.marinade_stake // 0 | sol) | \(.a.effective_bid // "-") → \(.c.effective_bid // "-") | "
-        + (if $bond == null then "no bond data | - | - | - |"
-           else "\($bond.amountActive | amount) | \($bond.amountAtSettlements | amount) | \($bond.amountToWithdraw | amount) | \($bond.account.costPerMillePerEpoch | sub(" lamports?$"; "")) |" end))
+      | ([.vote, (.c.reasons // "-"), "\(.a.lamports | sol) → \(.c.lamports | sol)"]
+        + (if $bidding then ["\(.a.marinade_stake // 0 | sol) → \(.c.marinade_stake // 0 | sol)",
+            "\(.a.effective_bid // "-") → \(.c.effective_bid // "-")"] else [] end)
+        + (if $bond == null then ["no bond data", "-", "-"]
+           else ["\($bond.amountActive | amount)", "\($bond.amountAtSettlements | amount)", "\($bond.amountToWithdraw | amount)"] end)
+        + (if $bidding then [if $bond == null then "-" else $bond.account.costPerMillePerEpoch | sub(" lamports?$"; "") end]
+           else [] end)
+        | row))
 '
 echo
 
