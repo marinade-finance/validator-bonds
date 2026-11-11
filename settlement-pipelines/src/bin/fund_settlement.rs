@@ -1325,14 +1325,26 @@ mod tests {
         ));
     }
 
-    fn stake_account(lamports: u64, delegation_stake: u64) -> FundBondStakeAccount {
-        FundBondStakeAccount {
+    fn bond_stake_account(
+        lamports: u64,
+        delegation_stake: u64,
+        voter: Pubkey,
+        authority: Pubkey,
+    ) -> CollectedStakeAccount {
+        (
+            Pubkey::new_unique(),
             lamports,
-            stake_account: Pubkey::new_unique(),
-            state: StakeStateV2::Stake(
-                Meta::default(),
+            StakeStateV2::Stake(
+                Meta {
+                    authorized: Authorized {
+                        staker: authority,
+                        withdrawer: authority,
+                    },
+                    ..Meta::default()
+                },
                 Stake {
                     delegation: Delegation {
+                        voter_pubkey: voter,
                         stake: delegation_stake,
                         ..Delegation::default()
                     },
@@ -1340,25 +1352,39 @@ mod tests {
                 },
                 StakeFlags::empty(),
             ),
-        }
+        )
     }
 
-    #[test]
-    fn underwater_account_is_funded_like_any_other() {
-        let underwater = stake_account(10 * SOL, 20 * SOL);
-        let healthy = stake_account(6 * SOL, 6 * SOL);
-        let (underwater_address, healthy_address) =
-            (underwater.stake_account, healthy.stake_account);
-        let mut pool = vec![underwater, healthy];
+    #[tokio::test]
+    async fn underwater_account_is_funded_like_any_other() {
+        let (voter, authority) = (Pubkey::new_unique(), Pubkey::new_unique());
+        let underwater = bond_stake_account(10 * SOL, 20 * SOL, voter, authority);
+        let healthy = bond_stake_account(6 * SOL, 6 * SOL, voter, authority);
+        let (underwater_address, healthy_address) = (underwater.0, healthy.0);
 
-        let to_fund = take_stake_accounts_to_fund(&mut pool, 3 * SOL);
-        assert_eq!(
-            to_fund.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
-            vec![underwater_address]
-        );
-        assert_eq!(
-            pool.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
-            vec![healthy_address]
-        );
+        let mut pools = get_on_chain_bond_stake_accounts(
+            &vec![underwater, healthy],
+            &authority,
+            &Clock::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(pools.keys().collect::<Vec<_>>(), vec![&voter]);
+        let pool = pools.get_mut(&voter).unwrap();
+        let mut pooled = pool
+            .iter()
+            .map(|s| (s.stake_account, s.lamports))
+            .collect::<Vec<_>>();
+        pooled.sort();
+        let mut expected = vec![(underwater_address, 10 * SOL), (healthy_address, 6 * SOL)];
+        expected.sort();
+        assert_eq!(pooled, expected);
+
+        let to_fund = take_stake_accounts_to_fund(pool, 16 * SOL);
+        assert!(pool.is_empty());
+        assert!(to_fund
+            .iter()
+            .any(|s| s.stake_account == underwater_address));
+        assert_eq!(to_fund.iter().map(|s| s.lamports).sum::<u64>(), 16 * SOL);
     }
 }
