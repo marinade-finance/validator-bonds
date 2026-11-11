@@ -85,7 +85,7 @@ type Source = {
   lamports: number | Size
   // lamports transferred on top after delegation, never delegated
   surplus?: number | Size
-  // lamports withdrawn once inactive, leaving the account below its recorded stake
+  // lamports withdrawn once inactive or cooling, leaving the account below its recorded stake
   withdraw?: number
 }
 
@@ -97,6 +97,7 @@ type Path =
   | 'noop'
   | { error: number; message: string }
   | { panic: number }
+  | { stakeError: string }
 
 type Guard = 'voter' | 'staker' | 'withdrawer' | 'lockup'
 
@@ -231,6 +232,16 @@ describe('Validator Bonds fund settlement matrix', () => {
           authorizedPubkey: staker.publicKey,
         }),
       )
+    const withdraw = async () =>
+      provider.sendIx(
+        [withdrawer],
+        StakeProgram.withdraw({
+          stakePubkey: stakeAccount,
+          authorizedPubkey: withdrawer.publicKey,
+          toPubkey: provider.walletPubkey,
+          lamports: source.withdraw ?? 0,
+        }),
+      )
     switch (source.state) {
       case 'activating':
         break
@@ -253,6 +264,9 @@ describe('Validator Bonds fund settlement matrix', () => {
             (CLUSTER_EFFECTIVE_STAKE * 9n * stake) /
             (100n * (stake - 1_500_000_000n)),
         })
+        if (source.withdraw !== undefined) {
+          await withdraw()
+        }
         break
       }
       case 'inactive':
@@ -263,15 +277,7 @@ describe('Validator Bonds fund settlement matrix', () => {
       case 'inactiveUnderwater':
         // deactivated in its activation epoch, so inactive at once with the full recorded stake
         await deactivate()
-        await provider.sendIx(
-          [withdrawer],
-          StakeProgram.withdraw({
-            stakePubkey: stakeAccount,
-            authorizedPubkey: withdrawer.publicKey,
-            toPubkey: provider.walletPubkey,
-            lamports: source.withdraw ?? 0,
-          }),
-        )
+        await withdraw()
         break
     }
     if (source.surplus) {
@@ -477,6 +483,12 @@ describe('Validator Bonds fund settlement matrix', () => {
       maxTotalClaim: 10 * SOL,
       source: { state: 'cooling', lamports: 50 * SOL },
       path: 'split',
+    },
+    {
+      name: 'cooling, withdrawn below its recorded stake: the stake program rejects the split',
+      maxTotalClaim: 5 * SOL,
+      source: { state: 'cooling', lamports: 50 * SOL, withdraw: 10 * SOL },
+      path: { stakeError: 'insufficient funds for instruction' },
     },
     {
       name: 'inactive, below the claim: whole account',
@@ -700,6 +712,13 @@ describe('Validator Bonds fund settlement matrix', () => {
     const panic = /settlement\/fund_settlement\.rs at (\d+):/.exec(logs)
     if (panic) {
       return { panic: Number(panic[1]) }
+    }
+    const stakeError =
+      /Program Stake11111111111111111111111111111111111111 failed: ([^\n]*)/.exec(
+        logs,
+      )
+    if (stakeError) {
+      return { stakeError: stakeError[1]! }
     }
     const error = /Error Number: (\d+)\. Error Message: ([^\n]*)/.exec(logs)
     return error
