@@ -194,20 +194,23 @@ steps:
   # ahead of the notification: a Slack failure must not starve the schedulers waiting on this split
   - label: ":gear: Trigger institutional and merkle tree schedulers"
     commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
         - trigger: "scheduler-institutional"
-          label: ":rocket: Trigger: Institutional Scheduler"
+          label: ":rocket: Trigger: Institutional Scheduler (epoch $$epoch)"
           async: true
           build:
+            message: "Institutional Scheduler triggered by Prepare Direct Staking Distribution (epoch $$epoch)"
             branch: $$BUILDKITE_BRANCH
             env:
               NOTIFY_FEED: ${NOTIFY_FEED:-false}
         - trigger: "scheduler-merkle-tree"
-          label: ":rocket: Trigger: Merkle Tree Scheduler"
+          label: ":rocket: Trigger: Merkle Tree Scheduler (epoch $$epoch)"
           async: true
           build:
+            message: "Merkle Tree Scheduler triggered by Prepare Direct Staking Distribution (epoch $$epoch)"
             branch: $$BUILDKITE_BRANCH
             env:
               NOTIFY_FEED: ${NOTIFY_FEED:-false}
