@@ -58,9 +58,9 @@ for step in "${STEPS[@]}"; do
     GUARDS+=("data integrity step $step did not pass")
   fi
 done
-if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|skipping the cross-validation|Skipping historical comparison|check did not run|\[⛔\] Field: institutionalValidatorsCount' \
+if grep -qsE 'CEILING EXCEEDED|internal inconsistencies|skipping the cross-validation|Skipping historical comparison|check did not run|\[⛔\] Field: (institutionalValidatorsCount|zeroApyInstitutionalValidators|nonInstitutionalDeactivationPayout)' \
   "$OUT_DIR"/sanity-check-*.log; then
-  GUARDS+=("a check log reports a skipped check, an exceeded ceiling, inconsistent merkle trees or a validator count anomaly")
+  GUARDS+=("a check log reports a skipped check, an exceeded ceiling, inconsistent merkle trees or an institutional data anomaly")
 fi
 
 # an auto-approved build blocks only on a soft-failed check, so with all passed nobody reads the review
@@ -120,7 +120,7 @@ INPUT="$OUT_DIR/review-input.md"
     echo "# Log $(basename "$log") ($part 40000 bytes, table separator lines dropped)"
     echo '```'
     # alternation, not a bracket expression: in a C locale [├┌└] also matches the lead byte of │
-    grep -vE '^(├|┌|└)' "$log" | "$trim" -c 40000 | { iconv -c -f UTF-8 -t UTF-8 || cat; } || true
+    grep -avE '^(├|┌|└)' "$log" | "$trim" -c 40000 | { iconv -c -f UTF-8 -t UTF-8 || cat; } || true
     echo
     echo '```'
   done
