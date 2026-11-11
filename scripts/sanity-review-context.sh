@@ -34,27 +34,27 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 IFS=',' read -ra SETTLEMENTS_FILES <<< "$SETTLEMENTS_FILES_ARG"
 IFS=',' read -ra CONFIG_FILES <<< "${CONFIG_FILES_ARG:-}"
 
-# one row per settlement; a ProtectedEvent reason is an object keyed by its event kind
-ROWS_JQ='.settlements[] | {
-  file: $file,
-  vote: .vote_account,
-  reason: (.reason | if type == "string" then . else (keys[0] + "/" + (.[keys[0]] | keys[0])) end),
-  funder,
-  lamports: .claims_amount,
-  claims: .claims_count,
-  marinade_stake: (.details.total_marinade_active_stake? // null),
-  effective_bid: (.details.auction_effective_static_bid? // null),
-  stakers_claim: (.details.stakers_total_claim? // null),
-  marinade_fee: (.details.marinade_fee_claim? // null),
-  dao_fee: (.details.dao_fee_claim? // null)
-}'
-
 for e in "$PREV_EPOCH" "$EPOCH"; do
   mkdir -p "$WORK_DIR/$e"
   : > "$WORK_DIR/$e/rows.jsonl"
   for f in "${SETTLEMENTS_FILES[@]}"; do
     if gcloud storage cp -q "$GS_BUCKET/$e/$f" "$WORK_DIR/$e/$f" 2>/dev/null; then
-      jq -c --arg file "$f" "$ROWS_JQ" "$WORK_DIR/$e/$f" >> "$WORK_DIR/$e/rows.jsonl"
+      # one row per settlement; a ProtectedEvent reason is an object keyed by its event kind
+      jq -c --arg file "$f" '.settlements[] | {
+        file: $file,
+        vote: .vote_account,
+        reason: (.reason | if type == "string" then . else (keys[0] + "/" + (.[keys[0]] | keys[0])) end),
+        funder,
+        lamports: .claims_amount,
+        claims: .claims_count,
+        marinade_stake: (.details.total_marinade_active_stake? // null),
+        effective_bid: (.details.auction_effective_static_bid? // null),
+        stakers_claim: (.details.stakers_total_claim? // null),
+        marinade_fee: (.details.marinade_fee_claim? // null),
+        dao_fee: (.details.dao_fee_claim? // null),
+        staker_lamports: ([.claims[] | select(.kind == "StakerPayout") | .claim_amount] | add // 0),
+        fee_lamports: ([.claims[] | select(.kind == "FeeDeposit") | .claim_amount] | add // 0)
+      }' "$WORK_DIR/$e/$f" >> "$WORK_DIR/$e/rows.jsonl"
     else
       echo "> WARNING: '$f' is missing for epoch $e" >> "$WORK_DIR/missing.md"
     fi
@@ -123,22 +123,37 @@ echo "Bond columns are the on-chain state now; 'active' is what a settlement can
 echo
 jq -r -n --argjson top "$TOP" --slurpfile prev "$WORK_DIR/$PREV_EPOCH/rows.json" --slurpfile cur "$WORK_DIR/$EPOCH/rows.json" \
   --slurpfile bonds "$BONDS_JSON" "$JQ_LIB"'
+  def row: "| " + join(" | ") + " |";
   def per_vote: group_by(.vote) | map({key: .[0].vote, value: {lamports: (map(.lamports) | add),
+    staker_lamports: (map(.staker_lamports) | add), fee_lamports: (map(.fee_lamports) | add),
     reasons: (map(.reason) | unique | join(",")), marinade_stake: (map(.marinade_stake // empty) | first // null),
     effective_bid: (map(.effective_bid // empty) | first // null)}}) | from_entries;
   ($prev[0] | per_vote) as $p | ($cur[0] | per_vote) as $c
   | ($bonds[0] | map({key: .account.voteAccount, value: .}) | from_entries) as $b
+  | ($prev[0] + $cur[0] | any(.marinade_stake != null or .effective_bid != null)) as $bidding
   | [($p + $c) | keys[] | {vote: ., a: ($p[.] // {lamports: 0}), c: ($c[.] // {lamports: 0})}
       | . + {delta: (.c.lamports - .a.lamports)}] as $all
+  | (["vote account", "reasons now", "SOL prev → now"]
+      + (if $bidding then ["marinade stake SOL prev → now", "effective bid prev → now"]
+         else ["staker claims SOL prev → now", "fee claims SOL prev → now"] end)
+      + ["bond active SOL", "bond at settlements SOL", "bond to withdraw SOL"]
+      + (if $bidding then ["bond bid (lamports per 1000 SOL)"] else [] end)) as $header
   | "Validators prev → now: \($p | length) → \($c | length); new: \([$all[] | select(.a.lamports == 0)] | length), dropped: \([$all[] | select(.c.lamports == 0)] | length)",
     "",
-    "| vote account | reasons now | SOL prev → now | marinade stake SOL prev → now | effective bid prev → now | bond active SOL | bond at settlements SOL | bond to withdraw SOL | bond bid (lamports per 1000 SOL) |",
-    "|---|---|---|---|---|---|---|---|---|",
+    ($header | row),
+    "|" + ($header | map("---") | join("|")) + "|",
     ($all | sort_by(-(.delta | if . < 0 then -. else . end)) | .[:$top][]
       | ($b[.vote] // null) as $bond
-      | "| \(.vote) | \(.c.reasons // "-") | \(.a.lamports | sol) → \(.c.lamports | sol) | \(.a.marinade_stake // 0 | sol) → \(.c.marinade_stake // 0 | sol) | \(.a.effective_bid // "-") → \(.c.effective_bid // "-") | "
-        + (if $bond == null then "no bond data | - | - | - |"
-           else "\($bond.amountActive | amount) | \($bond.amountAtSettlements | amount) | \($bond.amountToWithdraw | amount) | \($bond.account.costPerMillePerEpoch | sub(" lamports$"; "")) |" end))
+      | ([.vote, (.c.reasons // "-"), "\(.a.lamports | sol) → \(.c.lamports | sol)"]
+        + (if $bidding then ["\(.a.marinade_stake // 0 | sol) → \(.c.marinade_stake // 0 | sol)",
+            "\(.a.effective_bid // "-") → \(.c.effective_bid // "-")"]
+           else ["\(.a.staker_lamports // 0 | sol) → \(.c.staker_lamports // 0 | sol)",
+            "\(.a.fee_lamports // 0 | sol) → \(.c.fee_lamports // 0 | sol)"] end)
+        + (if $bond == null then ["no bond data", "-", "-"]
+           else ["\($bond.amountActive | amount)", "\($bond.amountAtSettlements | amount)", "\($bond.amountToWithdraw | amount)"] end)
+        + (if $bidding then [if $bond == null then "-" else $bond.account.costPerMillePerEpoch | sub(" lamports?$"; "") end]
+           else [] end)
+        | row))
 '
 echo
 

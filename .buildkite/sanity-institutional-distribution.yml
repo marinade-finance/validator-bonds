@@ -83,6 +83,7 @@ steps:
           echo "Mismatch in institutional validators count: API($$INSTITUTIONAL_VALIDATORS_COUNT_API) vs JSON($$INSTITUTIONAL_VALIDATORS_COUNT_JSON)"
           exit 1
         fi
+        echo "Institutional validators count: API($$INSTITUTIONAL_VALIDATORS_COUNT_API) = JSON($$INSTITUTIONAL_VALIDATORS_COUNT_JSON)"
 
         INSTITUTIONAL_PAYOUT_COUNT=$$(jq '[.validatorPayoutInfo[] | select(((.distributorFeeLamports | tonumber) + (.distributeToStakersLamports | tonumber)) > 0) | .voteAccount] | unique | length' ./institutional-payouts.json)
         SETTLEMENTS_COUNT=$$(jq '.settlements | length' ./settlements.json)
@@ -90,6 +91,7 @@ steps:
           echo "Mismatch in number of institutional payouts: Payout JSON($$INSTITUTIONAL_PAYOUT_COUNT) vs Settlements($$SETTLEMENTS_COUNT)"
           exit 10
         fi
+        echo "Institutional payouts count: Payout JSON($$INSTITUTIONAL_PAYOUT_COUNT) = Settlements($$SETTLEMENTS_COUNT)"
 
         # Sum in bc (arbitrary precision) — jq arithmetic runs in IEEE doubles and
         # would silently round once the totals grow past 2^53-1 lamports.
@@ -106,6 +108,7 @@ steps:
           echo "Difference $${DIFF} lamports ($${DIFF_SOLS} SOLs) between payout sum and settlement claims sum is outside permitted 0..$${DIFF_PERMITTED_ABS}"
           exit 11
         fi
+        echo "Institutional payouts total: Payout JSON($$INSTITUTIONAL_PAYOUT_SUM) vs Settlements($$SETTLEMENTS_SUM), difference $${DIFF} lamports within permitted 0..$${DIFF_PERMITTED_ABS}"
         } 2>&1 | tee sanity-check-2.log
     soft_fail:
       - exit_status: "*"
