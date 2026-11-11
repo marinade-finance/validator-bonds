@@ -238,6 +238,7 @@ async fn prepare_funding(
     .await?;
 
     let epochs_pending_init = epochs_pending_on_chain_init(settlement_records);
+    let mut leftover_pending_votes: HashSet<Pubkey> = HashSet::new();
 
     // Merging stake accounts to fit for validator bonds funding
     for settlement_record in settlement_records
@@ -526,8 +527,17 @@ async fn prepare_funding(
                                 build_balance_message(funding_lamports_accumulated, false, false)
                             )).with_vote(settlement_record.vote_account_address).add();
                         }
-                        // a leftover split off the destination is funded by a later run, once it exists on chain
-                        Ordering::Equal | Ordering::Greater => {}
+                        // a leftover split off the destination exists on chain only after this run, a retry funds it
+                        Ordering::Equal | Ordering::Greater => {
+                            if leaves_fundable_leftover(
+                                funding_lamports_accumulated,
+                                amount_to_fund,
+                                minimal_stake_lamports,
+                            ) {
+                                leftover_pending_votes
+                                    .insert(settlement_record.vote_account_address);
+                            }
+                        }
                     }
                     let published_funding = published_funding_lamports.min(amount_to_fund);
                     if published_funding > 0 {
@@ -536,16 +546,21 @@ async fn prepare_funding(
                             .add_funded_settlement(settlement_record, published_funding);
                     }
                 } else {
-                    reporting.warning().with_msg(format!(
-                        "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded: available stake {} SOLs does not exceed the minimum stake size {} SOLs required to fund",
-                        settlement_record.settlement_address,
+                    report_bond_settlement_not_funded(
+                        reporting,
+                        format!(
+                            "Settlement {} (vote account {}, epoch {}, reason: {}, max claim {} SOLs, funder: ValidatorBond) not funded: available stake {} SOLs does not exceed the minimum stake size {} SOLs required to fund",
+                            settlement_record.settlement_address,
+                            settlement_record.vote_account_address,
+                            epoch,
+                            reason_display(&settlement_record.reason),
+                            build_balance_message(settlement_record.max_total_claim_sum, false, false),
+                            build_balance_message(funding_lamports_accumulated, false, false),
+                            build_balance_message(minimal_stake_lamports, false, false),
+                        ),
                         settlement_record.vote_account_address,
-                        epoch,
-                        reason_display(&settlement_record.reason),
-                        build_balance_message(settlement_record.max_total_claim_sum, false, false),
-                        build_balance_message(funding_lamports_accumulated, false, false),
-                        build_balance_message(minimal_stake_lamports, false, false),
-                    )).with_vote(settlement_record.vote_account_address).add();
+                        leftover_pending_votes.contains(&settlement_record.vote_account_address),
+                    );
                 }
                 // we've got to place in code where we wanted to fund something
                 // it does not matter if it was successful or not (e.g., no stake account is available)
@@ -790,6 +805,38 @@ fn take_stake_accounts_to_fund(
         }
     });
     to_fund
+}
+
+fn leaves_fundable_leftover(
+    funding_lamports_accumulated: u64,
+    amount_to_fund: u64,
+    minimal_stake_lamports: u64,
+) -> bool {
+    funding_lamports_accumulated.saturating_sub(amount_to_fund + minimal_stake_lamports)
+        > minimal_stake_lamports
+}
+
+// not vote-tagged when retryable, transform_on_finalize would downgrade it to a warning
+fn report_bond_settlement_not_funded(
+    reporting: &mut ReportHandler<FundSettlementsReport>,
+    message: String,
+    vote_account: Pubkey,
+    leftover_pending: bool,
+) {
+    if leftover_pending {
+        reporting
+            .retryable()
+            .with_msg(format!(
+                "{message}; the bond's stake was split by this run, a retry funds it from the leftover"
+            ))
+            .add();
+    } else {
+        reporting
+            .warning()
+            .with_msg(message)
+            .with_vote(vote_account)
+            .add();
+    }
 }
 
 /// Filtering stake accounts and creating a Map of vote account to stake accounts
@@ -1225,6 +1272,57 @@ mod tests {
             ],
         )]);
         assert!(epochs_pending_on_chain_init(&records).is_empty());
+    }
+
+    #[test]
+    fn sibling_waiting_for_split_leftover_is_retryable() {
+        let mut reporting = FundSettlementsReport::report_handler();
+        report_bond_settlement_not_funded(
+            &mut reporting,
+            "not funded".to_string(),
+            Pubkey::new_unique(),
+            true,
+        );
+        let entries = &reporting.error_handler.entries;
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(entries[0], Generic(_)));
+        assert_eq!(entries[0].severity(), ErrorSeverity::RetryableError);
+        let status = reporting.error_handler.get_status();
+        assert_eq!(status.retryable_error_count, 1);
+        assert_eq!(status.error_count, 0);
+        assert_eq!(status.warning_count, 0);
+    }
+
+    #[test]
+    fn settlement_of_bond_without_stake_keeps_the_warning() {
+        let mut reporting = FundSettlementsReport::report_handler();
+        let vote = Pubkey::new_unique();
+        report_bond_settlement_not_funded(&mut reporting, "not funded".to_string(), vote, false);
+        let entries = &reporting.error_handler.entries;
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(&entries[0], VoteAccount(v) if v.vote_account == vote));
+        assert_eq!(entries[0].severity(), ErrorSeverity::Warning);
+        let status = reporting.error_handler.get_status();
+        assert_eq!(status.retryable_error_count, 0);
+        assert_eq!(status.warning_count, 1);
+    }
+
+    #[test]
+    fn leftover_is_pending_only_above_the_minimal_stake_size() {
+        let (to_fund, minimal) = (5 * SOL, SOL + 2_282_880);
+        let needed = to_fund + minimal;
+        assert!(!leaves_fundable_leftover(needed - 1, to_fund, minimal));
+        assert!(!leaves_fundable_leftover(needed, to_fund, minimal));
+        assert!(!leaves_fundable_leftover(
+            needed + minimal,
+            to_fund,
+            minimal
+        ));
+        assert!(leaves_fundable_leftover(
+            needed + minimal + 1,
+            to_fund,
+            minimal
+        ));
     }
 
     fn stake_account(lamports: u64, delegation_stake: u64) -> FundBondStakeAccount {
