@@ -29,20 +29,12 @@ steps:
 
         max_available_epoch=$(gcloud storage ls "${gs_bucket_snapshots}/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 2) || exit 2
 
-        etl_epochs=$(gcloud storage ls "$gs_bucket_etl") || exit 22
-        etl_ready=false
-        if grep -qxF -- "$gs_bucket_etl/$$max_available_epoch/" <<< "$$etl_epochs"; then
-          # the ETL uploads one file at a time, so the epoch folder exists before all of them do
-          etl_epoch_files=$(gcloud storage ls "$gs_bucket_etl/$$max_available_epoch/") || exit 22
-          etl_ready=true
-          for etl_file in $etl_required_files; do
-            if ! grep -qxF -- "$gs_bucket_etl/$$max_available_epoch/$$etl_file" <<< "$$etl_epoch_files"; then
-              echo "ETL epoch $$max_available_epoch is not complete yet, '$$etl_file' is missing"
-              etl_ready=false
-              break
-            fi
-          done
-        fi
+        etl_ready=true
+        # the ETL uploads one file at a time, so the epoch folder exists before all of them do
+        etl_files=$(gcloud storage ls "$gs_bucket_etl/$$max_available_epoch/") || etl_ready=false
+        for etl_file in $etl_required_files; do
+          grep -qxF -- "$gs_bucket_etl/$$max_available_epoch/$$etl_file" <<< "$$etl_files" || etl_ready=false
+        done
 
         ssr_ready=true
         # bid-distribution fetches SSR unless min_sol_revenue sets its fee target
