@@ -191,8 +191,8 @@ steps:
 
   - wait: ~
 
-  # merkle stays cron-only: a trigger chain down to init-settlements passes the Buildkite depth limit
-  - label: ":gear: Trigger institutional scheduler"
+  # ahead of the notification: a Slack failure must not starve the schedulers waiting on this split
+  - label: ":gear: Trigger institutional and merkle tree schedulers"
     commands:
     - |
       cat <<EOF | buildkite-agent pipeline upload
@@ -204,6 +204,14 @@ steps:
             branch: $$BUILDKITE_BRANCH
             env:
               NOTIFY_FEED: ${NOTIFY_FEED:-false}
+        - trigger: "scheduler-merkle-tree"
+          label: ":rocket: Trigger: Merkle Tree Scheduler"
+          async: true
+          build:
+            branch: $$BUILDKITE_BRANCH
+            env:
+              NOTIFY_FEED: ${NOTIFY_FEED:-false}
+              gs_bucket: $gs_bucket
       EOF
 
   - wait: ~
