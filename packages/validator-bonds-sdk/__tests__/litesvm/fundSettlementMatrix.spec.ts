@@ -35,6 +35,7 @@ import {
 import {
   CLOSED_VOTE_VARIANTS,
   authorizeStakeAccount,
+  createInitializedStakeAccount,
   createVoteAccount,
   delegatedStakeAccount,
   getAndCheckStakeAccount,
@@ -123,7 +124,7 @@ type StakeSnapshot = {
   stake: number
   activationEpoch: bigint
   deactivationEpoch: bigint
-  voter: PublicKey
+  voter: PublicKey | null
   staker: PublicKey
   withdrawer: PublicKey
 }
@@ -192,7 +193,7 @@ describe('Validator Bonds fund settlement matrix', () => {
       deactivationEpoch: BigInt(
         delegation?.deactivationEpoch.toString() ?? U64_MAX.toString(),
       ),
-      voter: delegation?.voterPubkey ?? voteAccount,
+      voter: delegation?.voterPubkey ?? null,
       staker: meta.authorized.staker,
       withdrawer: meta.authorized.withdrawer,
     }
@@ -733,6 +734,7 @@ describe('Validator Bonds fund settlement matrix', () => {
     const initialized = path === 'splitInitialize'
     return {
       path,
+      withdrawn,
       leftoverLamports,
       sourceLamports: before.lamports - leftoverLamports,
       sourceStake: initialized ? before.stake : before.stake - splitMoved,
@@ -865,29 +867,27 @@ describe('Validator Bonds fund settlement matrix', () => {
     const { before, claim, epoch } = prepared
     // splittable, but the split could not be delegated: whole-account fallback
     const fallback = before.lamports >= splitThreshold(claim)
-    const modelPath = fallback
+    const model = fallback
       ? splitModel(
           before,
           claim,
           epoch,
           c.source.state === 'inactive' ||
             c.source.state === 'inactiveUnderwater',
-        ).path
-      : 'whole'
+        )
+      : undefined
+    const modelPath = model?.path ?? 'whole'
     // with a live vote account the model predicts the whole account; otherwise the live-case path
     expect(modelPath).toEqual(c.basePath ?? 'whole')
     const forcedByVote = modelPath !== 'whole'
     const settled = await settle(prepared)
-    const totalFunded =
-      Number(prepared.settlementBefore.lamportsFunded.toString()) +
-      before.lamports -
-      minSize
     expectFundedShape(
       prepared,
       settled,
       c.maxTotalClaim,
+      // forced only while the leftover after the withdraw stays below the minimum delegation
       forcedByVote
-        ? totalFunded - c.maxTotalClaim + 1
+        ? model!.withdrawn + minStake + rent
         : fallback
           ? 2 * minStake + rent
           : minSize + rent,
@@ -1245,6 +1245,12 @@ describe('Validator Bonds fund settlement matrix', () => {
         settledSecond.after.lamports +
         settledSecond.leftover!.lamports,
     ).toEqual(first.before.lamports + 2 * rent)
+  })
+  it('snapshot reports no voter for an undelegated stake account', async () => {
+    const { stakeAccount } = await createInitializedStakeAccount({ provider })
+    const undelegated = (await snapshot(stakeAccount))!
+    expect(undelegated.voter).toBeNull()
+    expect(undelegated.stake).toEqual(0)
   })
   // TLA+ counterexample (new-withdraw-requests.cfg): the leftover of a withdraw request split stays in the bond
   it('claim withdraw request: the underwater leftover of an inactive bond account is still fully fundable', async () => {
