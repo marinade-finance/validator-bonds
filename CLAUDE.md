@@ -33,7 +33,7 @@ pnpm fix                             # prettier + eslint + cargo fmt + clippy --
 cargo test --features no-entrypoint -- --nocapture    # unit (fast)
 pnpm test:unit                       # TS unit tests (sanity-check, cli-core, bonds-eventing)
 pnpm test:bankrun                    # bankrun JS tests (builds anchor first)
-pnpm test:litesvm                    # LiteSVM JS tests on the pinned mainnet stake program and features (builds anchor first)
+pnpm test:litesvm                    # LiteSVM JS tests on the pinned mainnet stake program and feature set, rent is LiteSVM's default (builds anchor first)
 pnpm test:validator                  # anchor test (full, slow)
 
 # Run a single bankrun or LiteSVM test file
