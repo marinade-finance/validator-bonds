@@ -529,11 +529,13 @@ async fn prepare_funding(
                         }
                         // a leftover split off the destination exists on chain only after this run, a retry funds it
                         Ordering::Equal | Ordering::Greater => {
-                            if leaves_fundable_leftover(
-                                funding_lamports_accumulated,
-                                amount_to_fund,
-                                minimal_stake_lamports,
-                            ) {
+                            if fund_destination
+                                && leaves_fundable_leftover(
+                                    destination_merged_lamports,
+                                    amount_to_fund,
+                                    minimal_stake_lamports,
+                                )
+                            {
                                 leftover_pending_votes
                                     .insert(settlement_record.vote_account_address);
                             }
@@ -807,13 +809,14 @@ fn take_stake_accounts_to_fund(
     to_fund
 }
 
+// the program splits only when the leftover also covers the split account's rent
 fn leaves_fundable_leftover(
-    funding_lamports_accumulated: u64,
+    destination_lamports: u64,
     amount_to_fund: u64,
     minimal_stake_lamports: u64,
 ) -> bool {
-    funding_lamports_accumulated.saturating_sub(amount_to_fund + minimal_stake_lamports)
-        > minimal_stake_lamports
+    destination_lamports.saturating_sub(amount_to_fund + minimal_stake_lamports)
+        >= minimal_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE
 }
 
 // not vote-tagged when retryable, transform_on_finalize would downgrade it to a warning
@@ -827,7 +830,7 @@ fn report_bond_settlement_not_funded(
         reporting
             .retryable()
             .with_msg(format!(
-                "{message}; the bond's stake was split by this run, a retry funds it from the leftover"
+                "{message}; this run split the bond's stake, a retry funds it from the leftover unless the program funded the whole account"
             ))
             .add();
     } else {
@@ -1308,21 +1311,21 @@ mod tests {
     }
 
     #[test]
-    fn leftover_is_pending_only_above_the_minimal_stake_size() {
-        let (to_fund, minimal) = (5 * SOL, SOL + 2_282_880);
-        let needed = to_fund + minimal;
-        assert!(!leaves_fundable_leftover(needed - 1, to_fund, minimal));
-        assert!(!leaves_fundable_leftover(needed, to_fund, minimal));
+    fn leftover_is_pending_only_from_the_program_split_threshold() {
+        let (to_fund, minimal) = (5 * SOL, SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE);
+        let threshold = to_fund + 2 * minimal + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
         assert!(!leaves_fundable_leftover(
-            needed + minimal,
+            to_fund + minimal - 1,
             to_fund,
             minimal
         ));
-        assert!(leaves_fundable_leftover(
-            needed + minimal + 1,
+        assert!(!leaves_fundable_leftover(
+            to_fund + 2 * minimal,
             to_fund,
             minimal
         ));
+        assert!(!leaves_fundable_leftover(threshold - 1, to_fund, minimal));
+        assert!(leaves_fundable_leftover(threshold, to_fund, minimal));
     }
 
     fn bond_stake_account(
@@ -1371,20 +1374,21 @@ mod tests {
         .unwrap();
         assert_eq!(pools.keys().collect::<Vec<_>>(), vec![&voter]);
         let pool = pools.get_mut(&voter).unwrap();
-        let mut pooled = pool
-            .iter()
-            .map(|s| (s.stake_account, s.lamports))
-            .collect::<Vec<_>>();
-        pooled.sort();
-        let mut expected = vec![(underwater_address, 10 * SOL), (healthy_address, 6 * SOL)];
-        expected.sort();
-        assert_eq!(pooled, expected);
+        assert_eq!(
+            pool.iter()
+                .map(|s| (s.stake_account, s.lamports))
+                .collect::<Vec<_>>(),
+            vec![(underwater_address, 10 * SOL), (healthy_address, 6 * SOL)]
+        );
 
-        let to_fund = take_stake_accounts_to_fund(pool, 16 * SOL);
-        assert!(pool.is_empty());
-        assert!(to_fund
-            .iter()
-            .any(|s| s.stake_account == underwater_address));
-        assert_eq!(to_fund.iter().map(|s| s.lamports).sum::<u64>(), 16 * SOL);
+        let to_fund = take_stake_accounts_to_fund(pool, 3 * SOL);
+        assert_eq!(
+            to_fund.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![underwater_address]
+        );
+        assert_eq!(
+            pool.iter().map(|s| s.stake_account).collect::<Vec<_>>(),
+            vec![healthy_address]
+        );
     }
 }
