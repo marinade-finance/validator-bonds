@@ -632,8 +632,9 @@ describe('Validator Bonds fund settlement matrix', () => {
       maxTotalClaim: c.maxTotalClaim,
       merkleRoot: leaf.hashLeafNode().buffer,
     })
+    let preFundAccount: PublicKey | undefined
     if (c.preFund !== undefined) {
-      const preFundAccount = await buildSource({
+      preFundAccount = await buildSource({
         state: 'active',
         lamports: c.preFund,
       })
@@ -675,6 +676,7 @@ describe('Validator Bonds fund settlement matrix', () => {
       claimer,
       settlementAccount,
       settlementBefore,
+      preFundAccount,
       claim,
       stakeAccount,
       before,
@@ -1265,6 +1267,122 @@ describe('Validator Bonds fund settlement matrix', () => {
         settledSecond.leftover!.lamports,
     ).toEqual(first.before.lamports + 2 * rent)
   })
+  it('sibling settlement: under a closed vote account an inactive source is funded whole and leaves nothing for the sibling', async () => {
+    const base = CASES.find(
+      c =>
+        c.name ===
+        'inactive, above the claim: withdraw all, initialize and delegate a healthy leftover',
+    )!
+    const { settlementAccount: sibling } = await executeInitSettlement({
+      configAccount,
+      program,
+      provider,
+      voteAccount,
+      operatorAuthority,
+      currentEpoch: await currentEpoch(provider),
+      maxTotalClaim: base.maxTotalClaim,
+    })
+    const first = await prepare({ ...base, vote: 'closed' })
+    const settledFirst = await settle(first)
+    expect(settledFirst.logs).toContain(CLOSED_VOTE_LOG)
+    expect(settledFirst.leftover).toBeNull()
+    expect(settledFirst.funded).toEqual(first.before.lamports - minSize)
+    expect(settledFirst.after.staker).toEqual(
+      settlementStakerAuthority(first.settlementAccount, program.programId)[0],
+    )
+
+    const siblingBefore = await getSettlement(program, sibling)
+    expect(siblingBefore.epochCreatedFor).toEqual(
+      first.settlementBefore.epochCreatedFor,
+    )
+    const failure = await (await fund(sibling, first.stakeAccount)).send().then(
+      () => undefined,
+      (e: unknown) => e,
+    )
+    expect(failureOutcome(failure)).toEqual(
+      expectedFailure({
+        error: 6028,
+        message: 'already funded to a settlement',
+      }),
+    )
+    expect((await getSettlement(program, sibling)).lamportsFunded).toEqual(
+      new BN(0),
+    )
+    expect(await snapshot(first.stakeAccount)).toEqual(settledFirst.after)
+  })
+
+  it('reset after close refunded the split rent from a minimal funded account fails with InsufficientDelegation until lamports are added', async () => {
+    const prepared = await prepare({
+      name: 'minimal pre-funded account refunds the split rent',
+      maxTotalClaim: 5 * SOL,
+      preFund: minSize + 1,
+      source: { state: 'active', lamports: 50 * SOL },
+      path: 'split',
+    })
+    const settled = await settle(prepared)
+    expect(settled.settlement.splitRentCollector).toEqual(
+      prepared.payer.publicKey,
+    )
+    const refundAccount = prepared.preFundAccount!
+    const funded = (await snapshot(refundAccount))!
+    expect(funded.lamports).toEqual(minSize + 1)
+
+    warpToEpoch(
+      provider,
+      BigInt(settled.settlement.epochCreatedFor.toString()) + 4n,
+    )
+    const { instruction: closeIx } = await closeSettlementV2Instruction({
+      program,
+      settlementAccount: prepared.settlementAccount,
+      splitRentRefundAccount: refundAccount,
+    })
+    await provider.sendIx([], closeIx)
+    expect(
+      await provider.connection.getAccountInfo(prepared.settlementAccount),
+    ).toBeNull()
+    const refunded = (await snapshot(refundAccount))!
+    expect(refunded.lamports).toEqual(minSize + 1 - rent)
+    expect(refunded.lamports - rent).toBeLessThan(minStake)
+
+    const reset = async () => {
+      const { instruction } = await resetStakeInstruction({
+        program,
+        stakeAccount: refundAccount,
+        settlementAccount: prepared.settlementAccount,
+        configAccount,
+        voteAccount,
+      })
+      return executeIx(provider, [provider.wallet], instruction)
+    }
+    const failure = await reset().then(
+      () => undefined,
+      (e: unknown) => e,
+    )
+    expect(failureOutcome(failure)).toEqual({
+      stakeError: 'custom program error: 0xc',
+    })
+    expect(await snapshot(refundAccount)).toEqual(refunded)
+
+    await provider.sendIx(
+      [],
+      SystemProgram.transfer({
+        fromPubkey: provider.walletPubkey,
+        toPubkey: refundAccount,
+        lamports: rent,
+      }),
+    )
+    await reset()
+    expect(await snapshot(refundAccount)).toEqual({
+      ...refunded,
+      lamports: refunded.lamports + rent,
+      stake: refunded.lamports,
+      activationEpoch: await currentEpoch(provider),
+      deactivationEpoch: BigInt(U64_MAX.toString()),
+      voter: voteAccount,
+      staker: bondsAuthority,
+    })
+  })
+
   it('snapshot reports no voter for an undelegated stake account', async () => {
     const { stakeAccount } = await createInitializedStakeAccount({ provider })
     const undelegated = (await snapshot(stakeAccount))!
