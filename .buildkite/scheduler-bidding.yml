@@ -6,6 +6,8 @@ env:
   gs_bucket_snapshots: gs://marinade-solana-snapshot-mainnet
   gs_bucket_etl: gs://marinade-stakes-etl-mainnet
   APY_API_URL: https://apy.marinade.finance
+  # keep in sync with prepare-bid-distribution.yml "Download ETL rewards data"
+  etl_required_files: 'rewards_mev.json rewards_validators_mev.json rewards_inflation.json rewards_validators_inflation.json rewards_validators_blocks.json rewards_priority_fee.json'
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
@@ -26,15 +28,36 @@ steps:
         max_processed_epoch_bid=$${max_processed_epoch_bid:-0}
 
         max_available_epoch=$(gcloud storage ls "${gs_bucket_snapshots}/**/stakes.json" | awk -F / '{print $$4}' | sort -nr | head -n 1 || exit 2) || exit 2
-        max_available_etl_epoch=$(gcloud storage ls "$gs_bucket_etl" | awk -F / '{print $$4}' | sort -nr | head -n 1) || exit 22
-        ssr_json=$(curl -fsSL --max-time 15 "${APY_API_URL}/v1/epoch-pmpe/ssr") || exit 23
-        max_available_ssr_epoch=$(echo "$$ssr_json" | jq '[.epochs[].epoch] | max // 0')
-        echo "Bidding:: > max_processed_epoch_bid: $$max_processed_epoch_bid, max_available_epoch: $$max_available_epoch, max_available_etl_epoch: $$max_available_etl_epoch, max_available_ssr_epoch: $$max_available_ssr_epoch"
+
+        etl_epochs=$(gcloud storage ls "$gs_bucket_etl") || exit 22
+        etl_ready=false
+        if grep -qxF -- "$gs_bucket_etl/$$max_available_epoch/" <<< "$$etl_epochs"; then
+          # the ETL uploads one file at a time, so the epoch folder exists before all of them do
+          etl_epoch_files=$(gcloud storage ls "$gs_bucket_etl/$$max_available_epoch/") || exit 22
+          etl_ready=true
+          for etl_file in $etl_required_files; do
+            if ! grep -qxF -- "$gs_bucket_etl/$$max_available_epoch/$$etl_file" <<< "$$etl_epoch_files"; then
+              echo "ETL epoch $$max_available_epoch is not complete yet, '$$etl_file' is missing"
+              etl_ready=false
+              break
+            fi
+          done
+        fi
+
+        ssr_ready=true
+        # bid-distribution fetches SSR unless min_sol_revenue sets its fee target
+        if ! grep -qE '^\s+min_sol_revenue:\s*"?[0-9]' settlement-config.yaml; then
+          ssr_json=$(curl -fsSL --max-time 15 "${APY_API_URL}/v1/epoch-pmpe/ssr") || exit 23
+          max_available_ssr_epoch=$(echo "$$ssr_json" | jq '[.epochs[].epoch] | max // 0')
+          (( max_available_ssr_epoch >= max_available_epoch )) || ssr_ready=false
+          echo "SSR fee mode, max_available_ssr_epoch: $$max_available_ssr_epoch"
+        fi
+        echo "Bidding:: > max_processed_epoch_bid: $$max_processed_epoch_bid, max_available_epoch: $$max_available_epoch, etl_ready: $$etl_ready, ssr_ready: $$ssr_ready"
       - |
         buildkite-agent meta-data set max_processed_epoch_bid "$$max_processed_epoch_bid"
         buildkite-agent meta-data set max_available_epoch "$$max_available_epoch"
-        buildkite-agent meta-data set max_available_etl_epoch "$$max_available_etl_epoch"
-        buildkite-agent meta-data set max_available_ssr_epoch "$$max_available_ssr_epoch"
+        buildkite-agent meta-data set etl_ready "$$etl_ready"
+        buildkite-agent meta-data set ssr_ready "$$ssr_ready"
 
   - wait: ~
 
@@ -42,11 +65,10 @@ steps:
     commands:
       - max_processed_epoch_bid=$(buildkite-agent meta-data get max_processed_epoch_bid)
       - max_available_epoch=$(buildkite-agent meta-data get max_available_epoch)
-      - max_available_etl_epoch=$(buildkite-agent meta-data get max_available_etl_epoch)
-      - max_available_ssr_epoch=$(buildkite-agent meta-data get max_available_ssr_epoch)
+      - etl_ready=$(buildkite-agent meta-data get etl_ready)
+      - ssr_ready=$(buildkite-agent meta-data get ssr_ready)
       - |
-        if (( $$max_available_etl_epoch >= $$max_available_epoch )) \
-           && (( $$max_available_ssr_epoch >= $$max_available_epoch )); then
+        if [[ "$$etl_ready" == true && "$$ssr_ready" == true ]]; then
           epoch=$${max_available_epoch}
           if (( $$max_processed_epoch_bid < $$max_available_epoch )); then
             gcloud storage cp "$gs_bucket_snapshots/$$epoch/past-validators.json" "$gs_bucket/$$epoch/"

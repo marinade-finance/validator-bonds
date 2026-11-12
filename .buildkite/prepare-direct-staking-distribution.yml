@@ -191,17 +191,26 @@ steps:
 
   - wait: ~
 
-  # ahead of the notification, unlike prepare-bid-distribution: a Slack failure must not starve
-  # the merkle chain, which has no other way to learn this epoch's split is ready
-  - label: ":gear: Trigger merkle tree scheduler"
+  # ahead of the notification: a Slack failure must not starve the schedulers waiting on this split
+  - label: ":gear: Trigger institutional and merkle tree schedulers"
     commands:
+    - epoch=$(buildkite-agent meta-data get epoch)
     - |
       cat <<EOF | buildkite-agent pipeline upload
       steps:
-        - trigger: "scheduler-merkle-tree"
-          label: ":rocket: Trigger: Merkle Tree Scheduler"
+        - trigger: "scheduler-institutional"
+          label: ":rocket: Trigger: Institutional Scheduler (epoch $$epoch)"
           async: true
           build:
+            message: "Institutional Scheduler triggered by Prepare Direct Staking Distribution (epoch $$epoch)"
+            branch: $$BUILDKITE_BRANCH
+            env:
+              NOTIFY_FEED: ${NOTIFY_FEED:-false}
+        - trigger: "scheduler-merkle-tree"
+          label: ":rocket: Trigger: Merkle Tree Scheduler (epoch $$epoch)"
+          async: true
+          build:
+            message: "Merkle Tree Scheduler triggered by Prepare Direct Staking Distribution (epoch $$epoch)"
             branch: $$BUILDKITE_BRANCH
             env:
               NOTIFY_FEED: ${NOTIFY_FEED:-false}
@@ -234,9 +243,8 @@ steps:
 
   - wait: ~
 
-  # Last, deliberately: GCS is what stakes-etl and the archive read, and the merkle chain has no
-  # other way to learn this epoch is ready. A late API row is recoverable by re-running this step;
-  # starving either of those is not.
+  # Last, deliberately: GCS is what stakes-etl, the archive and the schedulers read.
+  # A late API row is recoverable by re-running this step; starving those is not.
   - label: ":coin: :arrow_right: :floppy_disk: Store direct staking allocation"
     commands:
     - buildkite-agent artifact download --include-retried-jobs target/release/validator-bonds-api-cli .
