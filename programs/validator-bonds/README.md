@@ -147,8 +147,9 @@ anchor idl set-buffer-authority --provider.cluster mainnet --provider.wallet [fe
   --new-authority 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm <BUFFER_PUBKEY>
 # the write from the buffer is signed by the upgrade authority: export it and submit via SPL Governance (as in 4.b, 4.c)
 # or insert the base64 transactions as is: `spl-governance-cli proposal insert-transactions <proposal> -t <base64...>`
+# --format json is required: a --buffer write has no file extension, so the format defaults to none
 npx --yes --package=@solana-program/program-metadata@0.11.0 program-metadata \
-  write idl vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --buffer <BUFFER_PUBKEY> \
+  write idl vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4 --buffer <BUFFER_PUBKEY> --format json \
   --rpc https://api.mainnet-beta.solana.com -k [fee-payer-keypair] \
   --export 6YAju4nd4t7kyuHV6NvVpMepMk11DgWyYjKVJUak2EEm --export-encoding base64 \
   --single-extend-per-tx
