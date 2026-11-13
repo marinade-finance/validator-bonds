@@ -225,15 +225,19 @@ steps:
 
   - label: ":moneybag: Fee analysis"
     allow_dependency_failure: true
+    # report only, nothing downstream reads it; a late APY feed must not block the upload
+    soft_fail: true
     commands:
     - buildkite-agent artifact download --include-retried-jobs bid-distribution-settlements.json .
     - pnpm install
     - |
-      set -o pipefail
-      pnpm exec tsx scripts/fee-annotation.ts \
-        "./bid-distribution-settlements.json" \
-        "./settlement-config.yaml" \
-        | buildkite-agent annotate --priority 6 --style info --context "fee-analysis"
+      if report=$(pnpm exec tsx scripts/fee-annotation.ts "./bid-distribution-settlements.json" "./settlement-config.yaml" 2>fee-annotation.err); then
+        buildkite-agent annotate --priority 6 --style info --context "fee-analysis" <<< "$$report"
+      else
+        cat fee-annotation.err >&2
+        buildkite-agent annotate --priority 6 --style warning --context "fee-analysis" "Fee report skipped: $$(cat fee-annotation.err)"
+        exit 1
+      fi
 
   - wait: ~
 

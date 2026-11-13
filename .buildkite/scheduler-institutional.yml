@@ -15,8 +15,6 @@ steps:
   - wait: ~
 
   - label: ":calendar: Schedule Prepare Institutional Distribution"
-    concurrency_group: 'validator-bonds/prepare-institutional-distribution'
-    concurrency: 1
     commands:
     - |
       set -o pipefail
