@@ -18,8 +18,6 @@ steps:
   - wait: ~
 
   - label: ":calendar: Schedule Prepare Direct Staking Distribution"
-    concurrency_group: 'validator-bonds/prepare-direct-staking-distribution'
-    concurrency: 1
     commands:
     - |
       set -o pipefail
