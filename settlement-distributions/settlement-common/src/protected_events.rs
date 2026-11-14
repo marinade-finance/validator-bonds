@@ -354,6 +354,7 @@ pub fn collect_downtime_revenue_impact_events(
         return Ok(vec![]);
     }
     let credits = expected_credits(validator_meta_collection, leader_slots)?;
+    let alpenglow = epoch_type(validator_meta_collection) == AlpenglowEpochType::Alpenglow;
     Ok(validator_meta_collection
         .validator_metas
         .iter()
@@ -361,8 +362,23 @@ pub fn collect_downtime_revenue_impact_events(
         .filter_map(|meta| {
             let vote_account = meta.vote_account;
             let Some(&(actual_credits, expected_credits)) = credits.get(&vote_account) else {
-                debug!("Validator {vote_account} is not in the reward committee, no downtime");
-                return None;
+                if !alpenglow || applied_commission_bps(meta) >= 10000 {
+                    return None;
+                }
+                let Some(revenue_expectation) = revenue_expectation_map.get(&vote_account) else {
+                    debug!("Revenue expectation data not found for out-of-committee validator {vote_account}");
+                    return None;
+                };
+                debug!("Validator {vote_account} is staked but not in the reward committee, uptime 0");
+                return Some(ProtectedEvent::DowntimeRevenueImpact {
+                    vote_account,
+                    actual_credits: 0,
+                    expected_credits: 0,
+                    expected_epr: revenue_expectation.actual_non_bid_pmpe / dec!(1000),
+                    actual_epr: Decimal::ZERO,
+                    epr_loss_bps: 10000,
+                    stake: meta.stake,
+                });
             };
             let revenue_expectation = revenue_expectation_map.get(&vote_account);
             if let Some(revenue_expectation) = revenue_expectation {
@@ -750,7 +766,8 @@ mod tests {
         )
         .unwrap();
         // w = s/S + L/N: A 1/3+3/6, B 1/3+2/6, C 1/3+1/6, Σw = 2, Σcredits = 2400 -> C expects 600
-        assert_eq!(events.len(), 1);
+        assert_eq!(events.len(), 2);
+        assert_uptime_zero(&events[1], pk(D), 99_700);
         match &events[0] {
             ProtectedEvent::DowntimeRevenueImpact {
                 vote_account,
@@ -771,6 +788,100 @@ mod tests {
             }
             other => panic!("unexpected event {other:?}"),
         }
+    }
+
+    fn assert_uptime_zero(
+        event: &ProtectedEvent,
+        expected_vote_account: Pubkey,
+        expected_stake: u64,
+    ) {
+        match event {
+            ProtectedEvent::DowntimeRevenueImpact {
+                vote_account,
+                actual_credits,
+                expected_credits,
+                expected_epr,
+                actual_epr,
+                epr_loss_bps,
+                stake,
+            } => {
+                assert_eq!(*vote_account, expected_vote_account);
+                assert_eq!(*actual_credits, 0);
+                assert_eq!(*expected_credits, 0);
+                assert_eq!(*expected_epr, dec!(0.007));
+                assert_eq!(*actual_epr, Decimal::ZERO);
+                assert_eq!(*epr_loss_bps, 10000);
+                assert_eq!(*stake, expected_stake);
+            }
+            other => panic!("unexpected event {other:?}"),
+        }
+    }
+
+    fn downtime_vote_accounts(events: &[ProtectedEvent]) -> Vec<Pubkey> {
+        events
+            .iter()
+            .map(|event| match event {
+                ProtectedEvent::DowntimeRevenueImpact { vote_account, .. } => *vote_account,
+                other => panic!("unexpected event {other:?}"),
+            })
+            .collect()
+    }
+
+    /// credits in proportion to the weights 1500, 1200 and 900 of 3600: no member has downtime
+    fn committee_without_downtime() -> ValidatorMetaCollection {
+        let mut collection = alpenglow_collection("alpenglow");
+        collection.validator_metas[0].alpenglow_credits = Some(1250);
+        collection.validator_metas[2].alpenglow_credits = Some(750);
+        collection
+    }
+
+    #[test]
+    fn alpenglow_downtime_charges_a_staked_validator_outside_the_committee_at_uptime_zero() {
+        let mut collection = committee_without_downtime();
+        let events_of =
+            |collection: &ValidatorMetaCollection,
+             revenue: &HashMap<Pubkey, RevenueExpectationMeta>| {
+                collect_downtime_revenue_impact_events(collection, revenue, Some(&leader_slots()))
+                    .unwrap()
+            };
+        let revenue = revenue_map(&collection);
+        let events = events_of(&collection, &revenue);
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_uptime_zero(&events[0], pk(D), 99_700);
+
+        let mut without_revenue = revenue.clone();
+        without_revenue.remove(&pk(D));
+        assert!(events_of(&collection, &without_revenue).is_empty());
+
+        collection.validator_metas[3].inflation_rewards_commission_bps = Some(10000);
+        assert!(events_of(&collection, &revenue).is_empty());
+
+        collection.validator_metas[3].inflation_rewards_commission_bps = Some(500);
+        collection.validator_metas[3].stake = 0;
+        assert!(events_of(&collection, &revenue).is_empty());
+    }
+
+    #[test]
+    fn out_of_committee_validator_gets_downtime_and_no_vat_event() {
+        let collection = committee_without_downtime();
+        let revenue = RevenueExpectationMetaCollection {
+            epoch: collection.epoch,
+            slot: collection.slot,
+            revenue_expectations: revenue_map(&collection).into_values().collect(),
+        };
+        let debited = debited_except(&collection, &[pk(D)]);
+        let events = generate_protected_event_collection(
+            collection,
+            revenue,
+            Some(&leader_slots()),
+            Some(&HashSet::from([pk(D)])),
+            Some(&debited),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap()
+        .events;
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_uptime_zero(&events[0], pk(D), 99_700);
     }
 
     /// A, B, C stake 100 each skipped their whole first window and produced every other slot
@@ -807,7 +918,11 @@ mod tests {
                 Some(&scheduled),
             )
             .unwrap();
-            assert!(events.is_empty(), "epoch {epoch}: {events:?}");
+            assert_eq!(
+                downtime_vote_accounts(&events),
+                vec![pk(D)],
+                "epoch {epoch}"
+            );
         }
         // outside the skip epochs every scheduled slot counts: C weighs 4000 of 15600 -> 615
         let credits =
@@ -841,14 +956,11 @@ mod tests {
                 Some(&scheduled),
             )
             .unwrap();
-            let charged: Vec<_> = events
-                .iter()
-                .map(|event| match event {
-                    ProtectedEvent::DowntimeRevenueImpact { vote_account, .. } => *vote_account,
-                    other => panic!("unexpected event {other:?}"),
-                })
-                .collect();
-            assert_eq!(charged, vec![pk(B), pk(C)], "epoch {epoch}");
+            assert_eq!(
+                downtime_vote_accounts(&events),
+                vec![pk(B), pk(C), pk(D)],
+                "epoch {epoch}"
+            );
         }
     }
 
@@ -1228,8 +1340,9 @@ mod tests {
         )
         .unwrap()
         .events;
-        assert_eq!(events.len(), 1, "{events:?}");
+        assert_eq!(events.len(), 2, "{events:?}");
         assert_eq!(vat_event(&events), vec![(pk(C), dec!(0.095))]);
+        assert_uptime_zero(&events[1], pk(D), 99_700);
     }
 
     #[test]
@@ -1255,7 +1368,8 @@ mod tests {
         )
         .unwrap()
         .events;
-        assert!(events.is_empty(), "{events:?}");
+        assert_eq!(events.len(), 1, "{events:?}");
+        assert_uptime_zero(&events[0], pk(D), 99_700);
     }
 
     #[test]
