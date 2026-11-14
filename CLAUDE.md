@@ -107,7 +107,7 @@ Anchor program: 6 state accounts, 23 active instructions (v1 handlers in `instru
 | `validator-bonds-cli-institutional` | Institutional CLI                            |
 | `validator-bonds-cli-core`          | Shared CLI utilities, notifications, banners |
 | `validator-bonds-sanity-check`      | Settlement sanity verification CLI           |
-| `bonds-eventing`                    | Event parsing utilities                      |
+| `bonds-eventing`                    | Stores bond events; `send` delivers them     |
 | `validator-bonds-codama`            | Codama-generated client                      |
 
 ### bid-distribution engine (`settlement-distributions/bid-distribution/src/`)
@@ -145,6 +145,8 @@ Each YAML pipeline corresponds to a stage in the epoch settlement cycle:
 `scheduler-bidding.yml` → `prepare-bid-distribution.yml` → `init-settlements.yml` → `fund-settlements.yml` → `claim-settlements.yml` → `close-settlements.yml`
 
 Data is staged in GCS bucket `marinade-validator-bonds-mainnet/<epoch>/`.
+
+`collect-bonds.yml` (every 30 min per bond type) stores bond event state in a hard-failing step and sends the pending events in a separate step that soft-fails only on exit 99, so a notifications outage never blocks the data the bonds API serves.
 
 ### Configuration
 

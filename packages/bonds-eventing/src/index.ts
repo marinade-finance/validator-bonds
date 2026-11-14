@@ -10,6 +10,7 @@ import { Command } from 'commander'
 import pino from 'pino'
 
 import { installCommands } from './commands'
+import { exitCodeFor } from './exit-code'
 
 export const logger = pino(pinoConfiguration('info'))
 logger.level = 'debug'
@@ -55,6 +56,6 @@ program.parseAsync(process.argv).then(
           : String(err),
     )
     logger.debug({ resolution: 'Failure', err, args: process.argv })
-    process.exitCode = 200
+    process.exitCode = exitCodeFor(err)
   },
 )

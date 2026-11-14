@@ -49,10 +49,28 @@ export interface ValidatorState {
   auction_validator?: Record<string, unknown>
 }
 
-export interface EmitResult {
-  status: 'sent' | 'failed'
+export type PostResult =
+  | { kind: 'sent' }
+  | { kind: 'rejected'; error: string }
+  | { kind: 'unauthorized'; error: string }
+  | { kind: 'unavailable'; error: string }
+  | { kind: 'retryable'; error: string }
+
+export interface PendingEvent {
+  id: number
   messageId: string
-  error?: string
+  payload: BondsEventV1
+  attempts: number
+  supersededByNewer: boolean
+}
+
+export interface SendSummary {
+  sent: number
+  rejected: number
+  failed: number
+  remaining: number
+  stoppedBy: 'unauthorized' | 'unavailable' | 'retryable' | null
+  lastError: string | null
 }
 
 export interface EventingConfig {
@@ -61,13 +79,19 @@ export interface EventingConfig {
   scoringApiUrl: string
   tvlApiUrl: string
   institutionalApiUrl: string
+  postgresUrl: string | undefined
+  postgresSslRootCert: string | undefined
+  dryRun: boolean
+  cacheInputs: string | undefined
+}
+
+export interface SendConfig {
   notificationsApiUrl: string | undefined
   notificationsJwt: string | undefined
-  postgresUrl: string | undefined
+  postgresUrl: string
   postgresSslRootCert: string | undefined
   retryMaxAttempts: number
   retryBaseDelayMs: number
-  emitConcurrency: number
   dryRun: boolean
-  cacheInputs: string | undefined
+  summaryFile: string | undefined
 }
