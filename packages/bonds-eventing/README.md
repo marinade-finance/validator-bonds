@@ -35,7 +35,7 @@ DB table and only emits events when something changes between runs.
 
 - A single validator can trigger several events simultaneously (e.g., auction_exited + cap_changed + bond_balance_change in one run). They're not mutually exclusive.
 - If a validator has no previous state, only first_seen fires.
-- State is saved per validator. If a validator's event fails to POST, only that validator's state save is skipped (so its delta is retried on next run). Other validators whose events succeeded get their state saved normally.
+- State is saved for every validator on every run, in the same transaction that stores the run's events as `pending`; delivery is the separate `send` command, so a notifications outage never holds state back.
 - The state snapshot stored per validator is always the same shape (balance, auction status, bondGoodForNEpochs, cap constraint, SAM eligibility) regardless of which event fires. Events are derived from comparing the previous and current snapshots — the event type is orthogonal to the stored state.
 
 #### Engineering Todo
@@ -55,7 +55,7 @@ DB table and only emits events when something changes between runs.
 
 - When: A validator exists in previous state but is NOT in the current auction data, AND it had a funded bond (`funded_amount_lamports > 0`) or was in the auction (`in_auction = true`)
 - Not emitted: If the validator is still present, or if the previous state had zero balance and was not in auction (phantom entries from SAM data)
-- Note: After successful emission + state save, the delisted validator is deleted from bond_event_state, so this fires only once
+- Note: The delisted validator's state row is deleted in the same transaction that stores this event, so it fires only once
 - Details include `last_known_sam_eligible` as a hint for the probable cause of delisting
 
 3. auction_entered — Validator joined the auction

@@ -5,8 +5,16 @@ import { sql } from 'slonik'
 
 import { createEventingPool } from '../src/db'
 import { insertPendingEvents } from '../src/persist-events'
+import { runEventingPipeline } from '../src/pipeline'
+import { saveAuctionMeta } from '../src/state'
 
-import type { BondType, BondsEventV1 } from '../src/types'
+import type { AuctionMeta } from '../src/calc-relay'
+import type {
+  BondType,
+  BondsEventV1,
+  EventingConfig,
+  ValidatorState,
+} from '../src/types'
 import type { DatabasePool } from 'slonik'
 
 const logger = pino({ level: 'silent' })
@@ -109,5 +117,163 @@ describeDb('outbox DB', () => {
   it('insertPendingEvents with no events writes nothing', async () => {
     await insertPendingEvents(pool, [], logger)
     expect(await eventRows()).toEqual([])
+  })
+
+  describe('runEventingPipeline', () => {
+    interface TestValidator {
+      voteAccount: string
+    }
+
+    function makeConfig(
+      overrides: Partial<EventingConfig> = {},
+    ): EventingConfig {
+      return {
+        bondsApiUrl: '',
+        validatorsApiUrl: '',
+        scoringApiUrl: '',
+        tvlApiUrl: '',
+        institutionalApiUrl: '',
+        notificationsApiUrl: undefined,
+        notificationsJwt: undefined,
+        postgresUrl: TEST_POSTGRES_URL,
+        postgresSslRootCert: undefined,
+        retryMaxAttempts: 0,
+        retryBaseDelayMs: 0,
+        emitConcurrency: 1,
+        dryRun: false,
+        cacheInputs: undefined,
+        ...overrides,
+      }
+    }
+
+    function toState(v: TestValidator, epoch: number): ValidatorState {
+      return {
+        vote_account: v.voteAccount,
+        bond_pubkey: null,
+        bond_type: BOND_TYPE,
+        epoch,
+        in_auction: false,
+        bond_good_for_n_epochs: null,
+        cap_constraint: null,
+        cap_marinade_stake_sol: null,
+        funded_amount_lamports: 0n,
+        effective_amount_lamports: 0n,
+        auction_stake_lamports: 0n,
+        deficit_lamports: 0n,
+        settlement_claims_lamports: null,
+        sam_eligible: false,
+        updated_at: new Date().toISOString(),
+      }
+    }
+
+    function run(
+      validators: TestValidator[],
+      epoch: number,
+      events: BondsEventV1[],
+      opts: {
+        config?: Partial<EventingConfig>
+        saveMeta?: (tx: Parameters<typeof saveAuctionMeta>[0]) => Promise<void>
+      } = {},
+    ) {
+      return runEventingPipeline({
+        bondType: BOND_TYPE,
+        config: makeConfig(opts.config),
+        logger,
+        validators,
+        epoch,
+        voteAccountOf: v => v.voteAccount,
+        evaluate: () => events,
+        toState,
+        saveMeta:
+          opts.saveMeta ??
+          (tx =>
+            saveAuctionMeta(
+              tx,
+              BOND_TYPE,
+              { epoch } as unknown as AuctionMeta,
+              logger,
+            )),
+      })
+    }
+
+    async function snapshot() {
+      const states = await pool.query(sql.unsafe`
+        SELECT vote_account, epoch FROM bond_event_state
+        WHERE bond_type = ${BOND_TYPE} ORDER BY vote_account
+      `)
+      const meta = await pool.maybeOne(sql.unsafe`
+        SELECT epoch FROM bond_event_meta WHERE bond_type = ${BOND_TYPE}
+      `)
+      const events = await eventRows()
+      return {
+        states: states.rows,
+        metaEpoch: (meta as { epoch: number } | null)?.epoch ?? null,
+        events: events.map(e => [e.vote_account, e.status]),
+      }
+    }
+
+    beforeEach(async () => {
+      await pool.query(
+        sql.unsafe`DELETE FROM bond_event_state WHERE bond_type = ${BOND_TYPE}`,
+      )
+      await pool.query(
+        sql.unsafe`DELETE FROM bond_event_meta WHERE bond_type = ${BOND_TYPE}`,
+      )
+    })
+
+    it('stores all states, pending events and meta, then deletes a removed validator', async () => {
+      await run([{ voteAccount: 'voteA' }, { voteAccount: 'voteB' }], 900, [
+        makeEvent({ vote_account: 'voteA' }),
+      ])
+      expect(await snapshot()).toEqual({
+        states: [
+          { vote_account: 'voteA', epoch: 900 },
+          { vote_account: 'voteB', epoch: 900 },
+        ],
+        metaEpoch: 900,
+        events: [['voteA', 'pending']],
+      })
+
+      await run([{ voteAccount: 'voteA' }], 901, [
+        makeEvent({ vote_account: 'voteB', inner_type: 'validator_delisted' }),
+      ])
+      expect(await snapshot()).toEqual({
+        states: [{ vote_account: 'voteA', epoch: 901 }],
+        metaEpoch: 901,
+        events: [
+          ['voteA', 'pending'],
+          ['voteB', 'pending'],
+        ],
+      })
+    })
+
+    it('rolls back every write when the meta save fails', async () => {
+      await run([{ voteAccount: 'voteA' }], 900, [makeEvent()])
+      const before = await snapshot()
+
+      await expect(
+        run(
+          [{ voteAccount: 'voteA' }, { voteAccount: 'voteB' }],
+          901,
+          [makeEvent({ vote_account: 'voteB' })],
+          {
+            saveMeta: () => Promise.reject(new Error('meta write failed')),
+          },
+        ),
+      ).rejects.toThrow('meta write failed')
+
+      expect(await snapshot()).toEqual(before)
+    })
+
+    it('writes nothing in dry run', async () => {
+      await run([{ voteAccount: 'voteA' }], 900, [makeEvent()])
+      const before = await snapshot()
+
+      await run([{ voteAccount: 'voteB' }], 901, [makeEvent()], {
+        config: { dryRun: true },
+      })
+
+      expect(await snapshot()).toEqual(before)
+    })
   })
 })
