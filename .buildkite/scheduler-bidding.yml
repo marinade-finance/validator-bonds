@@ -7,7 +7,7 @@ env:
   gs_bucket_etl: gs://marinade-stakes-etl-mainnet
   APY_API_URL: https://apy.marinade.finance
   # keep in sync with prepare-bid-distribution.yml "Download ETL rewards data"
-  etl_required_files: 'rewards_mev.json rewards_validators_mev.json rewards_inflation.json rewards_validators_inflation.json rewards_validators_blocks.json rewards_priority_fee.json'
+  etl_required_files: 'rewards_mev.json rewards_validators_mev.json rewards_inflation.json rewards_validators_inflation.json rewards_validators_blocks.json rewards_priority_fee.json rewards_validators_inflation_vat.json'
 
 steps:
   - label: ":closed_lock_with_key: Concurrency gate lock"
