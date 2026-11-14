@@ -60,3 +60,7 @@ plugins/validator-bonds/evals/report/
 *.cast
 *.gif
 .refs
+
+# TLC model checker output (state queue, fingerprints, error traces)
+formal/**/states/
+formal/**/*_TTrace_*

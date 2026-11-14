@@ -247,6 +247,151 @@ export async function removeVoteAccount({
   }
 }
 
+/**
+ * States a vote account address can be left in by its owner, each produced by real transactions:
+ * `closed` gone, `dusted` system-owned without data, `zeroed` vote-owned with the data the vote
+ * program zero-fills on close (kept alive by a top-up in the same transaction), `foreign`
+ * re-created under another owner, `reopened` re-created as a vote account, `reopenedZeroed`
+ * a zeroed account initialized again.
+ */
+export type VoteAccountVariant =
+  | 'live'
+  | 'closed'
+  | 'dusted'
+  | 'zeroed'
+  | 'foreign'
+  | 'reopened'
+  | 'reopenedZeroed'
+export const CLOSED_VOTE_VARIANTS: VoteAccountVariant[] = [
+  'closed',
+  'dusted',
+  'zeroed',
+  'foreign',
+]
+export const LIVE_VOTE_VARIANTS: VoteAccountVariant[] = [
+  'live',
+  'reopened',
+  'reopenedZeroed',
+]
+
+/**
+ * Moves a live vote account into the given variant.
+ * @param args.voteAccount keypair the live vote account was created with
+ * @param args.authorizedWithdrawer its authorized withdrawer
+ */
+export async function setVoteAccountVariant({
+  provider,
+  voteAccount,
+  authorizedWithdrawer,
+  variant,
+}: {
+  provider: ExtendedProvider
+  voteAccount: Keypair
+  authorizedWithdrawer: Keypair
+  variant: VoteAccountVariant
+}): Promise<void> {
+  if (variant === 'live') {
+    return
+  }
+  const votePubkey = voteAccount.publicKey
+  if (variant === 'zeroed' || variant === 'reopenedZeroed') {
+    const info = await provider.connection.getAccountInfo(votePubkey)
+    assert(info !== null, 'vote account has to exist')
+    const rentExempt =
+      await provider.connection.getMinimumBalanceForRentExemption(
+        VOTE_ACCOUNT_SIZE,
+      )
+    await provider.sendIx(
+      [authorizedWithdrawer],
+      VoteProgram.withdraw({
+        votePubkey,
+        authorizedWithdrawerPubkey: authorizedWithdrawer.publicKey,
+        toPubkey: authorizedWithdrawer.publicKey,
+        lamports: info.lamports,
+      }),
+      SystemProgram.transfer({
+        fromPubkey: provider.walletPubkey,
+        toPubkey: votePubkey,
+        lamports: rentExempt,
+      }),
+    )
+    if (variant === 'reopenedZeroed') {
+      await reopenVoteAccount({ provider, voteAccount, authorizedWithdrawer })
+    }
+    return
+  }
+  await removeVoteAccount({
+    provider,
+    voteAccount: votePubkey,
+    authorizedWithdrawer,
+  })
+  if (variant === 'dusted') {
+    await provider.sendIx(
+      [],
+      SystemProgram.transfer({
+        fromPubkey: provider.walletPubkey,
+        toPubkey: votePubkey,
+        lamports:
+          await provider.connection.getMinimumBalanceForRentExemption(0),
+      }),
+    )
+  } else if (variant === 'foreign') {
+    const space = 8
+    await provider.sendIx(
+      [voteAccount],
+      SystemProgram.createAccount({
+        fromPubkey: provider.walletPubkey,
+        newAccountPubkey: votePubkey,
+        lamports:
+          await provider.connection.getMinimumBalanceForRentExemption(space),
+        space,
+        programId: Keypair.generate().publicKey,
+      }),
+    )
+  } else if (variant === 'reopened') {
+    await reopenVoteAccount({ provider, voteAccount, authorizedWithdrawer })
+  }
+}
+
+/**
+ * Makes a closed vote account address a vote account again: re-creates a gone one,
+ * initializes a zeroed one with a new node identity.
+ */
+export async function reopenVoteAccount({
+  provider,
+  voteAccount,
+  authorizedWithdrawer,
+}: {
+  provider: ExtendedProvider
+  voteAccount: Keypair
+  authorizedWithdrawer: Keypair
+}): Promise<void> {
+  const votePubkey = voteAccount.publicKey
+  const info = await provider.connection.getAccountInfo(votePubkey)
+  if (info === null) {
+    await createVoteAccount({ provider, voteAccount, authorizedWithdrawer })
+    return
+  }
+  assert(
+    info.owner.equals(VoteProgram.programId) && info.data.every(b => b === 0),
+    'only a gone or zeroed vote account can be reopened',
+  )
+  const nodeIdentity = Keypair.generate()
+  await provider.sendIx(
+    [nodeIdentity],
+    VoteProgram.initializeAccount({
+      votePubkey,
+      nodePubkey: nodeIdentity.publicKey,
+      voteInit: {
+        authorizedVoter: Keypair.generate().publicKey,
+        authorizedWithdrawer: authorizedWithdrawer.publicKey,
+        commission: 0,
+        nodePubkey: nodeIdentity.publicKey,
+      },
+    }),
+  )
+}
+
 export async function authorizeStakeAccount({
   provider,
   stakeAccount,

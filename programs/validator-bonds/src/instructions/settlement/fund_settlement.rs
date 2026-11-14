@@ -1,6 +1,6 @@
 use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_is_not_locked,
-    check_stake_valid_delegation,
+    check_stake_valid_delegation, is_vote_account_delegatable,
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -16,8 +16,7 @@ use anchor_spl::stake::{
     authorize, deactivate_stake, withdraw, Authorize, DeactivateStake, Stake, StakeAccount,
     Withdraw,
 };
-use solana_sdk_ids::vote::ID as vote_program_id;
-use solana_stake_interface::sysvar::stake_history;
+use solana_stake_interface::sysvar::stake_history::{self, StakeHistorySysvar};
 use solana_stake_interface::{
     self as stake,
     state::{StakeAuthorize, StakeStateV2},
@@ -47,9 +46,6 @@ pub struct FundSettlement<'info> {
     pub bond: Box<Account<'info, Bond>>,
 
     /// CHECK: the validator vote account to which the stake account is delegated, linked to bond
-    #[account(
-        owner = vote_program_id @ ErrorCode::InvalidVoteAccountProgramId,
-    )]
     pub vote_account: UncheckedAccount<'info>,
 
     #[account(
@@ -192,11 +188,64 @@ impl FundSettlement<'_> {
         let left_over_splittable = amount_available > amount_needed
             && amount_available - amount_needed >= stake_account_min_size + split_stake_rent_exempt;
 
+        // the stake account must hold more than the minimal size, otherwise there is nothing to fund
+        require_gt!(
+            amount_available,
+            stake_account_min_size,
+            ErrorCode::StakeAccountNotBigEnoughToFund
+        );
+
+        // a fully inactive account is withdrawable down to rent, whatever stake it still records
+        let epoch = ctx.accounts.clock.epoch;
+        let fully_inactive = epoch >= stake_delegation.deactivation_epoch
+            // the stake program computes warmup and cooldown with the new rate since epoch 0
+            && stake_delegation
+                .stake_activating_and_deactivating(epoch, &StakeHistorySysvar(epoch), Some(0))
+                .effective
+                == 0;
+        let lamports_staked = if fully_inactive {
+            0
+        } else {
+            stake_delegation.stake
+        };
+        let lamports_non_delegated = ctx
+            .accounts
+            .stake_account
+            .get_lamports()
+            .saturating_sub(lamports_staked);
+        let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
+            - ctx.accounts.settlement.lamports_funded
+            + stake_meta.rent_exempt_reserve;
+        let lamports_above_needed =
+            amount_available.saturating_sub(amount_needed + split_stake_rent_exempt);
+        let lamports_to_transfer = lamports_non_delegated
+            .saturating_sub(lamports_max_possible_non_delegated)
+            .min(lamports_above_needed);
+        // an active split below the minimum delegation fails, so such a leftover stays in the funded account
+        let fund_split_leftover = if lamports_above_needed - lamports_to_transfer
+            < ctx.accounts.config.minimum_stake_lamports
+        {
+            0
+        } else {
+            lamports_above_needed - lamports_to_transfer
+        };
+        let split_delegatable = fund_split_leftover > 0
+            || lamports_to_transfer >= ctx.accounts.config.minimum_stake_lamports;
+        let vote_account_delegatable = is_vote_account_delegatable(&ctx.accounts.vote_account);
+        let split_possible = left_over_splittable && split_delegatable;
+        let whole_forced_by_vote =
+            split_possible && fund_split_leftover == 0 && !vote_account_delegatable;
+        if whole_forced_by_vote {
+            msg!(
+                "Vote account {} cannot be delegated to, funding the whole stake account",
+                ctx.accounts.vote_account.key()
+            );
+        }
+
         let (funding_amount, is_split) =
             // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
-            if amount_available <= amount_needed || !left_over_splittable  {
-                // caller must provide a stake account above stake_account_min_size, otherwise this underflows
+            if !split_possible || whole_forced_by_vote {
                 let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, no splitting - closing and returning rent
@@ -219,32 +268,13 @@ impl FundSettlement<'_> {
                 // stake_account gains:
                 // --  amount_needed
                 // --    "+" what is needed to be paid back to split rent payer on close
-                // split_stake_account gains (i.e., fund_split_leftover):
-                // -- what overflows from funding:
-                // --  lamports available (delegated and non-delegated)
-                // --    "-" amount needed
-                // --    "-" what is needed to be paid back to split rent payer on close
-                let mut fund_split_leftover =
-                    ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
+                // split_stake_account gains:
+                // --  lamports_to_transfer (withdrawn) "+" fund_split_leftover (split)
 
                 // For the 'stake_account' to stay in the "delegated" state, a minimum stake must remain delegated.
                 // A portion of the undelegated lamports may need to be moved to the split account before splitting.
                 // See: https://github.com/anza-xyz/agave/blob/v2.0.9/programs/stake/src/stake_state.rs#L504
-                let lamports_non_delegated = ctx.accounts.stake_account.get_lamports() -  stake_delegation.stake;
-                let lamports_max_possible_non_delegated = ctx.accounts.settlement.max_total_claim
-                    - ctx.accounts.settlement.lamports_funded + stake_meta.rent_exempt_reserve;
-
-                if lamports_non_delegated > lamports_max_possible_non_delegated {
-                    let mut lamports_to_transfer = lamports_non_delegated - lamports_max_possible_non_delegated;
-                    if fund_split_leftover >= lamports_to_transfer {
-                        // to be split; something is withdrawn directly and some part is moved by split ix
-                        fund_split_leftover -= lamports_to_transfer;
-                    } else {
-                        // nothing to be split; all is withdrawn directly, to withdraw:
-                        //   (to pay the funding + minimal size of stake account + rent == amount_needed) + returning rent for the split
-                        fund_split_leftover = 0;
-                        lamports_to_transfer = ctx.accounts.stake_account.get_lamports() - amount_needed - split_stake_rent_exempt;
-                    }
+                if lamports_to_transfer > 0 {
                     msg!(
                         "Withdraw non-delegated: {} to split stake {}; fund_split_leftover: {}",
                         lamports_to_transfer,

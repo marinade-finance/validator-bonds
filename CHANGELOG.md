@@ -10,6 +10,15 @@ All notable changes to this project will be documented in this file. See [standa
 
 ---
 
+## contract release v2.4.0 (unreleased)
+
+### Changes
+
+- `fund_settlement` funds underwater, inactive and small stake accounts, and stake accounts of a bond whose vote account is closed (README, Known constraints)
+- New error `StakeAccountNotBigEnoughToFund` (6083), appended last; a stake account exactly at the minimal size fails with it instead of funding 0 lamports
+- `fund_settlement` and `reset_stake` no longer return `InvalidVoteAccountProgramId` (6004) for a vote account not owned by the vote program
+- `reset_stake` returns the stake without re-delegating it when the vote account is closed
+
 ## contract release v2.3.0 (2026-10-30)
 
 - address: [`vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4`](https://explorer.solana.com/address/vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4)
