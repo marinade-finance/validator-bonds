@@ -425,9 +425,9 @@ pub fn collect_vat_unadmitted_events(
         info!("Validator admission ticket is not active, no VAT-unadmitted events");
         return Ok(vec![]);
     }
-    if epoch_type(validator_meta_collection) == AlpenglowEpochType::Migration {
+    if epoch_type(validator_meta_collection) != AlpenglowEpochType::Alpenglow {
         info!(
-            "Epoch {} is the Alpenglow migration epoch, no VAT-unadmitted events",
+            "Epoch {} is not an Alpenglow epoch, the chain charges no VAT debit, no VAT-unadmitted events",
             validator_meta_collection.epoch
         );
         return Ok(vec![]);
@@ -1103,40 +1103,25 @@ mod tests {
     }
 
     #[test]
-    fn vat_unadmitted_fires_in_a_tower_epoch_once_the_admission_ticket_is_active() {
-        let mut collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
-        // the paid validator's stake keeps the unadmitted one under the stake share limit
-        collection.validator_metas[0].stake *= 1000;
-        let low = pk("3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk");
-        // the 100% commission and zero-credit row is left out
-        let full_commission = pk("13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7");
-        let unpaid = HashSet::from([low, full_commission]);
-        let debited = debited_except(&collection, &[low, full_commission]);
-        let vote_accounts: Vec<Pubkey> = vat_event(
-            &collect_vat_unadmitted_events(
+    fn vat_unadmitted_never_fires_in_a_tower_epoch() {
+        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
+        assert_eq!(
+            collection
+                .features
+                .inflation_rewards_validator_admission_ticket_active,
+            Some(true)
+        );
+        let unpaid = HashSet::from([pk("3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk")]);
+        for vat_debited in [None, Some(&HashSet::new())] {
+            assert!(collect_vat_unadmitted_events(
                 &collection,
                 &unpaid,
-                Some(&debited),
-                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+                vat_debited,
+                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
             )
-            .unwrap(),
-        )
-        .into_iter()
-        .map(|(vote_account, _)| vote_account)
-        .collect();
-        assert_eq!(vote_accounts, vec![low]);
-
-        collection
-            .features
-            .inflation_rewards_validator_admission_ticket_active = None;
-        assert!(collect_vat_unadmitted_events(
-            &collection,
-            &unpaid,
-            None,
-            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
-        )
-        .unwrap()
-        .is_empty());
+            .unwrap()
+            .is_empty());
+        }
     }
 
     #[test]
@@ -1236,16 +1221,17 @@ mod tests {
         );
     }
 
-    fn all_refused_tower() -> (ValidatorMetaCollection, HashSet<Pubkey>, HashSet<Pubkey>) {
-        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
-        let unpaid = debited_except(&collection, &[]);
-        let debited_elsewhere = HashSet::from([pk(A)]);
+    fn all_refused() -> (ValidatorMetaCollection, HashSet<Pubkey>, HashSet<Pubkey>) {
+        let mut collection = alpenglow_collection("alpenglow");
+        collection.validator_metas[3].stake = 100;
+        let unpaid = HashSet::from([pk(A), pk(B), pk(C)]);
+        let debited_elsewhere = HashSet::from([pk(D)]);
         (collection, unpaid, debited_elsewhere)
     }
 
     #[test]
     fn vat_unadmitted_over_one_percent_of_stake_means_broken_inputs() {
-        let (collection, unpaid, debited) = all_refused_tower();
+        let (collection, unpaid, debited) = all_refused();
         let err = collect_vat_unadmitted_events(
             &collection,
             &unpaid,
@@ -1258,7 +1244,7 @@ mod tests {
 
     #[test]
     fn vat_unadmitted_stake_limit_can_be_raised_by_the_operator() {
-        let (collection, unpaid, debited) = all_refused_tower();
+        let (collection, unpaid, debited) = all_refused();
         let events =
             collect_vat_unadmitted_events(&collection, &unpaid, Some(&debited), 10_000).unwrap();
         assert!(!events.is_empty());

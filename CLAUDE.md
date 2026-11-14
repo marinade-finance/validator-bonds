@@ -182,7 +182,7 @@ A refusal at the N→N+1 boundary also leaves the validator outside the Alpenglo
 
 Accepted gaps: VAT covers inflation only, so a refused validator's MEV/block shortfall in epoch N (part of `actual_non_bid_pmpe`) is not compensated; VAT prices from the chain, downtime from the ds-sam PMPE.
 
-Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ticket feature is active (Tower epochs included, mainnet since epoch 1006), the epoch is not the Alpenglow migration epoch, the validator is absent from the stakes-etl `VATDebit` list of the epoch (`--vat-debits`, `rewards_validators_inflation_vat.json`), and its stakers got no inflation. An empty debit list, or a non-debited voting validator whose stakers were paid, fails the run. The snapshot's `inflation_rewards_admitted` is not read: it is null for balance and cutoff refusals. Missing stakers' inflation rows alone never charge a bond.
+Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ticket feature is active, the epoch is an Alpenglow epoch past the migration (Agave burns the VAT only under Alpenglow, so Tower refusals since epoch 1006 have no debit and are not charged), the validator is absent from the stakes-etl `VATDebit` list of the epoch (`--vat-debits`, `rewards_validators_inflation_vat.json`), and its stakers got no inflation. An empty debit list, or a non-debited voting validator whose stakers were paid, fails the run. The snapshot's `inflation_rewards_admitted` is not read: it is null for balance and cutoff refusals. Missing stakers' inflation rows alone never charge a bond.
 
 ### Agave first-leader-window skip
 
