@@ -34,7 +34,7 @@
     "@marinade.finance/ds-sam-sdk": "0.6.7",
     "@marinade.finance/ts-common": "5.11.1",
     "@marinade.finance/validator-bonds-sdk": "workspace:*",
-    "@marinade.finance/notifications-bonds-event-v1": "1.0.5",
+    "@marinade.finance/notifications-bonds-event-v1": "1.0.6",
     "@solana/web3.js": "1.99.0",
     "commander": "14.0.3",
     "pino": "9.14.0",
