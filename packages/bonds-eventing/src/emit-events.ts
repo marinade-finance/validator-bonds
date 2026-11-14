@@ -4,6 +4,23 @@ import type { PostResult, SendConfig } from './types'
 
 const MAX_ERROR_LENGTH = 1000
 
+type ErrorLike = { message?: unknown; code?: unknown; cause?: unknown }
+
+// fetch reports every network failure as "fetch failed"; the reason is in `cause`
+function describeError(err: unknown): string {
+  if (typeof err !== 'object' || err === null) {
+    return String(err)
+  }
+  const { message, cause } = err as ErrorLike
+  const text = typeof message === 'string' ? message : JSON.stringify(err)
+  if (typeof cause !== 'object' || cause === null) {
+    return text
+  }
+  const { code, message: causeMessage } = cause as ErrorLike
+  const reason = typeof code === 'string' ? code : causeMessage
+  return typeof reason === 'string' ? `${text}: ${reason}` : text
+}
+
 export async function postEvent(
   message: { messageId: string; createdAtMs: number; payload: object },
   config: SendConfig,
@@ -61,10 +78,7 @@ export async function postEvent(
         return { kind: 'unauthorized', error: lastError }
       }
     } catch (err) {
-      lastError = (err instanceof Error ? err.message : String(err)).slice(
-        0,
-        MAX_ERROR_LENGTH,
-      )
+      lastError = describeError(err).slice(0, MAX_ERROR_LENGTH)
     }
   }
 

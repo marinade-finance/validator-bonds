@@ -197,16 +197,21 @@ describe('postEvent', () => {
     expect(count).toBe(3)
   })
 
-  it('returns retryable when the connection is refused', async () => {
+  it('returns retryable with the cause code when the connection is refused', async () => {
+    const { port, close } = await createTestServer(() => {})
+    await close()
     const result = await postEvent(
       makeMessage(),
       makeConfig({
-        notificationsApiUrl: 'http://127.0.0.1:9',
+        notificationsApiUrl: `http://127.0.0.1:${port}`,
         retryMaxAttempts: 0,
       }),
       logger,
     )
-    expect(result.kind).toBe('retryable')
+    expect(result).toEqual({
+      kind: 'retryable',
+      error: 'fetch failed: ECONNREFUSED',
+    })
   })
 
   it('truncates a long error body to 1000 characters', async () => {
