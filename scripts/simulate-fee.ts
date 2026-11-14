@@ -151,6 +151,7 @@ const SAM_FILE = 'sam-scores.json'
 const VALIDATORS_FILE = 'validators.json'
 const LEADER_SCHEDULE_FILE = 'leader-schedule.json'
 const BURNED_FILE = 'rewards/validators_inflation_burned.json'
+const VAT_DEBITS_FILE = 'rewards/validators_inflation_vat.json'
 
 const INPUTS = [
   STAKES_FILE,
@@ -400,6 +401,14 @@ async function downloadEpochInputs(
       `  epoch ${epoch}: optional ${BURNED_FILE} not fetched\n`,
     )
   })
+  await fetchOne(
+    gcsEtl(epoch, 'rewards_validators_inflation_vat.json'),
+    join(inp, VAT_DEBITS_FILE),
+  ).catch(() => {
+    process.stderr.write(
+      `  epoch ${epoch}: optional ${VAT_DEBITS_FILE} not fetched\n`,
+    )
+  })
   await fetchOne(scoringUrl(epoch), join(inp, SAM_FILE), 'http')
 }
 
@@ -419,6 +428,10 @@ async function runBidDistributionCli(
       join(tmp, LEADER_SCHEDULE_FILE),
     )
     await stageInput(join(inp, BURNED_FILE), join(tmp, BURNED_FILE))
+    const hasVatDebits = await stageInput(
+      join(inp, VAT_DEBITS_FILE),
+      join(tmp, VAT_DEBITS_FILE),
+    )
     const cliArgs = [
       binaryPath,
       '--settlement-config',
@@ -442,6 +455,7 @@ async function runBidDistributionCli(
       ...(hasLeader
         ? ['--leader-schedule', join(tmp, LEADER_SCHEDULE_FILE)]
         : []),
+      ...(hasVatDebits ? ['--vat-debits', join(tmp, VAT_DEBITS_FILE)] : []),
     ]
     if (values.d) process.stderr.write(`+ ${cliArgs.join(' ')}\n`)
     const proc = spawnTracked(cliArgs, {
