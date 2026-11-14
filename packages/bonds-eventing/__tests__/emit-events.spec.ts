@@ -4,7 +4,7 @@ import pino from 'pino'
 
 import { postEvent } from '../src/emit-events'
 
-import type { BondsEventV1, SendConfig } from '../src/types'
+import type { BondsEventV1 } from '../src/types'
 
 const logger = pino({ level: 'silent' })
 const MESSAGE_ID = '0193a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b'
@@ -27,16 +27,14 @@ function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
   }
 }
 
-function makeConfig(overrides: Partial<SendConfig> = {}): SendConfig {
+function makeConfig(
+  overrides: Partial<Parameters<typeof postEvent>[1]> = {},
+): Parameters<typeof postEvent>[1] {
   return {
     notificationsApiUrl: undefined,
     notificationsJwt: undefined,
-    postgresUrl: 'postgresql://localhost/test',
-    postgresSslRootCert: undefined,
     retryMaxAttempts: 2,
     retryBaseDelayMs: 10, // fast for tests
-    dryRun: false,
-    summaryFile: undefined,
     ...overrides,
   }
 }
@@ -193,7 +191,19 @@ describe('postEvent', () => {
     },
   )
 
-  it.each([404])('retries %i and then returns retryable', async status => {
+  it.each([404, 405])(
+    'reports unavailable on %i without retry',
+    async status => {
+      const { result, count } = await postWithStatus(status, 3)
+      expect(result).toEqual({
+        kind: 'unavailable',
+        error: `HTTP ${status}: status ${status}`,
+      })
+      expect(count).toBe(1)
+    },
+  )
+
+  it.each([409])('retries %i and then returns retryable', async status => {
     const { result, count } = await postWithStatus(status, 2)
     expect(result).toEqual({
       kind: 'retryable',

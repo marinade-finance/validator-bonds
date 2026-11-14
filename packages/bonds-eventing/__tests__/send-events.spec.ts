@@ -224,7 +224,7 @@ describe('sendPendingEvents', () => {
   })
 
   it('stops on a retryable failure of the first row', async () => {
-    await withServer([404], async (config, received) => {
+    await withServer([409], async (config, received) => {
       const { marks, mark } = recorder()
 
       const summary = await sendPendingEvents(
@@ -242,13 +242,13 @@ describe('sendPendingEvents', () => {
         failed: 0,
         remaining: 2,
         stoppedBy: 'retryable',
-        lastError: 'HTTP 404: status 404',
+        lastError: 'HTTP 409: status 409',
       })
     })
   })
 
   it('counts a row on its last attempt as failed', async () => {
-    await withServer([404], async (config, received) => {
+    await withServer([409], async (config, received) => {
       const { marks, mark } = recorder()
 
       const summary = await sendPendingEvents(
@@ -266,7 +266,7 @@ describe('sendPendingEvents', () => {
         failed: 1,
         remaining: 1,
         stoppedBy: 'retryable',
-        lastError: 'HTTP 404: status 404',
+        lastError: 'HTTP 409: status 409',
       })
     })
   })

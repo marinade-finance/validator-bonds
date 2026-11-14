@@ -31,7 +31,8 @@ so a pending withdraw request does not read as a settlement; for bidding it rema
 `bidding` / `institutional` evaluate deltas and, in one transaction, save state for every validator,
 insert the new events into `emitted_bond_events` as `pending` and save the auction meta. They make no
 HTTP call. `send <bond_type>` posts the `pending` rows one at a time in `id` order, with the
-`message_id` fixed at insert time so a resend is deduplicated by the notifications inbox. A row with a
+`message_id` fixed at insert time. The notifications inbox drops a resend while the first copy is
+queued; after that its notification dedup filters the repeat. A row with a
 newer pending row of the same `vote_account` and `inner_type` is posted with `superseded_by_newer: true`;
 marinade-notifications decides what to drop.
 
@@ -40,12 +41,12 @@ marinade-notifications decides what to drop.
 | `pending`  | Not delivered yet; retried by every `send` run           |
 | `sent`     | Accepted by marinade-notifications (2xx)                 |
 | `rejected` | Refused as invalid (400/422); never retried              |
-| `failed`   | Other 4xx (e.g. 404) on 10 attempts; never retried       |
+| `failed`   | Other 4xx (e.g. 409) on 10 attempts; never retried       |
 | `ignored`  | Skipped on purpose (pre-outbox failures, or set by hand) |
 
 `send` stops at the first failure that is not 400/422, so a later event is never delivered before an
-earlier one. Only an other-4xx failure counts an attempt; 401/403, 429, 5xx and network errors are
-not caused by the row, so they never fail it. Exit codes: `99` some event stayed undelivered (the
+earlier one. Only an other-4xx failure counts an attempt; 401/403, 404/405, 429, 5xx and network
+errors are not caused by the row, so they never fail it. Exit codes: `99` some event stayed undelivered (the
 `--summary-file` is written), `100` transient DB error (retried by Buildkite), `200` any other error.
 
 To skip a row by hand: `UPDATE emitted_bond_events SET status = 'ignored' WHERE id = …;`

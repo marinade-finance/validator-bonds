@@ -23,7 +23,13 @@ function describeError(err: unknown): string {
 
 export async function postEvent(
   message: { messageId: string; createdAtMs: number; payload: object },
-  config: SendConfig,
+  config: Pick<
+    SendConfig,
+    | 'notificationsApiUrl'
+    | 'notificationsJwt'
+    | 'retryMaxAttempts'
+    | 'retryBaseDelayMs'
+  >,
   logger: LoggerWrapper,
 ): Promise<PostResult> {
   const url = `${config.notificationsApiUrl}/bonds-event-v1`
@@ -77,6 +83,9 @@ export async function postEvent(
       }
       if (response.status === 401 || response.status === 403) {
         return { kind: 'unauthorized', error: lastError }
+      }
+      if (response.status === 404 || response.status === 405) {
+        return { kind: 'unavailable', error: lastError }
       }
       lastKind =
         response.status === 429 || response.status >= 500

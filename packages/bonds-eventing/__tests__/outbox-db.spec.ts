@@ -191,7 +191,7 @@ describeDb('outbox DB', () => {
       })
       await markEvent(pool, retryable, {
         kind: 'retryable',
-        error: 'HTTP 404',
+        error: 'HTTP 409',
       })
       await markEvent(pool, unavailable, {
         kind: 'unavailable',
@@ -225,7 +225,7 @@ describeDb('outbox DB', () => {
       expect(pick(await row(retryable))).toEqual({
         status: 'pending',
         attempts: 1,
-        error: 'HTTP 404',
+        error: 'HTTP 409',
         attempted: true,
       })
       expect(pick(await row(unavailable))).toEqual({
@@ -239,11 +239,11 @@ describeDb('outbox DB', () => {
     it('marks a row failed after ten retryable attempts', async () => {
       const id = await insert('voteA')
       for (let i = 0; i < 9; i++) {
-        await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
+        await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 409' })
       }
       expect((await row(id)).status).toBe('pending')
 
-      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
+      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 409' })
 
       expect(await row(id)).toMatchObject({ status: 'failed', attempts: 10 })
     })
@@ -254,7 +254,7 @@ describeDb('outbox DB', () => {
         sql.unsafe`UPDATE emitted_bond_events SET status = 'ignored' WHERE id = ${id}`,
       )
 
-      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
+      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 409' })
 
       expect(await row(id)).toMatchObject({ status: 'ignored', attempts: 0 })
     })
