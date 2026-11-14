@@ -691,6 +691,46 @@ fn aggregate_rewards(
     Ok(rewards_map)
 }
 
+#[derive(Deserialize, Debug, Clone)]
+pub struct VatDebitEntry {
+    pub epoch: u64,
+    pub charged_epoch: u64,
+    #[serde(with = "pubkey_string_conversion")]
+    pub vote_account: Pubkey,
+}
+
+/// Vote accounts charged the SIMD-0357 VAT for the inflation rewards of `expected_epoch`
+pub fn load_vat_debits(path: &Path, expected_epoch: u64) -> anyhow::Result<HashSet<Pubkey>> {
+    let entries: Vec<VatDebitEntry> =
+        read_from_json_file(&path).map_err(file_error("vat-debits", &path.to_string_lossy()))?;
+    vat_debited(&entries, expected_epoch)
+}
+
+fn vat_debited(entries: &[VatDebitEntry], expected_epoch: u64) -> anyhow::Result<HashSet<Pubkey>> {
+    let mut debited = HashSet::with_capacity(entries.len());
+    for entry in entries {
+        ensure!(
+            entry.epoch == expected_epoch,
+            "VAT debit of {} is of epoch {}, expected {expected_epoch}",
+            entry.vote_account,
+            entry.epoch
+        );
+        ensure!(
+            entry.charged_epoch == expected_epoch + 1,
+            "VAT debit of {} is charged in epoch {}, expected {}",
+            entry.vote_account,
+            entry.charged_epoch,
+            expected_epoch + 1
+        );
+        ensure!(
+            debited.insert(entry.vote_account),
+            "VAT debit of {} is repeated in epoch {expected_epoch}",
+            entry.vote_account
+        );
+    }
+    Ok(debited)
+}
+
 /// Vote accounts with active stake whose stakers got no inflation rewards (SIMD-0357 refusal)
 pub fn unpaid_vote_accounts(
     stake_meta_collection: &StakeMetaCollection,
@@ -1175,5 +1215,67 @@ mod tests {
             unpaid_vote_accounts(&stake_meta_collection, &rewards_collection),
             HashSet::from([unpaid_no_entry, unpaid_zero])
         );
+    }
+
+    fn vat_debit(epoch: u64, charged_epoch: u64, vote_account: Pubkey) -> VatDebitEntry {
+        VatDebitEntry {
+            epoch,
+            charged_epoch,
+            vote_account,
+        }
+    }
+
+    #[test]
+    fn load_vat_debits_returns_the_debited_vote_accounts() {
+        let entries: Vec<VatDebitEntry> = serde_json::from_str(
+            r#"[
+                {"epoch": 1082, "charged_epoch": 1083, "slot": 467856000, "vote_account": "4m1PbxzwLdUnEwog3T9UKxgjktgriHgE1CfAhMqDw7Xx", "amount": "800000000", "post_balance": "1778250802"},
+                {"epoch": 1082, "charged_epoch": 1083, "slot": 467856000, "vote_account": "Cat8oWQiFfrR3c7BcceTYcpnYCzSWfCPjMXT7mfHXvEP", "amount": "800000000", "post_balance": "1200000000"}
+            ]"#,
+        )
+        .unwrap();
+        assert_eq!(
+            vat_debited(&entries, 1082).unwrap(),
+            HashSet::from([
+                Pubkey::from_str_const("4m1PbxzwLdUnEwog3T9UKxgjktgriHgE1CfAhMqDw7Xx"),
+                Pubkey::from_str_const("Cat8oWQiFfrR3c7BcceTYcpnYCzSWfCPjMXT7mfHXvEP"),
+            ])
+        );
+    }
+
+    #[test]
+    fn load_vat_debits_rejects_another_epoch() {
+        let v = Pubkey::new_unique();
+        let err = vat_debited(&[vat_debit(1081, 1082, v)], 1082).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("VAT debit of {v} is of epoch 1081, expected 1082")
+        );
+    }
+
+    #[test]
+    fn load_vat_debits_rejects_a_charged_epoch_that_is_not_the_next_one() {
+        let v = Pubkey::new_unique();
+        let err = vat_debited(&[vat_debit(1082, 1082, v)], 1082).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("VAT debit of {v} is charged in epoch 1082, expected 1083")
+        );
+    }
+
+    #[test]
+    fn load_vat_debits_rejects_a_repeated_vote_account() {
+        let v = Pubkey::new_unique();
+        let err =
+            vat_debited(&[vat_debit(1082, 1083, v), vat_debit(1082, 1083, v)], 1082).unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("VAT debit of {v} is repeated in epoch 1082")
+        );
+    }
+
+    #[test]
+    fn load_vat_debits_accepts_an_empty_list() {
+        assert!(vat_debited(&[], 1082).unwrap().is_empty());
     }
 }

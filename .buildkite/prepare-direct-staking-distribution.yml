@@ -83,6 +83,7 @@ steps:
       gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_blocks.json" ./rewards/validators_blocks.json
       gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_priority_fee.json" ./rewards/jito_priority_fee.json
       gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_burned.json" ./rewards/validators_inflation_burned.json || true
+      gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_vat.json" ./rewards/validators_inflation_vat.json
     artifact_paths:
       - "./stakes.json"
       - "./validators.json"
@@ -119,6 +120,7 @@ steps:
         --settlement-config settlement-config-direct-staking.yaml \
         --stake-meta-collection ./stakes.json \
         --rewards-dir ./rewards \
+        --vat-debits ./rewards/validators_inflation_vat.json \
         --validator-meta-collection ./validators.json \
         --revenue-expectation-collection ./evaluation.json \
         --output-settlement-collection "./direct-staking-psr-settlements.json" \

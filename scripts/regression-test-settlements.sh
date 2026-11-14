@@ -468,6 +468,11 @@ process_epoch() {
   # optional: epochs before collector attribution have no burned SIMD-0232 commission file
   gcs_cached_download "$GS_BUCKET_ETL/$epoch/rewards_validators_inflation_burned.json" "$rewards_dir/validators_inflation_burned.json" \
     || true
+  # bid-distribution-cli reads VAT_DEBITS (its --vat-debits)
+  unset VAT_DEBITS
+  if gcs_cached_download "$GS_BUCKET_ETL/$epoch/rewards_validators_inflation_vat.json" "$rewards_dir/validators_inflation_vat.json"; then
+    export VAT_DEBITS="$rewards_dir/validators_inflation_vat.json"
+  fi
   # bid-distribution-cli reads LEADER_SCHEDULE (its --leader-schedule) only in Alpenglow epochs
   unset LEADER_SCHEDULE
   if [[ -f "$inputs_dir/validators.json" \

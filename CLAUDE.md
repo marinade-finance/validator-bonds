@@ -178,9 +178,11 @@ Surfpool-based deployment scripts for on-chain program upgrades. See `runbooks/R
 
 A `VatUnadmitted` event (SIMD-0357) pays stakers the full expected inflation EPR, `validator_rewards / Σstake × (1 − applied_bps/10000)`, not scaled by the validator's own uptime, and it replaces that validator's `DowntimeRevenueImpact` event. PSR makes stakers whole to the expected rate: an admitted validator at 50% uptime leaves its stakers at about the full rate (half on-chain, half from the downtime event), while a refused one pays nothing on-chain, so the bond covers the full rate. Scaling by uptime would leave stakers of a refused validator worse off than those of a slow one.
 
-Accepted gaps: VAT covers inflation only, so a refused validator's MEV/block shortfall (part of `actual_non_bid_pmpe`) is not compensated; VAT prices from the chain, downtime from the ds-sam PMPE; the snapshot's `inflation_rewards_admitted` reflects end-of-epoch stake, so a validator refused only by the next epoch's stake refresh (all delegators leaving, the 2000-account cutoff) gets no event.
+A refusal at the N→N+1 boundary also leaves the validator outside the Alpenglow committee of N+2: it is staked (`stake > 0`) with a null `epoch_stake`, so it earns nothing, and `DowntimeRevenueImpact` charges it at uptime 0 (`expected_credits: 0`, the full `actual_non_bid_pmpe`), with no check of the ETL folder of N.
 
-Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ticket feature is active (Tower epochs included, mainnet since epoch 1006), the epoch is not the Alpenglow migration epoch, and the snapshot marks the validator `inflation_rewards_admitted: false`. Missing stakers' inflation rows alone never charge a bond.
+Accepted gaps: VAT covers inflation only, so a refused validator's MEV/block shortfall in epoch N (part of `actual_non_bid_pmpe`) is not compensated; VAT prices from the chain, downtime from the ds-sam PMPE.
+
+Gate, shared with institutional-staking `collectVatUnadmitted`: the admission-ticket feature is active, the epoch is an Alpenglow epoch past the migration (Agave burns the VAT only under Alpenglow, so Tower refusals since epoch 1006 have no debit and are not charged), the validator is absent from the stakes-etl `VATDebit` list of the epoch (`--vat-debits`, `rewards_validators_inflation_vat.json`), and its stakers got no inflation. An empty debit list, or a non-debited voting validator whose stakers were paid, fails the run. The snapshot's `inflation_rewards_admitted` is not read: it is null for balance and cutoff refusals. Missing stakers' inflation rows alone never charge a bond.
 
 ### Agave first-leader-window skip
 

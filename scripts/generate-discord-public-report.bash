@@ -127,7 +127,11 @@ do
           DowntimeRevenueImpact)
             actual_credits=$(<<<"$protected_event_attributes" jq '.actual_credits')
             expected_credits=$(<<<"$protected_event_attributes" jq '.expected_credits')
-            reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            if [[ $expected_credits == 0 ]]; then
+              reason="Uptime 0% (not in the reward committee)"
+            else
+              reason="Uptime $(bc <<<"scale=2; 100 * $actual_credits / $expected_credits")%"
+            fi
             ;;
 
           VatUnadmitted)
