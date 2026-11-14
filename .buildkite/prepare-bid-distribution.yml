@@ -86,6 +86,7 @@ steps:
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_blocks.json" ./rewards/validators_blocks.json
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_priority_fee.json" ./rewards/jito_priority_fee.json
         gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_burned.json" ./rewards/validators_inflation_burned.json || true
+        gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_validators_inflation_vat.json" ./rewards/validators_inflation_vat.json
     artifact_paths:
       - './rewards/*.json'
 
@@ -186,6 +187,7 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_blocks.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/jito_priority_fee.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_burned.json . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_vat.json .'
     - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
     - 'chmod +x target/release/bid-distribution-cli'
     - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
@@ -197,6 +199,7 @@ steps:
         --stake-meta-collection ./stakes.json \
         --sam-results-collection ./outputs/results.json \
         --rewards-dir ./rewards \
+        --vat-debits ./rewards/validators_inflation_vat.json \
         --validator-meta-collection ./validators.json \
         --revenue-expectation-collection ./evaluation.json \
         --output-settlement-collection "./bid-distribution-settlements.json" \
