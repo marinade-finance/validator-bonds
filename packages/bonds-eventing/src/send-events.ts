@@ -1,7 +1,16 @@
+import * as fs from 'fs'
+
 import { postEvent } from './emit-events'
+import { UndeliveredEventsError } from './exit-code'
 import { MAX_SEND_ATTEMPTS } from './persist-events'
 
-import type { PendingEvent, PostResult, SendConfig, SendSummary } from './types'
+import type {
+  BondType,
+  PendingEvent,
+  PostResult,
+  SendConfig,
+  SendSummary,
+} from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 export async function sendPendingEvents(
@@ -96,4 +105,21 @@ export function formatSendSummary(
     lines.push('', 'Last error:', '```', summary.lastError, '```')
   }
   return lines.join('\n') + '\n'
+}
+
+/** Writes the summary file and throws UndeliveredEventsError when a non-dry run left events undelivered. */
+export function reportUndelivered(
+  bondType: BondType,
+  summary: SendSummary,
+  config: SendConfig,
+): void {
+  if (config.dryRun || !isUndelivered(summary)) {
+    return
+  }
+  if (config.summaryFile) {
+    fs.writeFileSync(config.summaryFile, formatSendSummary(bondType, summary))
+  }
+  throw new UndeliveredEventsError(
+    `${bondType} events not fully delivered: sent ${summary.sent}, rejected ${summary.rejected}, failed ${summary.failed}, pending ${summary.remaining}`,
+  )
 }

@@ -53,6 +53,7 @@ export type PostResult =
   | { kind: 'sent' }
   | { kind: 'rejected'; error: string }
   | { kind: 'unauthorized'; error: string }
+  | { kind: 'unavailable'; error: string }
   | { kind: 'retryable'; error: string }
 
 export interface PendingEvent {
@@ -68,7 +69,7 @@ export interface SendSummary {
   rejected: number
   failed: number
   remaining: number
-  stoppedBy: 'unauthorized' | 'retryable' | null
+  stoppedBy: 'unauthorized' | 'unavailable' | 'retryable' | null
   lastError: string | null
 }
 

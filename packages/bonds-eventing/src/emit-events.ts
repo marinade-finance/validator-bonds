@@ -44,6 +44,7 @@ export async function postEvent(
   })
 
   let lastError = ''
+  let lastKind: 'retryable' | 'unavailable' = 'unavailable'
   for (let attempt = 0; attempt <= config.retryMaxAttempts; attempt++) {
     if (attempt > 0) {
       const delay = config.retryBaseDelayMs * Math.pow(2, attempt - 1)
@@ -77,11 +78,13 @@ export async function postEvent(
       if (response.status === 401 || response.status === 403) {
         return { kind: 'unauthorized', error: lastError }
       }
+      lastKind = response.status < 500 ? 'retryable' : 'unavailable'
     } catch (err) {
       lastError = describeError(err).slice(0, MAX_ERROR_LENGTH)
+      lastKind = 'unavailable'
     }
   }
 
   logger.warn(`Retry exhausted for message ${message.messageId}: ${lastError}`)
-  return { kind: 'retryable', error: lastError }
+  return { kind: lastKind, error: lastError }
 }

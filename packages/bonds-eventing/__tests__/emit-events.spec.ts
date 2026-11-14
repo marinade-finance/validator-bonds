@@ -160,12 +160,17 @@ describe('postEvent', () => {
     }
   })
 
-  it('returns retryable after retry exhaustion', async () => {
-    const { result, count } = await postWithStatus(503, 1)
-    expect(result.kind).toBe('retryable')
-    expect(result.kind !== 'sent' && result.error).toContain('503')
-    expect(count).toBe(2)
-  })
+  it.each([500, 503])(
+    'returns unavailable on %i after retry exhaustion',
+    async status => {
+      const { result, count } = await postWithStatus(status, 1)
+      expect(result).toEqual({
+        kind: 'unavailable',
+        error: `HTTP ${status}: status ${status}`,
+      })
+      expect(count).toBe(2)
+    },
+  )
 
   it.each([400, 422])('rejects on %i without retry', async status => {
     const { result, count } = await postWithStatus(status, 3)
@@ -197,7 +202,7 @@ describe('postEvent', () => {
     expect(count).toBe(3)
   })
 
-  it('returns retryable with the cause code when the connection is refused', async () => {
+  it('returns unavailable with the cause code when the connection is refused', async () => {
     const { port, close } = await createTestServer(() => {})
     await close()
     const result = await postEvent(
@@ -209,7 +214,7 @@ describe('postEvent', () => {
       logger,
     )
     expect(result).toEqual({
-      kind: 'retryable',
+      kind: 'unavailable',
       error: 'fetch failed: ECONNREFUSED',
     })
   })

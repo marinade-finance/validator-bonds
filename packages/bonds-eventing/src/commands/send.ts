@@ -1,18 +1,11 @@
-import * as fs from 'fs'
-
 import { getContext } from '@marinade.finance/ts-common'
 import { Argument } from 'commander'
 
 import { addSendOptions } from './options'
 import { logResolvedConfig, parseSendConfig } from '../config'
 import { createEventingPool } from '../db'
-import { UndeliveredEventsError } from '../exit-code'
 import { loadPendingEvents, markEvent } from '../persist-events'
-import {
-  formatSendSummary,
-  isUndelivered,
-  sendPendingEvents,
-} from '../send-events'
+import { reportUndelivered, sendPendingEvents } from '../send-events'
 
 import type { BondType } from '../types'
 import type { Command } from 'commander'
@@ -50,17 +43,7 @@ async function manageSend(bondType: BondType, opts: Record<string, unknown>) {
       logger,
     )
     logger.info(summary, `Send complete for ${bondType}`)
-    if (!config.dryRun && isUndelivered(summary)) {
-      if (config.summaryFile) {
-        fs.writeFileSync(
-          config.summaryFile,
-          formatSendSummary(bondType, summary),
-        )
-      }
-      throw new UndeliveredEventsError(
-        `${bondType} events not fully delivered: sent ${summary.sent}, rejected ${summary.rejected}, failed ${summary.failed}, pending ${summary.remaining}`,
-      )
-    }
+    reportUndelivered(bondType, summary, config)
   } finally {
     await pool.end()
   }

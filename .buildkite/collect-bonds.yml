@@ -171,6 +171,10 @@ steps:
       exit $$status
     soft_fail:
       - exit_status: 99
+    retry:
+      automatic:
+        - exit_status: 100
+          limit: 5
 
   - wait: ~
 

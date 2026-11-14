@@ -1,10 +1,15 @@
+import * as fs from 'fs'
 import http from 'http'
+import * as os from 'os'
+import * as path from 'path'
 
 import pino from 'pino'
 
+import { UndeliveredEventsError } from '../src/exit-code'
 import {
   formatSendSummary,
   isUndelivered,
+  reportUndelivered,
   sendPendingEvents,
 } from '../src/send-events'
 
@@ -194,8 +199,32 @@ describe('sendPendingEvents', () => {
     })
   })
 
-  it('stops on a retryable failure of the first row', async () => {
+  it('stops on an unavailable service without failing a row on its last attempt', async () => {
     await withServer([503], async (config, received) => {
+      const { marks, mark } = recorder()
+
+      const summary = await sendPendingEvents(
+        [makeRow(1, { attempts: 9 }), makeRow(2)],
+        mark,
+        config,
+        logger,
+      )
+
+      expect(received).toHaveLength(1)
+      expect(marks).toEqual([[1, 'unavailable']])
+      expect(summary).toEqual({
+        sent: 0,
+        rejected: 0,
+        failed: 0,
+        remaining: 2,
+        stoppedBy: 'unavailable',
+        lastError: 'HTTP 503: status 503',
+      })
+    })
+  })
+
+  it('stops on a retryable failure of the first row', async () => {
+    await withServer([404], async (config, received) => {
       const { marks, mark } = recorder()
 
       const summary = await sendPendingEvents(
@@ -213,13 +242,13 @@ describe('sendPendingEvents', () => {
         failed: 0,
         remaining: 2,
         stoppedBy: 'retryable',
-        lastError: 'HTTP 503: status 503',
+        lastError: 'HTTP 404: status 404',
       })
     })
   })
 
   it('counts a row on its last attempt as failed', async () => {
-    await withServer([503], async (config, received) => {
+    await withServer([404], async (config, received) => {
       const { marks, mark } = recorder()
 
       const summary = await sendPendingEvents(
@@ -237,7 +266,7 @@ describe('sendPendingEvents', () => {
         failed: 1,
         remaining: 1,
         stoppedBy: 'retryable',
-        lastError: 'HTTP 503: status 503',
+        lastError: 'HTTP 404: status 404',
       })
     })
   })
@@ -320,5 +349,61 @@ describe('send summary', () => {
     expect(text).toContain('- still pending: 4')
     expect(text).toContain('- stopped by: retryable')
     expect(text).toContain('HTTP 503: down')
+  })
+
+  describe('reportUndelivered', () => {
+    const undelivered = {
+      ...clean,
+      remaining: 2,
+      stoppedBy: 'unavailable' as const,
+    }
+    let dir: string
+    let file: string
+    const config = (overrides: Partial<SendConfig> = {}): SendConfig => ({
+      notificationsApiUrl: 'http://localhost',
+      notificationsJwt: undefined,
+      postgresUrl: 'postgresql://localhost/test',
+      postgresSslRootCert: undefined,
+      retryMaxAttempts: 0,
+      retryBaseDelayMs: 1,
+      dryRun: false,
+      summaryFile: file,
+      ...overrides,
+    })
+
+    beforeEach(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), 'send-summary-'))
+      file = path.join(dir, 'send-summary.md')
+    })
+
+    afterEach(() => {
+      fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it('writes the summary file and throws when events stay undelivered', () => {
+      expect(() => reportUndelivered('bidding', undelivered, config())).toThrow(
+        UndeliveredEventsError,
+      )
+      expect(fs.readFileSync(file, 'utf8')).toBe(
+        formatSendSummary('bidding', undelivered),
+      )
+    })
+
+    it('throws without a summary file when none is configured', () => {
+      expect(() =>
+        reportUndelivered(
+          'bidding',
+          undelivered,
+          config({ summaryFile: undefined }),
+        ),
+      ).toThrow(UndeliveredEventsError)
+      expect(fs.readdirSync(dir)).toEqual([])
+    })
+
+    it('neither writes nor throws for a fully delivered run or a dry run', () => {
+      reportUndelivered('bidding', clean, config())
+      reportUndelivered('bidding', undelivered, config({ dryRun: true }))
+      expect(fs.existsSync(file)).toBe(false)
+    })
   })
 })

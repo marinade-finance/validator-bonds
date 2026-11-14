@@ -52,7 +52,7 @@ interface EventRow {
   vote_account: string
   status: string
   attempts: number
-  last_error: string | null
+  error: string | null
   last_attempt_at: string | null
   payload: BondsEventV1
 }
@@ -85,7 +85,7 @@ describeDb('outbox DB', () => {
 
   async function eventRows(): Promise<EventRow[]> {
     const result = await pool.query(sql.unsafe`
-      SELECT id, message_id, vote_account, status, attempts, last_error,
+      SELECT id, message_id, vote_account, status, attempts, error,
         last_attempt_at, payload
       FROM emitted_bond_events WHERE bond_type = ${BOND_TYPE} ORDER BY id
     `)
@@ -109,7 +109,7 @@ describeDb('outbox DB', () => {
     for (const row of rows) {
       expect(row.status).toBe('pending')
       expect(row.attempts).toBe(0)
-      expect(row.last_error).toBeNull()
+      expect(row.error).toBeNull()
       expect(row.last_attempt_at).toBeNull()
       expect(row.message_id).toMatch(UUID_V7)
       expect(row.payload.created_at).toBe('2026-11-14T10:00:00.000Z')
@@ -181,6 +181,7 @@ describeDb('outbox DB', () => {
       const rejected = await insert('voteB')
       const unauthorized = await insert('voteC')
       const retryable = await insert('voteD')
+      const unavailable = await insert('voteE')
 
       await markEvent(pool, sent, { kind: 'sent' })
       await markEvent(pool, rejected, { kind: 'rejected', error: 'HTTP 400' })
@@ -190,37 +191,47 @@ describeDb('outbox DB', () => {
       })
       await markEvent(pool, retryable, {
         kind: 'retryable',
+        error: 'HTTP 404',
+      })
+      await markEvent(pool, unavailable, {
+        kind: 'unavailable',
         error: 'HTTP 503',
       })
 
       const pick = (r: EventRow) => ({
         status: r.status,
         attempts: r.attempts,
-        last_error: r.last_error,
+        error: r.error,
         attempted: r.last_attempt_at !== null,
       })
       expect(pick(await row(sent))).toEqual({
         status: 'sent',
         attempts: 0,
-        last_error: null,
+        error: null,
         attempted: true,
       })
       expect(pick(await row(rejected))).toEqual({
         status: 'rejected',
         attempts: 0,
-        last_error: 'HTTP 400',
+        error: 'HTTP 400',
         attempted: true,
       })
       expect(pick(await row(unauthorized))).toEqual({
         status: 'pending',
         attempts: 0,
-        last_error: 'HTTP 401',
+        error: 'HTTP 401',
         attempted: true,
       })
       expect(pick(await row(retryable))).toEqual({
         status: 'pending',
         attempts: 1,
-        last_error: 'HTTP 503',
+        error: 'HTTP 404',
+        attempted: true,
+      })
+      expect(pick(await row(unavailable))).toEqual({
+        status: 'pending',
+        attempts: 0,
+        error: 'HTTP 503',
         attempted: true,
       })
     })
@@ -228,11 +239,11 @@ describeDb('outbox DB', () => {
     it('marks a row failed after ten retryable attempts', async () => {
       const id = await insert('voteA')
       for (let i = 0; i < 9; i++) {
-        await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 503' })
+        await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
       }
       expect((await row(id)).status).toBe('pending')
 
-      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 503' })
+      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
 
       expect(await row(id)).toMatchObject({ status: 'failed', attempts: 10 })
     })

@@ -101,22 +101,23 @@ export async function markEvent(
     case 'sent':
       await db.query(sql.unsafe`
         UPDATE emitted_bond_events
-        SET status = 'sent', last_error = NULL, last_attempt_at = NOW()
+        SET status = 'sent', error = NULL, last_attempt_at = NOW()
         WHERE id = ${id}
       `)
       return
     case 'rejected':
       await db.query(sql.unsafe`
         UPDATE emitted_bond_events
-        SET status = 'rejected', last_error = ${result.error},
+        SET status = 'rejected', error = ${result.error},
           last_attempt_at = NOW()
         WHERE id = ${id}
       `)
       return
     case 'unauthorized':
+    case 'unavailable':
       await db.query(sql.unsafe`
         UPDATE emitted_bond_events
-        SET last_error = ${result.error}, last_attempt_at = NOW()
+        SET error = ${result.error}, last_attempt_at = NOW()
         WHERE id = ${id}
       `)
       return
@@ -126,7 +127,7 @@ export async function markEvent(
         SET attempts = attempts + 1,
           status = CASE WHEN attempts + 1 >= ${MAX_SEND_ATTEMPTS}
             THEN 'failed' ELSE 'pending' END,
-          last_error = ${result.error}, last_attempt_at = NOW()
+          error = ${result.error}, last_attempt_at = NOW()
         WHERE id = ${id}
       `)
       return
