@@ -62,7 +62,7 @@ pub enum ProtectedEvent {
         epr_loss_bps: u64,
         stake: u64,
     },
-    /// SIMD-0357: the validator voted, but the snapshot refused it and its stakers got no inflation rewards
+    /// SIMD-0357: the validator voted, paid no VAT debit, and its stakers got no inflation rewards
     VatUnadmitted {
         #[serde(with = "pubkey_string_conversion")]
         vote_account: Pubkey,
@@ -395,10 +395,11 @@ pub fn collect_downtime_revenue_impact_events(
         .collect())
 }
 
-/// SIMD-0357: `unpaid` holds the vote accounts whose stakers got no inflation rewards for the epoch
+/// SIMD-0357: `unpaid` stakers got no inflation rewards, `vat_debited` paid the VAT of the epoch
 pub fn collect_vat_unadmitted_events(
     validator_meta_collection: &ValidatorMetaCollection,
     unpaid: &HashSet<Pubkey>,
+    vat_debited: Option<&HashSet<Pubkey>>,
     max_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<Vec<ProtectedEvent>> {
     if validator_meta_collection
@@ -416,6 +417,13 @@ pub fn collect_vat_unadmitted_events(
         );
         return Ok(vec![]);
     }
+    let vat_debited = vat_debited
+        .context("--vat-debits is required once the validator admission ticket is active")?;
+    ensure!(
+        !vat_debited.is_empty(),
+        "No VAT debit in epoch {}, the VAT debits input is broken",
+        validator_meta_collection.epoch
+    );
     info!("Collecting VAT-unadmitted events...");
     let total_stake: u64 = validator_meta_collection
         .validator_metas
@@ -428,42 +436,44 @@ pub fn collect_vat_unadmitted_events(
     let rewards_per_stake =
         Decimal::from(validator_meta_collection.validator_rewards) / Decimal::from(total_stake);
     let mut unadmitted_stake: u128 = 0;
-    let events: Vec<ProtectedEvent> = validator_meta_collection
-        .validator_metas
-        .iter()
-        .filter_map(|meta| {
-            let actual_credits = meta.credits.or(meta.alpenglow_credits).unwrap_or(0);
-            let commission_bps = applied_commission_bps(meta);
-            if !unpaid.contains(&meta.vote_account)
-                || meta.stake == 0
-                || actual_credits == 0
-                || commission_bps >= 10000
-            {
-                return None;
-            }
-            if meta.inflation_rewards_admitted != Some(false) {
-                warn!(
-                    "Validator {} stakers got no inflation rewards but the snapshot admission is {:?}, treated as a missing rewards row, no VAT-unadmitted event",
-                    meta.vote_account, meta.inflation_rewards_admitted
-                );
-                return None;
-            }
-            unadmitted_stake += meta.stake as u128;
-            Some(ProtectedEvent::VatUnadmitted {
-                vote_account: meta.vote_account,
-                actual_credits,
-                expected_epr: rewards_per_stake * Decimal::from(10000 - commission_bps)
-                    / dec!(10000),
-                actual_epr: Decimal::ZERO,
-                epr_loss_bps: 10000,
-                stake: meta.stake,
-            })
-        })
-        .collect();
+    let mut events: Vec<ProtectedEvent> = vec![];
+    for meta in &validator_meta_collection.validator_metas {
+        let actual_credits = meta.credits.or(meta.alpenglow_credits).unwrap_or(0);
+        let commission_bps = applied_commission_bps(meta);
+        if meta.stake == 0 || actual_credits == 0 || commission_bps >= 10000 {
+            continue;
+        }
+        let debited = vat_debited.contains(&meta.vote_account);
+        if !unpaid.contains(&meta.vote_account) {
+            ensure!(
+                debited,
+                "Validator {} paid no VAT debit in epoch {} but its stakers got inflation rewards, the VAT debits or the rewards input is broken",
+                meta.vote_account,
+                validator_meta_collection.epoch
+            );
+            continue;
+        }
+        if debited {
+            warn!(
+                "Validator {} stakers got no inflation rewards but it paid the VAT debit, treated as a missing rewards row, no VAT-unadmitted event",
+                meta.vote_account
+            );
+            continue;
+        }
+        unadmitted_stake += meta.stake as u128;
+        events.push(ProtectedEvent::VatUnadmitted {
+            vote_account: meta.vote_account,
+            actual_credits,
+            expected_epr: rewards_per_stake * Decimal::from(10000 - commission_bps) / dec!(10000),
+            actual_epr: Decimal::ZERO,
+            epr_loss_bps: 10000,
+            stake: meta.stake,
+        });
+    }
     // real refusals are a handful of validators; a larger share means broken inputs
     ensure!(
         unadmitted_stake * 10_000 <= total_stake as u128 * max_unadmitted_stake_bps as u128,
-        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {max_unadmitted_stake_bps} bps limit; the snapshot or the inflation rewards input looks broken, or raise --max-vat-unadmitted-stake-bps for a real refusal wave",
+        "{} VAT-unadmitted validators hold {unadmitted_stake} of {total_stake} staked lamports in epoch {}, over the {max_unadmitted_stake_bps} bps limit; the VAT debits or the inflation rewards input looks broken, or raise --max-vat-unadmitted-stake-bps for a real refusal wave",
         events.len(),
         validator_meta_collection.epoch
     );
@@ -494,6 +504,7 @@ pub fn generate_protected_event_collection(
     revenue_expectation_meta_collection: RevenueExpectationMetaCollection,
     leader_slots: Option<&LeaderSlots>,
     unpaid: Option<&HashSet<Pubkey>>,
+    vat_debited: Option<&HashSet<Pubkey>>,
     max_vat_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<ProtectedEventCollection> {
     assert_eq!(
@@ -537,6 +548,7 @@ pub fn generate_protected_event_collection(
             collect_vat_unadmitted_events(
                 &validator_meta_collection,
                 unpaid,
+                vat_debited,
                 max_vat_unadmitted_stake_bps,
             )
         })
@@ -690,7 +702,7 @@ mod tests {
             "inflation_rewards_commission_bps": commission_bps,
             "alpenglow_credits": alpenglow_credits,
             "epoch_stake": epoch_stake,
-            "inflation_rewards_admitted": false,
+            "inflation_rewards_admitted": null,
         })
     }
 
@@ -927,16 +939,27 @@ mod tests {
             .collect()
     }
 
+    fn debited_except(collection: &ValidatorMetaCollection, refused: &[Pubkey]) -> HashSet<Pubkey> {
+        collection
+            .validator_metas
+            .iter()
+            .map(|m| m.vote_account)
+            .filter(|v| !refused.contains(v))
+            .collect()
+    }
+
     #[test]
     fn vat_unadmitted_needs_stake_votes_and_a_commission_below_100_percent() {
         let mut collection = alpenglow_collection("alpenglow");
         // Σstake = 100,000: 10,000 lamports of validator rewards is 0.1 per lamport, 95% to stakers
         let unpaid = HashSet::from([pk(A), pk(D)]);
+        let debited = debited_except(&collection, &[pk(A), pk(D)]);
         assert_eq!(
             vat_event(
                 &collect_vat_unadmitted_events(
                     &collection,
                     &unpaid,
+                    Some(&debited),
                     DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
                 )
                 .unwrap()
@@ -949,6 +972,7 @@ mod tests {
         assert!(collect_vat_unadmitted_events(
             &collection,
             &unpaid,
+            Some(&debited),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -960,6 +984,7 @@ mod tests {
         assert!(collect_vat_unadmitted_events(
             &collection,
             &unpaid,
+            Some(&debited),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -972,18 +997,15 @@ mod tests {
         // the paid validator's stake keeps the unadmitted one under the stake share limit
         collection.validator_metas[0].stake *= 1000;
         let low = pk("3jkJVgfz1zrHSy6YLK6g96eTj49kCnDj2i8AbbKLZhkk");
-        collection
-            .validator_metas
-            .iter_mut()
-            .find(|m| m.vote_account == low)
-            .unwrap()
-            .inflation_rewards_admitted = Some(false);
         // the 100% commission and zero-credit row is left out
-        let unpaid = HashSet::from([low, pk("13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7")]);
+        let full_commission = pk("13hxMxYwu3g9tpFfS1oAGR42stai75QfE4q5pUE8B9P7");
+        let unpaid = HashSet::from([low, full_commission]);
+        let debited = debited_except(&collection, &[low, full_commission]);
         let vote_accounts: Vec<Pubkey> = vat_event(
             &collect_vat_unadmitted_events(
                 &collection,
                 &unpaid,
+                Some(&debited),
                 DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
             )
             .unwrap(),
@@ -999,58 +1021,124 @@ mod tests {
         assert!(collect_vat_unadmitted_events(
             &collection,
             &unpaid,
+            None,
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
         .is_empty());
     }
 
-    fn all_unadmitted(mut collection: ValidatorMetaCollection) -> ValidatorMetaCollection {
-        for meta in &mut collection.validator_metas {
-            meta.inflation_rewards_admitted = Some(false);
-        }
-        collection
-    }
-
     #[test]
-    fn vat_unadmitted_needs_the_snapshot_to_refuse_the_validator() {
+    fn vat_unadmitted_follows_the_vat_debit_list_not_the_snapshot() {
         let mut collection = alpenglow_collection("alpenglow");
-        let unpaid = HashSet::from([pk(A)]);
-        for admitted in [Some(true), None] {
-            collection.validator_metas[0].inflation_rewards_admitted = admitted;
-            assert!(collect_vat_unadmitted_events(
-                &collection,
-                &unpaid,
-                DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
-            )
-            .unwrap()
-            .is_empty());
-        }
-        collection.validator_metas[0].inflation_rewards_admitted = Some(false);
+        collection.validator_metas[0].inflation_rewards_admitted = Some(true);
+        collection.validator_metas[1].inflation_rewards_admitted = None;
+        collection.validator_metas[2].inflation_rewards_admitted = Some(false);
+        let unpaid = HashSet::from([pk(A), pk(B), pk(C)]);
+        let debited = debited_except(&collection, &[pk(A), pk(B), pk(C)]);
         assert_eq!(
             vat_event(
                 &collect_vat_unadmitted_events(
                     &collection,
                     &unpaid,
+                    Some(&debited),
                     DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
                 )
                 .unwrap()
             ),
-            vec![(pk(A), dec!(0.095))]
+            vec![
+                (pk(A), dec!(0.095)),
+                (pk(B), dec!(0.095)),
+                (pk(C), dec!(0.095))
+            ]
+        );
+        let all_debited = debited_except(&collection, &[]);
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            Some(&all_debited),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
+    }
+
+    #[test]
+    fn vat_unadmitted_rejects_an_empty_debit_list() {
+        let collection = alpenglow_collection("alpenglow");
+        let err = collect_vat_unadmitted_events(
+            &collection,
+            &HashSet::from([pk(A)]),
+            Some(&HashSet::new()),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "No VAT debit in epoch 1100, the VAT debits input is broken"
         );
     }
 
     #[test]
-    fn vat_unadmitted_over_one_percent_of_stake_means_broken_inputs() {
-        let collection = all_unadmitted(serde_json::from_str(TOWER_1048).unwrap());
-        let unpaid: HashSet<Pubkey> = collection
-            .validator_metas
-            .iter()
-            .map(|m| m.vote_account)
-            .collect();
+    fn vat_unadmitted_needs_the_debit_list_once_the_feature_is_active() {
+        let mut collection = alpenglow_collection("alpenglow");
+        let unpaid = HashSet::from([pk(A)]);
         let err = collect_vat_unadmitted_events(
             &collection,
             &unpaid,
+            None,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "--vat-debits is required once the validator admission ticket is active"
+        );
+
+        collection
+            .features
+            .inflation_rewards_validator_admission_ticket_active = Some(false);
+        assert!(collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            None,
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
+        )
+        .unwrap()
+        .is_empty());
+    }
+
+    #[test]
+    fn vat_unadmitted_rejects_a_paid_validator_without_a_debit() {
+        let collection = alpenglow_collection("alpenglow");
+        let debited = debited_except(&collection, &[pk(B)]);
+        let err = collect_vat_unadmitted_events(
+            &collection,
+            &HashSet::new(),
+            Some(&debited),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("Validator {B} paid no VAT debit in epoch 1100 but its stakers got inflation rewards, the VAT debits or the rewards input is broken")
+        );
+    }
+
+    fn all_refused_tower() -> (ValidatorMetaCollection, HashSet<Pubkey>, HashSet<Pubkey>) {
+        let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
+        let unpaid = debited_except(&collection, &[]);
+        let debited_elsewhere = HashSet::from([pk(A)]);
+        (collection, unpaid, debited_elsewhere)
+    }
+
+    #[test]
+    fn vat_unadmitted_over_one_percent_of_stake_means_broken_inputs() {
+        let (collection, unpaid, debited) = all_refused_tower();
+        let err = collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            Some(&debited),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap_err();
@@ -1059,13 +1147,9 @@ mod tests {
 
     #[test]
     fn vat_unadmitted_stake_limit_can_be_raised_by_the_operator() {
-        let collection = all_unadmitted(serde_json::from_str(TOWER_1048).unwrap());
-        let unpaid: HashSet<Pubkey> = collection
-            .validator_metas
-            .iter()
-            .map(|m| m.vote_account)
-            .collect();
-        let events = collect_vat_unadmitted_events(&collection, &unpaid, 10_000).unwrap();
+        let (collection, unpaid, debited) = all_refused_tower();
+        let events =
+            collect_vat_unadmitted_events(&collection, &unpaid, Some(&debited), 10_000).unwrap();
         assert!(!events.is_empty());
         assert!(events
             .iter()
@@ -1079,6 +1163,7 @@ mod tests {
         assert!(collect_vat_unadmitted_events(
             &collection,
             &unpaid,
+            Some(&HashSet::new()),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1100,11 +1185,13 @@ mod tests {
                     })
                     .collect(),
             };
+            let debited = debited_except(&collection, &[pk(C)]);
             generate_protected_event_collection(
                 collection,
                 revenue,
                 Some(&leader_slots()),
                 Some(&HashSet::from([pk(C)])),
+                Some(&debited),
                 DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
             )
             .unwrap()
@@ -1130,11 +1217,13 @@ mod tests {
             revenue_expectations: revenue_map(&collection).into_values().collect(),
         };
         let unpaid = HashSet::from([pk(C)]);
+        let debited = debited_except(&collection, &[pk(C)]);
         let events = generate_protected_event_collection(
             collection,
             revenue,
             Some(&leader_slots()),
             Some(&unpaid),
+            Some(&debited),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
@@ -1155,11 +1244,13 @@ mod tests {
                 .collect(),
         };
         let unpaid = HashSet::from([pk(C)]);
+        let debited = debited_except(&collection, &[pk(C)]);
         let events = generate_protected_event_collection(
             collection,
             revenue,
             Some(&leader_slots()),
             Some(&unpaid),
+            Some(&debited),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
