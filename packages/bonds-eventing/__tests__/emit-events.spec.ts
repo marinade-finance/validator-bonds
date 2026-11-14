@@ -36,6 +36,7 @@ function makeConfig(overrides: Partial<SendConfig> = {}): SendConfig {
     retryMaxAttempts: 2,
     retryBaseDelayMs: 10, // fast for tests
     dryRun: false,
+    summaryFile: undefined,
     ...overrides,
   }
 }

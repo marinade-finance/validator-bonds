@@ -92,4 +92,5 @@ export interface SendConfig {
   retryMaxAttempts: number
   retryBaseDelayMs: number
   dryRun: boolean
+  summaryFile: string | undefined
 }

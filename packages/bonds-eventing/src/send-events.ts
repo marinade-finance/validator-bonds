@@ -69,3 +69,31 @@ export async function sendPendingEvents(
 
   return summary
 }
+
+export function isUndelivered(summary: SendSummary): boolean {
+  return (
+    summary.stoppedBy !== null ||
+    summary.rejected > 0 ||
+    summary.failed > 0 ||
+    summary.remaining > 0
+  )
+}
+
+export function formatSendSummary(
+  bondType: string,
+  summary: SendSummary,
+): string {
+  const lines = [
+    `### Bond events not fully delivered (${bondType})`,
+    '',
+    `- sent: ${summary.sent}`,
+    `- rejected: ${summary.rejected}`,
+    `- failed: ${summary.failed}`,
+    `- still pending: ${summary.remaining}`,
+    `- stopped by: ${summary.stoppedBy ?? 'none'}`,
+  ]
+  if (summary.lastError !== null) {
+    lines.push('', 'Last error:', '```', summary.lastError, '```')
+  }
+  return lines.join('\n') + '\n'
+}

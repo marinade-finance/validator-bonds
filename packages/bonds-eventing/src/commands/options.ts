@@ -64,4 +64,10 @@ export function addSendOptions(command: Command): Command {
         .env('EVENTING_RETRY_BASE_DELAY_MS')
         .default(30000),
     )
+    .addOption(
+      new Option(
+        '--summary-file <path>',
+        'Write a markdown summary here when events stay undelivered',
+      ),
+    )
 }

@@ -62,6 +62,7 @@ export function parseSendConfig(opts: Record<string, unknown>): SendConfig {
       30000,
     ),
     dryRun,
+    summaryFile: opts.summaryFile as string | undefined,
   }
 }
 

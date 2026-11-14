@@ -2,7 +2,11 @@ import http from 'http'
 
 import pino from 'pino'
 
-import { sendPendingEvents } from '../src/send-events'
+import {
+  formatSendSummary,
+  isUndelivered,
+  sendPendingEvents,
+} from '../src/send-events'
 
 import type {
   BondsEventV1,
@@ -83,6 +87,7 @@ async function withServer(
         retryMaxAttempts: 0,
         retryBaseDelayMs: 1,
         dryRun: false,
+        summaryFile: undefined,
       },
       received,
     )
@@ -278,5 +283,42 @@ describe('sendPendingEvents', () => {
         lastError: null,
       })
     })
+  })
+})
+
+describe('send summary', () => {
+  const clean = {
+    sent: 3,
+    rejected: 0,
+    failed: 0,
+    remaining: 0,
+    stoppedBy: null,
+    lastError: null,
+  }
+
+  it('isUndelivered is false only for a fully sent run', () => {
+    expect(isUndelivered(clean)).toBe(false)
+    expect(isUndelivered({ ...clean, rejected: 1 })).toBe(true)
+    expect(isUndelivered({ ...clean, failed: 1 })).toBe(true)
+    expect(isUndelivered({ ...clean, remaining: 1 })).toBe(true)
+    expect(isUndelivered({ ...clean, stoppedBy: 'unauthorized' })).toBe(true)
+  })
+
+  it('formatSendSummary lists every count and the last error', () => {
+    const text = formatSendSummary('bidding', {
+      sent: 1,
+      rejected: 2,
+      failed: 3,
+      remaining: 4,
+      stoppedBy: 'retryable',
+      lastError: 'HTTP 503: down',
+    })
+    expect(text).toContain('(bidding)')
+    expect(text).toContain('- sent: 1')
+    expect(text).toContain('- rejected: 2')
+    expect(text).toContain('- failed: 3')
+    expect(text).toContain('- still pending: 4')
+    expect(text).toContain('- stopped by: retryable')
+    expect(text).toContain('HTTP 503: down')
   })
 })
