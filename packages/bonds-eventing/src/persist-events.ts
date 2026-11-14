@@ -128,7 +128,7 @@ export async function markEvent(
           status = CASE WHEN attempts + 1 >= ${MAX_SEND_ATTEMPTS}
             THEN 'failed' ELSE 'pending' END,
           error = ${result.error}, last_attempt_at = NOW()
-        WHERE id = ${id}
+        WHERE id = ${id} AND status = 'pending'
       `)
       return
   }

@@ -247,6 +247,17 @@ describeDb('outbox DB', () => {
 
       expect(await row(id)).toMatchObject({ status: 'failed', attempts: 10 })
     })
+
+    it('keeps a row ignored when a retryable result arrives late', async () => {
+      const id = await insert('voteA')
+      await pool.query(
+        sql.unsafe`UPDATE emitted_bond_events SET status = 'ignored' WHERE id = ${id}`,
+      )
+
+      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 404' })
+
+      expect(await row(id)).toMatchObject({ status: 'ignored', attempts: 0 })
+    })
   })
 
   describe('runEventingPipeline', () => {

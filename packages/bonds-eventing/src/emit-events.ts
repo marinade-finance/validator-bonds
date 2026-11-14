@@ -78,7 +78,10 @@ export async function postEvent(
       if (response.status === 401 || response.status === 403) {
         return { kind: 'unauthorized', error: lastError }
       }
-      lastKind = response.status < 500 ? 'retryable' : 'unavailable'
+      lastKind =
+        response.status === 429 || response.status >= 500
+          ? 'unavailable'
+          : 'retryable'
     } catch (err) {
       lastError = describeError(err).slice(0, MAX_ERROR_LENGTH)
       lastKind = 'unavailable'

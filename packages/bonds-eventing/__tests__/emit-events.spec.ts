@@ -160,7 +160,7 @@ describe('postEvent', () => {
     }
   })
 
-  it.each([500, 503])(
+  it.each([429, 500, 503])(
     'returns unavailable on %i after retry exhaustion',
     async status => {
       const { result, count } = await postWithStatus(status, 1)
@@ -193,7 +193,7 @@ describe('postEvent', () => {
     },
   )
 
-  it.each([429, 404])('retries %i and then returns retryable', async status => {
+  it.each([404])('retries %i and then returns retryable', async status => {
     const { result, count } = await postWithStatus(status, 2)
     expect(result).toEqual({
       kind: 'retryable',
