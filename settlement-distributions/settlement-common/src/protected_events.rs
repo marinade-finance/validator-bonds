@@ -354,7 +354,6 @@ pub fn collect_downtime_revenue_impact_events(
         return Ok(vec![]);
     }
     let credits = expected_credits(validator_meta_collection, leader_slots)?;
-    let alpenglow = epoch_type(validator_meta_collection) == AlpenglowEpochType::Alpenglow;
     Ok(validator_meta_collection
         .validator_metas
         .iter()
@@ -362,7 +361,7 @@ pub fn collect_downtime_revenue_impact_events(
         .filter_map(|meta| {
             let vote_account = meta.vote_account;
             let Some(&(actual_credits, expected_credits)) = credits.get(&vote_account) else {
-                if !alpenglow || applied_commission_bps(meta) >= 10000 {
+                if applied_commission_bps(meta) >= 10000 {
                     return None;
                 }
                 let Some(revenue_expectation) = revenue_expectation_map.get(&vote_account) else {
