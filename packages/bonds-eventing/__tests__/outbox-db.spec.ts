@@ -4,7 +4,11 @@ import pino from 'pino'
 import { sql } from 'slonik'
 
 import { createEventingPool } from '../src/db'
-import { insertPendingEvents } from '../src/persist-events'
+import {
+  insertPendingEvents,
+  loadPendingEvents,
+  markEvent,
+} from '../src/persist-events'
 import { runEventingPipeline } from '../src/pipeline'
 import { saveAuctionMeta } from '../src/state'
 
@@ -119,6 +123,121 @@ describeDb('outbox DB', () => {
     expect(await eventRows()).toEqual([])
   })
 
+  describe('loadPendingEvents and markEvent', () => {
+    async function insert(voteAccount: string, innerType = 'first_seen') {
+      await insertPendingEvents(
+        pool,
+        [
+          makeEvent({
+            vote_account: voteAccount,
+            inner_type: innerType as BondsEventV1['inner_type'],
+          }),
+        ],
+        logger,
+      )
+      const rows = await eventRows()
+      return rows[rows.length - 1]!.id
+    }
+
+    async function row(id: number) {
+      return (await eventRows()).find(r => r.id === id)!
+    }
+
+    it('loads only pending rows of the bond type in id order', async () => {
+      const a = await insert('voteA')
+      const b = await insert('voteB')
+      const c = await insert('voteC')
+      await markEvent(pool, b, { kind: 'sent' })
+
+      const pending = await loadPendingEvents(pool, BOND_TYPE)
+
+      expect(pending.map(p => p.id)).toEqual([a, c])
+      expect(pending[0]!.payload.vote_account).toBe('voteA')
+      expect(pending[0]!.attempts).toBe(0)
+      expect(pending[0]!.messageId).toMatch(UUID_V7)
+      expect(await loadPendingEvents(pool, 'bidding')).not.toContainEqual(
+        expect.objectContaining({ id: a }),
+      )
+    })
+
+    it('flags the older of two pending rows with the same key as superseded', async () => {
+      const older = await insert('voteA', 'bond_balance_change')
+      const otherType = await insert('voteA', 'cap_changed')
+      const newer = await insert('voteA', 'bond_balance_change')
+      const sentNewer = await insert('voteA', 'cap_changed')
+      await markEvent(pool, sentNewer, { kind: 'sent' })
+
+      const pending = await loadPendingEvents(pool, BOND_TYPE)
+
+      expect(pending.map(p => [p.id, p.supersededByNewer])).toEqual([
+        [older, true],
+        [otherType, false],
+        [newer, false],
+      ])
+    })
+
+    it('writes the columns of each result kind', async () => {
+      const sent = await insert('voteA')
+      const rejected = await insert('voteB')
+      const unauthorized = await insert('voteC')
+      const retryable = await insert('voteD')
+
+      await markEvent(pool, sent, { kind: 'sent' })
+      await markEvent(pool, rejected, { kind: 'rejected', error: 'HTTP 400' })
+      await markEvent(pool, unauthorized, {
+        kind: 'unauthorized',
+        error: 'HTTP 401',
+      })
+      await markEvent(pool, retryable, {
+        kind: 'retryable',
+        error: 'HTTP 503',
+      })
+
+      const pick = (r: EventRow) => ({
+        status: r.status,
+        attempts: r.attempts,
+        last_error: r.last_error,
+        attempted: r.last_attempt_at !== null,
+      })
+      expect(pick(await row(sent))).toEqual({
+        status: 'sent',
+        attempts: 0,
+        last_error: null,
+        attempted: true,
+      })
+      expect(pick(await row(rejected))).toEqual({
+        status: 'rejected',
+        attempts: 0,
+        last_error: 'HTTP 400',
+        attempted: true,
+      })
+      expect(pick(await row(unauthorized))).toEqual({
+        status: 'pending',
+        attempts: 0,
+        last_error: 'HTTP 401',
+        attempted: true,
+      })
+      expect(pick(await row(retryable))).toEqual({
+        status: 'pending',
+        attempts: 1,
+        last_error: 'HTTP 503',
+        attempted: true,
+      })
+    })
+
+    it('marks a row failed after ten retryable attempts', async () => {
+      const id = await insert('voteA')
+      for (let i = 0; i < 9; i++) {
+        await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 503' })
+      }
+      expect((await row(id)).status).toBe('pending')
+
+      await markEvent(pool, id, { kind: 'retryable', error: 'HTTP 503' })
+
+      expect(await row(id)).toMatchObject({ status: 'failed', attempts: 10 })
+    })
+  })
+
   describe('runEventingPipeline', () => {
     interface TestValidator {
       voteAccount: string
@@ -133,13 +252,8 @@ describeDb('outbox DB', () => {
         scoringApiUrl: '',
         tvlApiUrl: '',
         institutionalApiUrl: '',
-        notificationsApiUrl: undefined,
-        notificationsJwt: undefined,
         postgresUrl: TEST_POSTGRES_URL,
         postgresSslRootCert: undefined,
-        retryMaxAttempts: 0,
-        retryBaseDelayMs: 0,
-        emitConcurrency: 1,
         dryRun: false,
         cacheInputs: undefined,
         ...overrides,

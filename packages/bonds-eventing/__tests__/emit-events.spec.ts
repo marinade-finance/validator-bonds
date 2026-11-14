@@ -2,11 +2,13 @@ import http from 'http'
 
 import pino from 'pino'
 
-import { emitEvents } from '../src/emit-events'
+import { postEvent } from '../src/emit-events'
 
-import type { BondsEventV1, EventingConfig } from '../src/types'
+import type { BondsEventV1, SendConfig } from '../src/types'
 
 const logger = pino({ level: 'silent' })
+const MESSAGE_ID = '0193a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b'
+const CREATED_AT_MS = Date.parse('2026-11-14T10:00:00.000Z')
 
 function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
   return {
@@ -20,29 +22,26 @@ function makeEvent(overrides: Partial<BondsEventV1> = {}): BondsEventV1 {
       message: 'Test message',
       details: { test: true },
     },
-    created_at: new Date().toISOString(),
+    created_at: new Date(CREATED_AT_MS).toISOString(),
     ...overrides,
   }
 }
 
-function makeConfig(overrides: Partial<EventingConfig> = {}): EventingConfig {
+function makeConfig(overrides: Partial<SendConfig> = {}): SendConfig {
   return {
-    bondsApiUrl: 'https://validator-bonds-api.marinade.finance',
-    validatorsApiUrl: 'https://validators-api.marinade.finance',
-    scoringApiUrl: 'https://scoring.marinade.finance',
-    tvlApiUrl: 'https://api.marinade.finance',
-    institutionalApiUrl: 'https://institutional-staking.marinade.finance',
     notificationsApiUrl: undefined,
     notificationsJwt: undefined,
-    postgresUrl: undefined,
+    postgresUrl: 'postgresql://localhost/test',
     postgresSslRootCert: undefined,
     retryMaxAttempts: 2,
     retryBaseDelayMs: 10, // fast for tests
-    emitConcurrency: 20,
     dryRun: false,
-    cacheInputs: undefined,
     ...overrides,
   }
+}
+
+function makeMessage(payload: object = makeEvent()) {
+  return { messageId: MESSAGE_ID, createdAtMs: CREATED_AT_MS, payload }
 }
 
 function createTestServer(
@@ -65,68 +64,64 @@ function createTestServer(
   })
 }
 
-describe('emitEvents', () => {
-  it('marks events as failed when no notifications URL configured', async () => {
-    const events = [makeEvent()]
-    const config = makeConfig({ notificationsApiUrl: undefined })
-
-    const results = await emitEvents(events, config, logger)
-
-    expect(results.get(events[0]!)!.status).toBe('failed')
-    expect(results.get(events[0]!)!.error).toContain('No notifications API URL')
+async function postWithStatus(
+  status: number,
+  retryMaxAttempts: number,
+): Promise<{ result: Awaited<ReturnType<typeof postEvent>>; count: number }> {
+  let count = 0
+  const { port, close } = await createTestServer((_req, res) => {
+    count++
+    res.writeHead(status)
+    res.end(`status ${status}`)
   })
+  try {
+    const result = await postEvent(
+      makeMessage(),
+      makeConfig({
+        notificationsApiUrl: `http://localhost:${port}`,
+        retryMaxAttempts,
+      }),
+      logger,
+    )
+    return { result, count }
+  } finally {
+    await close()
+  }
+}
 
-  it('dry run marks all as sent without HTTP calls', async () => {
-    const events = [makeEvent(), makeEvent({ vote_account: 'vote222' })]
-    const config = makeConfig({ dryRun: true })
-
-    const results = await emitEvents(events, config, logger)
-
-    expect(results.size).toBe(2)
-    for (const result of results.values()) {
-      expect(result.status).toBe('sent')
-    }
-  })
-
-  it('returns empty map for no events', async () => {
-    const config = makeConfig()
-    const results = await emitEvents([], config, logger)
-    expect(results.size).toBe(0)
-  })
-
-  it('POSTs events and returns sent on 200', async () => {
-    const receivedBodies: string[] = []
+describe('postEvent', () => {
+  it('POSTs the stored message in the envelope and returns sent on 200', async () => {
+    const received: { body: string; auth: string | undefined }[] = []
     const { port, close } = await createTestServer((req, res) => {
       let body = ''
       req.on('data', chunk => (body += chunk))
       req.on('end', () => {
-        receivedBodies.push(body)
+        received.push({ body, auth: req.headers.authorization })
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end('{"ok":true}')
       })
     })
 
     try {
-      const events = [makeEvent()]
-      const config = makeConfig({
-        notificationsApiUrl: `http://localhost:${port}`,
-        notificationsJwt: 'test-jwt',
-      })
-
-      const results = await emitEvents(events, config, logger)
-
-      expect(results.get(events[0]!)!.status).toBe('sent')
-      expect(receivedBodies).toHaveLength(1)
-
-      const parsed = JSON.parse(receivedBodies[0]!)
-      // Event is wrapped in Message<T> envelope
-      expect(parsed.header).toBeDefined()
-      expect(parsed.header.producer_id).toBe('bonds-eventing')
-      expect(parsed.header.message_id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+      const event = makeEvent()
+      const result = await postEvent(
+        makeMessage(event),
+        makeConfig({
+          notificationsApiUrl: `http://localhost:${port}`,
+          notificationsJwt: 'test-jwt',
+        }),
+        logger,
       )
-      expect(parsed.header.message_id).toBe(results.get(events[0]!)!.messageId)
-      expect(parsed.header.created_at).toBeDefined()
+
+      expect(result).toEqual({ kind: 'sent' })
+      expect(received).toHaveLength(1)
+      expect(received[0]!.auth).toBe('Bearer test-jwt')
+
+      const parsed = JSON.parse(received[0]!.body)
+      expect(parsed.header.producer_id).toBe('bonds-eventing')
+      expect(parsed.header.message_id).toBe(MESSAGE_ID)
+      expect(parsed.header.created_at).toBe(CREATED_AT_MS)
+      expect(parsed.payload).toEqual(event)
       expect(parsed.payload.type).toBe('bonds')
       expect(parsed.payload.inner_type).toBe('bond_underfunded_change')
     } finally {
@@ -148,65 +143,83 @@ describe('emitEvents', () => {
     })
 
     try {
-      const events = [makeEvent()]
-      const config = makeConfig({
-        notificationsApiUrl: `http://localhost:${port}`,
-        retryMaxAttempts: 4,
-        retryBaseDelayMs: 10,
-      })
+      const result = await postEvent(
+        makeMessage(),
+        makeConfig({
+          notificationsApiUrl: `http://localhost:${port}`,
+          retryMaxAttempts: 4,
+        }),
+        logger,
+      )
 
-      const results = await emitEvents(events, config, logger)
-
-      expect(results.get(events[0]!)!.status).toBe('sent')
+      expect(result).toEqual({ kind: 'sent' })
       expect(requestCount).toBe(3)
     } finally {
       await close()
     }
   })
 
-  it('fails after retry exhaustion', async () => {
-    const { port, close } = await createTestServer((_req, res) => {
-      res.writeHead(503)
-      res.end('Service Unavailable')
-    })
-
-    try {
-      const events = [makeEvent()]
-      const config = makeConfig({
-        notificationsApiUrl: `http://localhost:${port}`,
-        retryMaxAttempts: 1,
-        retryBaseDelayMs: 10,
-      })
-
-      const results = await emitEvents(events, config, logger)
-
-      expect(results.get(events[0]!)!.status).toBe('failed')
-      expect(results.get(events[0]!)!.error).toContain('503')
-    } finally {
-      await close()
-    }
+  it('returns retryable after retry exhaustion', async () => {
+    const { result, count } = await postWithStatus(503, 1)
+    expect(result.kind).toBe('retryable')
+    expect(result.kind !== 'sent' && result.error).toContain('503')
+    expect(count).toBe(2)
   })
 
-  it('does not retry on 400 client error', async () => {
-    let requestCount = 0
-    const { port, close } = await createTestServer((_req, res) => {
-      requestCount++
-      res.writeHead(400)
-      res.end('Bad Request')
+  it.each([400, 422])('rejects on %i without retry', async status => {
+    const { result, count } = await postWithStatus(status, 3)
+    expect(result).toEqual({
+      kind: 'rejected',
+      error: `HTTP ${status}: status ${status}`,
     })
+    expect(count).toBe(1)
+  })
 
-    try {
-      const events = [makeEvent()]
-      const config = makeConfig({
-        notificationsApiUrl: `http://localhost:${port}`,
-        retryMaxAttempts: 3,
-        retryBaseDelayMs: 10,
+  it.each([401, 403])(
+    'reports unauthorized on %i without retry',
+    async status => {
+      const { result, count } = await postWithStatus(status, 3)
+      expect(result).toEqual({
+        kind: 'unauthorized',
+        error: `HTTP ${status}: status ${status}`,
       })
+      expect(count).toBe(1)
+    },
+  )
 
-      const results = await emitEvents(events, config, logger)
+  it.each([429, 404])('retries %i and then returns retryable', async status => {
+    const { result, count } = await postWithStatus(status, 2)
+    expect(result).toEqual({
+      kind: 'retryable',
+      error: `HTTP ${status}: status ${status}`,
+    })
+    expect(count).toBe(3)
+  })
 
-      expect(results.get(events[0]!)!.status).toBe('failed')
-      expect(requestCount).toBe(1) // No retries on 4xx
+  it('returns retryable when the connection is refused', async () => {
+    const result = await postEvent(
+      makeMessage(),
+      makeConfig({
+        notificationsApiUrl: 'http://127.0.0.1:9',
+        retryMaxAttempts: 0,
+      }),
+      logger,
+    )
+    expect(result.kind).toBe('retryable')
+  })
+
+  it('truncates a long error body to 1000 characters', async () => {
+    const { port, close } = await createTestServer((_req, res) => {
+      res.writeHead(400)
+      res.end('x'.repeat(5000))
+    })
+    try {
+      const result = await postEvent(
+        makeMessage(),
+        makeConfig({ notificationsApiUrl: `http://localhost:${port}` }),
+        logger,
+      )
+      expect(result.kind !== 'sent' && result.error.length).toBe(1000)
     } finally {
       await close()
     }

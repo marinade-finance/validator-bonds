@@ -12,13 +12,8 @@ const config: EventingConfig = {
   scoringApiUrl: '',
   tvlApiUrl: '',
   institutionalApiUrl: '',
-  notificationsApiUrl: 'http://127.0.0.1:9',
-  notificationsJwt: undefined,
   postgresUrl: undefined,
   postgresSslRootCert: undefined,
-  retryMaxAttempts: 0,
-  retryBaseDelayMs: 0,
-  emitConcurrency: 1,
   dryRun: false,
   cacheInputs: undefined,
 }
