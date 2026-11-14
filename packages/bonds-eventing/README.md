@@ -26,6 +26,29 @@ and the underfunded events carry `deficit_sol`/`required_sol` instead. Instituti
 so a pending withdraw request does not read as a settlement; for bidding it remains
 `funded - effective` because ds-sam exposes no settlement/withdraw split.
 
+## Store and send
+
+`bidding` / `institutional` evaluate deltas and, in one transaction, save state for every validator,
+insert the new events into `emitted_bond_events` as `pending` and save the auction meta. They make no
+HTTP call. `send <bond_type>` posts the `pending` rows one at a time in `id` order, with the
+`message_id` fixed at insert time so a resend is deduplicated by the notifications inbox. A row with a
+newer pending row of the same `vote_account` and `inner_type` is posted with `superseded_by_newer: true`;
+marinade-notifications decides what to drop.
+
+| Status     | Meaning                                                   |
+| ---------- | --------------------------------------------------------- |
+| `pending`  | Not delivered yet; retried by every `send` run            |
+| `sent`     | Accepted by marinade-notifications (2xx)                  |
+| `rejected` | Refused as invalid (400/422); never retried               |
+| `failed`   | Retryable error on 10 consecutive attempts; never retried |
+| `ignored`  | Skipped on purpose (pre-outbox failures, or set by hand)  |
+
+`send` stops at the first 401/403 (no attempt counted) or retryable error (attempt counted), so a later
+event is never delivered before an earlier one. Exit codes: `99` some event stayed undelivered (the
+`--summary-file` is written), `100` transient DB error (retried by Buildkite), `200` any other error.
+
+To skip a row by hand: `UPDATE emitted_bond_events SET status = 'ignored' WHERE id = …;`
+
 ## Design details
 
 The system is stateful — it keeps a snapshot of each validator's state in `bond_event_state`
