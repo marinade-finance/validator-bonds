@@ -1,4 +1,10 @@
-import { type DatabasePool, sql, type SerializableValue } from 'slonik'
+import {
+  type CommonQueryMethods,
+  type DatabasePool,
+  sql,
+  type SerializableValue,
+} from 'slonik'
+import { v7 as uuidv7 } from 'uuid'
 
 import type { BondsEventV1, EmitResult } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -59,4 +65,37 @@ export async function persistEvents(
   `)
 
   logger.info(`Persisted ${results.size} event records`)
+}
+
+export async function insertPendingEvents(
+  db: CommonQueryMethods,
+  events: BondsEventV1[],
+  logger: LoggerWrapper,
+): Promise<void> {
+  if (events.length === 0) {
+    return
+  }
+
+  const valueTuples = events.map(
+    event => sql.fragment`(
+      ${uuidv7()},
+      ${event.inner_type},
+      ${event.vote_account},
+      ${event.bond_pubkey},
+      ${event.bond_type},
+      ${event.epoch},
+      ${sql.jsonb(sanitizeForJsonb(event) as SerializableValue)},
+      'pending',
+      NOW()
+    )`,
+  )
+
+  await db.query(sql.unsafe`
+    INSERT INTO emitted_bond_events (
+      message_id, inner_type, vote_account, bond_pubkey,
+      bond_type, epoch, payload, status, created_at
+    ) VALUES ${sql.join(valueTuples, sql.fragment`, `)}
+  `)
+
+  logger.info(`Stored ${events.length} pending events`)
 }

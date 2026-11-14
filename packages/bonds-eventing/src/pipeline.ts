@@ -1,7 +1,4 @@
-import * as fs from 'fs'
-
-import { createPool, createTypeParserPreset } from 'slonik'
-
+import { createEventingPool } from './db'
 import { emitEvents } from './emit-events'
 import { persistEvents } from './persist-events'
 import {
@@ -17,7 +14,7 @@ import type {
   ValidatorState,
 } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
-import type { CommonQueryMethods } from 'slonik'
+import type { CommonQueryMethods, DatabasePool } from 'slonik'
 
 export async function runEventingPipeline<V>(opts: {
   bondType: BondType
@@ -38,34 +35,14 @@ export async function runEventingPipeline<V>(opts: {
 
   let previousState = new Map<string, ValidatorState>()
 
-  let pool: Awaited<ReturnType<typeof createPool>> | null = null
+  let pool: DatabasePool | null = null
 
   try {
     if (config.postgresUrl) {
-      const poolConfig: Parameters<typeof createPool>[1] = {
-        typeParsers: [
-          ...createTypeParserPreset(),
-          {
-            name: 'timestamptz',
-            parse: (timestamp: string) => new Date(timestamp).toISOString(),
-          },
-          {
-            name: 'numeric',
-            parse: (numeric: string) => numeric,
-          },
-        ],
-        maximumPoolSize: 5,
-      }
-
-      if (config.postgresSslRootCert) {
-        const ca = fs.readFileSync(config.postgresSslRootCert, 'utf8')
-        ;(poolConfig as Record<string, unknown>).ssl = {
-          rejectUnauthorized: true,
-          ca: [ca],
-        }
-      }
-
-      pool = await createPool(config.postgresUrl, poolConfig)
+      pool = await createEventingPool(
+        config.postgresUrl,
+        config.postgresSslRootCert,
+      )
       previousState = await loadPreviousState(pool, bondType, logger)
     } else {
       logger.warn(
