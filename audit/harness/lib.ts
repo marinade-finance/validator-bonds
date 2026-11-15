@@ -566,3 +566,28 @@ export function finish(): void {
   console.log('\nall checks passed')
 }
 export const fmt = (l: bigint): string => `${(Number(l) / 1e9).toFixed(9)} SOL`
+
+/// System program transfer; `from` signs.
+export function transferIx(from: KeyPairSigner, to: Address, amount: bigint): Instruction {
+  return {
+    programAddress: SYSTEM,
+    accounts: [
+      { address: from.address, role: AccountRole.WRITABLE_SIGNER, signer: from },
+      { address: to, role: AccountRole.WRITABLE },
+    ],
+    data: cat(new Uint8Array([2, 0, 0, 0]), u64(amount)),
+  } as Instruction
+}
+
+/// Names the failure: the Anchor error code when there is one, otherwise the last error line.
+export function why(logs: string[]): string {
+  const anchor = logs.find(l => l.includes('Error Code:'))
+  if (anchor) return /Error Code: (\w+)/.exec(anchor)![1]!
+  const custom = /custom program error: (0x[0-9a-f]+)/.exec(logs.join('\n'))
+  if (custom) {
+    const code = Number(custom[1])
+    const known = IDL.errors.find((e: { code: number }) => e.code === code)
+    return known ? known.name : `custom error ${custom[1]}`
+  }
+  return errorOf(logs)
+}
