@@ -1,7 +1,7 @@
 import { getContext } from '@marinade.finance/ts-common'
 import { Option } from 'commander'
 
-import { addSharedEventingOptions } from './options'
+import { addStoreOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
 import {
   evaluateInstitutionalDeltas,
@@ -13,7 +13,7 @@ import { runInstitutional } from '../run-institutional'
 import type { Command } from 'commander'
 
 export function installInstitutional(program: Command) {
-  addSharedEventingOptions(
+  addStoreOptions(
     program
       .command('institutional')
       .description('Run eventing for institutional bond type'),

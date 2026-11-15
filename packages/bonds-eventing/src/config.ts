@@ -1,4 +1,4 @@
-import type { EventingConfig } from './types'
+import type { EventingConfig, SendConfig } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 /** Parse a value as integer >= 0. Returns fallback for undefined/empty (unset env var). Throws on invalid input. */
@@ -18,21 +18,8 @@ function parseNonNegativeInt(
   return Math.floor(n)
 }
 
-/** Parse a value as integer >= 1. Returns fallback for undefined/empty (unset env var). Throws on invalid input. */
-function parsePositiveInt(
-  name: string,
-  value: unknown,
-  fallback: number,
-): number {
-  if (value === undefined || value === null || value === '') return fallback
-  const n = Number(value)
-  const repr = typeof value === 'string' ? value : `${n}`
-  if (!Number.isFinite(n) || n < 1) {
-    throw new Error(
-      `Invalid value for ${name}: '${repr}' (expected positive integer)`,
-    )
-  }
-  return Math.floor(n)
+function parseDryRun(value: unknown): boolean {
+  return value === true || value === 'true'
 }
 
 export function parseConfig(opts: Record<string, unknown>): EventingConfig {
@@ -42,9 +29,27 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
     scoringApiUrl: opts.scoringApiUrl as string,
     tvlApiUrl: opts.tvlApiUrl as string,
     institutionalApiUrl: opts.institutionalApiUrl as string,
-    notificationsApiUrl: opts.notificationsApiUrl as string | undefined,
-    notificationsJwt: opts.notificationsJwt as string | undefined,
     postgresUrl: opts.postgresUrl as string | undefined,
+    postgresSslRootCert: opts.postgresSslRootCert as string | undefined,
+    dryRun: parseDryRun(opts.dryRun),
+    cacheInputs: opts.cacheInputs as string | undefined,
+  }
+}
+
+export function parseSendConfig(opts: Record<string, unknown>): SendConfig {
+  const postgresUrl = opts.postgresUrl as string | undefined
+  const notificationsApiUrl = opts.notificationsApiUrl as string | undefined
+  const dryRun = parseDryRun(opts.dryRun)
+  if (!postgresUrl) {
+    throw new Error('send requires --postgres-url')
+  }
+  if (!notificationsApiUrl && !dryRun) {
+    throw new Error('send requires --notifications-api-url')
+  }
+  return {
+    notificationsApiUrl,
+    notificationsJwt: opts.notificationsJwt as string | undefined,
+    postgresUrl,
     postgresSslRootCert: opts.postgresSslRootCert as string | undefined,
     retryMaxAttempts: parseNonNegativeInt(
       '--retry-max-attempts',
@@ -56,24 +61,21 @@ export function parseConfig(opts: Record<string, unknown>): EventingConfig {
       opts.retryBaseDelayMs,
       30000,
     ),
-    emitConcurrency: parsePositiveInt(
-      '--emit-concurrency',
-      opts.emitConcurrency,
-      20,
-    ),
-    dryRun: opts.dryRun === true || opts.dryRun === 'true',
-    cacheInputs: opts.cacheInputs as string | undefined,
+    dryRun,
+    summaryFile: opts.summaryFile as string | undefined,
   }
 }
 
 export function logResolvedConfig(
   logger: LoggerWrapper,
-  config: EventingConfig,
+  config: EventingConfig | SendConfig,
 ) {
   logger.info(
     {
       ...config,
-      notificationsJwt: config.notificationsJwt ? '***' : undefined,
+      ...('notificationsJwt' in config && {
+        notificationsJwt: config.notificationsJwt ? '***' : undefined,
+      }),
       postgresUrl: config.postgresUrl ? '***' : undefined,
     },
     'Resolved configuration',

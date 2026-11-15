@@ -95,8 +95,8 @@ importers:
         specifier: 0.6.7
         version: 0.6.7
       '@marinade.finance/notifications-bonds-event-v1':
-        specifier: 1.0.5
-        version: 1.0.5
+        specifier: 1.0.6
+        version: 1.0.6
       '@marinade.finance/ts-common':
         specifier: 5.11.1
         version: 5.11.1
@@ -1324,8 +1324,8 @@ packages:
   '@marinade.finance/native-staking-sdk@1.3.4':
     resolution: {integrity: sha512-//7kjIJFXmCIOauxzQl3B+Y/Av66Sf2pjJsmu+e8/Nk74rUBO4aL0rPSEiGhMvatZV1NXOQXdEZ3Ue34FN6Aaw==}
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.5':
-    resolution: {integrity: sha512-WnXb93dnsxEsadPcTli0NsvvdFaVw2Qt+pFa+jiDV+Gvh95bUJPGLnuJMvQ+Xlmkmq7RE8jFXVVkJvjn/seoRQ==}
+  '@marinade.finance/notifications-bonds-event-v1@1.0.6':
+    resolution: {integrity: sha512-07QJkjROxJn1bzZJzmG3FaFijPECfjRPKfRPI7Md+iXg7MzWXxDxa8iQYh/h0vmLIxjUMQz6saURhweNeIeqfg==}
 
   '@marinade.finance/notifications-header-v1@1.0.0':
     resolution: {integrity: sha512-hoHr0gw8SrLEY8JePl0Te4nPT6EPAVL8cKLlURWvwii/NCC4gZkSr5L/t93GBpNqWJpMu48Y1BlnSwUadJ6Vvg==}
@@ -6290,7 +6290,7 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@marinade.finance/notifications-bonds-event-v1@1.0.5':
+  '@marinade.finance/notifications-bonds-event-v1@1.0.6':
     dependencies:
       '@marinade.finance/notifications-ts-message': 1.0.0
       ajv: 8.20.0

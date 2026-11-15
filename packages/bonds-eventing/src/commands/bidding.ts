@@ -1,7 +1,7 @@
 import { getContext } from '@marinade.finance/ts-common'
 import { Option } from 'commander'
 
-import { addSharedEventingOptions } from './options'
+import { addStoreOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
 import { evaluateDeltas, validatorToState } from '../evaluate-deltas'
 import { runEventingPipeline } from '../pipeline'
@@ -11,7 +11,7 @@ import { saveAuctionMeta } from '../state'
 import type { Command } from 'commander'
 
 export function installBidding(program: Command) {
-  addSharedEventingOptions(
+  addStoreOptions(
     program
       .command('bidding')
       .description('Run eventing for bidding bond type'),
