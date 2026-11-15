@@ -21,3 +21,6 @@ pnpm-lock.yaml
 .vscode/
 .idea/
 
+
+# audit working files (standalone harness, own dependencies)
+audit/
