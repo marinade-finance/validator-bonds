@@ -280,6 +280,19 @@ pub fn is_closed(account: &UncheckedAccount) -> bool {
     account.owner == &system_program_id
 }
 
+// The stake program delegates only to a vote-owned account whose version tag is not 0.
+pub fn is_vote_account_delegatable(vote_account: &UncheckedAccount) -> bool {
+    if vote_account.owner != &vote_program_id() {
+        return false;
+    }
+    match vote_account.try_borrow_data() {
+        Ok(data) if data.len() >= 4 => {
+            u32::from_le_bytes([data[0], data[1], data[2], data[3]]) != 0
+        }
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,6 +312,37 @@ mod tests {
             max_stake_wanted: 0,
             reserved: [0; 134],
         }
+    }
+
+    fn delegatable(owner: &Pubkey, mut data: Vec<u8>) -> bool {
+        let key = Pubkey::new_unique();
+        let mut lamports = 10000_u64;
+        let account = AccountInfo::new(
+            &key,
+            false,
+            true,
+            &mut lamports,
+            data.deref_mut(),
+            owner,
+            false,
+        );
+        is_vote_account_delegatable(&UncheckedAccount::try_from(&account))
+    }
+
+    #[test]
+    pub fn vote_account_delegatable_check() {
+        let vote = vote_program_id();
+        let (_, v3_data) = get_vote_account_data();
+        let (_, _, v4_data) = get_vote_account_v4_data();
+
+        assert!(delegatable(&vote, v3_data.clone()));
+        assert!(delegatable(&vote, v4_data));
+        assert!(!delegatable(&vote, vec![0u8; 3762]));
+        assert!(!delegatable(&vote, vec![]));
+        assert!(!delegatable(&vote, vec![0, 0, 0]));
+        assert!(delegatable(&vote, vec![1, 0, 0, 0]));
+        assert!(!delegatable(&system_program_id, v3_data.clone()));
+        assert!(!delegatable(&Pubkey::new_unique(), v3_data));
     }
 
     #[test]

@@ -1,5 +1,6 @@
 use crate::checks::{
     check_stake_is_initialized_with_withdrawer_authority, check_stake_valid_delegation, is_closed,
+    is_vote_account_delegatable,
 };
 use crate::constants::BONDS_WITHDRAWER_AUTHORITY_SEED;
 use crate::error::ErrorCode;
@@ -10,8 +11,6 @@ use crate::state::settlement::find_settlement_staker_authority;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_spl::stake::{authorize, Authorize, Stake, StakeAccount};
-use solana_sdk_ids::system_program::ID as system_program_id;
-use solana_sdk_ids::vote::ID as vote_program_id;
 use solana_stake_interface::{self as stake, state::StakeAuthorize, sysvar::stake_history};
 
 /// Resetting the stake authority of a funded stake account belonging to a removed settlement.
@@ -56,10 +55,6 @@ pub struct ResetStake<'info> {
 
     /// CHECK: Validator vote account for stake delegation.
     /// It may be an orphaned system account if the original vote account was removed from the chain.
-    #[account(
-        constraint = vote_account.owner == &vote_program_id || vote_account.owner == &system_program_id
-            @ ErrorCode::InvalidVoteAccountProgramId,
-    )]
     pub vote_account: UncheckedAccount<'info>,
 
     /// CHECK: have no CPU budget to parse
@@ -131,7 +126,7 @@ impl ResetStake<'_> {
                 "Stake account {} is not deactivated, skipping delegation",
                 ctx.accounts.stake_account.key()
             );
-        } else if ctx.accounts.vote_account.owner == &vote_program_id {
+        } else if is_vote_account_delegatable(&ctx.accounts.vote_account) {
             // activate the stake, i.e., resetting delegation to the validator again
             let delegate_instruction = &stake::instruction::delegate_stake(
                 &ctx.accounts.stake_account.key(),
@@ -157,7 +152,7 @@ impl ResetStake<'_> {
             )?;
         } else {
             msg!(
-                "Vote account {} is not owned by vote program",
+                "Vote account {} cannot be delegated to, skipping delegation",
                 ctx.accounts.vote_account.key()
             );
         }
