@@ -1,1 +1,15 @@
-{"name":"bonds-audit-harness","private":true,"type":"module","dependencies":{"@anchor-lang/core":"^1.2.1","@noble/hashes":"^1.5.0","@solana/web3.js":"^1.98.0","bn.js":"^5.2.1","bs58":"^5.0.0","litesvm":"1.6.2","tsx":"^4.19.0"}}
+{
+  "name": "bonds-audit-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fetch": "python3 fetch-binaries.py",
+    "test": "for t in t0*.ts; do echo \"### $t\"; tsx $t || exit 1; done"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.5.0",
+    "@solana/kit": "^8.0.0",
+    "litesvm": "1.6.2",
+    "tsx": "^4.19.0"
+  }
+}
