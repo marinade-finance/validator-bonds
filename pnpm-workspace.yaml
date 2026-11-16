@@ -23,7 +23,7 @@ minimumReleaseAgeExclude:
 overrides:
   jayson: ^5.0.0
   tmp: ^0.2.6
-  toml: ^4.2.0
+  toml: ^5.0.1
 peerDependencyRules:
   allowedVersions:
     # unreleased ledger-utils 4.0.0 widens this peer to ts-common ^5 with the same API

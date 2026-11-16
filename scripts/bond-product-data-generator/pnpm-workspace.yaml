@@ -8,4 +8,4 @@ onlyBuiltDependencies:
   - utf-8-validate
 overrides:
   jayson: ^5.0.0
-  toml: ^4.2.0
+  toml: ^5.0.1
