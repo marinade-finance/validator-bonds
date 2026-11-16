@@ -7,7 +7,7 @@ settings:
 overrides:
   jayson: ^5.0.0
   tmp: ^0.2.6
-  toml: ^4.2.0
+  toml: ^5.0.1
 
 importers:
 
@@ -5003,8 +5003,8 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  toml@4.3.0:
-    resolution: {integrity: sha512-lVb8X9BsPVuH0M4BKeS91tXAmJvCjQ5UIyAbQFaxkKGyUFK2RPkhwaFSQH8vbpl1d23eu/IBH+dwVMHWaq9A5A==}
+  toml@5.0.1:
+    resolution: {integrity: sha512-EqYNA/YvUNndrA2B3O2ojzLQoTQrBxeZ9UIjQwk8t10oe6n7dwclBwd9IdZQTOKwe6vWX+AXtl6IntXRbepdxQ==}
     engines: {node: '>=20'}
 
   topojson-client@3.1.0:
@@ -5418,7 +5418,7 @@ snapshots:
       eventemitter3: 4.0.7
       pako: 2.1.0
       superstruct: 0.15.5
-      toml: 4.3.0
+      toml: 5.0.1
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -5643,7 +5643,7 @@ snapshots:
       pako: 2.1.0
       snake-case: 3.0.4
       superstruct: 0.15.5
-      toml: 4.3.0
+      toml: 5.0.1
     transitivePeerDependencies:
       - bufferutil
       - encoding
@@ -10611,7 +10611,7 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  toml@4.3.0: {}
+  toml@5.0.1: {}
 
   topojson-client@3.1.0:
     dependencies:
