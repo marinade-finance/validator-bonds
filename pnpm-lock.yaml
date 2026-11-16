@@ -92,8 +92,8 @@ importers:
         specifier: 5.11.1
         version: 5.11.1(@marinade.finance/config-common@5.11.1(class-transformer@0.5.1)(class-validator@0.15.1))(@marinade.finance/ts-common@5.11.1)(class-transformer@0.5.1)(class-validator@0.15.1)
       '@marinade.finance/ds-sam-sdk':
-        specifier: 0.6.7
-        version: 0.6.7
+        specifier: 0.6.8
+        version: 0.6.8
       '@marinade.finance/notifications-bonds-event-v1':
         specifier: 1.0.6
         version: 1.0.6
@@ -211,8 +211,8 @@ importers:
   packages/validator-bonds-cli-core:
     dependencies:
       '@marinade.finance/ds-sam-calc':
-        specifier: 0.6.7
-        version: 0.6.7
+        specifier: 0.6.8
+        version: 0.6.8
     devDependencies:
       '@coral-xyz/anchor':
         specifier: npm:@anchor-lang/core@^1.2.1
@@ -1289,11 +1289,11 @@ packages:
       class-transformer: ^0.5.1
       class-validator: ^0.14.0 || ^0.15.0
 
-  '@marinade.finance/ds-sam-calc@0.6.7':
-    resolution: {integrity: sha512-nFXAoDvcrsPWrbhr6N/WsE+BhQk3c9o2Zysceihg3ZvbAUvAMckyE0uVJ+XEwxfAkLxCocbXy+qd0cM87U/Ruw==}
+  '@marinade.finance/ds-sam-calc@0.6.8':
+    resolution: {integrity: sha512-gcOem9agMkgeZN3rkU38YKtF6fsanl7LuLaOWQFEq1Ulr9o70uN7MFo5vT9Iih7wusuD8ZaSRA8cASqJcCEqHg==}
 
-  '@marinade.finance/ds-sam-sdk@0.6.7':
-    resolution: {integrity: sha512-LMwJZvVyr8TUzsZSV2i9QOSzyRR4E03sLUxluebosdiBzDcUPxX3P1tJ9cljGuU4LM3qUDhnV7/ffGCRH7hfcA==}
+  '@marinade.finance/ds-sam-sdk@0.6.8':
+    resolution: {integrity: sha512-LGo3nyfeRwZ/iMmD4e/G9BHnIJSYsNTmg5XPjaH94Y1EidXKHBAzKThP/XUBSElAiLbv5kKtU6s2o7Y7zlh6rQ==}
 
   '@marinade.finance/eslint-config@1.5.0':
     resolution: {integrity: sha512-kaIYOOZUsE5B6tfZW4OhXTQ2mrA1xQ2/3oid2o9KuIyFNjC2MIrcBOedq6WFFEcP5mIMXCHsEIhvNmeUzQ8zvg==}
@@ -6198,14 +6198,14 @@ snapshots:
       dotenv: 18.0.7
       dotenv-expand: 13.0.0
 
-  '@marinade.finance/ds-sam-calc@0.6.7':
+  '@marinade.finance/ds-sam-calc@0.6.8':
     dependencies:
       '@marinade.finance/ts-common': 5.11.1
       decimal.js: 10.6.0
 
-  '@marinade.finance/ds-sam-sdk@0.6.7':
+  '@marinade.finance/ds-sam-sdk@0.6.8':
     dependencies:
-      '@marinade.finance/ds-sam-calc': 0.6.7
+      '@marinade.finance/ds-sam-calc': 0.6.8
       '@marinade.finance/ts-common': 5.11.1
       axios: 1.20.0
       decimal.js: 10.6.0
