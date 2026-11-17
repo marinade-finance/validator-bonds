@@ -2,13 +2,17 @@ import * as fs from 'fs'
 
 import { createPool, createTypeParserPreset } from 'slonik'
 
-import type { DatabasePool } from 'slonik'
+import type { ClientConfigurationInput, DatabasePool } from 'slonik'
 
 export async function createEventingPool(
   postgresUrl: string,
   postgresSslRootCert: string | undefined,
 ): Promise<DatabasePool> {
-  const poolConfig: Parameters<typeof createPool>[1] = {
+  const ca = postgresSslRootCert
+    ? fs.readFileSync(postgresSslRootCert, 'utf8')
+    : undefined
+
+  const poolConfig: ClientConfigurationInput = {
     typeParsers: [
       ...createTypeParserPreset(),
       {
@@ -20,15 +24,10 @@ export async function createEventingPool(
         parse: (numeric: string) => numeric,
       },
     ],
-    maximumPoolSize: 5,
-  }
-
-  if (postgresSslRootCert) {
-    const ca = fs.readFileSync(postgresSslRootCert, 'utf8')
-    ;(poolConfig as Record<string, unknown>).ssl = {
-      rejectUnauthorized: true,
-      ca: [ca],
-    }
+    maxPoolSize: 5,
+    ...(ca === undefined
+      ? {}
+      : { ssl: { rejectUnauthorized: true, ca: [ca] } }),
   }
 
   return createPool(postgresUrl, poolConfig)

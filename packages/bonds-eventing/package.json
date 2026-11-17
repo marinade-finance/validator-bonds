@@ -25,7 +25,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
-    "pretest": "node -e \"if (process.versions.node.split('.')[0] < 20) { console.error('Node.js 20 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",
+    "pretest": "node -e \"if (process.versions.node.split('.')[0] < 24) { console.error('Node.js 24 or higher is required (slonik is ESM-only and loaded with require)'); process.exit(1); }\"",
     "test": "jest --config jest.config.js --verbose",
     "cli": "pnpm ts-node ./src/index.ts"
   },
@@ -39,15 +39,15 @@
     "commander": "14.0.3",
     "pino": "9.14.0",
     "pino-pretty": "13.2.0",
-    "slonik": "37.6.0",
+    "slonik": "49.13.0",
     "uuid": "^11.0.0",
-    "zod": "^3.24.0"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
     "reflect-metadata": "0.2.2"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   }
 }
