@@ -29,6 +29,7 @@ done
 
 WORK="${FUZZ_WORKDIR:-$(mktemp -d)}"
 mkdir -p "$WORK"
+WORK="$(cd "$WORK" && pwd)"
 chmod 755 "$WORK"
 API_PID=""
 PG_STARTED=0
@@ -100,15 +101,22 @@ API_ARGS=(--postgres-url "$DB_URL" --postgres-ssl-root-cert "$PG_SSLROOTCERT" --
 if [[ "$SEED" == 1 ]]; then
   API_ARGS+=(--protected-events-file "$HERE/protected-events.json")
 fi
+BASE="http://127.0.0.1:$API_PORT"
+# Something already answering on the port would be fuzzed instead of the API started here.
+if curl -s -o /dev/null "$BASE/"; then
+  echo "port $API_PORT is already in use; set FUZZ_API_PORT" >&2
+  exit 1
+fi
 "$API_BIN" "${API_ARGS[@]}" >"$WORK/api.log" 2>&1 &
 API_PID=$!
 
-BASE="http://127.0.0.1:$API_PORT"
+READY=0
 for _ in $(seq 1 100); do
-  curl -fs "$BASE/docs.json" >/dev/null 2>&1 && break
   kill -0 "$API_PID" 2>/dev/null || { cat "$WORK/api.log" >&2; echo "API exited" >&2; exit 1; }
+  curl -fs "$BASE/docs.json" >/dev/null 2>&1 && { READY=1; break; }
   sleep 0.2
 done
+[[ "$READY" == 1 ]] || { cat "$WORK/api.log" >&2; echo "API did not become ready" >&2; exit 1; }
 
 # Several endpoints answer 500 on purpose while their tables are empty (see api/README.md), so the
 # empty run drops the server-error check and instead pins which endpoints may do that.

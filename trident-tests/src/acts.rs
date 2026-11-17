@@ -117,13 +117,11 @@ impl World {
             );
         }
         if e.ok {
-            if a.minimum_stake_lamports
-                .map(|m| m < cfg.minimum_stake_lamports)
-                .unwrap_or(false)
-            {
+            let c: Config = decode(&e.post.get(&self.config)).unwrap();
+            // from the stored value, so a mutated instruction that lowers it is tracked too
+            if c.minimum_stake_lamports < cfg.minimum_stake_lamports {
                 self.min_lowered = true;
             }
-            let c: Config = decode(&e.post.get(&self.config)).unwrap();
             let exp = |o: Option<u64>, old: u64| o.unwrap_or(old);
             if c.admin_authority != a.admin.unwrap_or(cfg.admin_authority)
                 || c.operator_authority != a.operator.unwrap_or(cfg.operator_authority)
