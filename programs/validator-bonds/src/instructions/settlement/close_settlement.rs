@@ -37,7 +37,7 @@ pub struct CloseSettlementV2<'info> {
         has_one = bond @ ErrorCode::BondAccountMismatch,
         has_one = rent_collector @ ErrorCode::RentCollectorMismatch,
         constraint = (settlement.split_rent_collector.is_none() || settlement.split_rent_collector.unwrap() == split_rent_collector.key()) @ ErrorCode::RentCollectorMismatch,
-        constraint = settlement.epoch_created_for + config.epochs_to_claim_settlement < clock.epoch @ ErrorCode::SettlementNotExpired,
+        constraint = settlement.epoch_created_for.saturating_add(config.epochs_to_claim_settlement) < clock.epoch @ ErrorCode::SettlementNotExpired,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
@@ -127,8 +127,11 @@ impl CloseSettlementV2<'_> {
                 .settlement
                 .split_rent_collector
                 .map(|_| ctx.accounts.split_rent_refund_account.key()),
-            expiration_epoch: ctx.accounts.settlement.epoch_created_for
-                + ctx.accounts.config.epochs_to_claim_settlement,
+            expiration_epoch: ctx
+                .accounts
+                .settlement
+                .epoch_created_for
+                .saturating_add(ctx.accounts.config.epochs_to_claim_settlement),
             current_epoch: ctx.accounts.clock.epoch,
         });
 

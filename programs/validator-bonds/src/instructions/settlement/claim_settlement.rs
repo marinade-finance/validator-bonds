@@ -58,8 +58,8 @@ pub struct ClaimSettlementV2<'info> {
     #[account(
         mut,
         has_one = bond @ ErrorCode::BondAccountMismatch,
-        constraint = settlement.epoch_created_for + config.epochs_to_claim_settlement >= clock.epoch @ ErrorCode::SettlementExpired,
-        constraint = settlement.slot_created_at + config.slots_to_start_settlement_claiming <= clock.slot @ ErrorCode::SettlementNotReadyForClaiming,
+        constraint = settlement.epoch_created_for.saturating_add(config.epochs_to_claim_settlement) >= clock.epoch @ ErrorCode::SettlementExpired,
+        constraint = settlement.slot_created_at.saturating_add(config.slots_to_start_settlement_claiming) <= clock.slot @ ErrorCode::SettlementNotReadyForClaiming,
         seeds = [
             b"settlement_account",
             bond.key().as_ref(),
@@ -158,8 +158,12 @@ impl ClaimSettlementV2<'_> {
             );
         }
 
-        if ctx.accounts.settlement.lamports_claimed + claim
-            > ctx.accounts.settlement.max_total_claim
+        if ctx
+            .accounts
+            .settlement
+            .lamports_claimed
+            .checked_add(claim)
+            .is_none_or(|total| total > ctx.accounts.settlement.max_total_claim)
         {
             return Err(error!(ErrorCode::ClaimAmountExceedsMaxTotalClaim)
                 .with_account_name("settlement")
@@ -233,7 +237,7 @@ impl ClaimSettlementV2<'_> {
         // - The invariant is that the stake account will always be rent-exempt and of minimum size.
         //   This must be ensured by the fund_settlement instruction.
         if ctx.accounts.stake_account_from.get_lamports()
-            < claim + minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config) &&
+            < claim.saturating_add(minimal_size_stake_account(&stake_from_meta, &ctx.accounts.config)) &&
             // on perfect match when stake account lamports is equal to the claim amount we can withdraw all
             ctx.accounts.stake_account_from.get_lamports() != claim
         {

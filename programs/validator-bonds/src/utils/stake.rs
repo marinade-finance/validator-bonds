@@ -32,5 +32,7 @@ pub fn return_unused_split_stake_account_rent<'info>(
 }
 
 pub fn minimal_size_stake_account(stake_meta: &Meta, config: &Config) -> u64 {
-    stake_meta.rent_exempt_reserve + config.minimum_stake_lamports
+    stake_meta
+        .rent_exempt_reserve
+        .saturating_add(config.minimum_stake_lamports)
 }

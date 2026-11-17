@@ -46,7 +46,7 @@ pub struct InitBondProduct<'info> {
     #[account(
         init,
         payer = rent_payer,
-        space = calculate_space(&args.product_type, &args.config_data),
+        space = calculate_space(&args.product_type, &args.config_data)?,
         seeds = [
             b"bond_product",
             bond.key().as_ref(),
@@ -114,7 +114,7 @@ impl InitBondProduct<'_> {
     }
 }
 
-fn calculate_space(product_type: &ProductType, config_data: &ProductTypeConfig) -> usize {
+fn calculate_space(product_type: &ProductType, config_data: &ProductTypeConfig) -> Result<usize> {
     // Validate they match
     let valid = matches!(
         (product_type, config_data),
@@ -123,8 +123,10 @@ fn calculate_space(product_type: &ProductType, config_data: &ProductTypeConfig) 
     );
 
     if !valid {
-        panic!("Product type {product_type:?} and config data {config_data:?} mismatch");
+        return Err(error!(ErrorCode::BondProductTypeMismatch)
+            .with_values(("product_type", format!("{product_type:?}")))
+            .with_values(("config_data", format!("{config_data:?}"))));
     }
 
-    BondProduct::calculate_space(product_type, config_data)
+    Ok(BondProduct::calculate_space(product_type, config_data))
 }
