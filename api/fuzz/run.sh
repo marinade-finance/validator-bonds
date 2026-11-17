@@ -27,6 +27,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+command -v lsof >/dev/null || command -v ss >/dev/null || {
+  echo "lsof or ss is needed to check which process serves the API port" >&2
+  exit 1
+}
+
 WORK="${FUZZ_WORKDIR:-$(mktemp -d)}"
 mkdir -p "$WORK"
 WORK="$(cd "$WORK" && pwd)"
@@ -123,10 +128,10 @@ done
 # The answering listener must be the API started here (two runs can race past the check above).
 if command -v lsof >/dev/null; then
   LISTENERS="$(lsof -nP -t -iTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null || true)"
-elif command -v ss >/dev/null; then
+else
   LISTENERS="$(ss -Hltnp "sport = :$API_PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 || true)"
 fi
-if [[ -n "${LISTENERS+x}" ]] && ! grep -qx "$API_PID" <<<"$LISTENERS"; then
+if ! grep -qx "$API_PID" <<<"$LISTENERS"; then
   echo "port $API_PORT is served by another process" >&2
   exit 1
 fi

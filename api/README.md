@@ -155,7 +155,7 @@ Also database-backed, `api/tests/epoch_bounds.rs` runs the full router against t
 ### Fuzzing the API
 
 `api/fuzz/` drives the OpenAPI document (`/docs.json`) with [schemathesis](https://schemathesis.readthedocs.io/)
-using every check, valid and invalid inputs, against a seeded database. It needs `uv`, `psql`, `openssl`, the
+using every check, valid and invalid inputs, against a seeded database. It needs `uv`, `psql`, `openssl`, `lsof` or `ss`, the
 Postgres server binaries and the Rust toolchain; the same job runs in `.github/workflows/fuzz-api.yml`.
 
 ```bash
