@@ -49,6 +49,9 @@ cleanup() {
   exit "$status"
 }
 trap cleanup EXIT
+# exit on a signal so the EXIT trap stops Postgres and the API
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ -n "${POSTGRES_URL:-${TEST_POSTGRES_URL:-}}" ]]; then
   ADMIN_URL="${POSTGRES_URL:-$TEST_POSTGRES_URL}"
@@ -117,6 +120,16 @@ for _ in $(seq 1 100); do
   sleep 0.2
 done
 [[ "$READY" == 1 ]] || { cat "$WORK/api.log" >&2; echo "API did not become ready" >&2; exit 1; }
+# The answering listener must be the API started here (two runs can race past the check above).
+if command -v lsof >/dev/null; then
+  LISTENERS="$(lsof -nP -t -iTCP:"$API_PORT" -sTCP:LISTEN 2>/dev/null || true)"
+elif command -v ss >/dev/null; then
+  LISTENERS="$(ss -Hltnp "sport = :$API_PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2 || true)"
+fi
+if [[ -n "${LISTENERS+x}" ]] && ! grep -qx "$API_PID" <<<"$LISTENERS"; then
+  echo "port $API_PORT is served by another process" >&2
+  exit 1
+fi
 
 # Several endpoints answer 500 on purpose while their tables are empty (see api/README.md), so the
 # empty run drops the server-error check and instead pins which endpoints may do that.
