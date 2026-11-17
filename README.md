@@ -15,7 +15,7 @@ settlements → claims.
 
 ## Installation
 
-Requires: Rust toolchain `1.88.0` (see `rust-toolchain.toml`), Node ≥ 20.18.0, `pnpm`.
+Requires: Rust toolchain `1.88.0` (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`.
 
 ```sh
 pnpm install   # TypeScript deps
