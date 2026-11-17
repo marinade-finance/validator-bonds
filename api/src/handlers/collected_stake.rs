@@ -1,5 +1,6 @@
 use crate::context::WrappedContext;
 use crate::error::{ApiError, AppError, BadRequest};
+use crate::handlers::MAX_EPOCH;
 use crate::repositories::collected_stake::{
     get_collected_stake_range, get_distinct_labels, get_latest_collected_epoch,
     CollectedStakeQuery, CollectedStakeSnapshot,
@@ -81,8 +82,10 @@ pub struct CollectedStakeHistoryResponse {
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {
     /// Report epochs from this one on, inclusive. Defaults to `to_epoch`, i.e. the latest epoch only.
+    #[param(maximum = 2147483647)]
     pub from_epoch: Option<u64>,
     /// Report epochs up to this one, inclusive. Defaults to the latest collected epoch.
+    #[param(maximum = 2147483647)]
     pub to_epoch: Option<u64>,
     /// Comma-separated staker labels, e.g. `direct,direct-exit`. All labels when omitted. Not a
     /// repeated parameter.
@@ -160,7 +163,7 @@ fn resolve_window(
         });
     }
     // The column is INTEGER; rejecting here keeps an absurd epoch a 400 rather than a 500 downstream.
-    if to_epoch > i32::MAX as u64 {
+    if to_epoch > MAX_EPOCH {
         return Err(BadRequest {
             message: format!("to_epoch {to_epoch} is out of range"),
         });
@@ -235,7 +238,7 @@ fn build_response(snapshot: CollectedStakeSnapshot) -> CollectedStakeResponse {
     params(QueryParams),
     responses(
         (status = 200, description = "Stake routed to each validator through the Marinade products the collector tracks, one element per epoch, newest first. With no parameters that is the latest collected epoch alone. An epoch absent from the range was never collected — it does not mean no validator had stake, and nothing is interpolated. `totals` aggregate only the rows the filters returned, so a filtered call carries filtered totals.\n\nOut-flow is read from the `-exit` labels (`label=direct,direct-exit` pairs a product with its exit), and only for the epoch a position is cooling down in: one snapshot per epoch means a missed collection loses that event permanently. Two things are never reported, because neither can be attributed to a validator: stake a staker authority holds without delegating it, and a position that has finished cooling down.", body = CollectedStakeHistoryResponse),
-        (status = 400, description = "`from_epoch` is after `to_epoch`, the window is wider than 100 epochs, `vote_account` is not a valid pubkey, or `label` is not a configured staker label."),
+        (status = 400, description = "`from_epoch` is after `to_epoch`, `to_epoch` is past the largest storable epoch, the window is wider than 100 epochs, `vote_account` is not a valid pubkey, or `label` is not a configured staker label."),
         (status = 500, description = "No stake has been collected yet, or it could not be read. Deliberately not an empty list, which would read as 'no validator has stake'."),
     )
 )]

@@ -1,5 +1,6 @@
 use anyhow::Context as _;
-use api::context::{Context, WrappedContext};
+use api::context::{Context, ProtectedEvents, WrappedContext};
+use api::dto::ProtectedEventRecord;
 use api::repositories::protected_events::spawn_protected_events_cache;
 use api::repositories::verified_validators as verified_validators_repo;
 use api::routes::{build_app, internal_router};
@@ -33,6 +34,11 @@ pub struct Params {
 
     #[arg(long = "gcp-sa-key")]
     pub gcp_sa_key: Option<String>,
+
+    /// Serve /protected-events from this JSON file (an array of protected event records) instead of
+    /// BigQuery. For offline testing; cannot be combined with the GCP parameters.
+    #[arg(long = "protected-events-file")]
+    pub protected_events_file: Option<String>,
 
     #[arg(long = "port", default_value = "8000")]
     pub port: u16,
@@ -76,15 +82,28 @@ async fn main() -> anyhow::Result<()> {
         verified_validators,
     )?));
 
-    match (params.gcp_project_id, params.gcp_sa_key) {
-        (Some(gcp_project_id), Some(gcp_sa_key)) => {
+    match (
+        params.gcp_project_id,
+        params.gcp_sa_key,
+        params.protected_events_file,
+    ) {
+        (None, None, Some(path)) => {
+            info!("Loading protected events from {path}.");
+            let records: Vec<ProtectedEventRecord> = serde_json::from_reader(
+                std::fs::File::open(&path).with_context(|| format!("Failed to open {path}"))?,
+            )
+            .with_context(|| format!("Failed to parse protected events from {path}"))?;
+            *protected_event_records.write().await = Some(ProtectedEvents::new(records)?);
+        }
+        (_, _, Some(_)) => anyhow::bail!("--protected-events-file excludes the GCP parameters."),
+        (Some(gcp_project_id), Some(gcp_sa_key), None) => {
             info!("Spawning protected events cache.");
             spawn_protected_events_cache(gcp_sa_key, gcp_project_id, protected_event_records).await;
         }
-        (None, None) => {
+        (None, None, None) => {
             error!("GCP parameters not provided, /protected-events will answer 500.")
         }
-        _ => anyhow::bail!("All GCP parameters must be used together."),
+        (_, _, None) => anyhow::bail!("All GCP parameters must be used together."),
     };
 
     if params.port == INTERNAL_PORT {
