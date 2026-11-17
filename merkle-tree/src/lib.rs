@@ -322,3 +322,87 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::collection::{btree_set, vec};
+    use proptest::prelude::*;
+
+    fn items() -> impl Strategy<Value = Vec<Vec<u8>>> {
+        // distinct leaves of arbitrary content, including empty ones
+        btree_set(vec(any::<u8>(), 0..40), 1..70).prop_map(|s| s.into_iter().collect())
+    }
+
+    fn leaf(item: &[u8]) -> Hash {
+        hash_leaf!(item)
+    }
+
+    proptest! {
+        #[test]
+        fn every_leaf_has_verifying_path(items in items()) {
+            // `Proof::verify` hashes siblings positionally, i.e. it matches unsorted trees
+            let tree = MerkleTree::new(&items, false);
+            prop_assert!(tree.get_root().is_some());
+            for (i, item) in items.iter().enumerate() {
+                let path = tree.find_path(i).unwrap();
+                prop_assert!(path.verify(leaf(item)));
+            }
+        }
+
+        #[test]
+        fn path_rejects_other_leaf(items in items(), other in vec(any::<u8>(), 0..40)) {
+            // a one-leaf tree has an empty path, which `Proof::verify` accepts for any candidate
+            prop_assume!(items.len() > 1 && !items.contains(&other));
+            let tree = MerkleTree::new(&items, false);
+            for i in 0..items.len() {
+                let path = tree.find_path(i).unwrap();
+                prop_assert!(!path.verify(leaf(&other)));
+            }
+        }
+
+        #[test]
+        fn path_out_of_range_is_none(items in items(), extra in 0usize..5) {
+            let tree = MerkleTree::new(&items, true);
+            prop_assert!(tree.find_path(items.len() + extra).is_none());
+        }
+
+        #[test]
+        fn root_is_deterministic_and_order_sensitive(items in items()) {
+            let a = MerkleTree::new(&items, true);
+            let b = MerkleTree::new(&items, true);
+            prop_assert_eq!(a.get_root(), b.get_root());
+            prop_assume!(items.len() > 1);
+            let mut swapped = items.clone();
+            swapped.swap(0, 1);
+            // the root commits to the leaf order only for unsorted levels; sorted hashing
+            // may coincide for a pair, so only assert the unsorted variant
+            let u1 = MerkleTree::new(&items, false);
+            let u2 = MerkleTree::new(&swapped, false);
+            prop_assert_ne!(u1.get_root(), u2.get_root());
+        }
+
+        #[test]
+        fn single_leaf_root_is_leaf_hash(item in vec(any::<u8>(), 0..64), sorted in any::<bool>()) {
+            let tree = MerkleTree::new(std::slice::from_ref(&item), sorted);
+            prop_assert_eq!(tree.get_root(), Some(&leaf(&item)));
+            prop_assert!(tree.find_path(0).unwrap().get_proof_entries().is_empty());
+        }
+
+        #[test]
+        fn leaf_and_intermediate_hashes_are_separated(l in any::<[u8; 32]>(), r in any::<[u8; 32]>()) {
+            let mut concat = l.to_vec();
+            concat.extend_from_slice(&r);
+            prop_assert_ne!(leaf(&concat), hash_intermediate!(l, r));
+        }
+
+        #[test]
+        fn proof_depth_is_logarithmic(items in items()) {
+            let tree = MerkleTree::new(&items, true);
+            let max_depth = (usize::BITS - (items.len() - 1).leading_zeros()) as usize;
+            for i in 0..items.len() {
+                prop_assert!(tree.find_path(i).unwrap().get_proof_entries().len() <= max_depth);
+            }
+        }
+    }
+}

@@ -9,3 +9,6 @@ solana-program = { workspace = true }
 fast-math = { workspace = true }
 hex = { workspace = true }
 serde = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.6"

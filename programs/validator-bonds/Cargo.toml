@@ -27,6 +27,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"
 
 [dev-dependencies]
 bincode = { workspace = true }
+proptest = "1.6"
 solana-vote-interface = { workspace = true, features = ["serde"] }
 
 [dependencies]

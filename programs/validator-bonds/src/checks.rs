@@ -92,15 +92,17 @@ fn get_from_validator_vote_account(
 
     // verification if the vote account data type is known one
     // from the slice of the first 4 bytes getting the uint number that can be checked
-    let type_slice: [u8; 4] = validator_vote_data[0..4].try_into().map_err(|err| {
-        msg!(
-            "Cannot get vote account type of address {} data: {:?}",
-            vote_account.key,
-            err
-        );
-        error!(ErrorCode::FailedToDeserializeVoteAccount)
-            .with_values(("vote_account", vote_account.key()))
-    })?;
+    let type_slice: [u8; 4] = validator_vote_data
+        .get(0..4)
+        .and_then(|slice| slice.try_into().ok())
+        .ok_or_else(|| {
+            msg!(
+                "Cannot get vote account type of address {} data",
+                vote_account.key
+            );
+            error!(ErrorCode::FailedToDeserializeVoteAccount)
+                .with_values(("vote_account", vote_account.key()))
+        })?;
     // V1-V4: https://github.com/anza-xyz/solana-sdk/blob/master/vote-interface/src/state/vote_state_versions.rs#L18
     // known state versions are: 0 (V1), 1 (V2), 2 (V3/Current), 3 (V4, SIMD-0185)
     let vote_state_type = u32::from_le_bytes(type_slice);
@@ -953,5 +955,183 @@ mod tests {
             &test_bond_with_authority(bond_authority),
             &unchecked_account,
         ));
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::utils::{
+        STAKE_LIST_DISCRIMINATOR, STAKE_LIST_HEADER_LEN, STATE_MIN_LEN,
+        STATE_STAKE_LIST_ACCOUNT_OFFSET, STATE_STAKE_LIST_COUNT_OFFSET,
+        STATE_STAKE_LIST_ITEM_SIZE_OFFSET,
+    };
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use solana_stake_interface::stake_flags::StakeFlags;
+    use solana_stake_interface::stake_history::StakeHistory;
+    use solana_stake_interface::state::{Authorized, Lockup};
+
+    fn stake_account(state: StakeStateV2) -> StakeAccount {
+        let bytes = borsh::to_vec(&state).unwrap();
+        StakeAccount::try_deserialize(&mut bytes.as_slice()).unwrap()
+    }
+
+    fn clock(epoch: u64, unix_timestamp: i64) -> Clock {
+        Clock {
+            epoch,
+            unix_timestamp,
+            ..Clock::default()
+        }
+    }
+
+    #[test]
+    fn vote_account_shorter_than_type_header_is_an_error() {
+        for len in 0..4 {
+            let key = Pubkey::new_unique();
+            let owner = vote_program_id();
+            let mut lamports = 1u64;
+            let mut data = vec![0u8; len];
+            let info =
+                AccountInfo::new(&key, false, false, &mut lamports, &mut data, &owner, false);
+            let acc = UncheckedAccount::try_from(&info);
+            assert!(get_validator_vote_account_validator_identity(&acc).is_err());
+            assert!(get_validator_vote_account_authorized_withdrawer(&acc).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn vote_account_fields_never_panic(
+            data in vec(any::<u8>(), 0..100),
+            owner_is_vote in any::<bool>(),
+        ) {
+            let key = Pubkey::new_unique();
+            let owner = if owner_is_vote { vote_program_id() } else { Pubkey::new_unique() };
+            let mut lamports = 1u64;
+            let mut data = data;
+            let expected = data.clone();
+            let info = AccountInfo::new(&key, false, false, &mut lamports, &mut data, &owner, false);
+            let acc = UncheckedAccount::try_from(&info);
+            let identity = get_validator_vote_account_validator_identity(&acc);
+            let withdrawer = get_validator_vote_account_authorized_withdrawer(&acc);
+            let known_type = expected.len() >= 4
+                && u32::from_le_bytes(expected[..4].try_into().unwrap()) <= 3;
+            if owner_is_vote && known_type && expected.len() >= 36 {
+                prop_assert_eq!(identity.unwrap().to_bytes(), <[u8; 32]>::try_from(&expected[4..36]).unwrap());
+            } else {
+                prop_assert!(identity.is_err());
+            }
+            if owner_is_vote && known_type && expected.len() >= 68 {
+                prop_assert_eq!(withdrawer.unwrap().to_bytes(), <[u8; 32]>::try_from(&expected[36..68]).unwrap());
+            } else {
+                prop_assert!(withdrawer.is_err());
+            }
+        }
+
+        #[test]
+        fn lockup_blocks_exactly_when_in_force(
+            epoch in any::<u64>(),
+            ts in any::<i64>(),
+            lock_epoch in any::<u64>(),
+            lock_ts in any::<i64>(),
+        ) {
+            let lockup = Lockup { unix_timestamp: lock_ts, epoch: lock_epoch, custodian: Pubkey::new_unique() };
+            let acc = stake_account(StakeStateV2::Initialized(Meta { lockup, ..Meta::default() }));
+            let res = check_stake_is_not_locked(&acc, &clock(epoch, ts), "stake");
+            let locked = lock_ts > ts || lock_epoch > epoch;
+            prop_assert_eq!(res.is_err(), locked);
+        }
+
+        #[test]
+        fn withdrawer_check_matches_equality(w in any::<[u8; 32]>(), a in any::<[u8; 32]>()) {
+            let meta = Meta { authorized: Authorized { staker: Pubkey::default(), withdrawer: Pubkey::new_from_array(w) }, ..Meta::default() };
+            let acc = stake_account(StakeStateV2::Initialized(meta));
+            let res = check_stake_is_initialized_with_withdrawer_authority(&acc, &Pubkey::new_from_array(a), "s");
+            prop_assert_eq!(res.is_ok(), w == a);
+        }
+
+        #[test]
+        fn activation_check_without_history(
+            stake in any::<u64>(),
+            activation in any::<u64>(),
+            deactivation in any::<u64>(),
+            epoch in any::<u64>(),
+        ) {
+            let delegation = Delegation {
+                voter_pubkey: Pubkey::default(),
+                stake,
+                activation_epoch: activation,
+                deactivation_epoch: deactivation,
+                ..Delegation::default()
+            };
+            let st = Stake { delegation, ..Stake::default() };
+            let acc = stake_account(StakeStateV2::Stake(Meta::default(), st, StakeFlags::empty()));
+            let res = check_stake_exist_and_activating_or_activated(&acc, epoch, &StakeHistory::default());
+            if stake == 0 {
+                prop_assert!(res.is_err());
+            }
+            // fully active or still warming up, never deactivated
+            if stake > 0 && activation <= epoch && deactivation == u64::MAX {
+                prop_assert!(res.is_ok());
+            }
+            // cooled down completely
+            if stake > 0 && activation < deactivation && deactivation < epoch {
+                prop_assert!(res.is_err());
+            }
+        }
+
+        #[test]
+        fn marinade_member_check(
+            records in vec(any::<[u8; 32]>(), 0..8),
+            live_raw in 0usize..9,
+            item_size in 32usize..70,
+            probe_idx in any::<prop::sample::Index>(),
+            probe_is_member in any::<bool>(),
+            foreign in any::<[u8; 32]>(),
+            bad_state_owner in any::<bool>(),
+            bad_list_owner in any::<bool>(),
+            bad_list_key in any::<bool>(),
+        ) {
+            let live = live_raw.min(records.len());
+            let mut list = vec![0u8; STAKE_LIST_HEADER_LEN + records.len() * item_size];
+            list[..8].copy_from_slice(&STAKE_LIST_DISCRIMINATOR);
+            for (i, r) in records.iter().enumerate() {
+                let o = STAKE_LIST_HEADER_LEN + i * item_size;
+                list[o..o + 32].copy_from_slice(r);
+            }
+            let list_key = Pubkey::new_unique();
+            let mut state = vec![0u8; STATE_MIN_LEN];
+            let announced_key = if bad_list_key { Pubkey::new_unique() } else { list_key };
+            state[STATE_STAKE_LIST_ACCOUNT_OFFSET..STATE_STAKE_LIST_ITEM_SIZE_OFFSET].copy_from_slice(announced_key.as_ref());
+            state[STATE_STAKE_LIST_ITEM_SIZE_OFFSET..STATE_STAKE_LIST_COUNT_OFFSET].copy_from_slice(&(item_size as u32).to_le_bytes());
+            state[STATE_STAKE_LIST_COUNT_OFFSET..STATE_MIN_LEN].copy_from_slice(&(live as u32).to_le_bytes());
+
+            let probe = if probe_is_member && !records.is_empty() {
+                records[probe_idx.index(records.len())]
+            } else {
+                foreign
+            };
+            let is_live_member = records[..live].contains(&probe);
+
+            let state_key = MARINADE_LIQUID_STATE;
+            let state_owner = if bad_state_owner { Pubkey::new_unique() } else { MARINADE_LIQUID_PROGRAM_ID };
+            let list_owner = if bad_list_owner { Pubkey::new_unique() } else { MARINADE_LIQUID_PROGRAM_ID };
+            let (mut l1, mut l2) = (1u64, 1u64);
+            let state_info = AccountInfo::new(&state_key, false, false, &mut l1, &mut state, &state_owner, false);
+            let list_info = AccountInfo::new(&list_key, false, false, &mut l2, &mut list, &list_owner, false);
+            let state_acc = UncheckedAccount::try_from(&state_info);
+            let list_acc = UncheckedAccount::try_from(&list_info);
+
+            let res = check_marinade_liquid_stake_list_member(
+                Some(&state_acc), Some(&list_acc), &Pubkey::new_from_array(probe));
+            prop_assert_eq!(
+                res.is_ok(),
+                is_live_member && !bad_state_owner && !bad_list_owner && !bad_list_key
+            );
+            // a missing optional account is always an error
+            prop_assert!(check_marinade_liquid_stake_list_member(None, Some(&list_acc), &Pubkey::new_from_array(probe)).is_err());
+            prop_assert!(check_marinade_liquid_stake_list_member(Some(&state_acc), None, &Pubkey::new_from_array(probe)).is_err());
+        }
     }
 }
