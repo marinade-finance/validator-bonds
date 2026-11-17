@@ -183,7 +183,8 @@ fn claim(
 fn next_epoch(t: &mut Trident) {
     let c = t.get_sysvar::<solana_sdk::clock::Clock>();
     t.warp_to_epoch(c.epoch + 1);
-    t.warp_to_slot(c.slot + 1000);
+    // past the longest settlement claiming delay `World::init_config` picks (3000 slots)
+    t.warp_to_slot(c.slot + 4000);
 }
 
 #[test]

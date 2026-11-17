@@ -37,6 +37,7 @@ docker-target/
 fuzz/
 hfuzz*
 fuzzing/
+!/api/fuzz/
 
 # Local
 *.local.json

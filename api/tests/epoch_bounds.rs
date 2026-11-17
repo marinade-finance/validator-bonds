@@ -77,6 +77,18 @@ async fn epoch_parameters_are_bounded_on_every_endpoint() {
     ));
     let base = serve(context).await;
 
+    // In its own task so the fixture is removed even when a check fails.
+    let checks = tokio::spawn(async move { check_epoch_bounds(&base).await }).await;
+    client
+        .execute("DELETE FROM collected_stake WHERE epoch = $1", &[&EPOCH])
+        .await
+        .unwrap();
+    if let Err(error) = checks {
+        std::panic::resume_unwind(error.into_panic());
+    }
+}
+
+async fn check_epoch_bounds(base: &str) {
     let too_big = MAX_EPOCH + 1;
     for path in [
         "/protected-events",
@@ -84,38 +96,33 @@ async fn epoch_parameters_are_bounded_on_every_endpoint() {
         "/v1/protected-events/allocation",
     ] {
         assert_eq!(
-            status(&base, &format!("{path}?from_epoch={too_big}")).await,
+            status(base, &format!("{path}?from_epoch={too_big}")).await,
             400,
             "{path}"
         );
     }
     assert_eq!(
-        status(&base, &format!("/v1/validators/stake?to_epoch={too_big}")).await,
+        status(base, &format!("/v1/validators/stake?to_epoch={too_big}")).await,
         400
     );
     assert_eq!(
-        status(&base, &format!("/v1/validators/stake?from_epoch={too_big}")).await,
+        status(base, &format!("/v1/validators/stake?from_epoch={too_big}")).await,
         400
     );
 
     for path in ["/protected-events", "/v1/protected-events"] {
         assert_eq!(
-            status(&base, &format!("{path}?from_epoch={MAX_EPOCH}")).await,
+            status(base, &format!("{path}?from_epoch={MAX_EPOCH}")).await,
             200,
             "{path}"
         );
     }
     assert_eq!(
         status(
-            &base,
+            base,
             &format!("/v1/validators/stake?from_epoch={MAX_EPOCH}&to_epoch={MAX_EPOCH}")
         )
         .await,
         200
     );
-
-    client
-        .execute("DELETE FROM collected_stake WHERE epoch = $1", &[&EPOCH])
-        .await
-        .unwrap();
 }

@@ -556,7 +556,7 @@ impl World {
 
     /// Findings raised by the generic checks (valid for any instruction, mutated or not).
     pub fn is_generic_finding(msg: &str) -> bool {
-        const GENERIC: [&str; 18] = [
+        const GENERIC: [&str; 19] = [
             "lamports_not_conserved",
             "paused_not_blocking",
             "config_changed_by_other_ix",
@@ -573,6 +573,7 @@ impl World {
             "not_rent_exempt",
             "claimed_exceeds_max_total",
             "claims_exceed_max_nodes",
+            "claimed_exceeds_funded",
             "bitmap_count_mismatch",
             "failed_tx_changed_state",
         ];
