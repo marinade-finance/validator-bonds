@@ -1,0 +1,79 @@
+name: Fuzz Program
+
+# Slow (program build + fuzzing): scheduled weekly and on demand, not on pull requests.
+on:
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: 'Fuzz iterations'
+        required: false
+        default: '20000'
+      calls:
+        description: 'Flow calls per iteration'
+        required: false
+        default: '60'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
+  AGAVE_VERSION: v3.1.12
+
+jobs:
+  trident:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: ⚙️ Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install libudev-dev libclang-dev llvm-dev libssl-dev pkg-config bzip2
+
+      - name: 🦿 Install Rust tookchain
+        uses: dtolnay/rust-toolchain@9ca9f0b320e19763058bc9531663c225d20db487 # 1.97.1
+
+      - name: 🧠 Cache Rust dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            trident-tests/target/
+          key: ${{ runner.os }}-cargo-fuzz-program-${{ hashFiles('trident-tests/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-fuzz-program-
+
+      - name: 🛠️ Install the Agave toolchain
+        run: |
+          mkdir -p "$HOME/.local/solana"
+          curl -sSfL "https://release.anza.xyz/${AGAVE_VERSION}/solana-release-x86_64-unknown-linux-gnu.tar.bz2" \
+            | tar -xj -C "$HOME/.local/solana" --strip-components=1
+          echo "$HOME/.local/solana/bin" >> "$GITHUB_PATH"
+
+      - name: 🏗️ Build the program (SBPF v0)
+        run: trident-tests/build-program.sh
+
+      - name: 🧪 Run the regression tests
+        working-directory: trident-tests
+        run: cargo test --release
+
+      - name: 🧨 Fuzz the program with Trident
+        working-directory: trident-tests
+        env:
+          FUZZ_ITERATIONS: ${{ inputs.iterations || '20000' }}
+          FUZZ_CALLS: ${{ inputs.calls || '60' }}
+          TRIDENT_WITH_EXIT_CODE: '1'
+          FUZZING_METRICS: '1'
+          FUZZING_JSON: ${{ runner.temp }}/fuzz-metrics.json
+        run: |
+          cargo build --release --bin fuzz
+          # Trident prints failures (with the replay seed) through a progress bar that needs a terminal
+          script -qec "./target/release/fuzz" /dev/null

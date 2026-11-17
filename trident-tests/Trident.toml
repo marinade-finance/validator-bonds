@@ -1,0 +1,6 @@
+[fuzz.metrics]
+enabled = true
+
+[[fuzz.programs]]
+address = "vBoNdEvzMrSai7is21XgVYik65mqtaKXuSdMBJ1xkW4"
+program = "target/deploy/validator_bonds.so"
