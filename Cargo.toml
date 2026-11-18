@@ -24,10 +24,10 @@ incremental = false
 opt-level = 3
 
 [workspace.dependencies]
-agave-feature-set = "3.1.14"
-anchor-client = { version = "1.2.1", features = ["async"] }
-anchor-lang = "1.2.1"
-anchor-spl = { version = "1.2.1" }
+agave-feature-set = "4.3.2"
+anchor-client = { version = "1.2.1", default-features = false, features = ["async", "solana-v4"] }
+anchor-lang = { version = "1.2.1", default-features = false, features = ["solana-v4"] }
+anchor-spl = { version = "1.2.1", default-features = false, features = ["solana-v4", "associated_token", "mint", "token", "token_2022", "token_2022_extensions"] }
 anyhow = "1.0.82"
 bincode = "1.3.3"
 chrono = "0.4"
@@ -49,27 +49,27 @@ serde = "1.0.197"
 serde_json = "1.0.114"
 serde_yaml = "0.9"
 settlement-common = { path = "settlement-distributions/settlement-common" }
-snapshot-parser = { git = "https://github.com/marinade-finance/solana-snapshot-parser", rev = "58abd16413b28d6d148517391dbc445c912c993e" }
-snapshot-parser-validator-cli = { git = "https://github.com/marinade-finance/solana-snapshot-parser", rev = "58abd16413b28d6d148517391dbc445c912c993e" }
+snapshot-parser = { git = "https://github.com/marinade-finance/solana-snapshot-parser", rev = "7a4fa6409d7eace499b4c3afc81ac7f126743a84" }
+snapshot-parser-validator-cli = { git = "https://github.com/marinade-finance/solana-snapshot-parser", rev = "7a4fa6409d7eace499b4c3afc81ac7f126743a84" }
 shellexpand = "3.1.0"
-solana-account-decoder = "3.1.14"
+solana-account-decoder = "4.3.2"
 solana-account-info = "3.1"
-solana-cli-output = { version = "3.1.14", features = ["agave-unstable-api"] }
-solana-client = "3.1.14"
+solana-cli-output = { version = "4.3.2", features = ["agave-unstable-api"] }
+solana-client = "4.3.2"
 solana-commitment-config = "3"
-solana-feature-gate-interface = { version = "=3.0.0", features = ["bincode"] }
-solana-instructions-sysvar = "3.0.1"
-solana-program = "3.0.0"
-solana-pubkey = "3.0.0"
-solana-sdk = "3.0.0"
+solana-feature-gate-interface = { version = "4.0.0", features = ["bincode"] }
+solana-instructions-sysvar = "4.0.0"
+solana-program = "4.0.0"
+solana-pubkey = "4.3"
+solana-sdk = "4.0.1"
 solana-sdk-ids = "3.1.0"
-solana-stake-interface = { version = "=2.0.2", features = ["bincode", "borsh", "serde", "sysvar"] }
+solana-stake-interface = { version = "4.4", features = ["bincode", "borsh", "serde", "sysvar"] }
 solana-security-txt = "1.1.3"
-solana-system-interface = { version = "2.0.0", features = ["bincode"] }
-solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", tag = "solana-3.0.x" }
-solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", tag = "solana-3.0.x" }
-solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", tag = "solana-3.0.x" }
-solana-vote-interface = "3"
+solana-system-interface = { version = "3.3", features = ["bincode"] }
+solana-transaction-executor = { git = "https://github.com/marinade-finance/solana-transaction-executor", branch = "solana-to-4.x" }
+solana-transaction-builder = { git = "https://github.com/marinade-finance/solana-transaction-builder", rev = "943d78b" }
+solana-transaction-builder-executor = { git = "https://github.com/marinade-finance/solana-transaction-builder", rev = "943d78b" }
+solana-vote-interface = "6.1"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = { version = "0.7.7", features = ["with-chrono-0_4", "with-serde_json-1"] }
 tracing = "0.1.37"
@@ -80,6 +80,6 @@ validator-bonds = { path = "./programs/validator-bonds" }
 validator-bonds-common = { path = "./common-rs" }
 
 [patch.crates-io]
-# solana-ledger 4.3.0 (via the parser) calls rocksdb APIs only agave's fork has
+# solana-ledger 4.3.2 (via the parser) calls rocksdb APIs only agave's fork has
 librocksdb-sys = { git = "https://github.com/anza-xyz/rust-rocksdb", rev = "4dba80dfe9434e595a971f5b2985ff9ba4fb31e7" }
 rocksdb = { git = "https://github.com/anza-xyz/rust-rocksdb", rev = "4dba80dfe9434e595a971f5b2985ff9ba4fb31e7" }
