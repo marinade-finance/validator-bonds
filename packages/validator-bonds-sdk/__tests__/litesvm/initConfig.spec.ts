@@ -2,19 +2,19 @@ import assert from 'assert'
 
 import { Keypair } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { initLiteSvmTest } from './litesvm'
 import { getConfig, initConfigInstruction } from '../../src'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds config account tests', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   it('init config', async () => {

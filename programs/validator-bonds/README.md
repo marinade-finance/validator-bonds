@@ -109,7 +109,7 @@ In the event that the operator authority's hot wallet key is compromised, the ad
 ```sh
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 echo "Building version $VERSION"
-# TODO: arch v0 is because of bankrun tested only v0, moving to litesvm is a step to fix this
+# TODO: arch v0 is a leftover of bankrun; the LiteSVM tests pass on an SBPF v2 build as well
 anchor build --verifiable --arch v0 --tools-version v1.54 --ignore-keys \
   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
 

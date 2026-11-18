@@ -1,10 +1,4 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  assertNotExist,
-  currentEpoch,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { U64_MAX, pubkey, signer } from '@marinade.finance/web3js-1x'
 import {
   LAMPORTS_PER_SOL,
@@ -15,7 +9,13 @@ import {
   Transaction,
 } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import {
+  assertNotExist,
+  currentEpoch,
+  warpToEpoch,
+  warpToNextEpoch,
+} from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   bondAddress,
@@ -23,7 +23,7 @@ import {
   settlementAddress,
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
-  getRentExemptStake,
+  minimalSizeStakeAccount,
   getConfig,
   getSettlement,
   fundSettlementInstruction,
@@ -46,19 +46,19 @@ import {
   executeWithdraw,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Keypair } from '@solana/web3.js'
 
 describe('Staking merge verification/investigation', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
   const startUpEpoch = getSecureRandomInt(100, 200)
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
     warpToEpoch(provider, startUpEpoch)
   })
 
@@ -300,10 +300,7 @@ describe('Staking merge verification/investigation', () => {
     })
 
     // warp to make the funds effective in stake account
-    warpToEpoch(
-      provider,
-      Number((await provider.context.banksClient.getClock()).epoch) + 1,
-    )
+    warpToEpoch(provider, Number(provider.getClock().epoch) + 1)
     const deactivate1Ix = StakeProgram.deactivate({
       stakePubkey: stakeAccount1,
       authorizedPubkey: staker1.publicKey,
@@ -337,10 +334,7 @@ describe('Staking merge verification/investigation', () => {
       }
     }
     // making funds ineffective, withdraw works
-    warpToEpoch(
-      provider,
-      Number((await provider.context.banksClient.getClock()).epoch) + 1,
-    )
+    warpToEpoch(provider, Number(provider.getClock().epoch) + 1)
     await executeWithdraw(provider, stakeAccount1, withdrawer1, undefined, 1)
 
     await authorizeStakeAccount({
@@ -417,7 +411,7 @@ describe('Staking merge verification/investigation', () => {
       configAccount,
       program.programId,
     )
-    const currentEpoch = (await provider.context.banksClient.getClock()).epoch
+    const currentEpoch = provider.getClock().epoch
     const [bond] = bondAddress(configAccount, program.programId)
     const [settlement] = settlementAddress(
       bond,
@@ -559,9 +553,9 @@ describe('Staking merge verification/investigation', () => {
       currentEpoch: epoch,
     })
 
-    const rentExemptStake = await getRentExemptStake(provider)
-    const stakeAccountMinimalAmount =
-      rentExemptStake + config.minimumStakeLamports.toNumber()
+    const stakeAccountMinimalAmount = minimalSizeStakeAccount(
+      config.minimumStakeLamports,
+    ).toNumber()
     const lamportsToFund1 = maxTotalClaim / 2 + 2 * LAMPORTS_PER_SOL
     const lamportsToFund2 =
       maxTotalClaim -

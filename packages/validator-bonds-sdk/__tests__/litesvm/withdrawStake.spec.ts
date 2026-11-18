@@ -1,9 +1,9 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, signer } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { assertNotExist, currentEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   resetStakeInstruction,
@@ -21,13 +21,13 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { SignerType } from '@marinade.finance/web3js-1x'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds withdraw stake', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
@@ -35,8 +35,8 @@ describe('Validator Bonds withdraw stake', () => {
   let voteAccount: PublicKey
   let user: SignerType
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {

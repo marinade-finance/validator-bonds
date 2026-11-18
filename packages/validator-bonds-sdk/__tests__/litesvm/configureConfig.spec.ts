@@ -1,34 +1,30 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  bankrunExecute,
-  bankrunExecuteIx,
-  bankrunTransaction,
-} from '@marinade.finance/bankrun-utils'
 import { Keypair, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { executeTx, executeIx, newTransaction } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import { getConfig, configureConfigInstruction, Errors } from '../../src'
 import {
   executeConfigureConfigInstruction,
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Config, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Transaction } from '@solana/web3.js'
 
 describe('Validator Bonds configure config tests', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configInitialized: ProgramAccount<Config>
   let adminAuthority: Keypair
   let operatorAuthority: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {
@@ -89,7 +85,7 @@ describe('Validator Bonds configure config tests', () => {
       newOperator: PublicKey.default,
       newPauseAuthority: pauseAuthority,
     })
-    await bankrunExecuteIx(
+    await executeIx(
       provider,
       [provider.wallet, newAdminAuthority],
       instruction2,
@@ -110,7 +106,7 @@ describe('Validator Bonds configure config tests', () => {
     const randomKey = Keypair.generate()
     const tx = await getConfigureConfigTx(randomKey.publicKey)
     try {
-      await bankrunExecute(provider, [provider.wallet, randomKey], tx)
+      await executeTx(provider, [provider.wallet, randomKey], tx)
       throw new Error('failure expected as wrong admin')
     } catch (e) {
       verifyError(e, Errors, 6001, 'requires admin authority')
@@ -119,7 +115,7 @@ describe('Validator Bonds configure config tests', () => {
     // trying to use operator authority
     const txOperator = await getConfigureConfigTx(operatorAuthority.publicKey)
     try {
-      await bankrunExecuteIx(
+      await executeIx(
         provider,
         [provider.wallet, operatorAuthority],
         txOperator,
@@ -133,7 +129,7 @@ describe('Validator Bonds configure config tests', () => {
   async function getConfigureConfigTx(
     adminAuthority?: PublicKey,
   ): Promise<Transaction> {
-    const tx = await bankrunTransaction(provider)
+    const tx = newTransaction(provider)
     const { instruction } = await configureConfigInstruction({
       program,
       adminAuthority,

@@ -57,8 +57,9 @@ pnpm fix                                           # auto-fix formatting + clipp
 
 cargo test --features no-entrypoint -- --nocapture # Rust unit tests
 pnpm test:unit                                     # TS unit tests
-pnpm test:bankrun                                  # bankrun integration tests
-FILE=path/to/test.spec.ts pnpm test:bankrun        # single bankrun file
+pnpm test:litesvm                                  # LiteSVM integration tests (pinned mainnet stake program + feature set)
+FILE=path/to/test.spec.ts pnpm test:litesvm        # single LiteSVM file
+pnpm check:mainnet-fixture                         # exits 1 when mainnet drifted (refresh: bun scripts/mainnet-fixture.ts)
 pnpm test:validator                                # anchor test (full, slow)
 
 # After on-chain program changes — sync IDL to SDK and resources
