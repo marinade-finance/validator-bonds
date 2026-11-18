@@ -33,7 +33,8 @@ pnpm fix                             # prettier + eslint + cargo fmt + clippy --
 cargo test --features no-entrypoint -- --nocapture    # unit (fast)
 pnpm test:unit                       # TS unit tests (sanity-check, cli-core, bonds-eventing)
 pnpm test:litesvm                    # LiteSVM JS tests on the pinned mainnet stake program and feature set (builds anchor first)
-pnpm test:validator                  # anchor test (full, slow)
+pnpm test:validator                  # solana-test-validator suites, fresh validator per spec file (slow; scripts/test-validator.sh)
+FILE=path/to/test.spec.ts pnpm test:validator   # single test-validator file
 
 # Run a single LiteSVM test file
 FILE=path/to/test.spec.ts pnpm test:litesvm
@@ -74,6 +75,8 @@ bun scripts/report-chart.ts <tag>.yml
 ```
 
 Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
+
+`pnpm test:validator` does not use `anchor test`: suites leave stake on vote accounts of validators that never run, which get leader slots and stall a shared validator (32-slot epochs) or fail `getAnchorValidatorInfo`. `scripts/test-validator.sh` starts a fresh `solana-test-validator` per spec file from `Test.toml` and keeps the ledger at `.anchor/test-ledger` (tests read the validator identity there).
 
 ## Architecture
 

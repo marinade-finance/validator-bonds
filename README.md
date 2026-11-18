@@ -60,7 +60,8 @@ pnpm test:unit                                     # TS unit tests
 pnpm test:litesvm                                  # LiteSVM integration tests (pinned mainnet stake program + feature set)
 FILE=path/to/test.spec.ts pnpm test:litesvm        # single LiteSVM file
 pnpm check:mainnet-fixture                         # exits 1 when mainnet drifted (refresh: bun scripts/mainnet-fixture.ts)
-pnpm test:validator                                # anchor test (full, slow)
+pnpm test:validator                                # solana-test-validator suites, fresh validator per file (slow)
+FILE=path/to/test.spec.ts pnpm test:validator      # single test-validator file
 
 # After on-chain program changes — sync IDL to SDK and resources
 pnpm copy:idl

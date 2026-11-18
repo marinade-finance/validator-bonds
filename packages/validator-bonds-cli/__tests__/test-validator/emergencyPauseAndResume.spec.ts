@@ -108,6 +108,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
         '--program-id',
         program.programId.toBase58(),
         'pause',
@@ -127,6 +129,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '-u',
+        provider.connection.rpcEndpoint,
         '--program-id',
         program.programId.toBase58(),
         'resume',
