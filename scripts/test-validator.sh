@@ -97,6 +97,16 @@ if rpc_up; then
   die "something already serves RPC at $RPC_URL, stop it first (another solana-test-validator?)"
 fi
 
+start_failed() {
+  echo "ERROR: $1" >&2
+  echo "--- solana-test-validator output" >&2
+  tail -n 40 "$LOG_DIR/validator-start.out" >&2 2> /dev/null || true
+  echo "--- $LEDGER_DIR/validator.log (tail)" >&2
+  tail -n 40 "$LEDGER_DIR/validator.log" >&2 2> /dev/null || true
+  cp "$LEDGER_DIR/validator.log" "$LOG_DIR/validator-start.log" 2> /dev/null || true
+  exit 1
+}
+
 start_validator() {
   mkdir -p .anchor
   solana-test-validator --reset --quiet \
@@ -104,12 +114,12 @@ start_validator() {
     --rpc-port "$RPC_PORT" \
     --mint "$WALLET_PUBKEY" \
     --upgradeable-program "$PROGRAM_ID" "$PROGRAM_SO" "$WALLET_PUBKEY" \
-    "${VALIDATOR_ARGS[@]}" > /dev/null 2>&1 &
+    "${VALIDATOR_ARGS[@]}" > "$LOG_DIR/validator-start.out" 2>&1 &
   VALIDATOR_PID=$!
   local waited=0
   until rpc_up; do
-    kill -0 "$VALIDATOR_PID" 2> /dev/null || die "solana-test-validator exited on start, see $LEDGER_DIR/validator.log"
-    ((waited++ < START_TIMEOUT)) || die "solana-test-validator not healthy after ${START_TIMEOUT}s"
+    kill -0 "$VALIDATOR_PID" 2> /dev/null || start_failed "solana-test-validator exited on start"
+    ((waited++ < START_TIMEOUT)) || start_failed "solana-test-validator not healthy after ${START_TIMEOUT}s"
     sleep 1
   done
 }
