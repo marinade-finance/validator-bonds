@@ -1,141 +1,157 @@
-use log::debug;
-use solana_client::nonblocking::rpc_client::RpcClient;
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_builder_executor::{
-    builder_to_execution_data, execute_transaction_data_in_parallel,
-    execute_transaction_data_in_sequence, TransactionBuilderExecutionData,
-    TransactionBuilderExecutionErrors,
-};
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signer::Signer;
+use solana_transaction_builder::Group;
+use solana_transaction_builder_executor::{run, GroupStatus, RunConfig, RunReport};
+use solana_transaction_executor::TransactionExecutor;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-const PARALLEL_EXECUTION_RATE_DEFAULT: usize = 30;
-
-pub async fn execute_parallel(
-    rpc_client: Arc<RpcClient>,
-    executor: Arc<TransactionExecutor>,
-    builder: &mut TransactionBuilder,
-    priority_fee_policy: &PriorityFeePolicy,
-) -> Result<(usize, usize), TransactionBuilderExecutionErrors> {
-    execute_parallel_with_rate(
-        rpc_client,
-        executor,
-        builder,
-        priority_fee_policy,
-        PARALLEL_EXECUTION_RATE_DEFAULT,
-    )
-    .await
+pub struct RunSummary {
+    pub report: RunReport,
+    pub tx_count: usize,
+    pub ix_count: usize,
 }
 
-pub async fn execute_parallel_with_rate(
-    rpc_client: Arc<RpcClient>,
-    executor: Arc<TransactionExecutor>,
-    builder: &mut TransactionBuilder,
-    priority_fee_policy: &PriorityFeePolicy,
-    parallel_execution_rate: usize,
-) -> Result<(usize, usize), TransactionBuilderExecutionErrors> {
-    let execution_data = builder_to_execution_data(
-        rpc_client.url(),
-        builder,
-        Some(priority_fee_policy.clone()),
-        false,
-    );
-    // when all executed successfully then builder should be empty
-    assert_eq!(
-        builder.instructions().len(),
-        0,
-        "execute_parallel: expected to get all instructions from builder processed"
-    );
-    let execution_results = execute_transaction_data_in_parallel(
-        executor.clone(),
-        &execution_data,
-        Some(parallel_execution_rate),
-    )
-    .await;
-    handle_execution_results(&execution_data, execution_results)
+impl RunSummary {
+    /// One line per group that did not land: id, status and error text.
+    pub fn errors(&self) -> Vec<String> {
+        self.report
+            .groups
+            .iter()
+            .filter_map(|outcome| {
+                let status = match &outcome.status {
+                    GroupStatus::Landed { .. } | GroupStatus::Planned => return None,
+                    GroupStatus::Failed {
+                        error,
+                        signature: Some(signature),
+                        ..
+                    } => format!("failed in {signature}: {error}"),
+                    GroupStatus::Failed { error, .. } => format!("failed: {error}"),
+                    GroupStatus::NotSent { reason } => format!("not sent: {reason}"),
+                    GroupStatus::NotLanded { attempts } => {
+                        format!("not landed after {attempts} attempts")
+                    }
+                    GroupStatus::Unknown { reason, signatures } => {
+                        format!("unknown: {reason}, signatures {signatures:?}")
+                    }
+                };
+                Some(format!("{}: {status}", outcome.id))
+            })
+            .collect()
+    }
 }
 
+pub async fn execute(
+    executor: &TransactionExecutor,
+    payer: &Pubkey,
+    groups: Vec<Group>,
+    signers: &[Arc<dyn Signer + Send + Sync>],
+    config: &RunConfig,
+) -> RunSummary {
+    let instructions = instruction_counts(&groups);
+    let report = run(executor, payer, groups, signers, config).await;
+    summarize(report, &instructions)
+}
+
+/// One `run()` per group, in order; a failed group does not stop the next one.
 pub async fn execute_in_sequence(
-    rpc_client: Arc<RpcClient>,
-    executor: Arc<TransactionExecutor>,
-    builder: &mut TransactionBuilder,
-    priority_fee_policy: &PriorityFeePolicy,
-    execute_one_by_one: bool,
-) -> Result<(usize, usize), TransactionBuilderExecutionErrors> {
-    let execution_data = builder_to_execution_data(
-        rpc_client.url(),
-        builder,
-        Some(priority_fee_policy.clone()),
-        execute_one_by_one,
-    );
-    // when all executed successfully then builder should be empty
-    assert_eq!(
-        builder.instructions().len(),
-        0,
-        "execute_in_sequence: expected to get all instructions from builder processed"
-    );
-    let execution_results =
-        execute_transaction_data_in_sequence(executor.clone(), &execution_data, false).await;
-    handle_execution_results(&execution_data, execution_results)
+    executor: &TransactionExecutor,
+    payer: &Pubkey,
+    groups: Vec<Group>,
+    signers: &[Arc<dyn Signer + Send + Sync>],
+    config: &RunConfig,
+) -> RunSummary {
+    let instructions = instruction_counts(&groups);
+    let mut report = RunReport::default();
+    for group in groups {
+        let single = run(executor, payer, vec![group], signers, config).await;
+        report.groups.extend(single.groups);
+        report.transactions.extend(single.transactions);
+    }
+    summarize(report, &instructions)
 }
 
-/// Method takes list of data that were about to be executed
-/// and the list of errors that came from that execution.
-/// It matches the execution data to the list of errors and returns the count of executed transactions and instructions.
-fn handle_execution_results(
-    transaction_builder_execution_data: &[TransactionBuilderExecutionData],
-    executed_result: Result<(), TransactionBuilderExecutionErrors>,
-) -> Result<(usize, usize), TransactionBuilderExecutionErrors> {
-    let to_execute_transaction_count = transaction_builder_execution_data.len();
-    let to_execute_instruction_count: usize = transaction_builder_execution_data
+fn instruction_counts(groups: &[Group]) -> HashMap<String, usize> {
+    groups
         .iter()
-        .map(|data| {
-            data.prepared_transaction
-                .transaction
-                .message
-                .instructions
-                .len()
-        })
-        .sum();
-    match executed_result {
-        Ok(_) => Ok((to_execute_transaction_count, to_execute_instruction_count)),
-        Err(errors) => {
-            let failed_transaction_count = errors.len();
-            let failed_instruction_count: usize = errors
-                .iter()
-                .map(|error| {
-                    let failed_tx_uuid = error.tx_uuid.as_str();
-                    transaction_builder_execution_data
-                        .iter()
-                        .find(|data| data.tx_uuid.as_str() == failed_tx_uuid)
-                        .map_or_else(
-                            || 0,
-                            |data| {
-                                data.prepared_transaction
-                                    .transaction
-                                    .message
-                                    .instructions
-                                    .len()
-                            },
-                        )
-                })
-                .sum();
-            assert!(
-                to_execute_instruction_count >= failed_instruction_count,
-                "map_executed_data_to_execution_errors: failed_instruction_count should be less or equal to to_execute_instruction_count"
-            );
-            assert!(
-                to_execute_transaction_count >= failed_transaction_count,
-                "map_executed_data_to_execution_errors: failed_transaction_count should be less or equal to to_execute_transaction_count"
-            );
-            debug!(
-                "Execution errors: executed {}/{} transactions and {}/{} instructions",
-                to_execute_transaction_count - failed_transaction_count,
-                to_execute_transaction_count,
-                to_execute_instruction_count - failed_instruction_count,
-                to_execute_instruction_count
-            );
-            Err(errors)
+        .map(|group| (group.id().to_owned(), group.instructions().len()))
+        .collect()
+}
+
+fn summarize(report: RunReport, instructions: &HashMap<String, usize>) -> RunSummary {
+    let mut signatures = HashSet::new();
+    let mut ix_count = 0;
+    for outcome in &report.groups {
+        if let GroupStatus::Landed { signature, .. } = &outcome.status {
+            signatures.insert(*signature);
+            ix_count += instructions.get(&outcome.id).copied().unwrap_or(0);
         }
+    }
+    RunSummary {
+        report,
+        tx_count: signatures.len(),
+        ix_count,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_sdk::signature::Signature;
+    use solana_transaction_builder_executor::GroupOutcome;
+
+    fn outcome(id: &str, status: GroupStatus) -> GroupOutcome {
+        GroupOutcome {
+            id: id.to_string(),
+            status,
+        }
+    }
+
+    #[test]
+    fn landed_groups_of_one_transaction_count_once_and_the_rest_are_errors() {
+        let signature = Signature::from([1; 64]);
+        let landed = GroupStatus::Landed { signature, slot: 5 };
+        let report = RunReport {
+            groups: vec![
+                outcome("a", landed.clone()),
+                outcome("b", landed),
+                outcome(
+                    "c",
+                    GroupStatus::Failed {
+                        error: "custom program error: 0x1".to_string(),
+                        logs: vec![],
+                        signature: None,
+                    },
+                ),
+                outcome(
+                    "d",
+                    GroupStatus::Unknown {
+                        reason: "watcher stopped".to_string(),
+                        signatures: vec![],
+                    },
+                ),
+                outcome("e", GroupStatus::Planned),
+            ],
+            transactions: vec![],
+        };
+        let instructions = HashMap::from([
+            ("a".to_string(), 2),
+            ("b".to_string(), 3),
+            ("c".to_string(), 4),
+            ("d".to_string(), 5),
+            ("e".to_string(), 6),
+        ]);
+
+        let summary = summarize(report, &instructions);
+
+        assert_eq!(summary.tx_count, 1);
+        assert_eq!(summary.ix_count, 5);
+        assert_eq!(
+            summary.errors(),
+            vec![
+                "c: failed: custom program error: 0x1".to_string(),
+                "d: unknown: watcher stopped, signatures []".to_string(),
+            ]
+        );
     }
 }
