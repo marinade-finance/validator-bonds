@@ -42,6 +42,7 @@ import type {
   EpochInfo,
   TransactionInstruction,
   TransactionInstructionCtorFields,
+  VersionedTransaction,
 } from '@solana/web3.js'
 import type { Clock } from 'litesvm'
 
@@ -239,13 +240,51 @@ export async function executeTx(
       tx.partialSign(signer)
     }
   }
-  const result = provider.svm.sendTransaction(toKitTransaction(tx))
+  return sendKitTransaction(
+    provider,
+    toKitTransaction(tx),
+    tx.signature ?? new Uint8Array(64),
+  )
+}
+
+/**
+ * Sends an already signed versioned (v0) transaction, e.g. one using an address lookup table.
+ * @throws SendTransactionError carrying the program logs when the transaction fails
+ */
+export function executeVersionedTx(
+  provider: LiteSvmProvider,
+  tx: VersionedTransaction,
+): ExecuteResult {
+  const signerKeys = tx.message.staticAccountKeys.slice(
+    0,
+    tx.message.header.numRequiredSignatures,
+  )
+  const signatures = Object.fromEntries(
+    signerKeys.map((key, i) => [key.toBase58(), tx.signatures[i] ?? null]),
+  )
+  const kitTx = {
+    messageBytes: tx.message.serialize(),
+    signatures,
+  } as unknown as KitTransaction
+  return sendKitTransaction(
+    provider,
+    kitTx,
+    tx.signatures[0] ?? new Uint8Array(64),
+  )
+}
+
+function sendKitTransaction(
+  provider: LiteSvmProvider,
+  kitTx: KitTransaction,
+  signature: Uint8Array,
+): ExecuteResult {
+  const result = provider.svm.sendTransaction(kitTx)
   // a fresh blockhash per transaction so a repeated instruction set is not rejected as a duplicate
   provider.svm.expireBlockhash()
   if (result instanceof FailedTransactionMetadata) {
     throw new SendTransactionError({
       action: 'send',
-      signature: bs58.encode(tx.signature ?? new Uint8Array(64)),
+      signature: bs58.encode(signature),
       transactionMessage: result.err().toString(),
       logs: result.meta().logs(),
     })
