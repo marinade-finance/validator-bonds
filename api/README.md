@@ -149,3 +149,27 @@ disturb it:
 TEST_POSTGRES_URL="postgresql://${DB}:${DB}@localhost:5444/${DB}" \
   cargo test -p api --test collected_stake_queries --test direct_staking_allocation_queries
 ```
+
+Also database-backed, `api/tests/epoch_bounds.rs` runs the full router against the same `TEST_POSTGRES_URL`.
+
+### Fuzzing the API
+
+`api/fuzz/` drives the OpenAPI document (`/docs.json`) with [schemathesis](https://schemathesis.readthedocs.io/)
+using every check, valid and invalid inputs, against a seeded database. It needs `uv`, `psql`, `openssl`, `lsof` or `ss`, the
+Postgres server binaries and the Rust toolchain; the same job runs in `.github/workflows/fuzz-api.yml`.
+
+```bash
+api/fuzz/run.sh            # throwaway local Postgres with TLS, migrations, seed.sql, API, schemathesis
+api/fuzz/run.sh --empty    # same, with empty tables
+api/fuzz/run.sh -- --max-examples 1000 --seed 1   # extra arguments go to `schemathesis run`
+
+# against an existing server instead (a scratch database is created and dropped)
+PG_SSLROOTCERT="$PG_SSLROOTCERT" POSTGRES_URL="postgresql://postgres:postgres@localhost:5444/postgres" api/fuzz/run.sh
+```
+
+- `seed.sql` is synthetic data for every table the API reads. Without GCP access the protected events come from
+  `protected-events.json` through the API's `--protected-events-file` option.
+- The empty run checks that exactly the endpoints documented as answering 500 on empty tables do so, and drops the
+  server-error check for the schemathesis phase.
+- Checks, rate limit and the few exclusions, each with its reason, are in `schemathesis.toml`.
+- Set `FUZZ_WORKDIR` to keep the API log and schemathesis report; `FUZZ_KEEP=1` keeps the scratch database.

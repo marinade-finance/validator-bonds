@@ -54,9 +54,26 @@ use utoipa::{
         schemas(direct_staking_allocation::DirectStakingAllocationResponse),
     ),
     paths(docs::handler, bonds::handler, bonds::handler_institutional, bonds::handler_bidding, bonds::handler_bidding_auction, protected_events::handler, protected_events::handler_v1, direct_staking_allocation::handler, verified_validators::handler, protected_validators::handler, collected_stake::handler),
-    modifiers(&PubkeyScheme),
+    modifiers(&PubkeyScheme, &RateLimitResponse),
 )]
 pub struct ApiDoc;
+
+/// Every public route sits behind the per-client rate limit, so each operation can answer 429.
+struct RateLimitResponse;
+impl Modify for RateLimitResponse {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        for item in openapi.paths.paths.values_mut() {
+            if let Some(operation) = item.operations.get_mut(&utoipa::openapi::PathItemType::Get) {
+                operation.responses.responses.insert(
+                    "429".into(),
+                    openapi::ResponseBuilder::new()
+                        .description("Too many requests from this client; retry after a pause.")
+                        .into(),
+                );
+            }
+        }
+    }
+}
 
 struct PubkeyScheme;
 impl Modify for PubkeyScheme {
@@ -80,6 +97,38 @@ impl Modify for PubkeyScheme {
 mod tests {
     use super::ApiDoc;
     use utoipa::OpenApi;
+
+    // The handlers reject a larger epoch with a 400, so a schema-valid request must not reach one.
+    #[test]
+    fn epoch_parameters_document_the_largest_storable_epoch() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        let mut checked = 0;
+        for (path, item) in docs["paths"].as_object().unwrap() {
+            for param in item["get"]["parameters"].as_array().into_iter().flatten() {
+                let name = param["name"].as_str().unwrap();
+                if name == "from_epoch" || name == "to_epoch" {
+                    assert_eq!(
+                        param["schema"]["maximum"].as_f64(),
+                        Some(crate::handlers::MAX_EPOCH as f64),
+                        "{path} {name}",
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert_eq!(checked, 5, "from_epoch on four paths and to_epoch on one");
+    }
+
+    #[test]
+    fn every_operation_documents_the_rate_limit_response() {
+        let docs = serde_json::to_value(ApiDoc::openapi()).unwrap();
+        for (path, item) in docs["paths"].as_object().unwrap() {
+            assert!(
+                item["get"]["responses"]["429"].is_object(),
+                "{path} can answer 429 and must document it",
+            );
+        }
+    }
 
     // `/docs` claiming a path that 404s is what burns consumers, and the `#[utoipa::path]` attribute
     // drifting from `routes.rs` is not a compile error. Source text rather than the axum `Router`,

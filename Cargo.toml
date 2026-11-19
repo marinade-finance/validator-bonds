@@ -11,6 +11,8 @@ members = [
     "settlement-distributions/institutional-distribution",
     "settlement-distributions/merkle-generator"
 ]
+# separate workspace: trident-fuzz needs solana-sdk 2.x, the program uses 3.x
+exclude = ["trident-tests"]
 resolver = "2"
 
 [profile.release]

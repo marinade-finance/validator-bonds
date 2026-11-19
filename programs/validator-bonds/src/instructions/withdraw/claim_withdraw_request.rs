@@ -52,7 +52,7 @@ pub struct ClaimWithdrawRequest<'info> {
         mut,
         has_one = vote_account @ ErrorCode::WithdrawRequestVoteAccountMismatch,
         has_one = bond @ ErrorCode::BondAccountMismatch,
-        constraint = withdraw_request.epoch + config.withdraw_lockup_epochs < clock.epoch @ ErrorCode::WithdrawRequestNotReady,
+        constraint = withdraw_request.epoch.saturating_add(config.withdraw_lockup_epochs) < clock.epoch @ ErrorCode::WithdrawRequestNotReady,
         seeds = [
             b"withdraw_account",
             bond.key().as_ref(),

@@ -37,6 +37,7 @@ docker-target/
 fuzz/
 hfuzz*
 fuzzing/
+!/api/fuzz/
 
 # Local
 *.local.json
@@ -60,3 +61,6 @@ plugins/validator-bonds/evals/report/
 *.cast
 *.gif
 .refs
+
+# Trident fuzz harness: pin its dependency set
+!/trident-tests/Cargo.lock

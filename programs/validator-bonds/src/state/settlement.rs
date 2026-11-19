@@ -107,3 +107,52 @@ pub fn find_settlement_staker_authority(settlement_address: &Pubkey) -> (Pubkey,
 pub fn find_settlement_claims_address(settlement_address: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[SETTLEMENT_CLAIMS_SEED, settlement_address.as_ref()], &ID)
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn settlement(bond: Pubkey, root: [u8; 32], epoch: u64, bumps: Bumps) -> Settlement {
+        Settlement {
+            bond,
+            staker_authority: Pubkey::default(),
+            merkle_root: root,
+            max_total_claim: 0,
+            max_merkle_nodes: 0,
+            lamports_funded: 0,
+            lamports_claimed: 0,
+            merkle_nodes_claimed: 0,
+            epoch_created_for: epoch,
+            slot_created_at: 0,
+            rent_collector: Pubkey::default(),
+            split_rent_collector: None,
+            split_rent_amount: 0,
+            bumps,
+            reserved: [0; 90],
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn stored_bumps_reproduce_found_addresses(
+            bond in any::<[u8; 32]>(),
+            root in any::<[u8; 32]>(),
+            epoch in any::<u64>(),
+        ) {
+            let bond = Pubkey::new_from_array(bond);
+            let (address, pda) = find_settlement_address(&bond, &root, epoch);
+            let (authority, authority_bump) = find_settlement_staker_authority(&address);
+            let s = settlement(bond, root, epoch, Bumps { pda, staker_authority: authority_bump, settlement_claims: 0 });
+            prop_assert_eq!(s.address().unwrap(), address);
+            prop_assert_eq!(s.settlement_staker_authority(&address).unwrap(), authority);
+            // a different epoch or root gives a different address
+            prop_assert_ne!(find_settlement_address(&bond, &root, epoch.wrapping_add(1)).0, address);
+            let mut other_root = root;
+            other_root[0] ^= 1;
+            prop_assert_ne!(find_settlement_address(&bond, &other_root, epoch).0, address);
+        }
+    }
+}

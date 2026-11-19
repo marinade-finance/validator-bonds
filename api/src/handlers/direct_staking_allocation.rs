@@ -1,5 +1,6 @@
 use crate::context::WrappedContext;
 use crate::error::{ApiError, AppError, BadRequest};
+use crate::handlers::MAX_EPOCH;
 use crate::repositories::direct_staking_allocation::{
     get_direct_staking_allocation, get_latest_allocation_epoch,
 };
@@ -17,6 +18,7 @@ pub struct DirectStakingAllocationResponse {
 #[into_params(parameter_in = Query)]
 pub struct QueryParams {
     /// Report epochs from this one on, inclusive. Omitted, the whole history is reported.
+    #[param(maximum = 2147483647)]
     pub from_epoch: Option<u64>,
 }
 
@@ -69,7 +71,7 @@ pub async fn handler(
 // The column is INTEGER; rejecting here keeps an absurd epoch a 400 rather than a 500 downstream.
 fn resolve_from_epoch(from_epoch: Option<u64>) -> Result<Option<u64>, BadRequest> {
     if let Some(epoch) = from_epoch {
-        if epoch > i32::MAX as u64 {
+        if epoch > MAX_EPOCH {
             return Err(BadRequest {
                 message: format!("from_epoch {epoch} is out of range"),
             });
@@ -89,13 +91,13 @@ mod tests {
 
     #[test]
     fn the_largest_storable_epoch_is_accepted() {
-        let epoch = i32::MAX as u64;
+        let epoch = MAX_EPOCH;
         assert_eq!(resolve_from_epoch(Some(epoch)).unwrap(), Some(epoch));
     }
 
     #[test]
     fn one_epoch_past_the_column_is_rejected() {
-        let error = resolve_from_epoch(Some(i32::MAX as u64 + 1)).unwrap_err();
+        let error = resolve_from_epoch(Some(MAX_EPOCH + 1)).unwrap_err();
         assert!(
             error.message.contains("is out of range"),
             "{}",
