@@ -57,7 +57,7 @@ pub async fn get_new_rate_activation_epoch(
 }
 
 /// The three cluster values Agave's warmup/cooldown math needs, fetched together so they cannot be
-/// paired from different reads. Call `status` rather than `stake_activating_and_deactivating`
+/// paired from different reads. Call `status` rather than `stake_activating_and_deactivating_v2`
 /// directly — passing `None` as the activation epoch silently selects the legacy 25% rate.
 #[derive(Clone, Debug)]
 pub struct StakeActivation {
@@ -80,9 +80,7 @@ impl StakeActivation {
     }
 
     pub fn status(&self, delegation: &Delegation) -> StakeHistoryEntry {
-        // Agave uses the _v2 math only once use_fixed_point_stake_math activates; match the chain.
-        #[allow(deprecated)]
-        delegation.stake_activating_and_deactivating(
+        delegation.stake_activating_and_deactivating_v2(
             self.clock.epoch,
             &self.stake_history,
             self.new_rate_activation_epoch,

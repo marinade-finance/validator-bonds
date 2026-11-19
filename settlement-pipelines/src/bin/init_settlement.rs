@@ -8,7 +8,7 @@ use settlement_pipelines::arguments::{
     init_from_opts, ExecutionOpts, InitializedGlobalOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use settlement_pipelines::executor::execute;
+use settlement_pipelines::executor::{execute, RunSummary};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
 use settlement_pipelines::json_data::{
@@ -346,16 +346,11 @@ async fn init_settlements(
         run_config,
     )
     .await;
-    let errors = summary.errors();
-    if !errors.is_empty() {
-        return Err(CliError::retry_able(anyhow!(errors.join("; "))).into());
-    }
-    let (tx_count, ix_count) = (summary.tx_count, summary.ix_count);
-    info!(
-        "InitSettlement [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
-        reporting.reportable.list_created_settlements()
-    );
-    Ok(())
+    succeeded(
+        &summary,
+        "InitSettlement",
+        reporting.reportable.list_created_settlements(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -505,14 +500,21 @@ async fn upsize_settlements(
         run_config,
     )
     .await;
+    succeeded(
+        &summary,
+        "Upsize Settlement Claims",
+        reporting.reportable.list_created_settlements(),
+    )
+}
+
+fn succeeded(summary: &RunSummary, name: &str, settlements: String) -> anyhow::Result<()> {
     let errors = summary.errors();
     if !errors.is_empty() {
         return Err(CliError::retry_able(anyhow!(errors.join("; "))).into());
     }
-    let (tx_count, ix_count) = (summary.tx_count, summary.ix_count);
     info!(
-        "Upsize Settlement Claims [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
-        reporting.reportable.list_created_settlements()
+        "{name} [{settlements}]: txes {}/ixes {} executed successfully",
+        summary.tx_count, summary.ix_count
     );
     Ok(())
 }
