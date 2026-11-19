@@ -4,12 +4,11 @@ use clap::Parser;
 use log::{debug, info};
 use serde::Serialize;
 use settlement_common::utils::read_from_json_file;
-use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
-    ReportOpts, TipPolicyOpts,
+    init_from_opts, load_pubkey, ExecutionOpts, GlobalOpts, InitializedGlobalOpts, ReportOpts,
+    TipPolicyOpts,
 };
-use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::executor::execute;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
 use settlement_pipelines::reporting::{
@@ -24,6 +23,7 @@ use settlement_pipelines::stake_accounts::{
 };
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
@@ -32,8 +32,9 @@ use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
 use solana_stake_interface::config::ID as stake_config_id;
 use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::state::StakeStateV2;
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::{group, Group};
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
@@ -50,7 +51,9 @@ use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::config::get_config;
 use validator_bonds_common::constants::find_event_authority;
 use validator_bonds_common::settlements::get_settlements;
-use validator_bonds_common::stake_accounts::{collect_stake_accounts, get_clock};
+use validator_bonds_common::stake_accounts::{
+    collect_stake_accounts, get_clock, CollectedStakeAccount, CollectedStakeAccounts,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -59,7 +62,7 @@ struct Args {
     global_opts: GlobalOpts,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -93,13 +96,13 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer: fee_payer_keypair,
         operator_authority: operator_authority_keypair,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
 
@@ -122,20 +125,22 @@ async fn real_main(
             .filter(|bs| bs.config_address == config_address)
             .collect();
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let expired_settlements =
         get_expired_settlements(rpc_client.clone(), &config_address, &config).await?;
 
-    close_settlements(
+    let handled_stake_accounts = close_settlements(
         &program,
         rpc_client.clone(),
-        &mut transaction_builder,
         transaction_executor.clone(),
         &expired_settlements,
         &config_address,
-        &priority_fee_policy,
+        &config,
+        &fee_payer_keypair,
+        &operator_authority_keypair,
+        &marinade_wallet,
+        &run_config,
         reporting,
     )
     .await?;
@@ -157,16 +162,17 @@ async fn real_main(
     reset_stake_accounts(
         &program,
         rpc_client.clone(),
-        &mut transaction_builder,
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         expired_settlements,
         &listed_settlements,
+        &handled_stake_accounts,
         &config_address,
         &config,
+        &fee_payer_keypair,
         &operator_authority_keypair,
         &marinade_wallet,
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
@@ -178,14 +184,28 @@ async fn real_main(
 async fn close_settlements(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
-    transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
     expired_settlements: &[(Pubkey, Settlement, Option<Bond>)],
     config_address: &Pubkey,
-    priority_fee_policy: &PriorityFeePolicy,
+    config: &Config,
+    fee_payer_keypair: &Arc<Keypair>,
+    operator_authority_keypair: &Arc<Keypair>,
+    marinade_wallet: &Pubkey,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<CloseSettlementReport>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<HashSet<Pubkey>> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
+    let clock = get_clock(rpc_client.clone())
+        .await
+        .map_err(CliError::retry_able)?;
+    let all_bonds_stake_accounts =
+        collect_stake_accounts(rpc_client.clone(), Some(&bonds_withdrawer_authority), None)
+            .await
+            .map_err(CliError::retry_able)?;
+    let settlement_funded_stake_accounts =
+        filter_settlement_funded(all_bonds_stake_accounts, &clock);
+    let minimal_stake_lamports =
+        config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
     // unused by settlements without a split rent collector, so an empty or split-free batch must not fail on the lookup
     let stake_account_rent = if expired_settlements
         .iter()
@@ -198,7 +218,9 @@ async fn close_settlements(
         0
     };
     let mut closed_settlements: Vec<(Pubkey, Settlement)> = vec![];
-    for (settlement_address, settlement, _) in expired_settlements.iter() {
+    let mut groups: Vec<Group> = vec![];
+    let mut handled_stake_accounts: HashSet<Pubkey> = HashSet::new();
+    for (settlement_address, settlement, bond) in expired_settlements.iter() {
         let (split_rent_collector, split_rent_refund_account) =
             match obtain_settlement_closing_refunds(
                 rpc_client.clone(),
@@ -237,46 +259,94 @@ async fn close_settlements(
                 event_authority: find_event_authority().0,
             })
             .args(validator_bonds::instruction::CloseSettlementV2 {});
-        add_instruction_to_builder(
-            transaction_builder,
-            &req,
-            format!(
-                "Close Settlement {settlement_address}, refunding split rent from stake account {split_rent_refund_account}"
-            ),
+        let reset_data = ResetStakeData {
+            _config: bond.as_ref().map(|bond| bond.config),
+            bond: settlement.bond,
+            vote_account: bond.as_ref().map(|bond| bond.vote_account),
+            settlement: *settlement_address,
+            epoch: settlement.epoch_created_for,
+        };
+        let (close_group, handled) = close_group(
+            settlement_address,
+            req.instructions(),
+            &settlement_funded_stake_accounts,
+            |stake_account| {
+                reset_or_withdraw(
+                    program,
+                    config_address,
+                    &bonds_withdrawer_authority,
+                    &operator_authority_keypair.pubkey(),
+                    marinade_wallet,
+                    minimal_stake_lamports,
+                    stake_account,
+                    &reset_data,
+                    reporting,
+                )
+            },
         )?;
+        groups.push(close_group);
+        handled_stake_accounts.extend(handled);
         closed_settlements.push((*settlement_address, settlement.clone()));
     }
 
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer_keypair.pubkey(),
+        groups,
+        &[
+            fee_payer_keypair.clone() as Arc<dyn Signer + Send + Sync>,
+            operator_authority_keypair.clone(),
+        ],
+        run_config,
     )
     .await;
     reporting
         .reportable
         .set_closed_settlements(closed_settlements);
 
-    reporting.add_tx_execution_result(execution_result, "CloseSettlements");
+    reporting.add_tx_execution_result(&summary, "CloseSettlements");
 
-    Ok(())
+    Ok(handled_stake_accounts)
+}
+
+/// The close of a settlement, then the reset or withdraw of its first funded stake account.
+fn close_group(
+    settlement_address: &Pubkey,
+    close: Vec<Instruction>,
+    settlement_funded_stake_accounts: &CollectedStakeAccounts,
+    reset_or_withdraw: impl FnOnce(&CollectedStakeAccount) -> anyhow::Result<Option<Group>>,
+) -> anyhow::Result<(Group, Option<Pubkey>)> {
+    let (settlement_staker_authority, _) = find_settlement_staker_authority(settlement_address);
+    let stake_account = settlement_funded_stake_accounts.iter().find(|(_, _, state)| {
+        matches!(state.authorized(), Some(authorized) if authorized.staker == settlement_staker_authority)
+    });
+    let mut instructions = close;
+    if let Some(stake_account) = stake_account {
+        if let Some(reset) = reset_or_withdraw(stake_account)? {
+            instructions.extend_from_slice(reset.instructions());
+        }
+    }
+    Ok((
+        group(format!("close {settlement_address}"), instructions)?,
+        stake_account.map(|(pubkey, _, _)| *pubkey),
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn reset_stake_accounts(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
-    transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
     mapping_settlements_to_staker_authority: &HashMap<Pubkey, Pubkey>,
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
     listed_settlements: &[BondSettlement],
+    handled_stake_accounts: &HashSet<Pubkey>,
     config_address: &Pubkey,
     config: &Config,
+    fee_payer_keypair: &Arc<Keypair>,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
@@ -309,7 +379,12 @@ async fn reset_stake_accounts(
         filter_settlement_funded(all_bonds_stake_accounts, &clock);
     let minimal_stake_lamports =
         config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
-    for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
+    let mut groups: Vec<Group> = vec![];
+    for stake_account in settlement_funded_stake_accounts {
+        let (stake_pubkey, lamports, stake_state) = stake_account;
+        if handled_stake_accounts.contains(&stake_pubkey) {
+            continue;
+        }
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
         } else {
@@ -352,101 +427,126 @@ async fn reset_stake_accounts(
             continue;
         };
 
-        if let StakeStateV2::Initialized(_) = stake_state {
-            transaction_builder.add_signer_checked(operator_authority_keypair);
-            // Initialized non-delegated can be withdrawn by operator
-            let req = program
-                .request()
-                .accounts(validator_bonds::accounts::WithdrawStake {
-                    config: *config_address,
-                    operator_authority: operator_authority_keypair.pubkey(),
-                    settlement: reset_data.settlement,
-                    stake_account: stake_pubkey,
-                    bonds_withdrawer_authority,
-                    withdraw_to: *marinade_wallet,
-                    stake_history: stake_history_sysvar_id,
-                    clock: clock_sysvar_id,
-                    stake_program: stake_program_id,
-                    program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
-                })
-                .args(validator_bonds::instruction::WithdrawStake {});
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!(
-                    "Withdraw un-claimed stake account {stake_pubkey} for settlement {}",
-                    reset_data.settlement
-                ),
-            )?;
-            reporting.reportable.add_withdraw_stake(
-                reset_data.settlement,
-                *marinade_wallet,
-                reset_data.epoch,
-                lamports,
-            );
-        } else if let Some(settlement_vote_account) = reset_data.vote_account {
-            // Delegated stake account can be reset to a bond.
-            // ResetStake re-delegates the stake; the on-chain DelegateStake CPI rejects a stake
-            // whose delegatable amount is below the network minimum delegation (custom error 0xc).
-            if lamports < minimal_stake_lamports {
-                reporting.warning().with_msg(format!(
-                    "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate. Manual intervention needed.",
-                    reset_data.settlement,
-                    build_balance_message(lamports, false, false),
-                    build_balance_message(minimal_stake_lamports, false, false),
-                )).add();
-                continue;
-            }
-            let req = program
-                .request()
-                .accounts(validator_bonds::accounts::ResetStake {
-                    config: *config_address,
-                    bond: reset_data.bond,
-                    settlement: reset_data.settlement,
-                    stake_account: stake_pubkey,
-                    bonds_withdrawer_authority,
-                    vote_account: settlement_vote_account,
-                    stake_history: stake_history_sysvar_id,
-                    stake_config: stake_config_id,
-                    clock: clock_sysvar_id,
-                    stake_program: stake_program_id,
-                    program: validator_bonds_id,
-                    event_authority: find_event_authority().0,
-                })
-                .args(validator_bonds::instruction::ResetStake {});
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!(
-                    "Reset un-claimed stake account {stake_pubkey} for settlement {}",
-                    reset_data.settlement
-                ),
-            )?;
-            reporting.reportable.add_reset_stake(
-                reset_data.settlement,
-                settlement_vote_account,
-                reset_data.epoch,
-                lamports,
-            );
-        } else {
-            reporting.error().with_msg(format!(
-                "To reset stake account {} (bond: {}, staker authority: {}) is required to know vote account address but that was lost. Manual intervention needed.",
-                stake_pubkey, reset_data.bond, staker_authority
-            )).add();
+        if let Some(reset) = reset_or_withdraw(
+            program,
+            config_address,
+            &bonds_withdrawer_authority,
+            &operator_authority_keypair.pubkey(),
+            marinade_wallet,
+            minimal_stake_lamports,
+            &stake_account,
+            reset_data,
+            reporting,
+        )? {
+            groups.push(reset);
         }
     }
 
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer_keypair.pubkey(),
+        groups,
+        &[
+            fee_payer_keypair.clone() as Arc<dyn Signer + Send + Sync>,
+            operator_authority_keypair.clone(),
+        ],
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(execution_result, "Reset/WithdrawStakeAccounts");
+    reporting.add_tx_execution_result(&summary, "Reset/WithdrawStakeAccounts");
 
     Ok(())
+}
+
+/// `WithdrawStake` of an initialized stake account or `ResetStake` of a delegated one.
+#[allow(clippy::too_many_arguments)]
+fn reset_or_withdraw(
+    program: &Program<Arc<DynSigner>>,
+    config_address: &Pubkey,
+    bonds_withdrawer_authority: &Pubkey,
+    operator_authority: &Pubkey,
+    marinade_wallet: &Pubkey,
+    minimal_stake_lamports: u64,
+    (stake_pubkey, lamports, stake_state): &CollectedStakeAccount,
+    reset_data: &ResetStakeData,
+    reporting: &mut ReportHandler<CloseSettlementReport>,
+) -> anyhow::Result<Option<Group>> {
+    let (stake_pubkey, lamports) = (*stake_pubkey, *lamports);
+    if let StakeStateV2::Initialized(_) = stake_state {
+        // Initialized non-delegated can be withdrawn by operator
+        let req = program
+            .request()
+            .accounts(validator_bonds::accounts::WithdrawStake {
+                config: *config_address,
+                operator_authority: *operator_authority,
+                settlement: reset_data.settlement,
+                stake_account: stake_pubkey,
+                bonds_withdrawer_authority: *bonds_withdrawer_authority,
+                withdraw_to: *marinade_wallet,
+                stake_history: stake_history_sysvar_id,
+                clock: clock_sysvar_id,
+                stake_program: stake_program_id,
+                program: validator_bonds_id,
+                event_authority: find_event_authority().0,
+            })
+            .args(validator_bonds::instruction::WithdrawStake {});
+        reporting.reportable.add_withdraw_stake(
+            reset_data.settlement,
+            *marinade_wallet,
+            reset_data.epoch,
+            lamports,
+        );
+        Ok(Some(group(
+            format!("withdraw {stake_pubkey}"),
+            req.instructions(),
+        )?))
+    } else if let Some(settlement_vote_account) = reset_data.vote_account {
+        // Delegated stake account can be reset to a bond.
+        // ResetStake re-delegates the stake; the on-chain DelegateStake CPI rejects a stake
+        // whose delegatable amount is below the network minimum delegation (custom error 0xc).
+        if lamports < minimal_stake_lamports {
+            reporting.warning().with_msg(format!(
+                "Skipping reset of stake account {stake_pubkey} (settlement {}, vote account {settlement_vote_account}): its stake balance {} is below the minimum stake size {} required to re-delegate. Manual intervention needed.",
+                reset_data.settlement,
+                build_balance_message(lamports, false, false),
+                build_balance_message(minimal_stake_lamports, false, false),
+            )).add();
+            return Ok(None);
+        }
+        let req = program
+            .request()
+            .accounts(validator_bonds::accounts::ResetStake {
+                config: *config_address,
+                bond: reset_data.bond,
+                settlement: reset_data.settlement,
+                stake_account: stake_pubkey,
+                bonds_withdrawer_authority: *bonds_withdrawer_authority,
+                vote_account: settlement_vote_account,
+                stake_history: stake_history_sysvar_id,
+                stake_config: stake_config_id,
+                clock: clock_sysvar_id,
+                stake_program: stake_program_id,
+                program: validator_bonds_id,
+                event_authority: find_event_authority().0,
+            })
+            .args(validator_bonds::instruction::ResetStake {});
+        reporting.reportable.add_reset_stake(
+            reset_data.settlement,
+            settlement_vote_account,
+            reset_data.epoch,
+            lamports,
+        );
+        Ok(Some(group(
+            format!("reset {stake_pubkey}"),
+            req.instructions(),
+        )?))
+    } else {
+        reporting.error().with_msg(format!(
+            "To reset stake account {} (bond: {}, staker authority: {}) is required to know vote account address but that was lost. Manual intervention needed.",
+            stake_pubkey, reset_data.bond, stake_state.authorized().map_or(Pubkey::default(), |authorized| authorized.staker)
+        )).add();
+        Ok(None)
+    }
 }
 
 async fn get_expired_settlements(
@@ -779,5 +879,52 @@ impl ReportSerializable for CloseSettlementReport {
             serde_json::to_value(summary)
                 .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_stake_interface::state::{Authorized, Meta};
+
+    fn funded(staker: Pubkey) -> CollectedStakeAccount {
+        let meta = Meta {
+            authorized: Authorized {
+                staker,
+                withdrawer: Pubkey::new_unique(),
+            },
+            ..Meta::default()
+        };
+        (Pubkey::new_unique(), 10, StakeStateV2::Initialized(meta))
+    }
+
+    fn noop(data: u8) -> Instruction {
+        Instruction::new_with_bytes(Pubkey::new_unique(), &[data], vec![])
+    }
+
+    #[test]
+    fn a_close_group_takes_the_first_funded_stake_account_after_the_close() {
+        let settlement = Pubkey::new_unique();
+        let (staker, _) = find_settlement_staker_authority(&settlement);
+        let accounts = vec![funded(Pubkey::new_unique()), funded(staker), funded(staker)];
+        let close = noop(1);
+        let reset = noop(2);
+        let mut asked = vec![];
+
+        let (close_group, handled) = close_group(
+            &settlement,
+            vec![close.clone()],
+            &accounts,
+            |stake_account| {
+                asked.push(stake_account.0);
+                Ok(Some(group("reset", vec![reset.clone()])?))
+            },
+        )
+        .unwrap();
+
+        assert_eq!(close_group.id(), format!("close {settlement}"));
+        assert_eq!(close_group.instructions(), &[close, reset]);
+        assert_eq!(asked, vec![accounts[1].0]);
+        assert_eq!(handled, Some(accounts[1].0));
     }
 }
