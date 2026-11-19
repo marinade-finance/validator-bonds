@@ -80,6 +80,8 @@ impl StakeActivation {
     }
 
     pub fn status(&self, delegation: &Delegation) -> StakeHistoryEntry {
+        // Agave uses the _v2 math only once use_fixed_point_stake_math activates; match the chain.
+        #[allow(deprecated)]
         delegation.stake_activating_and_deactivating(
             self.clock.epoch,
             &self.stake_history,
