@@ -99,10 +99,17 @@ jobs:
           node-version: 24
           cache: 'pnpm'
 
-      - name: 👓 Check solana config
+      - name: 👓 Set up solana keypair and config
+        # step shells get HOME=/github/home while the spawned CLIs and settlement
+        # binaries resolve the default keypair under /root: one keypair, default in both
         run: |
-          [ -f ~/.config/solana/id.json ] || solana-keygen new --no-bip39-passphrase --silent -o ~/.config/solana/id.json
-          solana config get
+          mkdir -p /root/.config/solana "$HOME/.config/solana"
+          [ -f /root/.config/solana/id.json ] || solana-keygen new --no-bip39-passphrase --silent -o /root/.config/solana/id.json
+          [ -f "$HOME/.config/solana/id.json" ] || cp /root/.config/solana/id.json "$HOME/.config/solana/id.json"
+          HOME=/root solana config set --keypair /root/.config/solana/id.json
+          solana config set --keypair "$HOME/.config/solana/id.json"
+          solana-keygen pubkey /root/.config/solana/id.json
+          solana-keygen pubkey "$HOME/.config/solana/id.json"
 
       - name: 🧠 Cache Rust dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
