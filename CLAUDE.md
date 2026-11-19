@@ -74,7 +74,7 @@ bun scripts/simulate-fee.ts -t <tag> <epoch|start-end> [max_fee_bps]...
 bun scripts/report-chart.ts <tag>.yml
 ```
 
-Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
+Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`). Exception: `scripts/mainnet-fixture.ts` runs on Node (`pnpm fixture:mainnet`, `pnpm check:mainnet-fixture`) so the LiteSVM fixture needs no Bun.
 
 `pnpm test:validator` does not use `anchor test`: suites leave stake on vote accounts of validators that never run, which get leader slots and stall a shared validator (32-slot epochs) or fail `getAnchorValidatorInfo`. `scripts/test-validator.sh` starts a fresh `solana-test-validator` per spec file from `Test.toml` and keeps the ledger at `.anchor/test-ledger` (tests read the validator identity there).
 

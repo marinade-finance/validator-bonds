@@ -3,7 +3,10 @@ import {
   configureConfigInstruction,
   getConfig,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { executeInitConfigInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 
@@ -60,6 +63,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -83,6 +88,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -108,6 +115,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -129,6 +138,8 @@ describe('Pause and resume using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

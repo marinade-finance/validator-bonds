@@ -8,7 +8,10 @@ import {
   getBond,
   getRentExemptStake,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createVoteAccount,
   retryOnEpochRewardsPeriod,
@@ -83,6 +86,8 @@ describe('Fund bond account with SOL using CLI (institutional)', () => {
         'pnpm',
         [
           'cli:institutional',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           'fund-bond-sol',

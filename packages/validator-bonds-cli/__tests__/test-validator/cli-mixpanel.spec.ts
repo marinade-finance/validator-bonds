@@ -1,7 +1,10 @@
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { TestHttpServer } from '@marinade.finance/ts-common'
 import { initConfigInstruction } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   executeTxSimple,
   signerWithPubkey,
@@ -105,6 +108,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -168,6 +173,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -205,6 +212,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -237,6 +246,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -272,6 +283,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -308,6 +321,8 @@ describe('CLI Mixpanel Reporting', () => {
       [
         '--silent',
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         'http://127.0.0.1:1',
         '--program-id',

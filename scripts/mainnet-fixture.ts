@@ -38,6 +38,8 @@ if (process.argv.includes('-h') || process.argv.includes('--help')) {
 }
 
 const rpcUrl = process.env.RPC_URL ?? 'https://api.mainnet-beta.solana.com'
+// host only: a private RPC URL carries its API key in the path or query
+const rpcHost = new URL(rpcUrl).host
 const MAINNET_GENESIS_HASH = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
@@ -49,7 +51,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   })
   if (res.status === 429) {
     throw new Error(
-      `${method}: HTTP 429 rate limited by ${rpcUrl}, set RPC_URL to a private mainnet RPC`,
+      `${method}: HTTP 429 rate limited by ${rpcHost}, set RPC_URL to a private mainnet RPC`,
     )
   }
   if (!res.ok) {
@@ -67,7 +69,7 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
 const genesisHash = await rpc<string>('getGenesisHash', [])
 if (genesisHash !== MAINNET_GENESIS_HASH) {
   throw new Error(
-    `${rpcUrl} is not mainnet-beta (genesis hash ${genesisHash}, expected ${MAINNET_GENESIS_HASH})`,
+    `${rpcHost} is not mainnet-beta (genesis hash ${genesisHash}, expected ${MAINNET_GENESIS_HASH})`,
   )
 }
 

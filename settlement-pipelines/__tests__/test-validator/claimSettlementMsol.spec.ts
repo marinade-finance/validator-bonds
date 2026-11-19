@@ -222,6 +222,10 @@ describe('Cargo CLI: claim settlement of Marinade liquid leaves', () => {
         settlementEpoch.toString(),
         '--fee-payer',
         '[' + (feePayer as Keypair).secretKey.toString() + ']',
+        // init_from_opts needs an operator key even for the permissionless claim;
+        // without it the binary falls back to ~/.config/solana/id.json
+        '--keypair',
+        '[' + (feePayer as Keypair).secretKey.toString() + ']',
         '--report-file',
         reportFile,
       ],

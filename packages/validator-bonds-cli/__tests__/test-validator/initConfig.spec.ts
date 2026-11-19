@@ -2,7 +2,10 @@ import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { getConfig } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createTempFileKeypair } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
@@ -78,6 +81,8 @@ describe('Init config account using CLI', () => {
         'pnpm',
         [
           'cli',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           '-k',
@@ -128,6 +133,8 @@ describe('Init config account using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '-k',
@@ -156,6 +163,8 @@ describe('Init config account using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '-k',

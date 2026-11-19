@@ -7,7 +7,10 @@ import {
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
   bondMintAddress,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import { Keypair, PublicKey } from '@solana/web3.js'
@@ -82,6 +85,8 @@ describe('Show command using CLI (institutional)', () => {
       [
         '--silent',
         'cli:institutional',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         'show-bond',

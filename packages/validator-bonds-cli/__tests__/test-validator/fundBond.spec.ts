@@ -6,7 +6,10 @@ import {
   getStakeAccount,
   bondsWithdrawerAuthority,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createVoteAccount,
   delegatedStakeAccount,
@@ -109,6 +112,8 @@ describe('Fund bond account using CLI', () => {
         'pnpm',
         [
           'cli',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           '--program-id',
@@ -139,6 +144,8 @@ describe('Fund bond account using CLI', () => {
         'pnpm',
         [
           'cli',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           '--program-id',
@@ -169,6 +176,8 @@ describe('Fund bond account using CLI', () => {
         'pnpm',
         [
           'cli',
+          '--keypair',
+          getAnchorWalletPath(),
           'fund-bond',
           '-u',
           provider.connection.rpcEndpoint,
@@ -208,6 +217,8 @@ describe('Fund bond account using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

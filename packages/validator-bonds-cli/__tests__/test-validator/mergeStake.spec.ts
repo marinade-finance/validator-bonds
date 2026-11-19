@@ -2,7 +2,10 @@ import assert from 'assert'
 
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { bondsWithdrawerAuthority } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   authorizeStakeAccount,
   delegatedStakeAccount,
@@ -59,6 +62,8 @@ describe('Merge stake accounts using CLI', () => {
         'pnpm',
         [
           'cli',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           '--program-id',
@@ -101,6 +106,8 @@ describe('Merge stake accounts using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

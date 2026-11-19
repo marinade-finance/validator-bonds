@@ -8,7 +8,10 @@ import {
   bondMintAddress,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import { executeInitBondInstruction } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/testTransactions'
 import {
@@ -91,6 +94,8 @@ describe('Configure bond account using CLI (institutional)', () => {
       'pnpm',
       [
         'cli:institutional',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         'configure-bond',
@@ -125,6 +130,8 @@ describe('Configure bond account using CLI (institutional)', () => {
       'pnpm',
       [
         'cli:institutional',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         'mint-bond',
@@ -183,6 +190,8 @@ describe('Configure bond account using CLI (institutional)', () => {
       'pnpm',
       [
         'cli:institutional',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         'configure-bond',
