@@ -84,7 +84,9 @@ stop_validator() {
   fi
   VALIDATOR_PID=""
 }
-trap stop_validator EXIT INT TERM
+trap stop_validator EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 rpc_up() {
   curl -fsS -m 2 -H 'Content-Type: application/json' \
@@ -100,6 +102,7 @@ start_validator() {
   solana-test-validator --reset --quiet \
     --ledger "$LEDGER_DIR" \
     --rpc-port "$RPC_PORT" \
+    --mint "$WALLET_PUBKEY" \
     --upgradeable-program "$PROGRAM_ID" "$PROGRAM_SO" "$WALLET_PUBKEY" \
     "${VALIDATOR_ARGS[@]}" > /dev/null 2>&1 &
   VALIDATOR_PID=$!

@@ -15,7 +15,8 @@ settlements → claims.
 
 ## Installation
 
-Requires: Rust toolchain `1.88.0` (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`.
+Requires: Rust toolchain (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`, [Bun](https://bun.sh) for `scripts/*.ts`
+(e.g. `pnpm check:mainnet-fixture`), and the Solana CLI (`solana-test-validator`) for `pnpm test:validator`.
 
 ```sh
 pnpm install   # TypeScript deps

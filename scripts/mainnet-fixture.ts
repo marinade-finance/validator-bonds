@@ -44,7 +44,13 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'User-Agent': 'curl/8.5.0' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(60_000),
   })
+  if (res.status === 429) {
+    throw new Error(
+      `${method}: HTTP 429 rate limited by ${rpcUrl}, set RPC_URL to a private mainnet RPC`,
+    )
+  }
   if (!res.ok) {
     throw new Error(`${method}: HTTP ${res.status}`)
   }

@@ -2,6 +2,9 @@ name: Anchor Test
 
 on: workflow_dispatch
 
+permissions:
+  contents: read
+
 # Cargo and TS unit tests run on every PR in ts-lint-and-test.yml; this workflow runs the
 # program-level suites that need the SBF build: LiteSVM and solana-test-validator, in parallel.
 
