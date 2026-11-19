@@ -40,6 +40,11 @@ ignore = [
   # solana-cli-config. No safe upgrade; the fix is migrating off serde_yaml
   # (e.g. serde-saphyr), which solana-cli-config would also have to do.
   "RUSTSEC-2024-0449",
+  # humantime — unmaintained (wraps the unmaintained chrono). The workspace's
+  # own path is gone (env_logger 0.11 uses jiff); still pulled directly by
+  # solana-cli-output (agave), used by settlement-pipelines. Revisit when
+  # agave drops it.
+  "RUSTSEC-2026-0542",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),

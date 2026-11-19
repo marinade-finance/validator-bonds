@@ -750,7 +750,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap 4.5.50",
- "env_logger 0.10.2",
+ "env_logger",
  "gcp-bigquery-client",
  "log",
  "merkle-tree",
@@ -1430,7 +1430,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "clap 4.5.50",
- "env_logger 0.10.2",
+ "env_logger",
  "log",
  "merkle-tree",
  "reqwest 0.12.28",
@@ -2888,19 +2888,6 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
-dependencies = [
- "humantime",
- "is-terminal",
- "log",
- "regex",
- "termcolor",
-]
-
-[[package]]
-name = "env_logger"
 version = "0.11.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de671bd27a75a797dc9ae289ba1e77276e75e2026408aab65185384e2d5cd3f6"
@@ -4009,7 +3996,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "clap 4.5.50",
- "env_logger 0.10.2",
+ "env_logger",
  "log",
  "merkle-tree",
  "once_cell",
@@ -4036,17 +4023,6 @@ name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469fb0b9cefa57e3ef31275ee7cacb78f2fdca44e4765491884a2b119d4eb130"
-
-[[package]]
-name = "is-terminal"
-version = "0.4.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
-dependencies = [
- "hermit-abi 0.5.2",
- "libc",
- "windows-sys 0.59.0",
-]
 
 [[package]]
 name = "is_terminal_polyfill"
@@ -4547,7 +4523,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap 4.5.50",
- "env_logger 0.10.2",
+ "env_logger",
  "log",
  "merkle-tree",
  "serde",
@@ -6574,7 +6550,7 @@ dependencies = [
  "bincode",
  "chrono",
  "clap 4.5.50",
- "env_logger 0.10.2",
+ "env_logger",
  "futures",
  "log",
  "merkle-tree",
@@ -6835,7 +6811,7 @@ dependencies = [
  "bs58",
  "clap 4.5.50",
  "crc",
- "env_logger 0.11.11",
+ "env_logger",
  "log",
  "serde",
  "snapshot-parser",
@@ -11725,15 +11701,6 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "termcolor"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
-dependencies = [
- "winapi-util",
 ]
 
 [[package]]
