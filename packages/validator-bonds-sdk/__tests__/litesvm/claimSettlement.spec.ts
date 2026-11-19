@@ -1,22 +1,21 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  assertNotExist,
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { signer, pubkey, createUserAndFund } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 import BN from 'bn.js'
 
 import {
+  assertNotExist,
+  currentEpoch,
+  warpOffsetEpoch,
+  warpToNextEpoch,
   StakeActivationState,
-  initBankrunTest,
+  initLiteSvmTest,
   stakeActivation,
   warpOffsetSlot,
-} from './bankrun'
+  firstSlotOfEpoch,
+} from './litesvm'
 import {
   Errors,
   bondsWithdrawerAuthority,
@@ -62,8 +61,8 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim settlement', () => {
@@ -72,7 +71,7 @@ describe('Validator Bonds claim settlement', () => {
   // after the start of the next epoch when the stake account is active as we warped there
   let slotsToStartSettlementClaiming: bigint
   let settlement1ClaimingExpires: bigint
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount1: PublicKey
@@ -89,16 +88,13 @@ describe('Validator Bonds claim settlement', () => {
   let stakeAccount2: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
 
     const epochNow = await currentEpoch(provider)
-    const firstSlotOfEpoch = getFirstSlotOfEpoch(provider, epochNow)
-    const firstSlotOfNextEpoch = getFirstSlotOfEpoch(
-      provider,
-      epochNow + BigInt(1),
-    )
+    const firstSlotOfCurrentEpoch = firstSlotOfEpoch(epochNow)
+    const firstSlotOfNextEpoch = firstSlotOfEpoch(epochNow + BigInt(1))
     slotsToStartSettlementClaiming =
-      firstSlotOfNextEpoch - firstSlotOfEpoch + BigInt(3)
+      firstSlotOfNextEpoch - firstSlotOfCurrentEpoch + BigInt(3)
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,
@@ -237,7 +233,7 @@ describe('Validator Bonds claim settlement', () => {
       verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
     }
 
-    provider.context.warpToSlot(settlement1ClaimingExpires - BigInt(1))
+    provider.warpToSlot(settlement1ClaimingExpires - BigInt(1))
     try {
       await provider.sendIx([], ixWrongTreeNode)
       throw new Error(
@@ -246,7 +242,7 @@ describe('Validator Bonds claim settlement', () => {
     } catch (e) {
       verifyError(e, Errors, 6061, 'slots to start claiming not expired yet')
     }
-    provider.context.warpToSlot(settlement1ClaimingExpires)
+    provider.warpToSlot(settlement1ClaimingExpires)
 
     try {
       await provider.sendIx([], ixWrongTreeNode)
@@ -677,7 +673,7 @@ describe('Validator Bonds claim settlement', () => {
     })
 
     // warp to be able to claim (see slotsToStartSettlementClaiming)
-    await warpToNextEpoch(provider)
+    await warpOffsetSlot(provider, Number(slotsToStartSettlementClaiming))
 
     const { instruction: ix1 } = await claimSettlementV2Instruction({
       program,
@@ -794,24 +790,3 @@ describe('Validator Bonds claim settlement', () => {
     await warpOffsetEpoch(provider, epochsToClaimSettlement + 1)
   }
 })
-
-// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L29C1-L29C45
-// https://github.com/solana-labs/solana/blob/v1.17.7/sdk/program/src/epoch_schedule.rs#L167
-function getFirstSlotOfEpoch(
-  provider: BankrunExtendedProvider,
-  epoch: number | bigint | BN,
-): bigint {
-  const epochBigInt = BigInt(epoch.toString())
-  const { slotsPerEpoch, firstNormalEpoch, firstNormalSlot } =
-    provider.context.genesisConfig.epochSchedule
-  let firstEpochSlot: bigint
-  const MINIMUM_SLOTS_PER_EPOCH = BigInt(32)
-  if (epochBigInt <= firstNormalEpoch) {
-    firstEpochSlot =
-      (BigInt(2) ** epochBigInt - BigInt(1)) * MINIMUM_SLOTS_PER_EPOCH
-  } else {
-    firstEpochSlot =
-      (epochBigInt - firstNormalEpoch) * slotsPerEpoch + firstNormalSlot
-  }
-  return firstEpochSlot
-}

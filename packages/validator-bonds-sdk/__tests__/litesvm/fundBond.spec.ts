@@ -1,5 +1,4 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { warpToEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import { signer } from '@marinade.finance/web3js-1x'
 import {
   Keypair,
@@ -9,11 +8,12 @@ import {
 } from '@solana/web3.js'
 import BN from 'bn.js'
 
+import { warpToEpoch, warpToNextEpoch } from './litesvm'
 import {
   StakeActivationState,
-  initBankrunTest,
+  initLiteSvmTest,
   stakeActivation,
-} from './bankrun'
+} from './litesvm'
 import {
   Errors,
   fundBondInstruction,
@@ -33,12 +33,12 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds fund bond account', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
@@ -46,8 +46,8 @@ describe('Validator Bonds fund bond account', () => {
   let bondWithdrawAuthority: PublicKey
   const startUpEpoch = getSecureRandomInt(100, 200)
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
     warpToEpoch(provider, startUpEpoch)
   })
 
@@ -230,8 +230,7 @@ describe('Validator Bonds fund bond account', () => {
   })
 
   it('cannot fund bond with lockup delegation', async () => {
-    const nextEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 1
+    const nextEpoch = Number(provider.getClock().epoch) + 1
     const { stakeAccount, withdrawer } = await delegatedStakeAccount({
       provider,
       lamports: LAMPORTS_PER_SOL * 2,

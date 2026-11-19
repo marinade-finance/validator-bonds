@@ -1,17 +1,17 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
+import BN from 'bn.js'
+
 import {
   assertNotExist,
   warpOffsetEpoch,
   warpToEpoch,
   warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
-import BN from 'bn.js'
-
-import { initBankrunTest, delegateAndFund } from './bankrun'
+} from './litesvm'
+import { initLiteSvmTest, delegateAndFund } from './litesvm'
 import {
   Errors,
   cancelWithdrawRequestInstruction,
@@ -20,6 +20,7 @@ import {
   settlementStakerAuthority,
   bondsWithdrawerAuthority,
   deserializeStakeState,
+  STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
 } from '../../src'
 import { claimWithdrawRequestInstruction } from '../../src/instructions/claimWithdrawRequest'
 import { getSecureRandomInt } from '../utils/helpers'
@@ -34,15 +35,15 @@ import {
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 // TODO: test the merging stake accounts through the orchestrate withdraw request, i.e., test orchestrators/orchestrateWithdrawRequest.ts
 
 describe('Validator Bonds claim withdraw request', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
@@ -52,8 +53,8 @@ describe('Validator Bonds claim withdraw request', () => {
   const startUpEpoch = getSecureRandomInt(100, 200)
   const withdrawLockupEpochs = 1
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
     warpToEpoch(provider, startUpEpoch)
   })
 
@@ -83,9 +84,7 @@ describe('Validator Bonds claim withdraw request', () => {
   })
 
   it('claim withdraw request with split stake account created', async () => {
-    const epochAtTestStart = Number(
-      (await provider.context.banksClient.getClock()).epoch,
-    )
+    const epochAtTestStart = Number(provider.getClock().epoch)
 
     const initAmount = 5 * LAMPORTS_PER_SOL
     const requestedAmount = LAMPORTS_PER_SOL * 2
@@ -151,7 +150,7 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(originalStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount,
+      STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
     )
     expect(originalStakeAccountData.Stake?.stake.delegation.stake).toEqual(
       requestedAmount - rentExemptStakeAccount,
@@ -194,7 +193,7 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(splitStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(splitStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(splitStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount,
+      STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
     )
     expect(splitStakeAccountData.Stake?.stake.delegation.stake).toEqual(
       initAmount - requestedAmount,
@@ -213,9 +212,7 @@ describe('Validator Bonds claim withdraw request', () => {
   })
 
   it('claim withdraw request with stake fulfilling the whole', async () => {
-    const epochAtTestStart = Number(
-      (await provider.context.banksClient.getClock()).epoch,
-    )
+    const epochAtTestStart = Number(provider.getClock().epoch)
 
     const requestedAmount = 2 * LAMPORTS_PER_SOL
     const { withdrawRequest, stakeAccount } =
@@ -267,7 +264,7 @@ describe('Validator Bonds claim withdraw request', () => {
     expect(originalStakeAccountData.Stake?.meta.lockup.epoch).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.lockup.unixTimestamp).toEqual(0)
     expect(originalStakeAccountData.Stake?.meta.rentExemptReserve).toEqual(
-      rentExemptStakeAccount,
+      STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
     )
     expect(originalStakeAccountData.Stake?.stake.delegation.stake).toEqual(
       requestedAmount - rentExemptStakeAccount,

@@ -5,7 +5,10 @@ import {
   bondsWithdrawerAuthority,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createVoteAccount,
   delegatedStakeAccount,
@@ -89,6 +92,8 @@ describe('Fund bond account using CLI (institutional)', () => {
         'pnpm',
         [
           'cli:institutional',
+          '--keypair',
+          getAnchorWalletPath(),
           '-u',
           provider.connection.rpcEndpoint,
           'fund-bond',

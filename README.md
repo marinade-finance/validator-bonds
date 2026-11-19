@@ -15,7 +15,8 @@ settlements → claims.
 
 ## Installation
 
-Requires: Rust toolchain `1.88.0` (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`.
+Requires: Rust toolchain (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`, and the Solana CLI (`solana-test-validator`)
+for `pnpm test:validator`.
 
 ```sh
 pnpm install   # TypeScript deps
@@ -57,9 +58,11 @@ pnpm fix                                           # auto-fix formatting + clipp
 
 cargo test --features no-entrypoint -- --nocapture # Rust unit tests
 pnpm test:unit                                     # TS unit tests
-pnpm test:bankrun                                  # bankrun integration tests
-FILE=path/to/test.spec.ts pnpm test:bankrun        # single bankrun file
-pnpm test:validator                                # anchor test (full, slow)
+pnpm test:litesvm                                  # LiteSVM integration tests (pinned mainnet stake program + feature set)
+FILE=path/to/test.spec.ts pnpm test:litesvm        # single LiteSVM file
+pnpm check:mainnet-fixture                         # exits 1 when mainnet drifted (refresh: pnpm fixture:mainnet)
+pnpm test:validator                                # solana-test-validator suites, fresh validator per file (slow)
+FILE=path/to/test.spec.ts pnpm test:validator      # single test-validator file
 
 # After on-chain program changes — sync IDL to SDK and resources
 pnpm copy:idl

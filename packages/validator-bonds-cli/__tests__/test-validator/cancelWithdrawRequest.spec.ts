@@ -3,6 +3,7 @@ import assert from 'assert'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { rand } from '@marinade.finance/ts-common'
 import { getWithdrawRequest } from '@marinade.finance/validator-bonds-sdk'
+import { getAnchorWalletPath } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
@@ -92,6 +93,8 @@ describe('Cancel withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -130,6 +133,8 @@ describe('Cancel withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -160,6 +165,8 @@ describe('Cancel withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

@@ -1,11 +1,11 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import { currentEpoch, warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import { U64_MAX } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL, StakeProgram } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { currentEpoch, warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   resetStakeInstruction,
@@ -29,12 +29,12 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds reset stake', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let operatorAuthority: Keypair
@@ -42,8 +42,8 @@ describe('Validator Bonds reset stake', () => {
   let authorizedWithdrawer: Keypair
   let voteAccount: PublicKey
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {
@@ -225,9 +225,7 @@ describe('Validator Bonds reset stake', () => {
 
     await removeVoteAccount({ provider, voteAccount, authorizedWithdrawer })
 
-    await expect(
-      provider.connection.getAccountInfo(voteAccount),
-    ).rejects.toThrow(/Could not find/)
+    expect(await provider.connection.getAccountInfo(voteAccount)).toBeNull()
 
     const { instruction } = await resetStakeInstruction({
       program,

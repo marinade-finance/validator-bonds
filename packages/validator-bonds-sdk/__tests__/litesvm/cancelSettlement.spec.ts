@@ -1,15 +1,11 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  assertNotExist,
-  currentEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { assertNotExist, currentEpoch, warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   cancelSettlementInstruction,
@@ -29,12 +25,12 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel settlement', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let adminAuthority: Keypair
@@ -48,8 +44,8 @@ describe('Validator Bonds cancel settlement', () => {
   let settlementEpoch: bigint
   let rentCollector: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {

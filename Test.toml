@@ -1,6 +1,7 @@
 [scripts]
-# recursive call: pnpm test -> anchor test -> pnpm _test
-# using solana-bankrun for testing (--runInBand is needed, see https://github.com/kevinheavey/solana-bankrun/issues/2)
+# Validator config read by scripts/test-validator.sh (pnpm test:validator), which starts a fresh
+# solana-test-validator per spec file; keep the layout parseable (one key = "value" per line).
+# A single file also runs via `ANCHOR_BUILD_SBF_ARCH=v0 FILE=<spec> anchor test`.
 test = "pnpm _test"
 
 [test.validator]

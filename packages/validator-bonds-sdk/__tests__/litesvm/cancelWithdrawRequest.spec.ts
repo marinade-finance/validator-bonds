@@ -1,15 +1,11 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  assertNotExist,
-  warpToEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { assertNotExist, warpToEpoch, warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import { Errors, cancelWithdrawRequestInstruction, getBond } from '../../src'
 import { getSecureRandomInt } from '../utils/helpers'
 import {
@@ -20,13 +16,13 @@ import {
   executeNewWithdrawRequest,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds cancel withdraw request', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
@@ -35,8 +31,8 @@ describe('Validator Bonds cancel withdraw request', () => {
   let withdrawRequestAccount: PublicKey
   const startUpEpoch = getSecureRandomInt(100, 200)
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
     warpToEpoch(provider, startUpEpoch)
   })
 

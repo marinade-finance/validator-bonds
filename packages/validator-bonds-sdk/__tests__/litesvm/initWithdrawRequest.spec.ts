@@ -1,9 +1,9 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { warpToEpoch } from '@marinade.finance/bankrun-utils'
 import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { warpToEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   getBond,
@@ -19,13 +19,13 @@ import {
   executeInitWithdrawRequestInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds init withdraw request', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
@@ -33,12 +33,10 @@ describe('Validator Bonds init withdraw request', () => {
   let validatorIdentity: Keypair
   let startUpEpoch: number
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
     const startUpEpochPlus = getSecureRandomInt(100, 200)
-    const currentEpoch = Number(
-      (await provider.context.banksClient.getClock()).epoch,
-    )
+    const currentEpoch = Number(provider.getClock().epoch)
     startUpEpoch = currentEpoch + startUpEpochPlus
     warpToEpoch(provider, startUpEpoch)
   })
@@ -96,7 +94,7 @@ describe('Validator Bonds init withdraw request', () => {
       bond.publicKey,
       program.programId,
     )
-    const epoch = Number((await provider.context.banksClient.getClock()).epoch)
+    const epoch = Number(provider.getClock().epoch)
 
     expect(withdrawRequestAccount).toEqual(withdrawRequestAddr)
     const withdrawRequestData = await getWithdrawRequest(

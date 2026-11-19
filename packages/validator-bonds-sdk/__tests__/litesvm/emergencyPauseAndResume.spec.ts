@@ -1,15 +1,11 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  currentEpoch,
-  warpOffsetEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { signer } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { currentEpoch, warpOffsetEpoch, warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   claimSettlementV2Instruction,
@@ -55,8 +51,8 @@ import {
 } from '../utils/staking'
 import { executeInitConfigInstruction } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Config, ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Wallet } from '@marinade.finance/web3js-1x'
 import type {
   Keypair,
@@ -70,7 +66,7 @@ import type {
 describe('Validator Bonds pause&resume', () => {
   const epochsToClaimSettlement = BigInt(23)
   const withdrawLockupEpochs = BigInt(1)
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let adminAuthority: Keypair
@@ -78,7 +74,7 @@ describe('Validator Bonds pause&resume', () => {
   let validatorIdentity: Keypair
 
   beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
     await warpToNextEpoch(provider)
     ;({
       configAccount,

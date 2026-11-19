@@ -1,12 +1,8 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import {
-  bankrunExecuteIx,
-  currentEpoch,
-  warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
 import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from '@solana/web3.js'
 
-import { initBankrunTest, warpOffsetSlot } from './bankrun'
+import { executeIx, currentEpoch, warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest, warpOffsetSlot } from './litesvm'
 import {
   Errors,
   MARINADE_LIQUID_STATE,
@@ -37,9 +33,9 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
 import type { MerkleTreeNodeWithProof } from '../utils/merkleTreeTestData'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 const STAKE_LIST_CAPACITY = 10000
@@ -54,13 +50,13 @@ function leafAt(index: number): MerkleTreeNodeWithProof {
 }
 
 describe('Validator Bonds claim settlement of the mSOL withdrawer', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let settlementAccount: PublicKey
   let stakeAccountFrom: PublicKey
 
   beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
     const { configAccount, operatorAuthority } =
       await executeInitConfigInstruction({
         program,
@@ -321,7 +317,7 @@ describe('Validator Bonds claim settlement of the mSOL withdrawer', () => {
         listed,
         capacity: STAKE_LIST_CAPACITY,
       })
-      const meta = await bankrunExecuteIx(
+      const meta = await executeIx(
         provider,
         [provider.wallet],
         await claimIx(leaf, stakeAccountTo),

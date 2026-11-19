@@ -6,7 +6,7 @@ import {
   MARINADE_LIQUID_STATE_STAKE_LIST_OFFSET,
 } from '../../src'
 
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { LiteSvmProvider } from '../litesvm/litesvm'
 
 export const MARINADE_LIQUID_STAKE_LIST = new PublicKey(
   'Anv3XE7e5saNdm16MU6bniYS59Mpv7DzQXHAhxJUmAKW',
@@ -61,7 +61,7 @@ export function buildMarinadeLiquidStakeList({
 }
 
 export function injectMarinadeLiquidAccounts(
-  provider: BankrunExtendedProvider,
+  provider: LiteSvmProvider,
   {
     stateData,
     stakeListData,
@@ -76,13 +76,13 @@ export function injectMarinadeLiquidAccounts(
     stakeListOwner?: PublicKey
   },
 ) {
-  provider.context.setAccount(MARINADE_LIQUID_STATE, {
+  provider.setAccount(MARINADE_LIQUID_STATE, {
     lamports: LAMPORTS_PER_SOL,
     data: stateData,
     owner: stateOwner,
     executable: false,
   })
-  provider.context.setAccount(stakeList, {
+  provider.setAccount(stakeList, {
     lamports: 4 * LAMPORTS_PER_SOL,
     data: stakeListData,
     owner: stakeListOwner,
@@ -94,7 +94,7 @@ export function injectMarinadeLiquidAccounts(
  * Injects a valid liquid State and stake list where `listed[i]` sits at index `i` of `count` live records.
  */
 export function injectValidMarinadeLiquidAccounts(
-  provider: BankrunExtendedProvider,
+  provider: LiteSvmProvider,
   {
     listed,
     count = listed.length,

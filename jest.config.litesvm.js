@@ -4,7 +4,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   modulePathIgnorePatterns: ['dist/'],
-  testRegex: ['__tests__/bankrun/.*.spec.ts'],
+  testRegex: ['__tests__/litesvm/.*.spec.ts'],
   testPathIgnorePatterns: ['.*utils.*'],
   setupFilesAfterEnv: [
     // https://github.com/marinade-finance/marinade-ts-cli/blob/main/packages/lib/jest-utils/src/equalityTesters.ts

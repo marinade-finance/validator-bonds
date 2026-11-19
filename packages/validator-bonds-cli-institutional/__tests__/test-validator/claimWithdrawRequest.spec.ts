@@ -8,7 +8,10 @@ import {
   withdrawRequestAddress,
   MARINADE_INSTITUTIONAL_CONFIG_ADDRESS,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import {
   createBondsFundedStakeAccount,
   createVoteAccount,
@@ -138,6 +141,8 @@ describe('Claim withdraw request using CLI (institutional)', () => {
       'pnpm',
       [
         'cli:institutional',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         'claim-withdraw-request',
