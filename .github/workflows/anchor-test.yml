@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     container:
-      image: ochaloup/solana-test-validator:solana_3.1.12-anchor_1.2.1@sha256:36c73b293d577b12ff66cd99da6317aa4cc36db34abc5dcd4c7cdf2ca28abe8c
+      image: ochaloup/solana-test-validator:solana_4.3.2-anchor_1.2.1
       options: --user root
 
     steps:
@@ -63,8 +63,8 @@ jobs:
     # ~25 min of suites (fresh validator per spec file) + SBF build + settlement-pipelines cargo build
     timeout-minutes: 60
     container:
-      image: ochaloup/solana-test-validator:solana_3.1.12-anchor_1.2.1@sha256:36c73b293d577b12ff66cd99da6317aa4cc36db34abc5dcd4c7cdf2ca28abe8c
-      # agave 3.x asserts io_uring support on start; Docker's default seccomp profile blocks it
+      image: ochaloup/solana-test-validator:solana_4.3.2-anchor_1.2.1
+      # agave asserts io_uring support on start; Docker's default seccomp profile blocks it
       options: --user root --security-opt seccomp=unconfined
 
     steps:
