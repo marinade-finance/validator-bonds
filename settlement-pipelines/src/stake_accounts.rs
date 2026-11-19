@@ -1,4 +1,3 @@
-use crate::anchor::add_instruction_to_builder;
 use anchor_client::{DynSigner, Program};
 use anyhow::anyhow;
 use log::warn;
@@ -10,8 +9,9 @@ use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
 use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::stake_history::StakeHistoryEntry;
 use solana_stake_interface::state::StakeStateV2;
-use solana_transaction_builder::TransactionBuilder;
+use solana_transaction_builder::{group, Group};
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
 use validator_bonds::instructions::MergeStakeArgs;
@@ -272,9 +272,7 @@ pub fn settlement_funded_claimable_lamports(
         .sum()
 }
 
-/// Preparing instructions to merge stake accounts from stake_accounts_to_merge into destination_stake
-/// Returning list of stake accounts addresses that cannot be merged.
-/// Prepared transactions are passed from the function through mutable reference of `transaction_builder`.
+/// One merge group per source into `destination_stake`, and the sources that cannot merge.
 #[allow(clippy::too_many_arguments)]
 pub async fn prepare_merge_instructions(
     stake_accounts_to_merge: Vec<&CollectedStakeAccount>,
@@ -285,12 +283,17 @@ pub async fn prepare_merge_instructions(
     program: &Program<Arc<DynSigner>>,
     config_address: &Pubkey,
     staker_authority: &Pubkey,
-    transaction_builder: &mut TransactionBuilder,
     stake_activation: &StakeActivation,
-) -> anyhow::Result<Vec<Pubkey>> {
+) -> anyhow::Result<(Vec<Group>, Vec<Pubkey>)> {
+    let mut groups: Vec<Group> = vec![];
     let mut non_mergeable_stake_accounts: Vec<Pubkey> = vec![];
+    // one source merged twice fails the whole transaction it is batched in
+    let mut seen: HashSet<Pubkey> = HashSet::new();
     // can we merge stake accounts? (stake accounts can be merged only when both in the same state)
     for (stake_account_address, _, stake_account_state) in stake_accounts_to_merge {
+        if *stake_account_address == destination_stake || !seen.insert(*stake_account_address) {
+            continue;
+        }
         let stake_account_to_merge_state_type =
             get_stake_state_type(stake_account_state, stake_activation);
         if stake_account_to_merge_state_type != destination_stake_state_type {
@@ -323,14 +326,13 @@ pub async fn prepare_merge_instructions(
                         settlement: *settlement_address,
                     },
                 });
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!("MergeStake: {stake_account_address} -> {destination_stake}"),
-            )?;
+            groups.push(group(
+                format!("merge {stake_account_address}"),
+                req.instructions(),
+            )?);
         }
     }
-    Ok(non_mergeable_stake_accounts)
+    Ok((groups, non_mergeable_stake_accounts))
 }
 
 #[cfg(test)]
@@ -344,6 +346,7 @@ mod tests {
     // funding pipeline.
     const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
+    #[allow(deprecated)]
     fn initialized_stake(staker: Pubkey, withdrawer: Pubkey) -> StakeStateV2 {
         StakeStateV2::Initialized(Meta {
             rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
@@ -577,5 +580,39 @@ mod tests {
     fn delegated_amount_of_a_non_delegated_account_is_zero() {
         let state = initialized_stake(Pubkey::new_unique(), Pubkey::new_unique());
         assert_eq!(get_delegated_amount(&state, &at_epoch()), 0);
+    }
+
+    #[tokio::test]
+    async fn merge_groups_skip_a_repeated_source_and_the_destination() {
+        let rpc_client = Arc::new(RpcClient::new("http://localhost:8899".to_string()));
+        let program =
+            validator_bonds_common::get_validator_bonds_program(rpc_client, None).unwrap();
+        let state = initialized_stake(Pubkey::new_unique(), Pubkey::new_unique());
+        let destination: CollectedStakeAccount = (Pubkey::new_unique(), SOL, state);
+        let source: CollectedStakeAccount = (Pubkey::new_unique(), SOL, state);
+
+        let (groups, non_mergeable) = prepare_merge_instructions(
+            vec![&source, &destination, &source],
+            destination.0,
+            StakeAccountStateType::Initialized,
+            &Pubkey::new_unique(),
+            None,
+            &program,
+            &Pubkey::new_unique(),
+            &Pubkey::new_unique(),
+            &at_epoch(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(non_mergeable, vec![]);
+        assert_eq!(
+            groups
+                .iter()
+                .map(|g| g.id().to_string())
+                .collect::<Vec<_>>(),
+            vec![format!("merge {}", source.0)]
+        );
+        assert_eq!(groups[0].instructions().len(), 1);
     }
 }

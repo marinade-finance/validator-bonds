@@ -2,9 +2,8 @@ use anchor_client::{DynSigner, Program};
 use clap::Parser;
 use log::{debug, error, info};
 use serde::Serialize;
-use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
+    init_from_opts, ExecutionOpts, InitializedGlobalOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
 use settlement_pipelines::executor::execute_in_sequence;
@@ -40,8 +39,9 @@ use solana_stake_interface::config::ID as stake_config_id;
 use solana_stake_interface::instruction::create_account as create_stake_account_instructions;
 use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::state::{Authorized, Lockup, StakeStateV2};
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::{group, Group};
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -74,7 +74,7 @@ struct Args {
     epoch: Option<u64>,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -108,13 +108,13 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer,
         operator_authority,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
 
@@ -179,14 +179,13 @@ async fn real_main(
         &config,
         fee_payer.clone(),
         operator_authority.clone(),
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
 
     fund_settlements(
         &program,
-        rpc_client.clone(),
         transaction_executor.clone(),
         &settlement_records_per_epoch,
         &config_address,
@@ -195,7 +194,7 @@ async fn real_main(
         operator_authority.clone(),
         marinade_wallet.clone(),
         rent_payer.clone(),
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
@@ -213,11 +212,10 @@ async fn prepare_funding(
     config: &Config,
     fee_payer: Arc<Keypair>,
     operator_authority: Arc<Keypair>,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority);
+    let mut groups: Vec<Group> = vec![];
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
     let all_stake_accounts =
         collect_stake_accounts(rpc_client.clone(), Some(&withdrawer_authority), None)
@@ -463,9 +461,9 @@ async fn prepare_funding(
                         .iter()
                         .map(|f| f.into())
                         .collect::<Vec<CollectedStakeAccount>>();
-                    // when possible to merge then merge transactions are added to the transaction builder
+                    // when possible to merge then merge groups are added to the groups to execute
                     // when non-mergeable stake account is found, it is directly funded to settlement
-                    let non_mergeable = prepare_merge_instructions(
+                    let (merge_groups, non_mergeable) = prepare_merge_instructions(
                         possible_to_merge.iter().collect(),
                         destination_stake,
                         destination_stake_state_type,
@@ -474,10 +472,10 @@ async fn prepare_funding(
                         program,
                         config_address,
                         &withdrawer_authority,
-                        &mut transaction_builder,
                         &stake_activation,
                     )
                     .await?;
+                    groups.extend(merge_groups);
 
                     let non_mergeable_lamports: u64 = non_mergeable
                         .iter()
@@ -614,18 +612,18 @@ async fn prepare_funding(
         }
     }
 
-    let execution_result_merging = execute_in_sequence(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &mut transaction_builder,
-        priority_fee_policy,
-        false,
+    let summary = execute_in_sequence(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[
+            fee_payer.clone() as Arc<dyn Signer + Send + Sync>,
+            operator_authority,
+        ],
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(
-        execution_result_merging,
-        "Fund Settlement - Merge Stake Accounts",
-    );
+    reporting.add_tx_execution_result(&summary, "Fund Settlement - Merge Stake Accounts");
 
     Ok(())
 }
@@ -665,7 +663,6 @@ fn is_for_funding(settlement_record: &SettlementRecord) -> bool {
 #[allow(clippy::too_many_arguments)]
 async fn fund_settlements(
     program: &Program<Arc<DynSigner>>,
-    rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &HashMap<u64, Vec<SettlementRecord>>,
     config_address: &Pubkey,
@@ -674,13 +671,16 @@ async fn fund_settlements(
     operator_authority: Arc<Keypair>,
     marinade_wallet: Arc<Keypair>,
     rent_payer: Arc<Keypair>,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<FundSettlementsReport>,
 ) -> anyhow::Result<()> {
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority);
-    transaction_builder.add_signer_checked(&rent_payer);
-    transaction_builder.add_signer_checked(&marinade_wallet);
+    let mut groups: Vec<Group> = vec![];
+    let mut signers: Vec<Arc<dyn Signer + Send + Sync>> = vec![
+        fee_payer.clone(),
+        operator_authority.clone(),
+        rent_payer.clone(),
+        marinade_wallet.clone(),
+    ];
 
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
     let minimal_stake_lamports =
@@ -706,7 +706,7 @@ async fn fund_settlements(
         match &settlement_record.funder {
             SettlementFunderType::Marinade(Some(SettlementFunderMarinade { amount_to_fund })) => {
                 let new_stake_account_keypair = Arc::new(Keypair::new());
-                transaction_builder.add_signer_checked(&new_stake_account_keypair);
+                signers.push(new_stake_account_keypair.clone());
                 info!(
                     "Settlement: {} (vote account {}, bond {}, epoch {}, reason: {}, funder: {}), creating Marinade stake account {}",
                     settlement_record.settlement_address,
@@ -732,8 +732,10 @@ async fn fund_settlements(
                     // after claiming the rest has to be still living stake account
                     amount_to_fund + minimal_stake_lamports,
                 );
-                transaction_builder.add_instructions(instructions)?;
-                transaction_builder.finish_instruction_pack();
+                groups.push(group(
+                    format!("create-stake {}", new_stake_account_keypair.pubkey()),
+                    instructions,
+                )?);
             }
             SettlementFunderType::ValidatorBond(validator_bonds_funders) => {
                 for SettlementFunderValidatorBond {
@@ -767,19 +769,15 @@ async fn fund_settlements(
                             event_authority: find_event_authority().0,
                         })
                         .args(validator_bonds::instruction::FundSettlement {});
-                    transaction_builder.add_signer_checked(&split_stake_account_keypair);
-                    add_instruction_to_builder(
-                        &mut transaction_builder,
-                        &req,
+                    groups.push(group(
                         format!(
-                            "FundSettlement: {}, bond: {}, vote: {}, reason: {}, stake: {}",
+                            "fund {} {}",
                             settlement_record.settlement_address,
-                            settlement_record.bond_address,
-                            settlement_record.vote_account_address,
-                            reason_display(&settlement_record.reason),
-                            stake_account_to_fund,
+                            split_stake_account_keypair.pubkey()
                         ),
-                    )?;
+                        req.instructions(),
+                    )?);
+                    signers.push(split_stake_account_keypair);
                 }
             }
             _ => {
@@ -797,15 +795,15 @@ async fn fund_settlements(
         }
     }
 
-    let execute_result_funding = execute_in_sequence(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &mut transaction_builder,
-        priority_fee_policy,
-        false,
+    let summary = execute_in_sequence(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &signers,
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(execute_result_funding, "FundSettlements");
+    reporting.add_tx_execution_result(&summary, "FundSettlements");
 
     Ok(())
 }
