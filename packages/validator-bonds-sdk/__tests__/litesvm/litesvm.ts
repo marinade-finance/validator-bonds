@@ -80,9 +80,7 @@ type JsonAccount = {
 
 export type ExecuteResult = {
   logMessages: string[]
-  returnData: Buffer
   computeUnitsConsumed: bigint
-  innerInstructions: { programId: PublicKey; data: Buffer }[]
 }
 
 function address(pubkey: PublicKey): Address {
@@ -252,21 +250,9 @@ export async function executeTx(
       logs: result.meta().logs(),
     })
   }
-  const accountKeys = tx.compileMessage().accountKeys
   return {
     logMessages: result.logs(),
-    returnData: Buffer.from(result.returnData().data()),
     computeUnitsConsumed: result.computeUnitsConsumed(),
-    innerInstructions: result
-      .innerInstructions()
-      .flat()
-      .map(inner => {
-        const ix = inner.instruction()
-        return {
-          programId: accountKeys[ix.programIdIndex()]!,
-          data: Buffer.from(ix.data()),
-        }
-      }),
   }
 }
 
@@ -371,15 +357,12 @@ export function currentEpoch(provider: LiteSvmProvider): Promise<bigint> {
   return Promise.resolve(provider.svm.getClock().epoch)
 }
 
-export function currentSlot(provider: LiteSvmProvider): Promise<number> {
-  return Promise.resolve(Number(provider.svm.getClock().slot))
-}
-
-export async function warpOffsetSlot(
+export function warpOffsetSlot(
   provider: LiteSvmProvider,
   plusSlots: number,
-) {
-  provider.warpToSlot(BigInt((await currentSlot(provider)) + plusSlots))
+): Promise<void> {
+  provider.warpToSlot(provider.getClock().slot + BigInt(plusSlots))
+  return Promise.resolve()
 }
 
 /**
@@ -515,10 +498,6 @@ export enum StakeActivationState {
   NonDelegated, // 4
 }
 
-export async function currentEpochBn(provider: LiteSvmProvider): Promise<BN> {
-  return new BN((await currentEpoch(provider)).toString())
-}
-
 export async function stakeActivation(
   provider: LiteSvmProvider,
   stakeAccount: PublicKey,
@@ -532,7 +511,7 @@ export async function stakeActivation(
     const activationEpoch = stakeState.Stake.stake.delegation.activationEpoch
     const deactivationEpoch =
       stakeState.Stake.stake.delegation.deactivationEpoch
-    const curEpoch = await currentEpochBn(provider)
+    const curEpoch = new BN(provider.getClock().epoch.toString())
 
     // value U64_MAX means "not being set"
     if (

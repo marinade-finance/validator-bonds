@@ -38,6 +38,7 @@ if (process.argv.includes('-h') || process.argv.includes('--help')) {
 }
 
 const rpcUrl = process.env.RPC_URL ?? 'https://api.mainnet-beta.solana.com'
+const MAINNET_GENESIS_HASH = '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d'
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   const res = await fetch(rpcUrl, {
@@ -59,6 +60,15 @@ async function rpc<T>(method: string, params: unknown[]): Promise<T> {
     throw new Error(`${method}: ${JSON.stringify(body.error)}`)
   }
   return body.result
+}
+
+// the stake program sits at the same ProgramData address on devnet/testnet, so a
+// non-mainnet RPC_URL would otherwise produce a fixture labelled mainnet-beta
+const genesisHash = await rpc<string>('getGenesisHash', [])
+if (genesisHash !== MAINNET_GENESIS_HASH) {
+  throw new Error(
+    `${rpcUrl} is not mainnet-beta (genesis hash ${genesisHash}, expected ${MAINNET_GENESIS_HASH})`,
+  )
 }
 
 const { value: programDataAccount } = await rpc<{

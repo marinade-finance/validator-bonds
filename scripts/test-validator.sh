@@ -103,11 +103,15 @@ start_failed() {
   tail -n 40 "$LOG_DIR/validator-start.out" >&2 2> /dev/null || true
   echo "--- $LEDGER_DIR/validator.log (tail)" >&2
   tail -n 40 "$LEDGER_DIR/validator.log" >&2 2> /dev/null || true
-  cp "$LEDGER_DIR/validator.log" "$LOG_DIR/validator-start.log" 2> /dev/null || true
-  exit 1
+  cp "$LOG_DIR/validator-start.out" "$LOG_DIR/$2.validator-start.out" 2> /dev/null || true
+  cp "$LEDGER_DIR/validator.log" "$LOG_DIR/$2.validator-start.log" 2> /dev/null || true
+  return 1
 }
 
+# returns non-zero (after printing the reason) when the validator does not come up;
+# $1 names the spec file the logs are kept for
 start_validator() {
+  local log_name=$1
   mkdir -p .anchor
   solana-test-validator --reset --quiet \
     --ledger "$LEDGER_DIR" \
@@ -118,8 +122,14 @@ start_validator() {
   VALIDATOR_PID=$!
   local waited=0
   until rpc_up; do
-    kill -0 "$VALIDATOR_PID" 2> /dev/null || start_failed "solana-test-validator exited on start"
-    ((waited++ < START_TIMEOUT)) || start_failed "solana-test-validator not healthy after ${START_TIMEOUT}s"
+    kill -0 "$VALIDATOR_PID" 2> /dev/null || {
+      start_failed "solana-test-validator exited on start" "$log_name"
+      return 1
+    }
+    ((waited++ < START_TIMEOUT)) || {
+      start_failed "solana-test-validator not healthy after ${START_TIMEOUT}s" "$log_name"
+      return 1
+    }
     sleep 1
   done
 }
@@ -129,12 +139,17 @@ FAILED=()
 START_ALL=$(date +%s)
 for spec in "${SPECS[@]}"; do
   echo "=== $spec"
-  start_validator
+  log_name=$(echo "$spec" | tr '/' '_')
+  if ! start_validator "$log_name"; then
+    FAILED+=("$spec (validator did not start)")
+    stop_validator
+    continue
+  fi
   if ANCHOR_PROVIDER_URL="$RPC_URL" ANCHOR_WALLET="$WALLET" FILE="$spec" pnpm _test; then
     :
   else
     FAILED+=("$spec")
-    cp "$LEDGER_DIR/validator.log" "$LOG_DIR/$(echo "$spec" | tr '/' '_').validator.log" 2> /dev/null || true
+    cp "$LEDGER_DIR/validator.log" "$LOG_DIR/$log_name.validator.log" 2> /dev/null || true
   fi
   stop_validator
 done
