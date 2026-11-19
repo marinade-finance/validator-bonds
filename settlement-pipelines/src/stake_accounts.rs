@@ -272,7 +272,7 @@ pub fn settlement_funded_claimable_lamports(
         .sum()
 }
 
-/// One merge group per source stake account into `destination_stake`, and the sources that cannot be merged.
+/// One merge group per source into `destination_stake`, and the sources that cannot merge.
 #[allow(clippy::too_many_arguments)]
 pub async fn prepare_merge_instructions(
     stake_accounts_to_merge: Vec<&CollectedStakeAccount>,
