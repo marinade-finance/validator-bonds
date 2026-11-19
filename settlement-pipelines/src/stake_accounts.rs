@@ -346,6 +346,7 @@ mod tests {
     // funding pipeline.
     const MIN: u64 = SOL + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
 
+    #[allow(deprecated)]
     fn initialized_stake(staker: Pubkey, withdrawer: Pubkey) -> StakeStateV2 {
         StakeStateV2::Initialized(Meta {
             rent_exempt_reserve: STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
