@@ -33,10 +33,10 @@
   },
   "devDependencies": {
     "@coral-xyz/anchor": "npm:@anchor-lang/core@^1.2.1",
-    "@marinade.finance/anchor-common": "5.11.1",
+    "@marinade.finance/anchor-common": "5.12.2",
     "@marinade.finance/marinade-ts-sdk": "6.1.0",
-    "@marinade.finance/ts-common": "5.11.1",
-    "@marinade.finance/web3js-1x": "5.11.1",
+    "@marinade.finance/ts-common": "5.12.2",
+    "@marinade.finance/web3js-1x": "5.12.2",
     "@metaplex-foundation/mpl-token-metadata": "3.4.0",
     "@metaplex-foundation/umi": "0.9.2",
     "@metaplex-foundation/umi-bundle-defaults": "0.9.2",
@@ -48,7 +48,7 @@
     "bs58": "6.0.0",
     "class-transformer": "0.5.1",
     "jsbi": "4.3.2",
-    "litesvm": "1.6.1",
+    "litesvm": "1.6.2",
     "reflect-metadata": "0.2.2",
     "solana-spl-token-modern": "npm:@solana/spl-token@^0.3.11"
   },
