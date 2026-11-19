@@ -3,12 +3,10 @@ use anyhow::anyhow;
 use clap::Parser;
 use log::{debug, error, info};
 use serde::Serialize;
-use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts,
-    TipPolicyOpts,
+    init_from_opts, ExecutionOpts, GlobalOpts, InitializedGlobalOpts, ReportOpts, TipPolicyOpts,
 };
-use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::executor::execute;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::load_merkle_tree_collections;
 use settlement_pipelines::marinade_liquid::{
@@ -29,11 +27,13 @@ use settlement_pipelines::FINALIZATION_WAIT_TIMEOUT;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
+use solana_sdk::signature::{Keypair, Signer};
 use solana_sdk::sysvar::clock::ID as clock_id;
 use solana_sdk_ids::sysvar::stake_history::ID as stake_history_id;
 use solana_stake_interface::program::ID as stake_program_id;
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::{group, Group};
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
@@ -79,7 +79,7 @@ struct Args {
     epoch: Option<u64>,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -105,13 +105,13 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer,
         operator_authority: _,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
 
@@ -185,7 +185,6 @@ async fn real_main(
         &claimable_settlements,
     );
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let stake_activation = StakeActivation::fetch(rpc_client.clone())
@@ -196,11 +195,11 @@ async fn real_main(
         &mut claimable_settlements,
         &program,
         &config_address,
-        &mut transaction_builder,
         &stake_activation,
         rpc_client.clone(),
         transaction_executor.clone(),
-        &priority_fee_policy,
+        &fee_payer,
+        &run_config,
         reporting,
     )
     .await?;
@@ -234,12 +233,12 @@ async fn real_main(
         claim_settlement(
             &program,
             rpc_client.clone(),
-            &mut transaction_builder,
             transaction_executor.clone(),
+            &fee_payer,
             claimable_settlement,
             json_matching_settlement,
             &config_address,
-            &priority_fee_policy,
+            &run_config,
             reporting,
             &mut settlement_claimed_amounts,
             &mut stake_accounts_to_cache,
@@ -259,13 +258,14 @@ async fn merge_stake_accounts(
     claimable_settlements: &mut [ClaimableSettlementsReturn],
     program: &Program<Arc<DynSigner>>,
     config_address: &Pubkey,
-    transaction_builder: &mut TransactionBuilder,
     stake_activation: &StakeActivation,
     rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
-    priority_fee_policy: &PriorityFeePolicy,
+    fee_payer: &Arc<Keypair>,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<ClaimSettlementsReport>,
 ) -> anyhow::Result<()> {
+    let mut groups: Vec<Group> = vec![];
     let mut settlements_with_merge_operation: HashSet<Pubkey> = HashSet::new();
     for claimable_settlement in claimable_settlements.iter() {
         let mergeable_stake_accounts = if claimable_settlement.stake_accounts.len() > 1 {
@@ -280,7 +280,7 @@ async fn merge_stake_accounts(
         if let Some((destination_stake, destination_type, possible_to_merge)) =
             mergeable_stake_accounts
         {
-            prepare_merge_instructions(
+            let (merge_groups, _) = prepare_merge_instructions(
                 possible_to_merge,
                 destination_stake,
                 destination_type,
@@ -289,20 +289,21 @@ async fn merge_stake_accounts(
                 program,
                 config_address,
                 &find_settlement_staker_authority(&claimable_settlement.settlement_address).0,
-                transaction_builder,
                 stake_activation,
             )
             .await?;
+            groups.extend(merge_groups);
         }
     }
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[fee_payer.clone() as Arc<dyn Signer + Send + Sync>],
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(execution_result, "MergeSettlementStakeAccounts");
+    reporting.add_tx_execution_result(&summary, "MergeSettlementStakeAccounts");
     // after execution let's consult which stake accounts were not merged
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
     for settlement_address in settlements_with_merge_operation {
@@ -327,12 +328,12 @@ async fn merge_stake_accounts(
 async fn claim_settlement<'a>(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
-    transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
+    fee_payer: &Arc<Keypair>,
     claimable_settlement: ClaimableSettlementsReturn,
     settlement_json_data: &'a SettlementRecord,
     config_address: &Pubkey,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<ClaimSettlementsReport>,
     settlement_claimed_amounts: &mut HashMap<Pubkey, u64>,
     stake_accounts_to_cache: &mut StakeAccountsCache<'a>,
@@ -342,6 +343,7 @@ async fn claim_settlement<'a>(
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
     let empty_stake_accounts: CollectedStakeAccounts = vec![];
+    let mut groups: Vec<Group> = vec![];
     for tree_node in settlement_json_data.tree_nodes.iter() {
         assert_eq!(
             claimable_settlement.settlement_address,
@@ -512,25 +514,25 @@ async fn claim_settlement<'a>(
                     tree_node_hash: tree_node.hash().to_bytes(),
                 },
             });
-        add_instruction_to_builder(
-            transaction_builder,
-            &req,
+        groups.push(group(
             format!(
-                "Claim Settlement {}, from {}, to {}",
-                settlement_json_data.settlement_address, stake_account_from, stake_account_to
+                "claim {} {}",
+                settlement_json_data.settlement_address, tree_node.index
             ),
-        )?;
+            req.instructions(),
+        )?);
     }
 
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[fee_payer.clone() as Arc<dyn Signer + Send + Sync>],
+        run_config,
     )
     .await;
     reporting.add_tx_execution_result(
-        execution_result,
+        &summary,
         format!(
             "ClaimSettlement {}",
             claimable_settlement.settlement_address
