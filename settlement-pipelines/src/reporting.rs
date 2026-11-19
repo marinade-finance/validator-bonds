@@ -1,10 +1,10 @@
 use crate::arguments::{ReportFormat, ReportOpts};
+use crate::executor::RunSummary;
 use anyhow::format_err;
 use chrono::Utc;
 use log::{error, info};
 use serde::Serialize;
 use solana_sdk::pubkey::Pubkey;
-use solana_transaction_builder_executor::TransactionBuilderExecutionErrors;
 use std::fmt::{self, Display};
 use std::fs::File;
 use std::future::Future;
@@ -123,13 +123,8 @@ impl<T: PrintReportable> ReportHandler<T> {
         self.error_handler.add_cli_error(error);
     }
 
-    pub fn add_tx_execution_result<D: Display>(
-        &mut self,
-        execution_result: Result<(usize, usize), TransactionBuilderExecutionErrors>,
-        message: D,
-    ) {
-        self.error_handler
-            .add_tx_execution_result(execution_result, message);
+    pub fn add_tx_execution_result<D: Display>(&mut self, summary: &RunSummary, message: D) {
+        self.error_handler.add_tx_execution_result(summary, message);
     }
 
     pub fn finalize(&mut self) -> anyhow::Result<()> {
@@ -408,23 +403,19 @@ impl ErrorHandler {
         }
     }
 
-    pub fn add_tx_execution_result<D: Display>(
-        &mut self,
-        execution_result: Result<(usize, usize), TransactionBuilderExecutionErrors>,
-        message: D,
-    ) {
-        match execution_result {
-            Ok((tx_count, ix_count)) => {
-                info!("{message}: txes {tx_count}/ixes {ix_count} executed successfully")
-            }
-            Err(err) => {
-                for single_error in err.into_iter() {
-                    self.retryable()
-                        .with_msg(format!("{single_error}"))
-                        .with_source("transaction_execution")
-                        .add();
-                }
-            }
+    pub fn add_tx_execution_result<D: Display>(&mut self, summary: &RunSummary, message: D) {
+        let errors = summary.errors();
+        if errors.is_empty() {
+            info!(
+                "{message}: txes {}/ixes {} executed successfully",
+                summary.tx_count, summary.ix_count
+            );
+        }
+        for error in errors {
+            self.retryable()
+                .with_msg(error)
+                .with_source("transaction_execution")
+                .add();
         }
     }
 
