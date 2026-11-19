@@ -39,7 +39,7 @@ FILE=path/to/test.spec.ts pnpm test:validator   # single test-validator file
 # Run a single LiteSVM test file
 FILE=path/to/test.spec.ts pnpm test:litesvm
 
-# Pinned mainnet stake program + feature set (fixtures/mainnet/): exits 1 on drift, refresh with `bun scripts/mainnet-fixture.ts`
+# Pinned mainnet stake program + feature set (fixtures/mainnet/): exits 1 on drift, refresh with `pnpm fixture:mainnet`
 RPC_URL=<mainnet rpc> pnpm check:mainnet-fixture
 
 # After on-chain program changes — sync IDL to SDK and resources

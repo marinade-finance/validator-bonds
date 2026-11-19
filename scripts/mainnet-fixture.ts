@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON
 /* eslint-disable n/no-process-exit */
 import { createHash } from 'node:crypto'
 import * as fs from 'node:fs'
@@ -8,7 +8,7 @@ import { join } from 'node:path'
 const STAKE_PROGRAM_DATA = '6WU8Nxarf9fudRK5atWwjLY4vFaw5UrrWhL88qz7iCMJ'
 const FEATURE_PROGRAM = 'Feature111111111111111111111111111111111111'
 const PROGRAM_DATA_HEADER = 45
-const FIXTURE_DIR = join(import.meta.dir, '..', 'fixtures', 'mainnet')
+const FIXTURE_DIR = join(import.meta.dirname, '..', 'fixtures', 'mainnet')
 const ELF_PATH = join(FIXTURE_DIR, 'stake_program.so')
 const MANIFEST_PATH = join(FIXTURE_DIR, 'stake_program.json')
 const FEATURES_PATH = join(FIXTURE_DIR, 'features.json')
@@ -28,7 +28,7 @@ if (process.argv.includes('-h') || process.argv.includes('--help')) {
   process.stderr.write(
     'Pins the mainnet stake program binary and feature set used by the LiteSVM tests.\n' +
       '\n' +
-      'usage: bun scripts/mainnet-fixture.ts [--check]\n' +
+      'usage: pnpm fixture:mainnet [--check]\n' +
       '  (default)  rewrite fixtures/mainnet/ from mainnet\n' +
       '  --check    exit 1 when mainnet runs a different stake program or feature set\n' +
       '\n' +
@@ -129,7 +129,7 @@ if (process.argv.includes('--check')) {
   }
   console.error(
     drift.join('\n') +
-      '\nrun `bun scripts/mainnet-fixture.ts` and re-run the LiteSVM tests',
+      '\nrun `pnpm fixture:mainnet` and re-run the LiteSVM tests',
   )
   process.exit(1)
 }

@@ -15,8 +15,8 @@ settlements → claims.
 
 ## Installation
 
-Requires: Rust toolchain (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`, [Bun](https://bun.sh) for `scripts/*.ts`
-(e.g. `pnpm check:mainnet-fixture`), and the Solana CLI (`solana-test-validator`) for `pnpm test:validator`.
+Requires: Rust toolchain (see `rust-toolchain.toml`), Node ≥ 24, `pnpm`, and the Solana CLI (`solana-test-validator`)
+for `pnpm test:validator`.
 
 ```sh
 pnpm install   # TypeScript deps
@@ -60,7 +60,7 @@ cargo test --features no-entrypoint -- --nocapture # Rust unit tests
 pnpm test:unit                                     # TS unit tests
 pnpm test:litesvm                                  # LiteSVM integration tests (pinned mainnet stake program + feature set)
 FILE=path/to/test.spec.ts pnpm test:litesvm        # single LiteSVM file
-pnpm check:mainnet-fixture                         # exits 1 when mainnet drifted (refresh: bun scripts/mainnet-fixture.ts)
+pnpm check:mainnet-fixture                         # exits 1 when mainnet drifted (refresh: pnpm fixture:mainnet)
 pnpm test:validator                                # solana-test-validator suites, fresh validator per file (slow)
 FILE=path/to/test.spec.ts pnpm test:validator      # single test-validator file
 

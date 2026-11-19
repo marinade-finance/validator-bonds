@@ -279,7 +279,7 @@ export async function executeIx(
   return executeTx(provider, signers, newTransaction(provider).add(...ixes))
 }
 
-/** Feature set active on mainnet when the fixture was taken (`bun scripts/mainnet-fixture.ts`). */
+/** Feature set active on mainnet when the fixture was taken (`pnpm fixture:mainnet`). */
 export function mainnetFeatureSet(): FeatureSet {
   const { activated } = JSON.parse(
     readFileSync(join(MAINNET_FIXTURE_DIR, 'features.json'), 'utf8'),
@@ -301,7 +301,7 @@ export function addMainnetStakeProgram(svm: LiteSVM) {
   if (elf.length !== manifest.size || sha256 !== manifest.sha256) {
     throw new Error(
       `stake_program.so (${elf.length} bytes, ${sha256}) does not match its manifest ` +
-        `(${manifest.size} bytes, ${manifest.sha256}); run bun scripts/mainnet-fixture.ts`,
+        `(${manifest.size} bytes, ${manifest.sha256}); run pnpm fixture:mainnet`,
     )
   }
   svm.addProgram(address(StakeProgram.programId), elf)
