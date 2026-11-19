@@ -74,9 +74,12 @@ jobs:
 
       - name: ⚙️ Install rust compilation dependencies
         # settlement-pipelines suites build the CLIs; snapshot-parser builds rocksdb (libclang)
+        timeout-minutes: 10
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          apt-get update
-          apt-get -y install libudev-dev libclang-dev llvm-dev
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends libudev-dev libclang-dev llvm-dev
 
       - name: 🌄 Set nightly toolchain
         run: rustup default nightly

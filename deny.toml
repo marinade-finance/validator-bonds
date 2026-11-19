@@ -45,6 +45,11 @@ ignore = [
   # solana-cli-output (agave), used by settlement-pipelines. Revisit when
   # agave drops it.
   "RUSTSEC-2026-0542",
+  # chrono — unmaintained. Used directly by api, bonds-collector,
+  # settlement-pipelines and common-rs, and by the Solana crates (solana-ledger,
+  # solana-genesis-config, solana-cli-output, solana-clap-utils) and
+  # postgres-types. A workspace move to jiff/time still leaves the Solana path.
+  "RUSTSEC-2026-0543",
 ]
 
 # Permissive-only allow list. Anything copyleft (GPL/LGPL/AGPL/EUPL/EPL),
