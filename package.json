@@ -3,7 +3,7 @@
   "license": "ISC",
   "scripts": {
     "eval": "cd plugins/validator-bonds && bun eval.ts",
-    "anchor:build": "ANCHOR_BUILD_SBF_ARCH=v0 anchor build",
+    "anchor:build": "ANCHOR_BUILD_SBF_ARCH=v0 anchor build --ignore-keys",
     "build": "pnpm anchor:build && pnpm -r build",
     "_test": "pnpm jest --config jest.config.test-validator.js --verbose --runInBand -- \"$FILE\"",
     "pretest:validator": "node -e \"const [maj,min] = process.versions.node.split('.').map(Number); if (maj < 20 || (maj === 20 && min < 18)) { console.error('Node.js 20.18.0 or higher is required for running tests (crypto module is in use)'); process.exit(1); }\"",

@@ -41,6 +41,7 @@ import {
   createDelegatedStakeAccount,
   createVoteAccount,
   isErrorEpochRewardsPeriod,
+  retryOnEpochRewardsPeriod,
 } from '../utils/staking'
 import {
   executeInitBondInstruction,
@@ -170,9 +171,9 @@ describe('Validator Bonds claim settlement', () => {
         stakeAccountTo: stakeAccountTreeNodeVoteAccount1Withdrawer1,
       })
     tx.add(instruction)
-    const executionReturn = await executeTxSimple(provider.connection, tx, [
-      provider.wallet,
-    ])
+    const executionReturn = await retryOnEpochRewardsPeriod(() =>
+      executeTxSimple(provider.connection, tx, [provider.wallet]),
+    )
 
     const [settlementClaimsAddr] = settlementClaimsAddress(
       settlementAccount,
@@ -260,7 +261,7 @@ describe('Validator Bonds claim settlement', () => {
       stakeAccountTo: stakeAccountTreeNodeWithdrawer3,
     })
 
-    await provider.sendIx([], ix1, ix2)
+    await retryOnEpochRewardsPeriod(() => provider.sendIx([], ix1, ix2))
 
     const findSettlementList = await findSettlementClaims({
       program,

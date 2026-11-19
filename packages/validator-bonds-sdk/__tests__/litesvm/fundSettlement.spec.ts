@@ -626,13 +626,7 @@ describe('Validator Bonds fund settlement', () => {
     expect(stakeAccountData.Stake?.meta.authorized.withdrawer).toEqual(bondAuth)
   })
 
-  // TODO(GEN-9618): fails on the current program, fixed by https://github.com/marinade-finance/validator-bonds/pull/566
-  //   This is the test as it ran on bankrun, sizing the stake account by the live rent
-  //   (rent + minimum stake + 1 lamport). On mainnet rent is 1_666_240 while the stake program
-  //   keeps the reserve pinned at 2_282_880, so the account sits below the program's minimal size
-  //   and `fund_settlement` panics with "attempt to subtract with overflow".
-  //   PR #566 rejects such an account instead; re-enable this test when it lands and align
-  //   the expectation with the fixed behaviour.
+  // live rent sits below the pinned 2_282_880 reserve, so fund_settlement underflows until fixed
   it.skip('fund settlement with deactivated stake sized by live rent', async () => {
     const maxTotalClaim = LAMPORTS_PER_SOL * 2
     const { settlementAccount } = await executeInitSettlement({

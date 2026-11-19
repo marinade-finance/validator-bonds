@@ -10,8 +10,6 @@ import {
   currentEpoch,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from './litesvm'
-import {
   StakeActivationState,
   initLiteSvmTest,
   stakeActivation,
@@ -93,13 +91,10 @@ describe('Validator Bonds claim settlement', () => {
     ;({ provider, program } = initLiteSvmTest())
 
     const epochNow = await currentEpoch(provider)
-    const firstSlotOfEpoch = getFirstSlotOfEpoch(provider, epochNow)
-    const firstSlotOfNextEpoch = getFirstSlotOfEpoch(
-      provider,
-      epochNow + BigInt(1),
-    )
+    const firstSlotOfCurrentEpoch = firstSlotOfEpoch(epochNow)
+    const firstSlotOfNextEpoch = firstSlotOfEpoch(epochNow + BigInt(1))
     slotsToStartSettlementClaiming =
-      firstSlotOfNextEpoch - firstSlotOfEpoch + BigInt(3)
+      firstSlotOfNextEpoch - firstSlotOfCurrentEpoch + BigInt(3)
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,
@@ -795,10 +790,3 @@ describe('Validator Bonds claim settlement', () => {
     await warpOffsetEpoch(provider, epochsToClaimSettlement + 1)
   }
 })
-
-function getFirstSlotOfEpoch(
-  _provider: LiteSvmProvider,
-  epoch: number | bigint | BN,
-): bigint {
-  return firstSlotOfEpoch(epoch)
-}

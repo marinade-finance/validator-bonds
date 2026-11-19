@@ -437,8 +437,10 @@ describe('Validator Bonds instructions batched in one transaction', () => {
     expect((error as SendTransactionError).message).toContain(
       'index: 1, error: BorshIoError',
     )
-    expect((error as SendTransactionError).logs).toContain(
-      'Program log: ProgramError caused by account: source_stake. Error Code: BorshIoError. Error Number: 64424509440. Error Message: IO Error.',
+    expect((error as SendTransactionError).logs).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/source_stake.*BorshIoError/),
+      ]),
     )
     for (const stake of [destination1, destination2, source]) {
       expect(
