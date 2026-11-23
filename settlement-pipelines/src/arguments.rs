@@ -7,7 +7,9 @@ use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
-use solana_transaction_executor::{PriorityFeePolicy, TipPolicy};
+use solana_transaction_builder::MessageVersion;
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::{FeePolicy, TipPolicy};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -54,13 +56,15 @@ pub struct GlobalOpts {
 }
 
 #[derive(Debug, Args)]
-pub struct PriorityFeePolicyOpts {
+pub struct ExecutionOpts {
     #[arg(long)]
     micro_lamports_per_cu_min: Option<u64>,
     #[arg(long)]
     micro_lamports_per_cu_max: Option<u64>,
     #[arg(long)]
     micro_lamport_multiplier: Option<u64>,
+    #[arg(long, default_value_t = 8)]
+    max_in_flight: usize,
 }
 
 #[derive(Debug, Args)]
@@ -166,25 +170,24 @@ pub fn to_tip_policy(opts: &TipPolicyOpts) -> TipPolicy {
     }
 }
 
-pub fn to_priority_fee_policy(opts: &PriorityFeePolicyOpts) -> PriorityFeePolicy {
-    let default = PriorityFeePolicy::default();
-    PriorityFeePolicy {
-        micro_lamports_per_cu_min: opts
+pub fn to_fee_policy(opts: &ExecutionOpts) -> FeePolicy {
+    let default = FeePolicy::default();
+    FeePolicy {
+        start_micro_lamports_per_cu: opts
             .micro_lamports_per_cu_min
-            .unwrap_or(default.micro_lamports_per_cu_min),
-        micro_lamports_per_cu_max: opts
+            .unwrap_or(default.start_micro_lamports_per_cu),
+        max_micro_lamports_per_cu: opts
             .micro_lamports_per_cu_max
-            .unwrap_or(default.micro_lamports_per_cu_max),
-        multiplier_per_attempt: opts
-            .micro_lamport_multiplier
-            .unwrap_or(default.multiplier_per_attempt),
+            .unwrap_or(default.max_micro_lamports_per_cu),
+        multiplier: opts.micro_lamport_multiplier.unwrap_or(default.multiplier),
+        ..default
     }
 }
 
 pub struct InitializedGlobalOpts {
     pub fee_payer: Arc<Keypair>,
     pub operator_authority: Arc<Keypair>,
-    pub priority_fee_policy: PriorityFeePolicy,
+    pub run_config: RunConfig,
     pub tip_policy: TipPolicy,
     pub rpc_client: Arc<RpcClient>,
     pub program: Program<Arc<DynSigner>>,
@@ -206,7 +209,7 @@ pub fn get_rpc_client(global_opts: &GlobalOpts) -> anyhow::Result<(Arc<RpcClient
 
 pub fn init_from_opts(
     global_opts: &GlobalOpts,
-    priority_fee_policy_opts: &PriorityFeePolicyOpts,
+    execution_opts: &ExecutionOpts,
     tip_policy_opts: &TipPolicyOpts,
 ) -> anyhow::Result<InitializedGlobalOpts> {
     let (rpc_client, _) = get_rpc_client(global_opts)?;
@@ -228,7 +231,11 @@ pub fn init_from_opts(
             ))?
         };
 
-    let priority_fee_policy = to_priority_fee_policy(priority_fee_policy_opts);
+    let run_config = RunConfig {
+        fee: to_fee_policy(execution_opts),
+        max_in_flight: execution_opts.max_in_flight,
+        ..RunConfig::new(MessageVersion::V1)
+    };
     let tip_policy = to_tip_policy(tip_policy_opts);
 
     // anchor's DynSigner wraps Arc<dyn Signer> (!Send+!Sync); Arc<DynSigner> is the Program<C> API pattern
@@ -239,9 +246,54 @@ pub fn init_from_opts(
     Ok(InitializedGlobalOpts {
         fee_payer: fee_payer_keypair,
         operator_authority: operator_authority_keypair,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn opts(min: Option<u64>, max: Option<u64>, multiplier: Option<u64>) -> ExecutionOpts {
+        ExecutionOpts {
+            micro_lamports_per_cu_min: min,
+            micro_lamports_per_cu_max: max,
+            micro_lamport_multiplier: multiplier,
+            max_in_flight: 8,
+        }
+    }
+
+    #[test]
+    fn unset_fee_flags_keep_the_default_policy() {
+        assert_eq!(to_fee_policy(&opts(None, None, None)), FeePolicy::default());
+    }
+
+    #[test]
+    fn each_fee_flag_sets_its_field() {
+        let default = FeePolicy::default();
+        assert_eq!(
+            to_fee_policy(&opts(Some(7), None, None)),
+            FeePolicy {
+                start_micro_lamports_per_cu: 7,
+                ..default.clone()
+            }
+        );
+        assert_eq!(
+            to_fee_policy(&opts(None, Some(9_000), None)),
+            FeePolicy {
+                max_micro_lamports_per_cu: 9_000,
+                ..default.clone()
+            }
+        );
+        assert_eq!(
+            to_fee_policy(&opts(None, None, Some(3))),
+            FeePolicy {
+                multiplier: 3,
+                ..default
+            }
+        );
+    }
 }

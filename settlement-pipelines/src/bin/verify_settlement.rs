@@ -424,6 +424,7 @@ mod tests {
         }
     }
 
+    #[allow(deprecated)]
     fn stake_funded_to(staker: Pubkey, lamports: u64) -> (Pubkey, u64, StakeStateV2) {
         (
             Pubkey::new_unique(),

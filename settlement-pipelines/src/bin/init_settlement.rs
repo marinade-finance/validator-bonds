@@ -4,12 +4,11 @@ use clap::Parser;
 use log::{debug, info, warn};
 use serde::Serialize;
 
-use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
+    init_from_opts, ExecutionOpts, InitializedGlobalOpts, ReportOpts, TipPolicyOpts,
 };
 use settlement_pipelines::arguments::{load_keypair, GlobalOpts};
-use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::executor::{execute, RunSummary};
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::institutional_validators::{fetch_validator_data, ValidatorsData};
 use settlement_pipelines::json_data::{
@@ -26,12 +25,14 @@ use settlement_pipelines::reporting_data::{
 use settlement_pipelines::settlement_data::SettlementRecord;
 use solana_cli_output::display::build_balance_message;
 use solana_client::nonblocking::rpc_client::RpcClient;
+use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk_ids::system_program;
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::{group, Group, Limits};
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
@@ -39,6 +40,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use validator_bonds::instructions::InitSettlementArgs;
 use validator_bonds::state::settlement::find_settlement_claims_address;
+use validator_bonds::state::settlement_claims::{account_size, MAX_PERMITTED_DATA_INCREASE};
 use validator_bonds::ID as validator_bonds_id;
 use validator_bonds_common::cli_result::{CliError, CliResult};
 use validator_bonds_common::constants::find_event_authority;
@@ -61,7 +63,7 @@ struct Args {
     epoch: Option<u64>,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -91,15 +93,22 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer,
         operator_authority,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
+    let run_config = RunConfig {
+        limits: Limits {
+            max_instructions: MAX_UPSIZES_PER_TRANSACTION,
+            ..run_config.limits
+        },
+        ..run_config
+    };
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair("--rent-payer", &rent_payer)?
@@ -153,14 +162,13 @@ async fn real_main(
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
     init_settlements(
         &program,
-        rpc_client.clone(),
         transaction_executor.clone(),
         &mut settlement_records,
         &config_address,
         fee_payer.clone(),
         operator_authority.clone(),
         rent_payer.clone(),
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
@@ -172,7 +180,7 @@ async fn real_main(
         &settlement_records,
         fee_payer.clone(),
         rent_payer.clone(),
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
@@ -207,22 +215,46 @@ async fn load_on_chain_data(
     }
 }
 
+// proven bounds of the instruction trace: init + 30 upsizes, or 32 upsizes alone
+const MAX_UPSIZES_WITH_INIT: usize = 30;
+const MAX_UPSIZES_PER_TRANSACTION: usize = 32;
+
+fn upsizes_after_init(max_merkle_nodes: u64) -> usize {
+    let size = account_size(max_merkle_nodes);
+    size.saturating_sub(size.min(MAX_PERMITTED_DATA_INCREASE))
+        .div_ceil(MAX_PERMITTED_DATA_INCREASE)
+}
+
+fn upsize_instructions(
+    program: &Program<Arc<DynSigner>>,
+    settlement_claims: Pubkey,
+    rent_payer: Pubkey,
+    count: usize,
+) -> Vec<Instruction> {
+    let req = program
+        .request()
+        .accounts(validator_bonds::accounts::UpsizeSettlementClaims {
+            settlement_claims,
+            system_program: system_program::ID,
+            rent_payer,
+        })
+        .args(validator_bonds::instruction::UpsizeSettlementClaims {});
+    (0..count).flat_map(|_| req.instructions()).collect()
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn init_settlements(
     program: &Program<Arc<DynSigner>>,
-    rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     settlement_records: &mut Vec<SettlementRecord>,
     config_address: &Pubkey,
     fee_payer: Arc<Keypair>,
     operator_authority: Arc<Keypair>,
     rent_payer: Arc<Keypair>,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<InitSettlementReport>,
 ) -> anyhow::Result<()> {
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&operator_authority);
-    transaction_builder.add_signer_checked(&rent_payer);
+    let mut groups: Vec<Group> = vec![];
 
     for record in settlement_records {
         if record.bond_account.is_none() {
@@ -281,31 +313,44 @@ async fn init_settlements(
                         epoch: record.epoch,
                     },
                 });
-            add_instruction_to_builder(
-                &mut transaction_builder,
-                &req,
-                format!(
-                    "InitSettlement: {} (vote account {})",
-                    record.settlement_address, record.vote_account_address
-                ),
-            )?;
+            let upsizes = upsizes_after_init(record.max_total_claim).min(MAX_UPSIZES_WITH_INIT);
+            let mut instructions = req.instructions();
+            instructions.extend(upsize_instructions(
+                program,
+                find_settlement_claims_address(&record.settlement_address).0,
+                rent_payer.pubkey(),
+                upsizes,
+            ));
+            groups.push(group(
+                format!("init {}", record.settlement_address),
+                instructions,
+            )?);
             reporting.reportable.add_created_settlement(record);
+            for _ in 0..upsizes {
+                reporting
+                    .reportable
+                    .add_upsized_settlement(record.settlement_address);
+            }
         }
     }
 
-    let (tx_count, ix_count) = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &mut transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[
+            fee_payer.clone() as Arc<dyn Signer + Send + Sync>,
+            operator_authority,
+            rent_payer,
+        ],
+        run_config,
     )
-    .await
-    .map_err(CliError::retry_able)?;
-    info!(
-        "InitSettlement [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
-        reporting.reportable.list_created_settlements()
-    );
-    Ok(())
+    .await;
+    succeeded(
+        &summary,
+        "InitSettlement",
+        reporting.reportable.list_created_settlements(),
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -316,11 +361,10 @@ async fn upsize_settlements(
     settlement_records: &[SettlementRecord],
     fee_payer: Arc<Keypair>,
     rent_payer: Arc<Keypair>,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<InitSettlementReport>,
 ) -> anyhow::Result<()> {
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
-    transaction_builder.add_signer_checked(&rent_payer);
+    let mut groups: Vec<Group> = vec![];
 
     // re-loading settlements data from the chain on provided settlement addresses
     let reloaded_settlements_data = retry_get_pubkeys_operation(
@@ -414,39 +458,63 @@ async fn upsize_settlements(
                 .add();
             continue;
         };
-        for _ in 0..number_of_upsize_calls {
-            let req = program
-                .request()
-                .accounts(validator_bonds::accounts::UpsizeSettlementClaims {
-                    settlement_claims: settlement_claims_address,
-                    system_program: system_program::ID,
-                    rent_payer: rent_payer.pubkey(),
-                })
-                .args(validator_bonds::instruction::UpsizeSettlementClaims {});
-            add_instruction_to_builder(
-                &mut transaction_builder,
-                &req,
-                format!(
-                    "UpsizeSettlementClaims: {settlement_claims_address} (settlement: {settlement_address}, vote account {vote_account})",
-                ),
-            )?;
+        if number_of_upsize_calls == 0 {
+            continue;
+        }
+        let upsizes = number_of_upsize_calls.min(MAX_UPSIZES_PER_TRANSACTION);
+        // identical upsize groups of one settlement in one run would be one transaction
+        if number_of_upsize_calls > upsizes {
+            reporting
+                .retryable()
+                .with_msg(format!(
+                    "Settlement {settlement_address} (settlement claims {settlement_claims_address}) needs {} more upsize calls in a next run",
+                    number_of_upsize_calls - upsizes
+                ))
+                .with_vote(vote_account)
+                .add();
+        }
+        groups.push(group(
+            format!("upsize {settlement_address}"),
+            upsize_instructions(
+                program,
+                settlement_claims_address,
+                rent_payer.pubkey(),
+                upsizes,
+            ),
+        )?);
+        for _ in 0..upsizes {
             reporting
                 .reportable
                 .add_upsized_settlement(*settlement_address);
         }
     }
 
-    let (tx_count, ix_count) = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &mut transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[
+            fee_payer.clone() as Arc<dyn Signer + Send + Sync>,
+            rent_payer,
+        ],
+        run_config,
     )
-    .await
-    .map_err(CliError::retry_able)?;
+    .await;
+    succeeded(
+        &summary,
+        "Upsize Settlement Claims",
+        reporting.reportable.list_created_settlements(),
+    )
+}
+
+fn succeeded(summary: &RunSummary, name: &str, settlements: String) -> anyhow::Result<()> {
+    let errors = summary.errors();
+    if !errors.is_empty() {
+        return Err(CliError::retry_able(anyhow!(errors.join("; "))).into());
+    }
     info!(
-        "Upsize Settlement Claims [{}]: txes {tx_count}/ixes {ix_count} executed successfully",
-        reporting.reportable.list_created_settlements()
+        "{name} [{settlements}]: txes {}/ixes {} executed successfully",
+        summary.tx_count, summary.ix_count
     );
     Ok(())
 }
@@ -712,5 +780,33 @@ impl ReportSerializable for InitSettlementReport {
             serde_json::to_value(summary)
                 .unwrap_or_else(|e| serde_json::json!({"error": e.to_string()}))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use validator_bonds::constants::SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE;
+
+    fn max_merkle_nodes_of_size(size: usize) -> u64 {
+        ((size - SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as usize) * 8) as u64
+    }
+
+    #[test]
+    fn up_to_thirty_upsizes_go_with_the_init_and_the_rest_is_left() {
+        assert_eq!(MAX_PERMITTED_DATA_INCREASE, 10_240);
+        let cases = [
+            (10_240, 0, 0),
+            (10_241, 1, 0),
+            (30 * 10_240 + 10_240, 30, 0),
+            (30 * 10_240 + 10_241, 30, 1),
+        ];
+        for (size, with_init, left) in cases {
+            let nodes = max_merkle_nodes_of_size(size);
+            assert_eq!(account_size(nodes), size);
+            let needed = upsizes_after_init(nodes);
+            let in_init = needed.min(MAX_UPSIZES_WITH_INIT);
+            assert_eq!((in_init, needed - in_init), (with_init, left), "{size}");
+        }
     }
 }

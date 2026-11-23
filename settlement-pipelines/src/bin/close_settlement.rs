@@ -4,12 +4,11 @@ use clap::Parser;
 use log::{debug, info};
 use serde::Serialize;
 use settlement_common::utils::read_from_json_file;
-use settlement_pipelines::anchor::add_instruction_to_builder;
 use settlement_pipelines::arguments::{
-    init_from_opts, load_pubkey, GlobalOpts, InitializedGlobalOpts, PriorityFeePolicyOpts,
-    ReportOpts, TipPolicyOpts,
+    init_from_opts, load_pubkey, ExecutionOpts, GlobalOpts, InitializedGlobalOpts, ReportOpts,
+    TipPolicyOpts,
 };
-use settlement_pipelines::executor::execute_parallel;
+use settlement_pipelines::executor::execute;
 use settlement_pipelines::init::{get_executor, init_log};
 use settlement_pipelines::json_data::BondSettlement;
 use settlement_pipelines::reporting::{
@@ -32,8 +31,9 @@ use solana_sdk_ids::sysvar::stake_history::ID as stake_history_sysvar_id;
 use solana_stake_interface::config::ID as stake_config_id;
 use solana_stake_interface::program::ID as stake_program_id;
 use solana_stake_interface::state::StakeStateV2;
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::{group, Group};
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
@@ -59,7 +59,7 @@ struct Args {
     global_opts: GlobalOpts,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -93,13 +93,13 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer: fee_payer_keypair,
         operator_authority: operator_authority_keypair,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
 
@@ -122,7 +122,6 @@ async fn real_main(
             .filter(|bs| bs.config_address == config_address)
             .collect();
 
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer_keypair.clone());
     let transaction_executor = get_executor(rpc_client.clone(), tip_policy);
 
     let expired_settlements =
@@ -131,11 +130,11 @@ async fn real_main(
     close_settlements(
         &program,
         rpc_client.clone(),
-        &mut transaction_builder,
         transaction_executor.clone(),
         &expired_settlements,
         &config_address,
-        &priority_fee_policy,
+        &fee_payer_keypair,
+        &run_config,
         reporting,
     )
     .await?;
@@ -157,16 +156,16 @@ async fn real_main(
     reset_stake_accounts(
         &program,
         rpc_client.clone(),
-        &mut transaction_builder,
         transaction_executor.clone(),
         &mapping_settlements_to_staker_authority,
         expired_settlements,
         &listed_settlements,
         &config_address,
         &config,
+        &fee_payer_keypair,
         &operator_authority_keypair,
         &marinade_wallet,
-        &priority_fee_policy,
+        &run_config,
         reporting,
     )
     .await?;
@@ -178,11 +177,11 @@ async fn real_main(
 async fn close_settlements(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
-    transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
     expired_settlements: &[(Pubkey, Settlement, Option<Bond>)],
     config_address: &Pubkey,
-    priority_fee_policy: &PriorityFeePolicy,
+    fee_payer_keypair: &Arc<Keypair>,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
@@ -198,6 +197,7 @@ async fn close_settlements(
         0
     };
     let mut closed_settlements: Vec<(Pubkey, Settlement)> = vec![];
+    let mut groups: Vec<Group> = vec![];
     for (settlement_address, settlement, _) in expired_settlements.iter() {
         let (split_rent_collector, split_rent_refund_account) =
             match obtain_settlement_closing_refunds(
@@ -237,28 +237,26 @@ async fn close_settlements(
                 event_authority: find_event_authority().0,
             })
             .args(validator_bonds::instruction::CloseSettlementV2 {});
-        add_instruction_to_builder(
-            transaction_builder,
-            &req,
-            format!(
-                "Close Settlement {settlement_address}, refunding split rent from stake account {split_rent_refund_account}"
-            ),
-        )?;
+        groups.push(group(
+            format!("close {settlement_address}"),
+            req.instructions(),
+        )?);
         closed_settlements.push((*settlement_address, settlement.clone()));
     }
 
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer_keypair.pubkey(),
+        groups,
+        &[fee_payer_keypair.clone() as Arc<dyn Signer + Send + Sync>],
+        run_config,
     )
     .await;
     reporting
         .reportable
         .set_closed_settlements(closed_settlements);
 
-    reporting.add_tx_execution_result(execution_result, "CloseSettlements");
+    reporting.add_tx_execution_result(&summary, "CloseSettlements");
 
     Ok(())
 }
@@ -267,16 +265,16 @@ async fn close_settlements(
 async fn reset_stake_accounts(
     program: &Program<Arc<DynSigner>>,
     rpc_client: Arc<RpcClient>,
-    transaction_builder: &mut TransactionBuilder,
     transaction_executor: Arc<TransactionExecutor>,
     mapping_settlements_to_staker_authority: &HashMap<Pubkey, Pubkey>,
     expired_settlements: Vec<(Pubkey, Settlement, Option<Bond>)>,
     listed_settlements: &[BondSettlement],
     config_address: &Pubkey,
     config: &Config,
+    fee_payer_keypair: &Arc<Keypair>,
     operator_authority_keypair: &Arc<Keypair>,
     marinade_wallet: &Pubkey,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     reporting: &mut ReportHandler<CloseSettlementReport>,
 ) -> anyhow::Result<()> {
     let (bonds_withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
@@ -309,6 +307,7 @@ async fn reset_stake_accounts(
         filter_settlement_funded(all_bonds_stake_accounts, &clock);
     let minimal_stake_lamports =
         config.minimum_stake_lamports + STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE;
+    let mut groups: Vec<Group> = vec![];
     for (stake_pubkey, lamports, stake_state) in settlement_funded_stake_accounts {
         let staker_authority = if let Some(authorized) = stake_state.authorized() {
             authorized.staker
@@ -353,7 +352,6 @@ async fn reset_stake_accounts(
         };
 
         if let StakeStateV2::Initialized(_) = stake_state {
-            transaction_builder.add_signer_checked(operator_authority_keypair);
             // Initialized non-delegated can be withdrawn by operator
             let req = program
                 .request()
@@ -371,14 +369,10 @@ async fn reset_stake_accounts(
                     event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::WithdrawStake {});
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!(
-                    "Withdraw un-claimed stake account {stake_pubkey} for settlement {}",
-                    reset_data.settlement
-                ),
-            )?;
+            groups.push(group(
+                format!("withdraw {stake_pubkey}"),
+                req.instructions(),
+            )?);
             reporting.reportable.add_withdraw_stake(
                 reset_data.settlement,
                 *marinade_wallet,
@@ -415,14 +409,7 @@ async fn reset_stake_accounts(
                     event_authority: find_event_authority().0,
                 })
                 .args(validator_bonds::instruction::ResetStake {});
-            add_instruction_to_builder(
-                transaction_builder,
-                &req,
-                format!(
-                    "Reset un-claimed stake account {stake_pubkey} for settlement {}",
-                    reset_data.settlement
-                ),
-            )?;
+            groups.push(group(format!("reset {stake_pubkey}"), req.instructions())?);
             reporting.reportable.add_reset_stake(
                 reset_data.settlement,
                 settlement_vote_account,
@@ -437,14 +424,18 @@ async fn reset_stake_accounts(
         }
     }
 
-    let execution_result = execute_parallel(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        transaction_builder,
-        priority_fee_policy,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer_keypair.pubkey(),
+        groups,
+        &[
+            fee_payer_keypair.clone() as Arc<dyn Signer + Send + Sync>,
+            operator_authority_keypair.clone(),
+        ],
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(execution_result, "Reset/WithdrawStakeAccounts");
+    reporting.add_tx_execution_result(&summary, "Reset/WithdrawStakeAccounts");
 
     Ok(())
 }

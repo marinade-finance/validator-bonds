@@ -83,7 +83,7 @@ mod tests {
         );
         let cli_account: CliAccount =
             serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-        cli_account.keyed_account.account.decode().unwrap()
+        cli_account.keyed_account.account.to_account().unwrap()
     }
 
     fn record_key(record: &[u8]) -> Pubkey {

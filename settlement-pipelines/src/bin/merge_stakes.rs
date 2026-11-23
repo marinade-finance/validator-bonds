@@ -7,9 +7,9 @@ use serde::Serialize;
 
 use settlement_pipelines::arguments::GlobalOpts;
 use settlement_pipelines::arguments::{
-    init_from_opts, InitializedGlobalOpts, PriorityFeePolicyOpts, ReportOpts, TipPolicyOpts,
+    init_from_opts, ExecutionOpts, InitializedGlobalOpts, ReportOpts, TipPolicyOpts,
 };
-use settlement_pipelines::executor::execute_parallel_with_rate;
+use settlement_pipelines::executor::execute;
 use settlement_pipelines::init::{get_executor, init_log};
 use validator_bonds_common::cli_result::{CliError, CliResult};
 
@@ -22,10 +22,11 @@ use settlement_pipelines::stake_accounts::{
 };
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;
-use solana_sdk::signature::Keypair;
+use solana_sdk::signature::{Keypair, Signer};
 
-use solana_transaction_builder::TransactionBuilder;
-use solana_transaction_executor::{PriorityFeePolicy, TransactionExecutor};
+use solana_transaction_builder::Group;
+use solana_transaction_builder_executor::RunConfig;
+use solana_transaction_executor::TransactionExecutor;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::future::Future;
@@ -48,7 +49,7 @@ struct Args {
     global_opts: GlobalOpts,
 
     #[clap(flatten)]
-    priority_fee_policy_opts: PriorityFeePolicyOpts,
+    execution_opts: ExecutionOpts,
 
     #[clap(flatten)]
     tip_policy_opts: TipPolicyOpts,
@@ -74,13 +75,13 @@ async fn real_main(
     let InitializedGlobalOpts {
         fee_payer,
         operator_authority: _,
-        priority_fee_policy,
+        run_config,
         tip_policy,
         rpc_client,
         program,
     } = init_from_opts(
         &args.global_opts,
-        &args.priority_fee_policy_opts,
+        &args.execution_opts,
         &args.tip_policy_opts,
     )?;
 
@@ -109,12 +110,11 @@ async fn real_main(
 
     merge_stake(
         &program,
-        rpc_client.clone(),
         transaction_executor.clone(),
         &loaded_stake,
         &config_address,
         fee_payer.clone(),
-        &priority_fee_policy,
+        &run_config,
         &stake_activation,
         reporting,
     )
@@ -183,16 +183,15 @@ async fn get_merge_stake_accounts(
 #[allow(clippy::too_many_arguments)]
 async fn merge_stake(
     program: &Program<Arc<DynSigner>>,
-    rpc_client: Arc<RpcClient>,
     transaction_executor: Arc<TransactionExecutor>,
     stake_account_records: &GetMergeType,
     config_address: &Pubkey,
     fee_payer: Arc<Keypair>,
-    priority_fee_policy: &PriorityFeePolicy,
+    run_config: &RunConfig,
     stake_activation: &StakeActivation,
     reporting: &mut ReportHandler<MergeConfigReport>,
 ) -> anyhow::Result<()> {
-    let mut transaction_builder = TransactionBuilder::limited(fee_payer.clone());
+    let mut groups: Vec<Group> = vec![];
     let (withdrawer_authority, _) = find_bonds_withdrawer_authority(config_address);
 
     for ((vote_account, _), merge_stake_accounts) in stake_account_records.iter() {
@@ -208,7 +207,7 @@ async fn merge_stake(
             .map(|(p, _)| p)
             .collect();
         let merging_pubkeys: Vec<Pubkey> = possible_to_merge.iter().map(|p| p.0).collect();
-        let non_mergeable = prepare_merge_instructions(
+        let (merge_groups, non_mergeable) = prepare_merge_instructions(
             possible_to_merge,
             destination_stake.0,
             destination_stake_state_type,
@@ -217,7 +216,6 @@ async fn merge_stake(
             program,
             config_address,
             &withdrawer_authority,
-            &mut transaction_builder,
             stake_activation,
         )
         .await?;
@@ -230,6 +228,7 @@ async fn merge_stake(
             ))
             .into());
         }
+        groups.extend(merge_groups);
 
         reporting
             .reportable
@@ -237,15 +236,15 @@ async fn merge_stake(
             .push((destination_stake.0, merging_pubkeys));
     }
 
-    let execute_result_merge = execute_parallel_with_rate(
-        rpc_client.clone(),
-        transaction_executor.clone(),
-        &mut transaction_builder,
-        priority_fee_policy,
-        10,
+    let summary = execute(
+        &transaction_executor,
+        &fee_payer.pubkey(),
+        groups,
+        &[fee_payer as Arc<dyn Signer + Send + Sync>],
+        run_config,
     )
     .await;
-    reporting.add_tx_execution_result(execute_result_merge, "MergeStakeAccounts");
+    reporting.add_tx_execution_result(&summary, "MergeStakeAccounts");
 
     Ok(())
 }
