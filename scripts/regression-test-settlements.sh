@@ -473,7 +473,7 @@ process_epoch() {
   if gcs_cached_download "$GS_BUCKET_ETL/$epoch/rewards_validators_inflation_vat.json" "$rewards_dir/validators_inflation_vat.json"; then
     export VAT_DEBITS="$rewards_dir/validators_inflation_vat.json"
   fi
-  # bid-distribution-cli reads PAST_VALIDATOR_META_COLLECTION, without it no uptime 0 outside the committee
+  # bid-distribution-cli reads PAST_VALIDATOR_META_COLLECTION, required in Alpenglow epochs
   unset PAST_VALIDATOR_META_COLLECTION
   if gcs_cached_download "$GS_BUCKET/$epoch/past-validators.json" "$inputs_dir/past-validators.json"; then
     export PAST_VALIDATOR_META_COLLECTION="$inputs_dir/past-validators.json"

@@ -76,7 +76,7 @@ struct Args {
     #[arg(long, env)]
     validator_meta_collection: Option<String>,
 
-    /// Validator meta collection JSON of the previous epoch (for PSR uptime 0 outside the committee)
+    /// Validator meta collection JSON of the previous epoch (for PSR in Alpenglow epochs)
     #[arg(long, env)]
     past_validator_meta_collection: Option<String>,
 

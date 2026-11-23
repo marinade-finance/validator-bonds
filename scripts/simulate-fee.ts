@@ -374,7 +374,7 @@ async function downloadEpochInputs(
       join(inp, PAST_VALIDATORS_FILE),
     ).catch(() => {
       process.stderr.write(
-        `  epoch ${epoch}: ${PAST_VALIDATORS_FILE} not fetched, no uptime 0 outside the committee\n`,
+        `  epoch ${epoch}: ${PAST_VALIDATORS_FILE} not fetched, required in Alpenglow epochs\n`,
       )
     })
   }

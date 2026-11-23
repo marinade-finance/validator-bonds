@@ -355,6 +355,12 @@ pub fn collect_downtime_revenue_impact_events(
         return Ok(vec![]);
     }
     let credits = expected_credits(validator_meta_collection, leader_slots)?;
+    ensure!(
+        previously_staked.is_some()
+            || epoch_type(validator_meta_collection) != AlpenglowEpochType::Alpenglow,
+        "Alpenglow epoch {} needs --past-validator-meta-collection to charge validators outside the committee",
+        validator_meta_collection.epoch
+    );
     Ok(validator_meta_collection
         .validator_metas
         .iter()
@@ -905,17 +911,31 @@ mod tests {
     fn alpenglow_downtime_skips_a_validator_without_stake_in_the_previous_epoch() {
         let collection = committee_without_downtime();
         let revenue = revenue_map(&collection);
-        let staked_before = HashSet::from([pk(A), pk(B), pk(C)]);
-        for previously_staked in [Some(&staked_before), None] {
-            let events = collect_downtime_revenue_impact_events(
-                &collection,
-                &revenue,
-                Some(&leader_slots()),
-                previously_staked,
-            )
-            .unwrap();
-            assert!(events.is_empty(), "{previously_staked:?}: {events:?}");
-        }
+        let events = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue,
+            Some(&leader_slots()),
+            Some(&HashSet::from([pk(A), pk(B), pk(C)])),
+        )
+        .unwrap();
+        assert!(events.is_empty(), "{events:?}");
+    }
+
+    #[test]
+    fn alpenglow_downtime_needs_the_previous_epoch_stake() {
+        let collection = committee_without_downtime();
+        let err = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            Some(&leader_slots()),
+            None,
+        )
+        .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("needs --past-validator-meta-collection"),
+            "{err}"
+        );
     }
 
     #[test]
