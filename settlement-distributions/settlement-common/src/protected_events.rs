@@ -344,6 +344,7 @@ pub fn collect_downtime_revenue_impact_events(
     validator_meta_collection: &ValidatorMetaCollection,
     revenue_expectation_map: &HashMap<Pubkey, RevenueExpectationMeta>,
     leader_slots: Option<&LeaderSlots>,
+    previously_staked: Option<&HashSet<Pubkey>>,
 ) -> anyhow::Result<Vec<ProtectedEvent>> {
     info!("Collecting downtime revenue impact events...");
     if epoch_type(validator_meta_collection) == AlpenglowEpochType::Migration {
@@ -361,6 +362,11 @@ pub fn collect_downtime_revenue_impact_events(
         .filter_map(|meta| {
             let vote_account = meta.vote_account;
             let Some(&(actual_credits, expected_credits)) = credits.get(&vote_account) else {
+                // epoch_stakes(N) holds the stake of N-1: without it agave never seated the validator
+                if !previously_staked.is_some_and(|staked| staked.contains(&vote_account)) {
+                    debug!("Validator {vote_account} is outside the committee without stake in the previous epoch, no downtime");
+                    return None;
+                }
                 if applied_commission_bps(meta) >= 10000 {
                     return None;
                 }
@@ -522,10 +528,12 @@ pub fn inflation_baseline_divergence(
     Some((Decimal::from(validator_meta_collection.validator_rewards) - max).abs() / max)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn generate_protected_event_collection(
     validator_meta_collection: ValidatorMetaCollection,
     revenue_expectation_meta_collection: RevenueExpectationMetaCollection,
     leader_slots: Option<&LeaderSlots>,
+    previously_staked: Option<&HashSet<Pubkey>>,
     unpaid: Option<&HashSet<Pubkey>>,
     vat_debited: Option<&HashSet<Pubkey>>,
     marinade_staked: &HashSet<Pubkey>,
@@ -599,6 +607,7 @@ pub fn generate_protected_event_collection(
         &validator_meta_collection,
         &revenue_expectation_map,
         leader_slots,
+        previously_staked,
     )?;
     downtime_revenue_impact_events.retain(|e| !vat_unadmitted.contains(e.vote_account()));
 
@@ -654,9 +663,13 @@ mod tests {
     #[test]
     fn tower_downtime_keeps_the_stake_weighted_mean_formula() {
         let collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
-        let events =
-            collect_downtime_revenue_impact_events(&collection, &revenue_map(&collection), None)
-                .unwrap();
+        let events = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            None,
+            None,
+        )
+        .unwrap();
 
         // Σ(credits·stake)/Σstake over the four fixture rows, the 100% commission one included
         let expected_credits = 6_486_690;
@@ -694,9 +707,13 @@ mod tests {
     fn tower_downtime_rejects_null_credits() {
         let mut collection: ValidatorMetaCollection = serde_json::from_str(TOWER_1048).unwrap();
         collection.validator_metas[0].credits = None;
-        let err =
-            collect_downtime_revenue_impact_events(&collection, &revenue_map(&collection), None)
-                .unwrap_err();
+        let err = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            None,
+            None,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("has no credits"), "{err}");
     }
 
@@ -711,6 +728,10 @@ mod tests {
 
     fn all_staked() -> HashSet<Pubkey> {
         HashSet::from([pk(A), pk(B), pk(C), pk(D)])
+    }
+
+    fn previously_staked() -> HashSet<Pubkey> {
+        all_staked()
     }
 
     fn meta(
@@ -776,6 +797,7 @@ mod tests {
             &collection,
             &revenue_map(&collection),
             Some(&leader_slots()),
+            Some(&previously_staked()),
         )
         .unwrap();
         // w = s/S + L/N: A 1/3+3/6, B 1/3+2/6, C 1/3+1/6, Σw = 2, Σcredits = 2400 -> C expects 600
@@ -854,8 +876,13 @@ mod tests {
         let events_of =
             |collection: &ValidatorMetaCollection,
              revenue: &HashMap<Pubkey, RevenueExpectationMeta>| {
-                collect_downtime_revenue_impact_events(collection, revenue, Some(&leader_slots()))
-                    .unwrap()
+                collect_downtime_revenue_impact_events(
+                    collection,
+                    revenue,
+                    Some(&leader_slots()),
+                    Some(&previously_staked()),
+                )
+                .unwrap()
             };
         let revenue = revenue_map(&collection);
         let events = events_of(&collection, &revenue);
@@ -875,6 +902,23 @@ mod tests {
     }
 
     #[test]
+    fn alpenglow_downtime_skips_a_validator_without_stake_in_the_previous_epoch() {
+        let collection = committee_without_downtime();
+        let revenue = revenue_map(&collection);
+        let staked_before = HashSet::from([pk(A), pk(B), pk(C)]);
+        for previously_staked in [Some(&staked_before), None] {
+            let events = collect_downtime_revenue_impact_events(
+                &collection,
+                &revenue,
+                Some(&leader_slots()),
+                previously_staked,
+            )
+            .unwrap();
+            assert!(events.is_empty(), "{previously_staked:?}: {events:?}");
+        }
+    }
+
+    #[test]
     fn out_of_committee_validator_gets_downtime_and_no_vat_event() {
         let collection = committee_without_downtime();
         let revenue = RevenueExpectationMetaCollection {
@@ -887,6 +931,7 @@ mod tests {
             collection,
             revenue,
             Some(&leader_slots()),
+            Some(&previously_staked()),
             Some(&HashSet::from([pk(D)])),
             Some(&debited),
             &all_staked(),
@@ -930,6 +975,7 @@ mod tests {
                 &collection,
                 &revenue_map(&collection),
                 Some(&scheduled),
+                Some(&previously_staked()),
             )
             .unwrap();
             assert_eq!(
@@ -968,6 +1014,7 @@ mod tests {
                 &collection,
                 &revenue_map(&collection),
                 Some(&scheduled),
+                Some(&previously_staked()),
             )
             .unwrap();
             assert_eq!(
@@ -981,9 +1028,13 @@ mod tests {
     #[test]
     fn alpenglow_downtime_needs_the_leader_schedule() {
         let collection = alpenglow_collection("alpenglow");
-        let err =
-            collect_downtime_revenue_impact_events(&collection, &revenue_map(&collection), None)
-                .unwrap_err();
+        let err = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            None,
+            None,
+        )
+        .unwrap_err();
         assert!(
             err.to_string().contains("needs the leader schedule"),
             "{err}"
@@ -997,6 +1048,7 @@ mod tests {
             &collection,
             &revenue_map(&collection),
             Some(&leader_slots()),
+            Some(&previously_staked()),
         )
         .unwrap();
         assert!(events.is_empty());
@@ -1014,9 +1066,13 @@ mod tests {
         // raised to 100% inside the anti-rug window: the u8 still reads 0, the applied bps do not
         assert_eq!(low_meta.commission, 0);
         low_meta.inflation_rewards_commission_bps = Some(10000);
-        let events =
-            collect_downtime_revenue_impact_events(&collection, &revenue_map(&collection), None)
-                .unwrap();
+        let events = collect_downtime_revenue_impact_events(
+            &collection,
+            &revenue_map(&collection),
+            None,
+            None,
+        )
+        .unwrap();
         assert!(events.is_empty(), "{events:?}");
     }
 
@@ -1335,6 +1391,7 @@ mod tests {
                 collection,
                 revenue,
                 Some(&leader_slots()),
+                Some(&previously_staked()),
                 Some(&HashSet::from([pk(C)])),
                 Some(&debited),
                 &all_staked(),
@@ -1368,6 +1425,7 @@ mod tests {
             collection,
             revenue,
             Some(&leader_slots()),
+            Some(&previously_staked()),
             Some(&unpaid),
             Some(&debited),
             &all_staked(),
@@ -1397,6 +1455,7 @@ mod tests {
             collection,
             revenue,
             Some(&leader_slots()),
+            Some(&previously_staked()),
             Some(&unpaid),
             Some(&debited),
             &all_staked(),

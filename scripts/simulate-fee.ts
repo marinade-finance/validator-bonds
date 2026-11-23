@@ -150,6 +150,7 @@ const STAKES_FILE = 'stakes.json'
 const SAM_FILE = 'sam-scores.json'
 const VALIDATORS_FILE = 'validators.json'
 const LEADER_SCHEDULE_FILE = 'leader-schedule.json'
+const PAST_VALIDATORS_FILE = 'past-validators.json'
 const BURNED_FILE = 'rewards/validators_inflation_burned.json'
 const VAT_DEBITS_FILE = 'rewards/validators_inflation_vat.json'
 
@@ -363,11 +364,20 @@ async function downloadEpochInputs(
   await fetchOne(gcsBonds(epoch, STAKES_FILE), join(inp, STAKES_FILE))
   const validatorsPath = join(inp, VALIDATORS_FILE)
   await fetchOne(gcsBonds(epoch, VALIDATORS_FILE), validatorsPath)
-  if (isAlpenglow(await readInputJson(validatorsPath)))
+  if (isAlpenglow(await readInputJson(validatorsPath))) {
     await fetchOne(
       gcsBonds(epoch, LEADER_SCHEDULE_FILE),
       join(inp, LEADER_SCHEDULE_FILE),
     )
+    await fetchOne(
+      gcsBonds(epoch, PAST_VALIDATORS_FILE),
+      join(inp, PAST_VALIDATORS_FILE),
+    ).catch(() => {
+      process.stderr.write(
+        `  epoch ${epoch}: ${PAST_VALIDATORS_FILE} not fetched, no uptime 0 outside the committee\n`,
+      )
+    })
+  }
   await fetchOne(
     gcsBonds(epoch, 'bid-psr-distribution-evaluation.json'),
     join(inp, 'evaluation.json'),
@@ -427,6 +437,10 @@ async function runBidDistributionCli(
       join(inp, LEADER_SCHEDULE_FILE),
       join(tmp, LEADER_SCHEDULE_FILE),
     )
+    const hasPastValidators = await stageInput(
+      join(inp, PAST_VALIDATORS_FILE),
+      join(tmp, PAST_VALIDATORS_FILE),
+    )
     await stageInput(join(inp, BURNED_FILE), join(tmp, BURNED_FILE))
     const hasVatDebits = await stageInput(
       join(inp, VAT_DEBITS_FILE),
@@ -456,6 +470,9 @@ async function runBidDistributionCli(
         ? ['--leader-schedule', join(tmp, LEADER_SCHEDULE_FILE)]
         : []),
       ...(hasVatDebits ? ['--vat-debits', join(tmp, VAT_DEBITS_FILE)] : []),
+      ...(hasPastValidators
+        ? ['--past-validator-meta-collection', join(tmp, PAST_VALIDATORS_FILE)]
+        : []),
     ]
     if (values.d) process.stderr.write(`+ ${cliArgs.join(' ')}\n`)
     const proc = spawnTracked(cliArgs, {

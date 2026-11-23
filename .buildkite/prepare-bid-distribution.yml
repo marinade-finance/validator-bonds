@@ -189,12 +189,14 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_burned.json . || true'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_vat.json .'
     - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || true'
     - 'chmod +x target/release/bid-distribution-cli'
     - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
+    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
     - |
       set -o pipefail
       exit_code=0
-      ./target/release/bid-distribution-cli $$leader_schedule_arg \
+      ./target/release/bid-distribution-cli $$leader_schedule_arg $$past_validators_arg \
         --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
         --sam-results-collection ./outputs/results.json \
