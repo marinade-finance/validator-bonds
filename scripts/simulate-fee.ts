@@ -406,7 +406,7 @@ async function downloadEpochInputs(
     join(inp, VAT_DEBITS_FILE),
   ).catch(() => {
     process.stderr.write(
-      `  epoch ${epoch}: optional ${VAT_DEBITS_FILE} not fetched\n`,
+      `  epoch ${epoch}: ${VAT_DEBITS_FILE} not fetched, required in Alpenglow epochs\n`,
     )
   })
   await fetchOne(scoringUrl(epoch), join(inp, SAM_FILE), 'http')

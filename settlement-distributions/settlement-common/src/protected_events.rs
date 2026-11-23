@@ -432,8 +432,9 @@ pub fn collect_vat_unadmitted_events(
         );
         return Ok(vec![]);
     }
-    let vat_debited = vat_debited
-        .context("--vat-debits is required once the validator admission ticket is active")?;
+    let vat_debited = vat_debited.context(
+        "--vat-debits is required in Alpenglow epochs once the admission ticket is active",
+    )?;
     ensure!(
         !vat_debited.is_empty(),
         "No VAT debit in epoch {}, the VAT debits input is broken",
@@ -1188,7 +1189,7 @@ mod tests {
         .unwrap_err();
         assert_eq!(
             err.to_string(),
-            "--vat-debits is required once the validator admission ticket is active"
+            "--vat-debits is required in Alpenglow epochs once the admission ticket is active"
         );
 
         collection
