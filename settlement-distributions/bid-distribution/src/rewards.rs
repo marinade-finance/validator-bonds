@@ -749,6 +749,19 @@ pub fn unpaid_vote_accounts(
         .collect()
 }
 
+/// Vote accounts a PSR settlement can pay claims for, the same stake `generate_psr_settlements` uses
+pub fn marinade_staked_vote_accounts(
+    stake_meta_collection: &StakeMetaCollection,
+    stake_authority_filter: &dyn Fn(&Pubkey) -> bool,
+) -> HashSet<Pubkey> {
+    stake_meta_collection
+        .stake_metas
+        .iter()
+        .filter(|s| s.active_delegation_lamports > 0 && stake_authority_filter(&s.stake_authority))
+        .filter_map(|s| s.validator)
+        .collect()
+}
+
 pub fn has_sam_configs(config: &BidDistributionConfig) -> bool {
     config.bidding_config().is_some()
         || config.bid_too_low_penalty_config().is_some()

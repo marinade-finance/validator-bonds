@@ -415,6 +415,7 @@ pub fn collect_vat_unadmitted_events(
     validator_meta_collection: &ValidatorMetaCollection,
     unpaid: &HashSet<Pubkey>,
     vat_debited: Option<&HashSet<Pubkey>>,
+    marinade_staked: &HashSet<Pubkey>,
     max_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<Vec<ProtectedEvent>> {
     if validator_meta_collection
@@ -461,12 +462,18 @@ pub fn collect_vat_unadmitted_events(
         }
         let debited = vat_debited.contains(&meta.vote_account);
         if !unpaid.contains(&meta.vote_account) {
-            ensure!(
-                debited,
-                "Validator {} paid no VAT debit in epoch {} but its stakers got inflation rewards, the VAT debits or the rewards input is broken",
-                meta.vote_account,
-                validator_meta_collection.epoch
-            );
+            if !debited {
+                let contradiction = format!(
+                    "Validator {} paid no VAT debit in epoch {} but its stakers got inflation rewards, the VAT debits or the rewards input is broken",
+                    meta.vote_account, validator_meta_collection.epoch
+                );
+                // only a validator with Marinade stake can be charged, elsewhere it is just a data hint
+                ensure!(
+                    !marinade_staked.contains(&meta.vote_account),
+                    "{contradiction}"
+                );
+                warn!("{contradiction}; no Marinade stake, treated as admitted");
+            }
             continue;
         }
         if debited {
@@ -521,6 +528,7 @@ pub fn generate_protected_event_collection(
     leader_slots: Option<&LeaderSlots>,
     unpaid: Option<&HashSet<Pubkey>>,
     vat_debited: Option<&HashSet<Pubkey>>,
+    marinade_staked: &HashSet<Pubkey>,
     max_vat_unadmitted_stake_bps: u64,
 ) -> anyhow::Result<ProtectedEventCollection> {
     assert_eq!(
@@ -565,6 +573,7 @@ pub fn generate_protected_event_collection(
                 &validator_meta_collection,
                 unpaid,
                 vat_debited,
+                marinade_staked,
                 max_vat_unadmitted_stake_bps,
             )
         })
@@ -698,6 +707,10 @@ mod tests {
 
     fn pk(v: &str) -> Pubkey {
         Pubkey::from_str(v).unwrap()
+    }
+
+    fn all_staked() -> HashSet<Pubkey> {
+        HashSet::from([pk(A), pk(B), pk(C), pk(D)])
     }
 
     fn meta(
@@ -876,6 +889,7 @@ mod tests {
             Some(&leader_slots()),
             Some(&HashSet::from([pk(D)])),
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
@@ -1072,6 +1086,7 @@ mod tests {
                     &collection,
                     &unpaid,
                     Some(&debited),
+                    &all_staked(),
                     DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
                 )
                 .unwrap()
@@ -1085,6 +1100,7 @@ mod tests {
             &collection,
             &unpaid,
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1097,6 +1113,7 @@ mod tests {
             &collection,
             &unpaid,
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1118,6 +1135,7 @@ mod tests {
                 &collection,
                 &unpaid,
                 vat_debited,
+                &all_staked(),
                 DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
             )
             .unwrap()
@@ -1139,6 +1157,7 @@ mod tests {
                     &collection,
                     &unpaid,
                     Some(&debited),
+                    &all_staked(),
                     DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
                 )
                 .unwrap()
@@ -1154,6 +1173,7 @@ mod tests {
             &collection,
             &unpaid,
             Some(&all_debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1167,6 +1187,7 @@ mod tests {
             &collection,
             &HashSet::from([pk(A)]),
             Some(&HashSet::new()),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap_err();
@@ -1184,6 +1205,7 @@ mod tests {
             &collection,
             &unpaid,
             None,
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap_err();
@@ -1199,6 +1221,7 @@ mod tests {
             &collection,
             &unpaid,
             None,
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1213,6 +1236,7 @@ mod tests {
             &collection,
             &HashSet::new(),
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap_err();
@@ -1220,6 +1244,21 @@ mod tests {
             err.to_string(),
             format!("Validator {B} paid no VAT debit in epoch 1100 but its stakers got inflation rewards, the VAT debits or the rewards input is broken")
         );
+    }
+
+    #[test]
+    fn vat_unadmitted_skips_a_paid_validator_without_a_debit_and_without_marinade_stake() {
+        let collection = alpenglow_collection("alpenglow");
+        let debited = debited_except(&collection, &[pk(B)]);
+        let events = collect_vat_unadmitted_events(
+            &collection,
+            &HashSet::new(),
+            Some(&debited),
+            &HashSet::from([pk(A), pk(C), pk(D)]),
+            DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
+        )
+        .unwrap();
+        assert!(events.is_empty(), "{events:?}");
     }
 
     fn all_refused() -> (ValidatorMetaCollection, HashSet<Pubkey>, HashSet<Pubkey>) {
@@ -1237,6 +1276,7 @@ mod tests {
             &collection,
             &unpaid,
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap_err();
@@ -1246,8 +1286,14 @@ mod tests {
     #[test]
     fn vat_unadmitted_stake_limit_can_be_raised_by_the_operator() {
         let (collection, unpaid, debited) = all_refused();
-        let events =
-            collect_vat_unadmitted_events(&collection, &unpaid, Some(&debited), 10_000).unwrap();
+        let events = collect_vat_unadmitted_events(
+            &collection,
+            &unpaid,
+            Some(&debited),
+            &all_staked(),
+            10_000,
+        )
+        .unwrap();
         assert!(!events.is_empty());
         assert!(events
             .iter()
@@ -1262,6 +1308,7 @@ mod tests {
             &collection,
             &unpaid,
             Some(&HashSet::new()),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS
         )
         .unwrap()
@@ -1290,6 +1337,7 @@ mod tests {
                 Some(&leader_slots()),
                 Some(&HashSet::from([pk(C)])),
                 Some(&debited),
+                &all_staked(),
                 DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
             )
             .unwrap()
@@ -1322,6 +1370,7 @@ mod tests {
             Some(&leader_slots()),
             Some(&unpaid),
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()
@@ -1350,6 +1399,7 @@ mod tests {
             Some(&leader_slots()),
             Some(&unpaid),
             Some(&debited),
+            &all_staked(),
             DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS,
         )
         .unwrap()

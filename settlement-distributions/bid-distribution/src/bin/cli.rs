@@ -11,7 +11,7 @@ use bid_distribution::generators::sam_penalties::{
 };
 use bid_distribution::rewards::{
     check_rewards_dir, has_sam_configs, has_vat_unadmitted_config, load_rewards_from_directory,
-    load_vat_debits, unpaid_vote_accounts,
+    load_vat_debits, marinade_staked_vote_accounts, unpaid_vote_accounts,
 };
 use bid_distribution::sam_meta::{SamAuctionResult, ValidatorSamMeta};
 use bid_distribution::settlement_config::BidDistributionConfig;
@@ -247,6 +247,7 @@ fn main() -> anyhow::Result<()> {
             leader_slots.as_ref(),
             unpaid.as_ref(),
             vat_debited.as_ref(),
+            &marinade_staked_vote_accounts(&stake_meta_collection, &*stake_authority_filter),
             args.max_vat_unadmitted_stake_bps,
         )?;
 
