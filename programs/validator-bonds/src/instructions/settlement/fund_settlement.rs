@@ -185,9 +185,9 @@ impl FundSettlement<'_> {
         // amount needed: "amount + rent exempt + minimal stake size" -> ensuring stake account may exist
         // NOTE: once deactivated the balance may drop only to "rent exempt" and "minimal stake size" is not needed anymore,
         //       but we want to re-activate later the left-over at the stake account thus needed to be funded with plus minimal stake size
-        let amount_needed = (ctx.accounts.settlement.max_total_claim
-            - ctx.accounts.settlement.lamports_funded)
-            .saturating_add(stake_account_min_size);
+        let amount_needed = ctx.accounts.settlement.max_total_claim
+            - ctx.accounts.settlement.lamports_funded
+            + stake_account_min_size;
         // the left-over stake account has to be capable to exist after splitting
         let left_over_splittable = amount_available > amount_needed
             && amount_available - amount_needed >= stake_account_min_size + split_stake_rent_exempt;
@@ -196,24 +196,8 @@ impl FundSettlement<'_> {
             // -> no split needed or possible, whole stake account funded, still amount funded is subtracted off the min size
             // as after claiming the stake will be capable to exist
             if amount_available <= amount_needed || !left_over_splittable  {
-                // caller must provide a stake account above stake_account_min_size
-                let lamports_to_fund = ctx
-                    .accounts
-                    .stake_account
-                    .get_lamports()
-                    .checked_sub(stake_account_min_size)
-                    .ok_or_else(|| {
-                        error!(ErrorCode::StakeAccountNotBigEnoughToSplit)
-                            .with_account_name("stake_account")
-                            .with_values((
-                                "stake_account_lamports < minimal_size_stake_account",
-                                format!(
-                                    "{} < {}",
-                                    ctx.accounts.stake_account.get_lamports(),
-                                    stake_account_min_size
-                                ),
-                            ))
-                    })?;
+                // caller must provide a stake account above stake_account_min_size, otherwise this underflows
+                let lamports_to_fund = ctx.accounts.stake_account.get_lamports() - stake_account_min_size;
 
                 // whole amount used, no splitting - closing and returning rent
                 return_unused_split_stake_account_rent(

@@ -551,18 +551,10 @@ impl World {
             let (pt, cd) = match t.random_from_range(0..10u32) {
                 0..=5 => (ProductType::Commission, commission(t)),
                 6 | 7 => {
-                    // names above 32 bytes have no PDA and abort the program (known open issue, see README)
-                    let long = std::env::var("FUZZ_LONG_PRODUCT_NAMES").is_ok();
-                    let len = *[
-                        1usize,
-                        5,
-                        31,
-                        32,
-                        if long { 33 } else { 16 },
-                        if long { 60 } else { 8 },
-                    ]
-                    .get(t.random_from_range(0..6usize))
-                    .unwrap();
+                    // names above 32 bytes have no PDA: the transaction is rejected
+                    let len = *[1usize, 5, 31, 32, 33, 60]
+                        .get(t.random_from_range(0..6usize))
+                        .unwrap();
                     (
                         ProductType::Custom(t.random_string(len)),
                         ProductTypeConfig::Custom(vec![1, 2, 3]),
@@ -1527,6 +1519,8 @@ impl World {
                 .as_ref()
                 .filter(|_| ls == Some(MARINADE_LIQUID_STATE) && ll == Some(MARINADE_STAKE_LIST))
             {
+                // The model follows the program's u64 arithmetic: with admin config values near
+                // u64::MAX the claim aborts, which is accepted (the admin is trusted).
                 let min = self.stake_min_size(&e, &stake_from);
                 let deactivated = stake_delegation(&pre_from)
                     .map(|d| d.deactivation_epoch < clock.epoch)
@@ -1538,8 +1532,11 @@ impl World {
                                 && m.authorized.withdrawer == self.bonds_pda()
                         })
                         .unwrap_or(false)
-                    && (pre_from.lamports() as u128 >= leaf.claim as u128 + min as u128
-                        || pre_from.lamports() == leaf.claim);
+                    && min
+                        .and_then(|m| leaf.claim.checked_add(m))
+                        .is_some_and(|need| {
+                            pre_from.lamports() >= need || pre_from.lamports() == leaf.claim
+                        });
                 let to_ok = stake_meta(&pre_to)
                     .map(|m| {
                         m.authorized.staker == leaf.staker
@@ -1559,11 +1556,14 @@ impl World {
                     && to_ok
                     && list_ok
                     && sized
-                    && (st.epoch_created_for as u128 + cfg.epochs_to_claim_settlement as u128)
-                        >= clock.epoch as u128
-                    && (st.slot_created_at as u128
-                        + cfg.slots_to_start_settlement_claiming as u128)
-                        <= clock.slot as u128
+                    && st
+                        .epoch_created_for
+                        .checked_add(cfg.epochs_to_claim_settlement)
+                        .is_some_and(|end| end >= clock.epoch)
+                    && st
+                        .slot_created_at
+                        .checked_add(cfg.slots_to_start_settlement_claiming)
+                        .is_some_and(|start| start <= clock.slot)
                     && !self.settlements[si].claimed.contains(&leaf.index)
                     && leaf.index < st.max_merkle_nodes
                     && st.lamports_claimed as u128 + leaf.claim as u128

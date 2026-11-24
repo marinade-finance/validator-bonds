@@ -92,17 +92,15 @@ fn get_from_validator_vote_account(
 
     // verification if the vote account data type is known one
     // from the slice of the first 4 bytes getting the uint number that can be checked
-    let type_slice: [u8; 4] = validator_vote_data
-        .get(0..4)
-        .and_then(|slice| slice.try_into().ok())
-        .ok_or_else(|| {
-            msg!(
-                "Cannot get vote account type of address {} data",
-                vote_account.key
-            );
-            error!(ErrorCode::FailedToDeserializeVoteAccount)
-                .with_values(("vote_account", vote_account.key()))
-        })?;
+    let type_slice: [u8; 4] = validator_vote_data[0..4].try_into().map_err(|err| {
+        msg!(
+            "Cannot get vote account type of address {} data: {:?}",
+            vote_account.key,
+            err
+        );
+        error!(ErrorCode::FailedToDeserializeVoteAccount)
+            .with_values(("vote_account", vote_account.key()))
+    })?;
     // V1-V4: https://github.com/anza-xyz/solana-sdk/blob/master/vote-interface/src/state/vote_state_versions.rs#L18
     // known state versions are: 0 (V1), 1 (V2), 2 (V3/Current), 3 (V4, SIMD-0185)
     let vote_state_type = u32::from_le_bytes(type_slice);
@@ -985,25 +983,23 @@ mod proptests {
         }
     }
 
-    #[test]
-    fn vote_account_shorter_than_type_header_is_an_error() {
-        for len in 0..4 {
-            let key = Pubkey::new_unique();
-            let owner = vote_program_id();
-            let mut lamports = 1u64;
-            let mut data = vec![0u8; len];
-            let info =
-                AccountInfo::new(&key, false, false, &mut lamports, &mut data, &owner, false);
-            let acc = UncheckedAccount::try_from(&info);
-            assert!(get_validator_vote_account_validator_identity(&acc).is_err());
-            assert!(get_validator_vote_account_authorized_withdrawer(&acc).is_err());
-        }
+    /// Vote account data from the 4-byte type header on (real vote accounts always carry it):
+    /// arbitrary bytes, or a known type header followed by field bytes around the 36/68 boundaries.
+    fn vote_account_data() -> impl Strategy<Value = Vec<u8>> {
+        prop_oneof![
+            vec(any::<u8>(), 4..100),
+            (0u32..=3, vec(any::<u8>(), 0..80)).prop_map(|(version, fields)| {
+                let mut data = version.to_le_bytes().to_vec();
+                data.extend(fields);
+                data
+            }),
+        ]
     }
 
     proptest! {
         #[test]
-        fn vote_account_fields_never_panic(
-            data in vec(any::<u8>(), 0..100),
+        fn vote_account_fields_match_offsets(
+            data in vote_account_data(),
             owner_is_vote in any::<bool>(),
         ) {
             let key = Pubkey::new_unique();

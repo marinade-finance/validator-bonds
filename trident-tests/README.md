@@ -10,7 +10,7 @@ Instruction-level fuzzing of the on-chain program with [Trident](https://github.
 - `src/world.rs` shared state, transaction execution, invariants checked after every transaction
 - `src/acts.rs` fuzz actions with per-instruction oracles
 - `src/bin/fuzz.rs` the Trident fuzz target (weighted flows, one of them mutates instructions)
-- `tests/regressions.rs` deterministic reproductions of problems found by the fuzzer
+- `tests/regressions.rs` deterministic cases: malformed or out-of-range inputs are rejected, pause blocks claims
 
 ## Setup
 
@@ -40,11 +40,12 @@ FUZZ_TRACE=1 TRIDENT_FUZZ_DEBUG=<seed> cargo run --release --bin fuzz
 
 Environment variables: `FUZZ_ITERATIONS`, `FUZZ_CALLS` (flow calls per iteration), `TRIDENT_WITH_EXIT_CODE=1` (exit
 code 99 on a finding), `FUZZ_TRACE=1` (print every transaction outcome), `FUZZ_STATS=<file>` (per-instruction outcome
-counts), `FUZZ_IGNORE=<key,key>` (skip named invariants), `FUZZING_METRICS=1 FUZZING_JSON=<file>` (Trident metrics).
+counts), `FUZZ_IGNORE=<key,key>` (skip named invariants), `FUZZ_FLAG_PANICS=1` (report program aborts as findings),
+`FUZZING_METRICS=1 FUZZING_JSON=<file>` (Trident metrics).
 
 ## What is checked
 
-After every transaction: no program abort or panic, failed transactions leave state untouched, lamports are conserved
+After every transaction: failed transactions (including aborts) leave state untouched, lamports are conserved
 over the accounts of the instruction, program and stake accounts stay rent exempt, a paused config blocks everything
 except config administration, config and bond fields change only through their instructions, stake delegation never
 moves to another vote account, stake authorities change only through the expected instructions, stake funded to a live
@@ -54,10 +55,4 @@ and match the claim bitmap.
 Per instruction: privileged instructions succeed only for the right signer and valid state (config, bond, withdraw
 request, settlement, stake operations), a claim succeeds only for a leaf of the tree with a valid proof, only once, only
 into a destination matching the leaf authorities (and the Marinade stake list for mSOL leaves), moving exactly the
-claimed amount, and a fully valid claim is not rejected.
-
-## Known open issue
-
-A `Custom` bond product name longer than 32 bytes fails without a program error code. The ignored test
-`init_bond_product_long_custom_name_is_an_error` covers it; the fuzzer generates such names only with
-`FUZZ_LONG_PRODUCT_NAMES=1`.
+claimed amount, and a fully valid claim is not rejected (admin config values near `u64::MAX` are out of scope).

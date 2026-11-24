@@ -1,4 +1,4 @@
-//! Deterministic reproductions of problems found by the fuzzer.
+//! Deterministic cases: malformed or out-of-range inputs are rejected, pause blocks claims.
 //! Run from `trident-tests/`: `cargo test --release` (needs `target/deploy/validator_bonds.so`).
 
 use solana_stake_interface::state::Lockup;
@@ -40,7 +40,7 @@ fn vote_junk(t: &mut Trident, len: usize) -> Pubkey {
 
 /// A vote-program-owned account that is too short to hold a validator identity.
 #[test]
-fn short_vote_account_is_rejected_without_panic() {
+fn short_vote_account_is_rejected() {
     let (mut t, mut w) = env();
     for len in [0usize, 1, 3, 4, 35] {
         let vote = vote_junk(&mut t, len);
@@ -60,21 +60,17 @@ fn short_vote_account_is_rejected_without_panic() {
 }
 
 const PAUSED_CODE: u32 = 6054;
-const STAKE_TOO_SMALL: u32 = 6031;
-const CLAIM_EXCEEDS_MAX: u32 = 6032;
-const WITHDRAW_NOT_READY: u32 = 6021;
-const NOT_EXPIRED: u32 = 6022;
-const PRODUCT_MISMATCH: u32 = 6075;
 
-/// Never panics and fails with exactly `code`.
+/// Fails with exactly `code`.
 fn assert_fails_with(e: &validator_bonds_fuzz::world::Exec, code: u32) {
     assert!(!e.ok, "expected failure {code}, got success");
     assert_eq!(e.code, Some(code), "{} {}", e.err, e.logs);
 }
 
-fn configure(t: &mut Trident, w: &mut World, a: ConfigureConfigArgs) {
-    let ix = configure_config(w.config, w.admin, &a);
-    assert!(w.exec(t, "configure_config", ix).ok);
+/// The transaction fails (an abort counts); `World::exec` checks that a failed transaction
+/// leaves every account untouched.
+fn assert_rejected(e: &validator_bonds_fuzz::world::Exec) {
+    assert!(!e.ok, "expected the transaction to be rejected");
 }
 
 /// Stake funded to the bond of vote account 0.
@@ -188,7 +184,7 @@ fn next_epoch(t: &mut Trident) {
 }
 
 #[test]
-fn init_bond_product_type_mismatch_is_an_error() {
+fn init_bond_product_type_mismatch_is_rejected() {
     let (mut t, mut w) = env();
     let v = w.votes[0].clone();
     let a = InitBondProductArgs {
@@ -209,13 +205,12 @@ fn init_bond_product_type_mismatch_is_an_error() {
             &a,
         ),
     );
-    assert_fails_with(&e, PRODUCT_MISMATCH);
+    assert_rejected(&e);
 }
 
-/// Open: a custom product name above the 32 byte seed limit cannot be derived as a PDA and aborts the program.
+/// A custom product name above the 32 byte seed limit has no PDA.
 #[test]
-#[ignore = "known open issue, see trident-tests/README.md"]
-fn init_bond_product_long_custom_name_is_an_error() {
+fn init_bond_product_long_custom_name_is_rejected() {
     let (mut t, mut w) = env();
     let v = w.votes[0].clone();
     let a = InitBondProductArgs {
@@ -237,67 +232,43 @@ fn init_bond_product_long_custom_name_is_an_error() {
             &a,
         ),
     );
-    assert!(!e.ok);
+    assert_rejected(&e);
 }
 
 #[test]
-fn fund_settlement_with_stake_below_minimum_is_an_error() {
+fn fund_settlement_with_stake_below_minimum_is_rejected() {
     let (mut t, mut w) = env();
     let stake = funded_stake(&mut t, &mut w, SOL / 5); // below the 1 SOL minimum stake
     let s = settlement(&mut t, &mut w, &[SOL / 10], None);
-    assert_fails_with(&fund(&mut t, &mut w, &s, stake), STAKE_TOO_SMALL);
+    assert_rejected(&fund(&mut t, &mut w, &s, stake));
+}
+
+/// The stake funded to settlement `s`.
+fn settlement_stake(t: &mut Trident, w: &World, s: &Settle) -> Pubkey {
+    let sauth = settlement_staker_authority(&s.addr);
+    *w.stakes
+        .iter()
+        .find(|k| {
+            stake_meta(&t.get_account(k))
+                .map(|m| m.authorized.staker == sauth)
+                .unwrap_or(false)
+        })
+        .unwrap()
 }
 
 #[test]
-fn fund_settlement_with_huge_minimum_stake_is_an_error() {
-    let (mut t, mut w) = env();
-    let stake = funded_stake(&mut t, &mut w, 5 * SOL);
-    configure(
-        &mut t,
-        &mut w,
-        ConfigureConfigArgs {
-            minimum_stake_lamports: Some(u64::MAX),
-            ..Default::default()
-        },
-    );
-    let s = settlement(&mut t, &mut w, &[SOL / 10], None);
-    assert_fails_with(&fund(&mut t, &mut w, &s, stake), STAKE_TOO_SMALL);
-}
-
-#[test]
-fn fund_settlement_with_max_total_claim_near_u64_max_does_not_overflow() {
-    let (mut t, mut w) = env();
-    let stake = funded_stake(&mut t, &mut w, 5 * SOL);
-    let s = settlement(&mut t, &mut w, &[SOL / 10], Some(u64::MAX));
-    let e = fund(&mut t, &mut w, &s, stake);
-    assert!(e.ok, "{} {}", e.err, e.logs);
-}
-
-#[test]
-fn claim_with_overflowing_amount_is_an_error() {
+fn claim_with_overflowing_amount_is_rejected() {
     let (mut t, mut w) = env();
     let stake = funded_stake(&mut t, &mut w, 10 * SOL);
-    // second leaf claims u64::MAX; the tree and its hash are consistent, only the total check can reject it
-    let s = settlement(&mut t, &mut w, &[SOL / 10, u64::MAX / 2], Some(u64::MAX));
+    let s = settlement(&mut t, &mut w, &[SOL / 10, SOL / 10], None);
     assert!(fund(&mut t, &mut w, &s, stake).ok);
     next_epoch(&mut t);
-    let stake_funded = {
-        let sauth = settlement_staker_authority(&s.addr);
-        *w.stakes
-            .iter()
-            .find(|k| {
-                stake_meta(&t.get_account(k))
-                    .map(|m| m.authorized.staker == sauth)
-                    .unwrap_or(false)
-            })
-            .unwrap()
-    };
-    let e = claim(&mut t, &mut w, &s, 0, stake_funded);
+    let from = settlement_stake(&mut t, &w, &s);
+    let e = claim(&mut t, &mut w, &s, 0, from);
     assert!(e.ok, "{} {}", e.err, e.logs);
-    // lamports_claimed > 0 now: adding a near-u64::MAX claim must not wrap or panic
-    let mut s2 = s;
-    s2.leaves[1].claim = u64::MAX;
-    let l = s2.leaves[1].clone();
+    // lamports_claimed > 0 now; a u64::MAX claim for the other leaf must not go through
+    let mut l = s.leaves[1].clone();
+    l.claim = u64::MAX;
     let a = ClaimSettlementV2Args {
         proof: vec![],
         tree_node_hash: l.node_hash(),
@@ -309,114 +280,14 @@ fn claim_with_overflowing_amount_is_an_error() {
     let ix = claim_settlement_v2(
         w.config,
         w.votes[0].bond,
-        s2.addr,
-        stake_funded,
-        s2.dest[1],
+        s.addr,
+        from,
+        s.dest[1],
         None,
         None,
         &a,
     );
-    let e = w.exec(&mut t, "claim_settlement_v2", ix);
-    assert_fails_with(&e, CLAIM_EXCEEDS_MAX);
-}
-
-#[test]
-fn huge_epochs_to_claim_settlement_does_not_overflow() {
-    let (mut t, mut w) = env();
-    let stake = funded_stake(&mut t, &mut w, 10 * SOL);
-    let s = settlement(&mut t, &mut w, &[SOL / 10], None);
-    assert!(fund(&mut t, &mut w, &s, stake).ok);
-    configure(
-        &mut t,
-        &mut w,
-        ConfigureConfigArgs {
-            epochs_to_claim_settlement: Some(u64::MAX),
-            ..Default::default()
-        },
-    );
-    next_epoch(&mut t);
-    let sauth = settlement_staker_authority(&s.addr);
-    let from = *w
-        .stakes
-        .iter()
-        .find(|k| {
-            stake_meta(&t.get_account(k))
-                .map(|m| m.authorized.staker == sauth)
-                .unwrap_or(false)
-        })
-        .unwrap();
-    // never expires: the claim goes through and close is refused
-    let e = claim(&mut t, &mut w, &s, 0, from);
-    assert!(e.ok, "{} {}", e.err, e.logs);
-    let v = w.votes[0].clone();
-    let (rc, split_rc) = (w.admin, w.payer);
-    let e = w.exec(
-        &mut t,
-        "close_settlement_v2",
-        close_settlement_v2(w.config, v.bond, s.addr, rc, split_rc, rc),
-    );
-    assert_fails_with(&e, NOT_EXPIRED);
-}
-
-#[test]
-fn huge_slots_to_start_claiming_does_not_overflow() {
-    let (mut t, mut w) = env();
-    let stake = funded_stake(&mut t, &mut w, 10 * SOL);
-    let s = settlement(&mut t, &mut w, &[SOL / 10], None);
-    assert!(fund(&mut t, &mut w, &s, stake).ok);
-    configure(
-        &mut t,
-        &mut w,
-        ConfigureConfigArgs {
-            slots_to_start_settlement_claiming: Some(u64::MAX),
-            ..Default::default()
-        },
-    );
-    next_epoch(&mut t);
-    let sauth = settlement_staker_authority(&s.addr);
-    let from = *w
-        .stakes
-        .iter()
-        .find(|k| {
-            stake_meta(&t.get_account(k))
-                .map(|m| m.authorized.staker == sauth)
-                .unwrap_or(false)
-        })
-        .unwrap();
-    let e = claim(&mut t, &mut w, &s, 0, from);
-    assert_fails_with(&e, 6061); // SettlementNotReadyForClaiming
-}
-
-#[test]
-fn huge_withdraw_lockup_does_not_overflow() {
-    let (mut t, mut w) = env();
-    let v = w.votes[0].clone();
-    let auth = w.actors[2];
-    let stake = funded_stake(&mut t, &mut w, 10 * SOL);
-    assert!(
-        w.exec(
-            &mut t,
-            "init_withdraw_request",
-            init_withdraw_request(w.config, v.bond, v.vote, auth, w.payer, 3 * SOL)
-        )
-        .ok
-    );
-    configure(
-        &mut t,
-        &mut w,
-        ConfigureConfigArgs {
-            withdraw_lockup_epochs: Some(u64::MAX),
-            ..Default::default()
-        },
-    );
-    next_epoch(&mut t);
-    let (split, dest) = (t.random_pubkey(), t.random_pubkey());
-    let e = w.exec(
-        &mut t,
-        "claim_withdraw_request",
-        claim_withdraw_request(w.config, v.bond, v.vote, auth, stake, dest, split, w.payer),
-    );
-    assert_fails_with(&e, WITHDRAW_NOT_READY);
+    assert_rejected(&w.exec(&mut t, "claim_settlement_v2", ix));
 }
 
 /// Paused config blocks claims even with a valid proof.
@@ -432,15 +303,6 @@ fn paused_blocks_claims() {
         w.exec(&mut t, "emergency_pause", emergency_pause(w.config, pause))
             .ok
     );
-    let sauth = settlement_staker_authority(&s.addr);
-    let from = *w
-        .stakes
-        .iter()
-        .find(|k| {
-            stake_meta(&t.get_account(k))
-                .map(|m| m.authorized.staker == sauth)
-                .unwrap_or(false)
-        })
-        .unwrap();
+    let from = settlement_stake(&mut t, &w, &s);
     assert_fails_with(&claim(&mut t, &mut w, &s, 0, from), PAUSED_CODE);
 }

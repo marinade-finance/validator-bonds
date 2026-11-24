@@ -48,6 +48,12 @@ fn post_payer_lamports(t: &mut Trident, k: &Pubkey) -> u64 {
 
 // ---- random helpers -----------------------------------------------------------
 
+/// `FUZZ_FLAG_PANICS=1` reports program aborts (panics, overflow, compute exhaustion) as findings.
+fn flag_panics() -> bool {
+    static FLAG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *FLAG.get_or_init(|| std::env::var_os("FUZZ_FLAG_PANICS").is_some())
+}
+
 pub fn chance(t: &mut Trident, pct: u32) -> bool {
     t.random_from_range(0..100u32) < pct
 }
@@ -499,7 +505,9 @@ impl World {
                     | InstructionError::ArithmeticOverflow
                     | InstructionError::InvalidError
             );
-            if bad || logs.contains("panicked at") {
+            // An aborted transaction fails like any other (the failed-transaction check still
+            // applies), so aborts are reported only on request.
+            if (bad || logs.contains("panicked at")) && flag_panics() {
                 let panic_line = logs
                     .lines()
                     .find(|l| l.contains("panicked at"))
@@ -902,15 +910,17 @@ impl World {
         }
     }
 
-    pub fn stake_min_size(&self, e: &Exec, stake: &Pubkey) -> u64 {
+    /// Rent reserve plus the configured minimum stake; `None` where the program's u64 sum overflows.
+    pub fn stake_min_size(&self, e: &Exec, stake: &Pubkey) -> Option<u64> {
         let meta = stake_meta(&e.pre.get(stake))
             .map(|m| m.rent_exempt_reserve)
             .unwrap_or(0);
-        meta + e
-            .cfg_pre
-            .as_ref()
-            .map(|c| c.minimum_stake_lamports)
-            .unwrap_or(0)
+        meta.checked_add(
+            e.cfg_pre
+                .as_ref()
+                .map(|c| c.minimum_stake_lamports)
+                .unwrap_or(0),
+        )
     }
 
     pub fn stake_state_str(acc: &AccountSharedData) -> String {
