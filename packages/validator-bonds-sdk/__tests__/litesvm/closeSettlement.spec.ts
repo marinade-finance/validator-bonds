@@ -1,22 +1,23 @@
 import assert from 'assert'
 
 import { verifyError } from '@marinade.finance/anchor-common'
+import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
+import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from '@solana/web3.js'
+
 import {
   assertNotExist,
   currentEpoch,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import { createUserAndFund, pubkey, signer } from '@marinade.finance/web3js-1x'
-import { Keypair, LAMPORTS_PER_SOL, SystemProgram } from '@solana/web3.js'
-
-import { initBankrunTest } from './bankrun'
+} from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   closeSettlementV2Instruction,
   fundSettlementInstruction,
   getConfig,
   getRentExemptStake,
+  minimalSizeStakeAccount,
   getSettlement,
 } from '../../src'
 import { getRentExempt } from '../utils/helpers'
@@ -31,13 +32,13 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Config, ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds close settlement', () => {
   const epochsToClaimSettlement = 1
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let config: Config
@@ -49,8 +50,8 @@ describe('Validator Bonds close settlement', () => {
   let settlementEpoch: bigint
   let rentCollector: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {
@@ -203,8 +204,8 @@ describe('Validator Bonds close settlement', () => {
       (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
-        2 * rentExemptStake +
-        config.minimumStakeLamports.toNumber(),
+        minimalSizeStakeAccount(config.minimumStakeLamports).toNumber() +
+        rentExemptStake, // returning rent exempt for split stake account
     )
 
     const { instruction } = await closeSettlementV2Instruction({
@@ -269,8 +270,7 @@ describe('Validator Bonds close settlement', () => {
       (await provider.connection.getAccountInfo(stakeAccount))?.lamports,
     ).toEqual(
       settlementData.maxTotalClaim.toNumber() +
-        rentExemptStake +
-        config.minimumStakeLamports.toNumber(),
+        minimalSizeStakeAccount(config.minimumStakeLamports).toNumber(),
     )
   })
 

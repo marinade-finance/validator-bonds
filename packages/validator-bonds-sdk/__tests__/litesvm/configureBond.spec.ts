@@ -1,7 +1,7 @@
 import { verifyError } from '@marinade.finance/anchor-common'
 import { Keypair, PublicKey } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   configureBondInstruction,
@@ -16,12 +16,12 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds configure bond account', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let adminAuthority: Keypair
@@ -30,8 +30,8 @@ describe('Validator Bonds configure bond account', () => {
   let validatorIdentity: Keypair
   let voterAuthority: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {

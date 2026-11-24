@@ -1,8 +1,8 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { assertNotExist, currentEpoch } from '@marinade.finance/bankrun-utils'
 import { Keypair } from '@solana/web3.js'
 
-import { initBankrunTest } from './bankrun'
+import { assertNotExist, currentEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE,
@@ -24,9 +24,9 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { Bond, ValidatorBondsProgram } from '../../src'
 import type { ProgramAccount } from '@coral-xyz/anchor'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { PublicKey } from '@solana/web3.js'
 
 // maximum increase in account size per instruction
@@ -44,7 +44,7 @@ const maxMerkleNodesAccountCount =
   10 * 1024 * 1024 * 8 - 8 * SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE
 
 describe('Validator Bonds init settlement', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bond: ProgramAccount<Bond>
@@ -52,8 +52,8 @@ describe('Validator Bonds init settlement', () => {
   let validatorIdentity: Keypair
   let voteAccount: PublicKey
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {

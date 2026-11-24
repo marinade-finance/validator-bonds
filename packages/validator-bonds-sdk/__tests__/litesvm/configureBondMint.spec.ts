@@ -1,5 +1,4 @@
 import { verifyError } from '@marinade.finance/anchor-common'
-import { warpToNextEpoch } from '@marinade.finance/bankrun-utils'
 import {
   createUserAndFund,
   getVoteAccount,
@@ -14,7 +13,8 @@ import {
   getAssociatedTokenAddressSync,
 } from 'solana-spl-token-modern'
 
-import { initBankrunTest } from './bankrun'
+import { warpToNextEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   configureBondWithMintInstruction,
@@ -28,11 +28,11 @@ import {
   executeInitConfigInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 
 describe('Validator Bonds mint configure bond account', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -41,8 +41,8 @@ describe('Validator Bonds mint configure bond account', () => {
   let bondAuthority: Keypair
   let authorizedWithdrawer: Keypair
 
-  beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+  beforeAll(() => {
+    ;({ provider, program } = initLiteSvmTest())
   })
 
   beforeEach(async () => {

@@ -1,9 +1,4 @@
 import {
-  assertNotExist,
-  bankrunExecuteIx,
-  warpToEpoch,
-} from '@marinade.finance/bankrun-utils'
-import {
   Authorized,
   Keypair,
   Lockup,
@@ -13,11 +8,13 @@ import {
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js'
 import { StakeProgram } from '@solana/web3.js'
-import { Clock } from 'solana-bankrun'
+import { Clock } from 'litesvm'
 
-import { initBankrunTest } from './bankrun'
+import { assertNotExist, executeIx, warpToEpoch } from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   getRentExemptStake,
+  STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
   getRentExemptVote,
   getStakeAccount,
 } from '../../src'
@@ -32,16 +29,16 @@ import {
   setLockup,
 } from '../utils/staking'
 
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
+import type { LiteSvmProvider } from './litesvm'
 
 describe('Solana stake account behavior verification', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let rentExemptStake: number
   let rentExemptVote: number
   const startUpEpoch = 42
 
   beforeAll(async () => {
-    ;({ provider } = await initBankrunTest())
+    ;({ provider } = initLiteSvmTest())
     rentExemptStake = await getRentExemptStake(provider)
     rentExemptVote = await getRentExemptVote(provider)
     warpToEpoch(provider, startUpEpoch)
@@ -101,12 +98,7 @@ describe('Solana stake account behavior verification', () => {
       ),
       lockup: undefined,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet],
-      sourceInitIx,
-      destInitIx,
-    )
+    await executeIx(provider, [provider.wallet], sourceInitIx, destInitIx)
 
     await getAndCheckStakeAccount(
       provider,
@@ -137,16 +129,10 @@ describe('Solana stake account behavior verification', () => {
       stakeAuthorizationType: StakeAuthorizationLayout.Staker,
       custodianPubkey: undefined,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, destStaker],
-      changeStakerAuthIx,
-    )
+    await executeIx(provider, [provider.wallet, destStaker], changeStakerAuthIx)
 
     // pushing clock forward to get new latest blockhash from the client
-    provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1),
-    )
+    provider.warpToSlot(provider.getClock().slot + BigInt(1))
 
     const mergeInitializedWrongWithdrawAuthorityTx = StakeProgram.merge({
       stakePubkey: destPubkey,
@@ -170,16 +156,14 @@ describe('Solana stake account behavior verification', () => {
       stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
       custodianPubkey: undefined,
     })
-    await bankrunExecuteIx(
+    await executeIx(
       provider,
       [provider.wallet, destWithdrawer],
       changeWithdrawerAuthIx,
     )
 
     // pushing clock forward to get new latest blockhash from the client
-    provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1),
-    )
+    provider.warpToSlot(provider.getClock().slot + BigInt(1))
 
     // 4. FINAL SUCCESSFUL MERGE
     const mergeTx = StakeProgram.merge({
@@ -187,7 +171,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: sourcePubkey,
       authorizedPubkey: sourceStaker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, sourceStaker], mergeTx)
+    await executeIx(provider, [provider.wallet, sourceStaker], mergeTx)
   })
 
   /**
@@ -200,7 +184,7 @@ describe('Solana stake account behavior verification', () => {
    *   - when lockup is active, the custodian signature is required, custodianPubkey is a way to pass the lockup custodian to ix
    */
   it('merging stake account with different lockup metadata', async () => {
-    const { epoch } = await provider.context.banksClient.getClock()
+    const { epoch } = provider.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const stakeAccount1Epoch = Number(epoch) + 20
@@ -245,11 +229,9 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: custodian2.publicKey,
       epoch: stakeAccount1Epoch,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, custodian2], setLockupIx)
+    await executeIx(provider, [provider.wallet, custodian2], setLockupIx)
 
-    provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1),
-    )
+    provider.warpToSlot(provider.getClock().slot + BigInt(1))
     const mergeTx2 = StakeProgram.merge({
       stakePubkey: stakeAccount2,
       sourceStakePubKey: stakeAccount1,
@@ -272,15 +254,9 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: custodian2.publicKey,
       custodian: PublicKey.default,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, custodian2],
-      setLockupIx2,
-    )
+    await executeIx(provider, [provider.wallet, custodian2], setLockupIx2)
 
-    provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1),
-    )
+    provider.warpToSlot(provider.getClock().slot + BigInt(1))
 
     // merging stakeAccount1 --> stakeAccount2
     const mergeTx3 = StakeProgram.merge({
@@ -291,7 +267,7 @@ describe('Solana stake account behavior verification', () => {
     console.log(
       '3. for active LOCKUP MERGING with the same LOCKUP metadata is permitted',
     )
-    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx3)
+    await executeIx(provider, [provider.wallet, staker], mergeTx3)
     // merged, stakeAccount1 is gone
     await assertNotExist(provider, stakeAccount1)
 
@@ -313,11 +289,7 @@ describe('Solana stake account behavior verification', () => {
       newAuthorizedPubkey: newStaker.publicKey,
       stakeAuthorizationType: StakeAuthorizationLayout.Staker,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, staker],
-      changeStakerAuthIx,
-    )
+    await executeIx(provider, [provider.wallet, staker], changeStakerAuthIx)
     ;[stakeAccount2Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount2,
@@ -354,7 +326,7 @@ describe('Solana stake account behavior verification', () => {
   })
 
   it('merge stake account with running lockup', async () => {
-    const clock = await provider.context.banksClient.getClock()
+    const clock = provider.getClock()
     const staker = Keypair.generate()
     const withdrawer = Keypair.generate()
     const custodianWallet = provider.wallet
@@ -393,7 +365,7 @@ describe('Solana stake account behavior verification', () => {
       newAuthorizedPubkey: newStaker.publicKey,
       stakeAuthorizationType: StakeAuthorizationLayout.Staker,
     })
-    await bankrunExecuteIx(
+    await executeIx(
       provider,
       [provider.wallet, staker],
       changeStakerAuthIx,
@@ -432,7 +404,7 @@ describe('Solana stake account behavior verification', () => {
       stakeAuthorizationType: StakeAuthorizationLayout.Withdrawer,
       custodianPubkey: custodianWallet.publicKey,
     })
-    await bankrunExecuteIx(
+    await executeIx(
       provider,
       [provider.wallet, withdrawer, custodianWallet],
       changeWithdrawer1Ix,
@@ -445,7 +417,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccount2,
       authorizedPubkey: newStaker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, newStaker], mergeTx)
+    await executeIx(provider, [provider.wallet, newStaker], mergeTx)
     await assertNotExist(provider, stakeAccount2)
     await getAndCheckStakeAccount(
       provider,
@@ -459,7 +431,7 @@ describe('Solana stake account behavior verification', () => {
       toPubkey: stakeAccount1,
       lamports: LAMPORTS_PER_SOL * 10,
     })
-    await bankrunExecuteIx(provider, [provider.wallet], transferIx)
+    await executeIx(provider, [provider.wallet], transferIx)
 
     // creating vote account to delegate to it
     const { voteAccount } = await createVoteAccount({
@@ -471,7 +443,7 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: newStaker.publicKey,
       votePubkey: voteAccount,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, newStaker], delegateIx)
+    await executeIx(provider, [provider.wallet, newStaker], delegateIx)
     await getAndCheckStakeAccount(
       provider,
       stakeAccount1,
@@ -482,7 +454,7 @@ describe('Solana stake account behavior verification', () => {
       stakePubkey: stakeAccount1,
       authorizedPubkey: newStaker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, newStaker], deactivateIx)
+    await executeIx(provider, [provider.wallet, newStaker], deactivateIx)
 
     console.log('3. CANNOT withdraw when lockup is active')
     const withdrawIx = StakeProgram.withdraw({
@@ -509,15 +481,11 @@ describe('Solana stake account behavior verification', () => {
       lamports: LAMPORTS_PER_SOL * 5,
       custodianPubkey: custodianWallet.publicKey,
     })
-    await bankrunExecuteIx(
-      provider,
-      [custodianWallet, newWithdrawer],
-      withdrawIx2,
-    )
+    await executeIx(provider, [custodianWallet, newWithdrawer], withdrawIx2)
 
     console.log('5. WE CAN withdraw when lockup is over')
     // moving time forward to expire the lockup
-    provider.context.setClock(
+    provider.setClock(
       new Clock(
         clock.slot,
         clock.epochStartTimestamp,
@@ -532,18 +500,12 @@ describe('Solana stake account behavior verification', () => {
       toPubkey: provider.wallet.publicKey,
       lamports: LAMPORTS_PER_SOL,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, newWithdrawer],
-      withdrawIx3,
-    )
-    provider.context.warpToSlot(
-      (await provider.context.banksClient.getClock()).slot + BigInt(1),
-    )
+    await executeIx(provider, [provider.wallet, newWithdrawer], withdrawIx3)
+    provider.warpToSlot(provider.getClock().slot + BigInt(1))
   })
 
   it('merge delegated stake account', async () => {
-    const clock = await provider.context.banksClient.getClock()
+    const clock = provider.getClock()
     const custodian = provider.wallet
     const lockup = new Lockup(0, -1, custodian.publicKey) // max lockup at the end of universe
     const staker = Keypair.generate()
@@ -588,9 +550,9 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
       votePubkey: stakeAccount1.voteAccount,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, staker], delegateIx)
-    provider.context.warpToSlot(clock.slot + BigInt(1))
-    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx)
+    await executeIx(provider, [provider.wallet, staker], delegateIx)
+    provider.warpToSlot(clock.slot + BigInt(1))
+    await executeIx(provider, [provider.wallet, staker], mergeTx)
     await assertNotExist(provider, stakeAccount2.stakeAccount)
 
     console.log('3. CANNOT MERGE DEACTIVATING (the same lockup meta data)')
@@ -602,14 +564,13 @@ describe('Solana stake account behavior verification', () => {
       withdrawer,
       voteAccountToDelegate: stakeAccount1.voteAccount,
     })
-    let nextEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 1
+    let nextEpoch = Number(provider.getClock().epoch) + 1
     warpToEpoch(provider, nextEpoch)
     const deactivateIx = StakeProgram.deactivate({
       stakePubkey: stakeAccount3.stakeAccount,
       authorizedPubkey: staker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, staker], deactivateIx)
+    await executeIx(provider, [provider.wallet, staker], deactivateIx)
     let [stakeAccount3Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount3.stakeAccount,
@@ -634,8 +595,7 @@ describe('Solana stake account behavior verification', () => {
     console.log(
       '4. CANNOT MERGE ON DIFFERENT STATE activated vs. deactivated (the same lockup meta data)',
     )
-    nextEpoch =
-      Number((await provider.context.banksClient.getClock()).epoch) + 1
+    nextEpoch = Number(provider.getClock().epoch) + 1
     warpToEpoch(provider, nextEpoch)
     await executeTxWithError(
       provider,
@@ -651,10 +611,8 @@ describe('Solana stake account behavior verification', () => {
       authorizedPubkey: staker.publicKey,
       votePubkey: stakeAccount1.voteAccount,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, staker], delegateIx3)
-    const currentEpoch = Number(
-      (await provider.context.banksClient.getClock()).epoch,
-    )
+    await executeIx(provider, [provider.wallet, staker], delegateIx3)
+    const currentEpoch = Number(provider.getClock().epoch)
     ;[stakeAccount3Data] = await getAndCheckStakeAccount(
       provider,
       stakeAccount3.stakeAccount,
@@ -669,7 +627,7 @@ describe('Solana stake account behavior verification', () => {
 
     console.log('6. MERGING ACTIVATED stake (the same lockup meta data)')
     warpToEpoch(provider, currentEpoch + 1)
-    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeTx3)
+    await executeIx(provider, [provider.wallet, staker], mergeTx3)
     await assertNotExist(provider, stakeAccount3.stakeAccount)
     await getAndCheckStakeAccount(
       provider,
@@ -694,7 +652,7 @@ describe('Solana stake account behavior verification', () => {
    *
    */
   it('merging non-locked delegated stake accounts', async () => {
-    const clock = await provider.context.banksClient.getClock()
+    const clock = provider.getClock()
     const staker = Keypair.generate()
     const lockedEpoch = 10
     const lockedTimestamp = 33
@@ -748,7 +706,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccount2,
       authorizedPubkey: staker.publicKey,
     })
-    await bankrunExecuteIx(provider, [provider.wallet, staker], mergeIx)
+    await executeIx(provider, [provider.wallet, staker], mergeIx)
     await assertNotExist(provider, stakeAccount2)
     const [stakeAccountData, stakeAccountInfo] = await getAndCheckStakeAccount(
       provider,
@@ -821,7 +779,7 @@ describe('Solana stake account behavior verification', () => {
       stakePubkey: stakeAccountLocked,
       authorizedPubkey: staker.publicKey,
     })
-    await bankrunExecuteIx(
+    await executeIx(
       provider,
       [provider.wallet, staker],
       delegateIx,
@@ -859,11 +817,7 @@ describe('Solana stake account behavior verification', () => {
       sourceStakePubKey: stakeAccountLocked,
       authorizedPubkey: staker.publicKey,
     })
-    await bankrunExecuteIx(
-      provider,
-      [provider.wallet, staker],
-      mergeIxDeactivated,
-    )
+    await executeIx(provider, [provider.wallet, staker], mergeIxDeactivated)
     await assertNotExist(provider, stakeAccountLocked)
     const [, mergedDeactivatedInfo] = await getAndCheckStakeAccount(
       provider,
@@ -881,7 +835,7 @@ describe('Solana stake account behavior verification', () => {
    *  - yes, they are maintained
    */
   it('splitting stake accounts', async () => {
-    const clock = await provider.context.banksClient.getClock()
+    const clock = provider.getClock()
     const custodian = Keypair.generate()
     const lockedLockup = new Lockup(
       0,
@@ -901,6 +855,15 @@ describe('Solana stake account behavior verification', () => {
     const stakeAccount2 = Keypair.generate()
     const spitLamports = LAMPORTS_PER_SOL * 2
     expect(spitLamports).toBeLessThan(lamports)
+    // web3.js split creates the destination from the staker that thus pays the rent prefund
+    await provider.sendIx(
+      [],
+      SystemProgram.transfer({
+        fromPubkey: provider.walletPubkey,
+        toPubkey: staker.publicKey,
+        lamports: rentExemptStake,
+      }),
+    )
     const splitIx = StakeProgram.split(
       {
         stakePubkey: stakeAccount1,
@@ -908,10 +871,11 @@ describe('Solana stake account behavior verification', () => {
         splitStakePubkey: stakeAccount2.publicKey,
         lamports: spitLamports,
       },
-      0,
+      // the stake program rejects a split of an active stake into a destination below rent exemption
+      rentExemptStake,
     )
     try {
-      await bankrunExecuteIx(
+      await executeIx(
         provider,
         [provider.wallet, staker, stakeAccount2],
         splitIx,
@@ -937,11 +901,15 @@ describe('Solana stake account behavior verification', () => {
     expect(stakeAccount1Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
       lamports - spitLamports - rentExemptStake,
     )
+    // the destination is rent exempt by its prefund, so the whole split amount stays staked
     expect(stakeAccount2Data.Stake?.stake.delegation.stake.toNumber()).toEqual(
-      spitLamports - rentExemptStake,
+      spitLamports,
+    )
+    expect(stakeAccount2Data.Stake?.meta.rentExemptReserve.toNumber()).toEqual(
+      STAKE_ACCOUNT_PSEUDO_RENT_EXEMPT_RESERVE,
     )
     expect(stakeAccount1Info.lamports).toEqual(lamports - spitLamports)
-    expect(stakeAccount2Info.lamports).toEqual(spitLamports)
+    expect(stakeAccount2Info.lamports).toEqual(spitLamports + rentExemptStake)
     expect(stakeAccount2Data.Stake?.meta.authorized).toEqual(
       stakeAccount1Data.Stake?.meta.authorized,
     )
@@ -953,7 +921,7 @@ describe('Solana stake account behavior verification', () => {
     )
   })
   it('decides lockup by epoch/timestamp, not by the custodian', async () => {
-    const { epoch } = await provider.context.banksClient.getClock()
+    const { epoch } = provider.getClock()
     const currentEpoch = Number(epoch)
     const futureEpoch = currentEpoch + 20
     const custodian = Keypair.generate()
@@ -972,7 +940,7 @@ describe('Solana stake account behavior verification', () => {
         rentExempt: rentExemptStake,
       },
     )
-    // parseStakeAccountData compares unixTimestamp against wall-clock Date.now(), not the bankrun clock
+    // parseStakeAccountData compares unixTimestamp against wall-clock Date.now(), not the LiteSVM clock
     const futureTimestamp = Math.floor(Date.now() / 1000) + 365 * 24 * 3600
     const { stakeAccount: futureTimestampOnly } =
       await createInitializedStakeAccount({

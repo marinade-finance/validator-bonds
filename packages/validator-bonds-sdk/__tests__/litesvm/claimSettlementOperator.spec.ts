@@ -1,14 +1,14 @@
 import { verifyError } from '@marinade.finance/anchor-common'
+import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
+import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+
 import {
   assertNotExist,
   currentEpoch,
   warpOffsetEpoch,
   warpToNextEpoch,
-} from '@marinade.finance/bankrun-utils'
-import { createUserAndFund, pubkey } from '@marinade.finance/web3js-1x'
-import { LAMPORTS_PER_SOL } from '@solana/web3.js'
-
-import { initBankrunTest } from './bankrun'
+} from './litesvm'
+import { initLiteSvmTest } from './litesvm'
 import {
   Errors,
   claimSettlementV2Instruction,
@@ -37,13 +37,13 @@ import {
   executeInitSettlement,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Keypair, PublicKey } from '@solana/web3.js'
 
 describe('Validator Bonds claim settlement', () => {
   const epochsToClaimSettlement = 3
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -55,7 +55,7 @@ describe('Validator Bonds claim settlement', () => {
   const maxMerkleNodes = 1
 
   beforeAll(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
     ;({ configAccount, operatorAuthority } = await executeInitConfigInstruction(
       {
         program,

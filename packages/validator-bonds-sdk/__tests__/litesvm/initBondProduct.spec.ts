@@ -4,7 +4,7 @@ import { LAMPORTS_PER_SOL } from '@solana/web3.js'
 import { PublicKey } from '@solana/web3.js'
 import { BN } from 'bn.js'
 
-import { initBankrunTest } from './bankrun'
+import { initLiteSvmTest } from './litesvm'
 import {
   bondProductAddress,
   getBondProduct,
@@ -24,12 +24,12 @@ import {
   executeInitCustomProductInstruction,
 } from '../utils/testTransactions'
 
+import type { LiteSvmProvider } from './litesvm'
 import type { ProductTypeConfig, ValidatorBondsProgram } from '../../src'
-import type { BankrunExtendedProvider } from '@marinade.finance/bankrun-utils'
 import type { Keypair } from '@solana/web3.js'
 
 describe('Validator Bonds init bond product account', () => {
-  let provider: BankrunExtendedProvider
+  let provider: LiteSvmProvider
   let program: ValidatorBondsProgram
   let configAccount: PublicKey
   let bondAccount: PublicKey
@@ -38,7 +38,7 @@ describe('Validator Bonds init bond product account', () => {
   let validatorIdentity: Keypair | undefined
 
   beforeEach(async () => {
-    ;({ provider, program } = await initBankrunTest())
+    ;({ provider, program } = initLiteSvmTest())
     ;({ configAccount } = await executeInitConfigInstruction({
       program,
       provider,

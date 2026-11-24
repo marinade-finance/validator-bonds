@@ -1,7 +1,10 @@
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
 import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import { TestHttpServer } from '@marinade.finance/ts-common'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccountWithIdentity } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeInitBondInstruction,
@@ -148,6 +151,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -182,6 +187,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -212,6 +219,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -244,6 +253,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -275,6 +286,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -300,6 +313,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -328,6 +343,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -348,6 +365,8 @@ describe('CLI subscription commands', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

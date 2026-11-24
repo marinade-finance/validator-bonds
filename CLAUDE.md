@@ -32,11 +32,15 @@ pnpm fix                             # prettier + eslint + cargo fmt + clippy --
 # Tests
 cargo test --features no-entrypoint -- --nocapture    # unit (fast)
 pnpm test:unit                       # TS unit tests (sanity-check, cli-core, bonds-eventing)
-pnpm test:bankrun                    # bankrun JS tests (builds anchor first)
-pnpm test:validator                  # anchor test (full, slow)
+pnpm test:litesvm                    # LiteSVM JS tests on the pinned mainnet stake program and feature set (builds anchor first)
+pnpm test:validator                  # solana-test-validator suites, fresh validator per spec file (slow; scripts/test-validator.sh)
+FILE=path/to/test.spec.ts pnpm test:validator   # single test-validator file
 
-# Run a single bankrun test file
-FILE=path/to/test.spec.ts pnpm test:bankrun
+# Run a single LiteSVM test file
+FILE=path/to/test.spec.ts pnpm test:litesvm
+
+# Pinned mainnet stake program + feature set (fixtures/mainnet/): exits 1 on drift, refresh with `pnpm fixture:mainnet`
+RPC_URL=<mainnet rpc> pnpm check:mainnet-fixture
 
 # After on-chain program changes — sync IDL to SDK and resources
 pnpm copy:idl
@@ -54,7 +58,7 @@ MIXPANEL_TOKEN=<token> pnpm publish:cli
 pnpm publish:sdk
 ```
 
-Rust toolchain: `1.97.1` (see `rust-toolchain.toml`). Anchor: `1.2.1`, Solana: `3.1.12` (see `Anchor.toml`). Node ≥ 24 required for the workspace (bonds-eventing loads the ESM-only slonik through `require`, and `.npmrc` sets `engine-strict`); the published CLIs still declare ≥ 20.18.0. Program builds stay SBPF v0 (`ANCHOR_BUILD_SBF_ARCH=v0`, which bankrun needs), and the snapshot-parser crate builds rocksdb, so clang/libclang must be installed.
+Rust toolchain: `1.97.1` (see `rust-toolchain.toml`). Anchor: `1.2.1`, Solana: `3.1.12` (see `Anchor.toml`). Node ≥ 24 required for the workspace (bonds-eventing loads the ESM-only slonik through `require`, and `.npmrc` sets `engine-strict`); the published CLIs still declare ≥ 20.18.0. Program builds stay SBPF v0 (`ANCHOR_BUILD_SBF_ARCH=v0`; LiteSVM also runs v2, the pin stays until mainnet deployment of a newer arch is decided), and the snapshot-parser crate builds rocksdb, so clang/libclang must be installed.
 
 **Footgun:** consumer TS packages (e.g. `bonds-eventing`) fail `eslint` with cryptic `"Unsafe … of a value of type error"` diagnostics until the workspace SDK is built, because typescript-eslint falls back to `error` for unresolved `@marinade.finance/validator-bonds-sdk` imports. Run `pnpm --filter @marinade.finance/validator-bonds-sdk build` (or `pnpm -r build`) before `pnpm check` on a fresh checkout.
 
@@ -70,7 +74,9 @@ bun scripts/simulate-fee.ts -t <tag> <epoch|start-end> [max_fee_bps]...
 bun scripts/report-chart.ts <tag>.yml
 ```
 
-Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`).
+Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`). Exception: `scripts/mainnet-fixture.ts` runs on Node (`pnpm fixture:mainnet`, `pnpm check:mainnet-fixture`) so the LiteSVM fixture needs no Bun.
+
+`pnpm test:validator` does not use `anchor test`: suites leave stake on vote accounts of validators that never run, which get leader slots and stall a shared validator (32-slot epochs) or fail `getAnchorValidatorInfo`. `scripts/test-validator.sh` starts a fresh `solana-test-validator` per spec file from `Test.toml` and keeps the ledger at `.anchor/test-ledger` (tests read the validator identity there).
 
 ## Architecture
 

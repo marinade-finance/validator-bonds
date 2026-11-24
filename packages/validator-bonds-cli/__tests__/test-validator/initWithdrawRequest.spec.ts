@@ -7,7 +7,10 @@ import {
   minimalSizeStakeAccount,
   withdrawRequestAddress,
 } from '@marinade.finance/validator-bonds-sdk'
-import { initTest } from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
+import {
+  initTest,
+  getAnchorWalletPath,
+} from '@marinade.finance/validator-bonds-sdk/__tests__/utils/testValidator'
 import { createVoteAccount } from '@marinade.finance/validator-bonds-sdk/dist/__tests__/utils/staking'
 import {
   executeCancelWithdrawRequestInstruction,
@@ -91,6 +94,8 @@ describe('Init withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -149,6 +154,8 @@ describe('Init withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -182,6 +189,8 @@ describe('Init withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',
@@ -217,6 +226,8 @@ describe('Init withdraw request using CLI', () => {
       'pnpm',
       [
         'cli',
+        '--keypair',
+        getAnchorWalletPath(),
         '-u',
         provider.connection.rpcEndpoint,
         '--program-id',

@@ -36,3 +36,18 @@ export function initTest(commitment?: Commitment): {
   anchor.setProvider(provider)
   return { program: getProgram(provider), provider }
 }
+
+/**
+ * Path of the wallet keypair the provider is built from (`ANCHOR_WALLET`).
+ * Pass it as `--keypair` to the CLIs so they sign with the provider wallet
+ * instead of whatever ~/.config/solana/id.json holds on the machine.
+ */
+export function getAnchorWalletPath(): string {
+  const walletPath = process.env.ANCHOR_WALLET
+  if (!walletPath) {
+    throw new Error(
+      'ANCHOR_WALLET is not set, the test-validator suites need it',
+    )
+  }
+  return walletPath
+}
