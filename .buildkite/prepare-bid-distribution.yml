@@ -96,7 +96,7 @@ steps:
     - epoch=$(buildkite-agent meta-data get epoch)
     - |
       gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
-      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || echo "Previous validator data not available!"
+      gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "."
       gcloud storage cp "$gs_bucket/$$epoch/leader-schedule.json" "." || true
     artifact_paths:
       - "./validators.json"
@@ -189,14 +189,14 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_burned.json . || true'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/validators_inflation_vat.json .'
     - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
-    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json .'
     - 'chmod +x target/release/bid-distribution-cli'
     - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
-    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
     - |
       set -o pipefail
       exit_code=0
-      ./target/release/bid-distribution-cli $$leader_schedule_arg $$past_validators_arg \
+      ./target/release/bid-distribution-cli $$leader_schedule_arg \
+        --past-validator-meta-collection ./past-validators.json \
         --settlement-config settlement-config.yaml \
         --stake-meta-collection ./stakes.json \
         --sam-results-collection ./outputs/results.json \

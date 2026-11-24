@@ -74,7 +74,7 @@ steps:
     - gcloud storage cp "$gs_bucket/$$epoch/validators.json" "."
     - gcloud storage cp "$gs_bucket/$$epoch/bid-psr-distribution-evaluation.json" "./evaluation.json"
     - gcloud storage cp "$gs_bucket/$$epoch/leader-schedule.json" "." || true
-    - gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "." || true
+    - gcloud storage cp "$gs_bucket/$$epoch/past-validators.json" "."
     - mkdir -p ./rewards
     - |
       gcloud storage cp "$gs_bucket_etl/$$epoch/rewards_mev.json" ./rewards/mev.json
@@ -115,12 +115,12 @@ steps:
     - 'buildkite-agent artifact download --include-retried-jobs evaluation.json .'
     - 'buildkite-agent artifact download --include-retried-jobs rewards/*.json .'
     - 'buildkite-agent artifact download --include-retried-jobs leader-schedule.json . || true'
-    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json . || true'
+    - 'buildkite-agent artifact download --include-retried-jobs past-validators.json .'
     - 'chmod +x target/release/bid-distribution-cli'
     - 'leader_schedule_arg=$( [[ -f ./leader-schedule.json ]] && echo "--leader-schedule ./leader-schedule.json" || echo "" )'
-    - 'past_validators_arg=$( [[ -f ./past-validators.json ]] && echo "--past-validator-meta-collection ./past-validators.json" || echo "" )'
     - |
-      ./target/release/bid-distribution-cli $$leader_schedule_arg $$past_validators_arg \
+      ./target/release/bid-distribution-cli $$leader_schedule_arg \
+        --past-validator-meta-collection ./past-validators.json \
         --settlement-config settlement-config-direct-staking.yaml \
         --stake-meta-collection ./stakes.json \
         --rewards-dir ./rewards \
