@@ -172,8 +172,7 @@ mod proptests {
             let i = pick.index(t.nodes.len());
             let leaf = leaf_of(&t.nodes[i]);
             let flip = |mut h: [u8; 32]| { h[bit / 8] ^= 1 << (bit % 8); h };
-            let mut bad_root = t.root;
-            bad_root = flip(bad_root);
+            let bad_root = flip(t.root);
             prop_assert!(!verify(t.proofs[i].clone(), bad_root, leaf));
             if !t.proofs[i].is_empty() {
                 let mut p = t.proofs[i].clone();

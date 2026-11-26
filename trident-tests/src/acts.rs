@@ -1399,6 +1399,10 @@ impl World {
 
         // ---- success oracle
         if e.ok {
+            // Update the model first: an oracle that fires in a mutated run is swallowed, and the
+            // model must still follow the chain for the claims after it.
+            let already_claimed = !self.settlements[si].claimed.insert(a.index);
+            self.settlements[si].claimed_lamports += a.claim;
             let model_leaf = self.settlements[si].leaves.get(a.index as usize);
             let is_real_leaf = model_leaf
                 .map(|l| {
@@ -1417,7 +1421,7 @@ impl World {
             if !verify_proof(&a.proof, root, &args_leaf) {
                 self.flag("claim_invalid_proof_accepted", format!("variant={variant}"));
             }
-            if self.settlements[si].claimed.contains(&a.index) {
+            if already_claimed {
                 self.flag("double_claim", format!("leaf {} claimed twice", a.index));
             }
             if a.stake_account_withdrawer == MARINADE_WITHDRAW_AUTH
@@ -1510,9 +1514,6 @@ impl World {
                     st_pre.lamports_funded
                 );
             }
-            let s = &mut self.settlements[si];
-            s.claimed.insert(a.index);
-            s.claimed_lamports += a.claim;
         } else if variant == "valid" && ls.is_some() && ll.is_some() {
             // liveness: a fully valid claim must not be rejected
             if let Some(st) = st

@@ -165,11 +165,14 @@ impl FuzzTest {
     fn end(&mut self) {}
 }
 
+/// `default` when unset; a set value that is not a number fails the run rather than falling back.
 fn env_u64(name: &str, default: u64) -> u64 {
-    std::env::var(name)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(default)
+    match std::env::var(name) {
+        Ok(v) => v
+            .parse()
+            .unwrap_or_else(|_| panic!("{name}={v:?} is not a whole number")),
+        Err(_) => default,
+    }
 }
 
 fn main() {

@@ -217,7 +217,7 @@ mod proptests {
             if data.len() < STATE_MIN_LEN {
                 prop_assert!(res.is_err());
             } else {
-                let size = u32::from_le_bytes(data[182..186].try_into().unwrap()) as usize;
+                let size = u32::from_le_bytes(data[STATE_STAKE_LIST_ITEM_SIZE_OFFSET..STATE_STAKE_LIST_COUNT_OFFSET].try_into().unwrap()) as usize;
                 prop_assert_eq!(res.is_ok(), size >= PUBKEY_BYTES);
             }
         }

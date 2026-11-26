@@ -61,12 +61,14 @@ trap 'exit 143' TERM
 if [[ -n "${POSTGRES_URL:-${TEST_POSTGRES_URL:-}}" ]]; then
   ADMIN_URL="${POSTGRES_URL:-$TEST_POSTGRES_URL}"
   : "${PG_SSLROOTCERT:?set PG_SSLROOTCERT to the root certificate of the Postgres server}"
+  # psql (libpq) reads the root certificate from PGSSLROOTCERT
+  export PGSSLROOTCERT="$PG_SSLROOTCERT"
   SCRATCH_DB="api_fuzz_$$"
   psql "$ADMIN_URL" -qc "CREATE DATABASE \"$SCRATCH_DB\""
   # Swap the database name, keeping any query string.
   DB_URL="$(sed -E "s#^([^?]*/)[^/?]*(\?.*)?\$#\1${SCRATCH_DB}\2#" <<<"$ADMIN_URL")"
 else
-  PG_BIN="${PG_BIN:-$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)}"
+  PG_BIN="${PG_BIN:-$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1 || true)}"
   [[ -x "$PG_BIN/initdb" ]] || { echo "Postgres server binaries not found; set PG_BIN" >&2; exit 1; }
   # Postgres refuses to run as root.
   if [[ "$(id -u)" == 0 ]]; then RUN_AS=(runuser -u postgres --); fi

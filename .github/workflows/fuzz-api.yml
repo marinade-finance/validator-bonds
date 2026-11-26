@@ -6,12 +6,26 @@ on:
     paths:
       - 'api/**'
       - 'migrations/**'
+      # crates the API builds from
+      - 'common-rs/**'
+      - 'merkle-tree/**'
+      - 'programs/validator-bonds/**'
+      - 'settlement-distributions/settlement-common/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/fuzz-api.yml'
   pull_request:
     branches: [main]
     paths:
       - 'api/**'
       - 'migrations/**'
+      # crates the API builds from
+      - 'common-rs/**'
+      - 'merkle-tree/**'
+      - 'programs/validator-bonds/**'
+      - 'settlement-distributions/settlement-common/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/fuzz-api.yml'
   workflow_dispatch:
 

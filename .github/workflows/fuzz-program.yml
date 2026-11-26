@@ -22,6 +22,8 @@ env:
   CARGO_INCREMENTAL: 0
   CARGO_TERM_COLOR: always
   AGAVE_VERSION: v3.1.12
+  # sha256 of solana-release-x86_64-unknown-linux-gnu.tar.bz2 for AGAVE_VERSION
+  AGAVE_SHA256: 4d45dab6ccfe5321292ad6dc152f7ace71ccbddde5ecda0aaa3f92bbfe8ed803
 
 jobs:
   trident:
@@ -53,9 +55,12 @@ jobs:
 
       - name: 🛠️ Install the Agave toolchain
         run: |
+          curl -sSfL -o "$RUNNER_TEMP/agave.tar.bz2" \
+            "https://release.anza.xyz/${AGAVE_VERSION}/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          echo "${AGAVE_SHA256}  $RUNNER_TEMP/agave.tar.bz2" | sha256sum -c -
           mkdir -p "$HOME/.local/solana"
-          curl -sSfL "https://release.anza.xyz/${AGAVE_VERSION}/solana-release-x86_64-unknown-linux-gnu.tar.bz2" \
-            | tar -xj -C "$HOME/.local/solana" --strip-components=1
+          tar -xjf "$RUNNER_TEMP/agave.tar.bz2" -C "$HOME/.local/solana" --strip-components=1
+          rm "$RUNNER_TEMP/agave.tar.bz2"
           echo "$HOME/.local/solana/bin" >> "$GITHUB_PATH"
 
       - name: 🏗️ Build the program (SBPF v0)
