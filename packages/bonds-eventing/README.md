@@ -130,6 +130,13 @@ DB table and only emits events when something changes between runs.
 - Not emitted: after the auction of the epoch is published, for a kind already reported this epoch, or for a first-seen validator's first run
 - Note: PSR penalties (DowntimeRevenueImpact, CommissionSamIncrease) are computed by a separate pipeline and are NOT included.
 
+11. penalty_projected — Penalty the next epoch (`for_epoch` = epoch + 1) is projected to charge
+
+- When: a projected type appears, or a type projected earlier for the same `for_epoch` is gone (`projected_sol: 0`, resolved); tracked in `bond_event_state.projected_penalties`, amount changes alone emit nothing
+- `bond_risk_fee`, `bid_too_low`, `blacklist` (bidding only): once the auction of the epoch is published; the bond risk fee runs ds-sam `calcBondRiskFee` on the bond minus the pending bid settlement of the epoch
+- `vat_unadmitted` (bidding and institutional): all epoch, from the running-epoch VAT verdict of validators-api; rough estimate of one epoch of network inflation on the stake
+- Not emitted: for a group not evaluated this run (auction unpublished, validators-api down), whose stored entries are kept
+
 ### Events NOT auto-emitted
 
 1. announcement — For admin-posted messages (e.g., "maintenance window tomorrow")

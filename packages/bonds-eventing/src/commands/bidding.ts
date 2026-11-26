@@ -1,13 +1,33 @@
 import { getContext } from '@marinade.finance/ts-common'
+import { bondAddress } from '@marinade.finance/validator-bonds-sdk'
+import { PublicKey } from '@solana/web3.js'
 import { Option } from 'commander'
 
 import { addStoreOptions } from './options'
 import { logResolvedConfig, parseConfig } from '../config'
-import { evaluateDeltas, validatorToState } from '../evaluate-deltas'
+import {
+  configAddressForBondType,
+  evaluateDeltas,
+  finiteOr,
+  validatorToState,
+} from '../evaluate-deltas'
+import {
+  diffProjectedPenalties,
+  evaluateProjectedDeltas,
+  projectSamPenalties,
+  projectVatPenalty,
+} from '../penalty-projections'
 import { runEventingPipeline } from '../pipeline'
 import { runAuction } from '../run-auction'
 import { saveAuctionMeta } from '../state'
+import { fetchVatForecast } from '../vat-forecast'
 
+import type { AuctionMeta } from '../calc-relay'
+import type { Projection } from '../penalty-projections'
+import type { BondsEventV1, ValidatorState } from '../types'
+import type { VatForecast } from '../vat-forecast'
+import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type { Command } from 'commander'
 
 export function installBidding(program: Command) {
@@ -43,6 +63,12 @@ async function manageBidding(opts: Record<string, unknown>) {
   logResolvedConfig(logger, config)
 
   const { validators, epoch, meta } = await runAuction(config, logger)
+  const vat = await fetchVatForecast(config.validatorsApiUrl).catch(
+    (err: unknown) => {
+      logger.error({ err }, 'VAT forecast unavailable, VAT projections kept')
+      return null
+    },
+  )
 
   await runEventingPipeline({
     bondType,
@@ -51,8 +77,44 @@ async function manageBidding(opts: Record<string, unknown>) {
     validators,
     epoch,
     voteAccountOf: v => v.voteAccount,
-    evaluate: (vals, previousState, ep) =>
-      evaluateDeltas(
+    ...biddingHandlers(meta, vat, logger),
+    saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
+  })
+}
+
+export function biddingHandlers(
+  meta: AuctionMeta,
+  vat: VatForecast | null,
+  logger: LoggerWrapper,
+): {
+  evaluate: (
+    validators: AuctionValidator[],
+    previousState: Map<string, ValidatorState>,
+    epoch: number,
+  ) => BondsEventV1[]
+  toState: (
+    v: AuctionValidator,
+    epoch: number,
+    prev: ValidatorState | undefined,
+  ) => ValidatorState
+} {
+  const bondType = 'bidding'
+  const configAddress = configAddressForBondType(bondType)
+  const projectionOf = (v: AuctionValidator, epoch: number): Projection => ({
+    sam: projectSamPenalties(v, epoch, meta),
+    vat: vat
+      ? projectVatPenalty(
+          vat,
+          v.voteAccount,
+          finiteOr(v.marinadeActivatedStakeSol, 0),
+          bondType,
+          epoch,
+        )
+      : null,
+  })
+  return {
+    evaluate: (vals, previousState, ep) => [
+      ...evaluateDeltas(
         vals,
         previousState,
         ep,
@@ -61,7 +123,28 @@ async function manageBidding(opts: Record<string, unknown>) {
         // Mirrors the offset ds-sam-sdk subtracts when it computes bondGoodForNEpochs.
         1 + meta.minBondEpochs,
       ),
-    toState: (v, ep, prev) => validatorToState(v, ep, bondType, prev),
-    saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
-  })
+      ...evaluateProjectedDeltas(
+        vals,
+        previousState,
+        ep,
+        bondType,
+        v => v.voteAccount,
+        v =>
+          bondAddress(
+            configAddress,
+            new PublicKey(v.voteAccount),
+          )[0].toBase58(),
+        v => projectionOf(v, ep),
+      ),
+    ],
+    toState: (v, ep, prev) => ({
+      ...validatorToState(v, ep, bondType, prev),
+      projected_penalties: diffProjectedPenalties(
+        prev?.projected_penalties,
+        projectionOf(v, ep),
+        ep + 1,
+        v.voteAccount,
+      ).next,
+    }),
+  }
 }
