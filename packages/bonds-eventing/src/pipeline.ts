@@ -27,7 +27,11 @@ export async function runEventingPipeline<V>(opts: {
     previousState: Map<string, ValidatorState>,
     epoch: number,
   ) => BondsEventV1[]
-  toState: (v: V, epoch: number) => ValidatorState
+  toState: (
+    v: V,
+    epoch: number,
+    prev: ValidatorState | undefined,
+  ) => ValidatorState
   saveMeta?: (tx: CommonQueryMethods) => Promise<void>
 }): Promise<void> {
   const { bondType, config, logger, validators, epoch } = opts
@@ -63,7 +67,9 @@ export async function runEventingPipeline<V>(opts: {
       return
     }
 
-    const states = validators.map(v => opts.toState(v, epoch))
+    const states = validators.map(v =>
+      opts.toState(v, epoch, previousState.get(opts.voteAccountOf(v))),
+    )
     await pool.transaction(async tx => {
       if (states.length > 0) {
         await saveCurrentState(tx, states, logger)

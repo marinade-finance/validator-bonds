@@ -53,6 +53,8 @@ function makePrevState(
     settlement_claims_lamports: 0n,
     sam_eligible: false,
     updated_at: '2025-01-01T00:00:00.000Z',
+    projected_penalties: null,
+    expected_penalties: null,
     ...overrides,
   }
 }

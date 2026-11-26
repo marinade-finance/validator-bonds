@@ -8,7 +8,12 @@ import {
 import { jsonSafe } from './calc-relay'
 
 import type { AuctionMeta } from './calc-relay'
-import type { BondType, ValidatorState } from './types'
+import type {
+  BondType,
+  ExpectedPenaltiesState,
+  ProjectedPenaltiesState,
+  ValidatorState,
+} from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
 export async function loadPreviousState(
@@ -32,7 +37,9 @@ export async function loadPreviousState(
       deficit_lamports,
       settlement_claims_lamports,
       sam_eligible,
-      updated_at
+      updated_at,
+      projected_penalties,
+      expected_penalties
     FROM bond_event_state
     WHERE bond_type = ${bondType}
   `)
@@ -53,6 +60,8 @@ export async function loadPreviousState(
     settlement_claims_lamports: string | null
     sam_eligible: boolean
     updated_at: string
+    projected_penalties: ProjectedPenaltiesState | null
+    expected_penalties: ExpectedPenaltiesState | null
   }
 
   const stateMap = new Map<string, ValidatorState>()
@@ -76,6 +85,8 @@ export async function loadPreviousState(
           : BigInt(row.settlement_claims_lamports),
       sam_eligible: row.sam_eligible,
       updated_at: String(row.updated_at),
+      projected_penalties: row.projected_penalties,
+      expected_penalties: row.expected_penalties,
     }
     stateMap.set(state.vote_account, state)
   }
@@ -113,6 +124,8 @@ export async function saveCurrentState(
       ${state.settlement_claims_lamports?.toString() ?? null},
       ${state.sam_eligible},
       ${sql.jsonb((state.auction_validator ?? null) as SerializableValue)},
+      ${sql.jsonb(state.projected_penalties as unknown as SerializableValue)},
+      ${sql.jsonb(state.expected_penalties as unknown as SerializableValue)},
       NOW()
     )`,
   )
@@ -124,7 +137,8 @@ export async function saveCurrentState(
       cap_marinade_stake_sol,
       funded_amount_lamports, effective_amount_lamports,
       auction_stake_lamports, deficit_lamports, settlement_claims_lamports,
-      sam_eligible, auction_validator, updated_at
+      sam_eligible, auction_validator, projected_penalties,
+      expected_penalties, updated_at
     ) VALUES
       ${sql.join(valueTuples, sql.fragment`, `)}
     ON CONFLICT (vote_account, bond_type) DO UPDATE SET
@@ -141,6 +155,8 @@ export async function saveCurrentState(
       settlement_claims_lamports = EXCLUDED.settlement_claims_lamports,
       sam_eligible = EXCLUDED.sam_eligible,
       auction_validator = EXCLUDED.auction_validator,
+      projected_penalties = EXCLUDED.projected_penalties,
+      expected_penalties = EXCLUDED.expected_penalties,
       updated_at = NOW()
   `)
 

@@ -15,9 +15,27 @@ export type {
   AnnouncementDetails,
   VersionBumpDetails,
 } from '@marinade.finance/notifications-bonds-event-v1'
-import type { BondsEventV1 } from '@marinade.finance/notifications-bonds-event-v1'
+import type {
+  BondsEventV1,
+  PenaltyProjectedDetails,
+} from '@marinade.finance/notifications-bonds-event-v1'
 
 export type BondType = BondsEventV1['bond_type']
+
+export type PenaltyType = PenaltyProjectedDetails['penalty_type']
+
+export interface ProjectedPenaltiesState {
+  for_epoch: number
+  types: Partial<Record<PenaltyType, { projected_sol: number }>>
+}
+
+export type ExpectedPenaltyKind =
+  'bid_too_low' | 'blacklist' | 'bond_risk_fee' | 'activating_stake_fee'
+
+export interface ExpectedPenaltiesState {
+  epoch: number
+  kinds: ExpectedPenaltyKind[]
+}
 
 export interface InstitutionalValidatorData {
   voteAccount: string
@@ -45,6 +63,8 @@ export interface ValidatorState {
   settlement_claims_lamports: bigint | null
   sam_eligible: boolean
   updated_at: string
+  projected_penalties: ProjectedPenaltiesState | null
+  expected_penalties: ExpectedPenaltiesState | null
   // Calc blob relayed to the CLI; set only on save (validatorToState), not loaded
   // back — it is not part of the delta comparison.
   auction_validator?: Record<string, unknown>

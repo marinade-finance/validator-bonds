@@ -194,5 +194,7 @@ export function institutionalValidatorToState(
     settlement_claims_lamports: v.settlementClaimsLamports,
     sam_eligible: false,
     updated_at: new Date().toISOString(),
+    projected_penalties: null,
+    expected_penalties: null,
   }
 }

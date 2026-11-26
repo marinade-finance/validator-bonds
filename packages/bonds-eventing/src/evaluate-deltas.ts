@@ -781,6 +781,8 @@ export function validatorToState(
     settlement_claims_lamports: null,
     sam_eligible: v.samEligible,
     updated_at: new Date().toISOString(),
+    projected_penalties: null,
+    expected_penalties: null,
     auction_validator: toCalcValidator(v),
   }
 }

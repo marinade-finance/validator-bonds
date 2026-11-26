@@ -299,6 +299,8 @@ describeDb('outbox DB', () => {
         settlement_claims_lamports: null,
         sam_eligible: false,
         updated_at: new Date().toISOString(),
+        projected_penalties: null,
+        expected_penalties: null,
       }
     }
 
@@ -309,6 +311,11 @@ describeDb('outbox DB', () => {
       opts: {
         config?: Partial<EventingConfig>
         saveMeta?: (tx: Parameters<typeof saveAuctionMeta>[0]) => Promise<void>
+        toState?: (
+          v: TestValidator,
+          epoch: number,
+          prev: ValidatorState | undefined,
+        ) => ValidatorState
       } = {},
     ) {
       return runEventingPipeline({
@@ -319,7 +326,7 @@ describeDb('outbox DB', () => {
         epoch,
         voteAccountOf: v => v.voteAccount,
         evaluate: () => events,
-        toState,
+        toState: opts.toState ?? toState,
         saveMeta:
           opts.saveMeta ??
           (tx =>
@@ -381,6 +388,50 @@ describeDb('outbox DB', () => {
           ['voteB', 'pending'],
         ],
       })
+    })
+
+    it('hands toState the stored state, penalty columns included', async () => {
+      const projected = {
+        for_epoch: 901,
+        types: { bond_risk_fee: { projected_sol: 5.19 } },
+      }
+      const expected = { epoch: 900, kinds: ['bid_too_low' as const] }
+      await run([{ voteAccount: 'voteA' }, { voteAccount: 'voteB' }], 900, [], {
+        toState: (v, epoch) => ({
+          ...toState(v, epoch),
+          ...(v.voteAccount === 'voteA'
+            ? { projected_penalties: projected, expected_penalties: expected }
+            : {}),
+        }),
+      })
+
+      const prevs = new Map<string, ValidatorState | undefined>()
+      await run(
+        [
+          { voteAccount: 'voteA' },
+          { voteAccount: 'voteB' },
+          { voteAccount: 'voteC' },
+        ],
+        901,
+        [],
+        {
+          toState: (v, epoch, prev) => {
+            prevs.set(v.voteAccount, prev)
+            return toState(v, epoch)
+          },
+        },
+      )
+
+      expect(prevs.get('voteA')).toMatchObject({
+        epoch: 900,
+        projected_penalties: projected,
+        expected_penalties: expected,
+      })
+      expect(prevs.get('voteB')).toMatchObject({
+        projected_penalties: null,
+        expected_penalties: null,
+      })
+      expect(prevs.get('voteC')).toBeUndefined()
     })
 
     it('rolls back every write when the meta save fails', async () => {
