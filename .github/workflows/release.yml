@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     container:
-      image: ochaloup/solana-test-validator:solana_4.3.2-anchor_1.2.1
+      image: ochaloup/solana-test-validator:solana_4.3.2-anchor_1.2.1@sha256:249d9f1ae58743314a656275ef7f01422ff8350ca6224791d752610833afc20f
       options: --user root
 
     steps:
