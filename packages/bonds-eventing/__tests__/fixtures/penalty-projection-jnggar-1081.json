@@ -1,0 +1,100 @@
+{
+  "source": "ds-sam-pipeline auctions/1082.35233, validator record and config; the bond is restored to 54.71650183 SOL, the balance the eventing saw in epoch 1081 before the 1081 bid settlement was debited",
+  "preDrainBondSol": 54.71650183,
+  "actualDrainSol": 5.6521692,
+  "actualFeeSol": 5.189347947,
+  "winningTotalPmpe": 0.1644171746717045,
+  "config": {
+    "bondRiskFeeMult": 0.2,
+    "minBondBalanceSol": 7,
+    "noBondBalanceSol": 1.00228288,
+    "minBondEpochs": 4,
+    "idealBondEpochs": 12,
+    "bidTooLowPenaltyHistoryEpochs": 3,
+    "bidTooLowPenaltyPermittedDeviationPmpe": 0.01
+  },
+  "validator": {
+    "voteAccount": "JnGGar3XbAN6J3cKGRbNajCuhqnc9XWrk6WWr6hDmuM",
+    "bondBalanceSol": 49.06433263,
+    "claimableBondBalanceSol": 49.06433263,
+    "lastBondBalanceSol": 55.303196775,
+    "marinadeActivatedStakeSol": 228031.539141769,
+    "unprotectedStakeSol": 23174.448961968475,
+    "minBondPmpe": 0.23262816671573575,
+    "idealBondPmpe": 0.3814297539861857,
+    "minUnprotectedReserve": 1.7241973948294709,
+    "idealUnprotectedReserve": 5.172592184488413,
+    "bondForcedUndelegation": {
+      "base": 89785.46824466114,
+      "coef": 0.5689450732318613,
+      "value": 157810.43279738713,
+      "feePmpe": 0.1644171746717045
+    },
+    "revShare": {
+      "totalPmpe": 0.2096271756717045,
+      "inflationPmpe": 0.13701675356431475,
+      "mevPmpe": 0.0026104211073897433,
+      "bidPmpe": 0.070000001,
+      "blockPmpe": 0,
+      "onchainDistributedPmpe": 0.1396271746717045,
+      "bondObligationPmpe": 0.070000001,
+      "auctionEffectiveStaticBidPmpe": 0.02479,
+      "auctionEffectiveBidPmpe": 0.024790000000000006,
+      "activatingStakePmpe": 0,
+      "bidTooLowPenaltyPmpe": 0,
+      "effParticipatingBidPmpe": 0.024790000000000006,
+      "expectedMaxEffBidPmpe": 0.01860019840880625,
+      "blacklistPenaltyPmpe": 0
+    },
+    "auctionStake": {
+      "externalActivatedSol": 103747.63954283402,
+      "marinadeSamTargetSol": 226675.75279599076
+    },
+    "values": {
+      "paidUndelegationSol": 31562.086559477426,
+      "bondRiskFeeSol": 5.189349098853056
+    },
+    "auctions": [
+      {
+        "epoch": 1081,
+        "winningTotalPmpe": 0.16450782972029362,
+        "auctionEffectiveBidPmpe": 0.02479999999999999,
+        "activatingStakePmpe": 0,
+        "bidPmpe": 0.070000001,
+        "totalPmpe": 0.20970783072029364,
+        "bondObligationPmpe": 0.070000001,
+        "effParticipatingBidPmpe": 0.02479999999999999
+      },
+      {
+        "epoch": 1080,
+        "winningTotalPmpe": 0.16432805154471353,
+        "auctionEffectiveBidPmpe": 0.0245169160621605,
+        "activatingStakePmpe": 0,
+        "bidPmpe": 0.070000001,
+        "totalPmpe": 0.20981113648255303,
+        "bondObligationPmpe": 0.070000001,
+        "effParticipatingBidPmpe": 0.0245169160621605
+      },
+      {
+        "epoch": 1079,
+        "winningTotalPmpe": 0.16456933581371272,
+        "auctionEffectiveBidPmpe": 0.024749999999999994,
+        "activatingStakePmpe": 0,
+        "bidPmpe": 0.070000001,
+        "totalPmpe": 0.20981933681371273,
+        "bondObligationPmpe": 0.070000001,
+        "effParticipatingBidPmpe": 0.024749999999999994
+      },
+      {
+        "epoch": 1078,
+        "winningTotalPmpe": 0.2242747226632884,
+        "auctionEffectiveBidPmpe": 0.070000001,
+        "activatingStakePmpe": 0,
+        "bidPmpe": 0.070000001,
+        "totalPmpe": 0.209760610940261,
+        "bondObligationPmpe": 0.070000001,
+        "effParticipatingBidPmpe": 0.08451411272302742
+      }
+    ]
+  }
+}

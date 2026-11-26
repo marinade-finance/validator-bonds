@@ -45,7 +45,10 @@ export function solToLamports(sol: number | null | undefined): bigint {
  * leaks into an event payload makes slonik's `sql.jsonb` throw
  * `JSON payload cannot be stringified.` (safe-stable-stringify strict mode).
  */
-function finiteOr(value: number | null | undefined, fallback: number): number {
+export function finiteOr(
+  value: number | null | undefined,
+  fallback: number,
+): number {
   return value == null || !isFinite(value) ? fallback : value
 }
 
