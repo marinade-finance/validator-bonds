@@ -72,14 +72,12 @@ async function cargoRun(
 
 // stake program 0x10 (EpochRewardsActive) rejects stake changes while an epoch pays out rewards
 function onlyEpochRewardsActiveFailures(stderr: string): boolean {
-  const failures = [
-    ...stderr.matchAll(
-      /: failed in \S+: (.*) \(source: transaction_execution\)/g,
-    ),
-  ]
+  const failures = stderr.match(/^.*\(source: transaction_execution\)/gm) ?? []
   return (
     failures.length > 0 &&
-    failures.every(f => f[1]?.endsWith('custom program error: 0x10'))
+    failures.every(f =>
+      /: failed(?: in \S+)?: .*custom program error: 0x10\b/.test(f),
+    )
   )
 }
 
@@ -659,6 +657,7 @@ describeEnabled('Cargo CLI: Pipeline Settlement', () => {
     console.log(
       `Landed ${landedClaims} claims in ${claimsPerTx.length} transactions, at most ${Math.max(...claimsPerTx)} in one`,
     )
+    expect(claimsPerTx.length).toBeGreaterThan(0)
     expect(landedClaims).toBeGreaterThanOrEqual(4 * claimsPerTx.length)
 
     // fund is now run before claiming normally, simulating this situation here
