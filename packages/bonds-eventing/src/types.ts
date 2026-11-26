@@ -11,6 +11,7 @@ export type {
   SamEligibleChangeDetails,
   SettlementAppliedDetails,
   PenaltyExpectedDetails,
+  PenaltyProjectedDetails,
   AnnouncementDetails,
   VersionBumpDetails,
 } from '@marinade.finance/notifications-bonds-event-v1'
