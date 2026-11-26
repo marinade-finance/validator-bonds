@@ -822,7 +822,7 @@ impl World {
                             e.ok,
                             e.code,
                             e.err,
-                            format!("collector={collector} lamports={} owner={} len={} signer={signer} wr_lamports={}", e.pre.lamports(&collector), e.pre.get(&collector).owner(), e.pre.get(&collector).data().len(), e.pre.lamports(&wr_addr))
+                            format_args!("collector={collector} lamports={} owner={} len={} signer={signer} wr_lamports={}", e.pre.lamports(&collector), e.pre.get(&collector).owner(), e.pre.get(&collector).data().len(), e.pre.lamports(&wr_addr))
                         ),
                     );
                 }
