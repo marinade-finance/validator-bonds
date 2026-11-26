@@ -102,13 +102,8 @@ async fn real_main(
         &args.execution_opts,
         &args.tip_policy_opts,
     )?;
-    let run_config = RunConfig {
-        limits: Limits {
-            max_instructions: MAX_UPSIZES_PER_TRANSACTION,
-            ..run_config.limits
-        },
-        ..run_config
-    };
+    let init_run_config = with_max_instructions(&run_config, MAX_INIT_INSTRUCTIONS_PER_TRANSACTION);
+    let upsize_run_config = with_max_instructions(&run_config, MAX_UPSIZES_PER_TRANSACTION);
 
     let rent_payer = if let Some(rent_payer) = args.rent_payer.clone() {
         load_keypair("--rent-payer", &rent_payer)?
@@ -168,7 +163,7 @@ async fn real_main(
         fee_payer.clone(),
         operator_authority.clone(),
         rent_payer.clone(),
-        &run_config,
+        &init_run_config,
         reporting,
     )
     .await?;
@@ -180,7 +175,7 @@ async fn real_main(
         &settlement_records,
         fee_payer.clone(),
         rent_payer.clone(),
-        &run_config,
+        &upsize_run_config,
         reporting,
     )
     .await?;
@@ -215,9 +210,20 @@ async fn load_on_chain_data(
     }
 }
 
-// proven bounds of the instruction trace: init + 30 upsizes, or 32 upsizes alone
-const MAX_UPSIZES_WITH_INIT: usize = 30;
+// the 64-entry instruction trace takes 4 per init and 2 per upsize (batchedInstructions.spec.ts)
+const MAX_INIT_INSTRUCTIONS_PER_TRANSACTION: usize = 16;
+const MAX_UPSIZES_WITH_INIT: usize = MAX_INIT_INSTRUCTIONS_PER_TRANSACTION - 1;
 const MAX_UPSIZES_PER_TRANSACTION: usize = 32;
+
+fn with_max_instructions(run_config: &RunConfig, max_instructions: usize) -> RunConfig {
+    RunConfig {
+        limits: Limits {
+            max_instructions,
+            ..run_config.limits
+        },
+        ..run_config.clone()
+    }
+}
 
 fn upsizes_after_init(max_merkle_nodes: u64) -> usize {
     let size = account_size(max_merkle_nodes);
@@ -786,6 +792,7 @@ impl ReportSerializable for InitSettlementReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_transaction_builder::{pack, Batch, MessageVersion};
     use validator_bonds::constants::SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE;
 
     fn max_merkle_nodes_of_size(size: usize) -> u64 {
@@ -793,13 +800,13 @@ mod tests {
     }
 
     #[test]
-    fn up_to_thirty_upsizes_go_with_the_init_and_the_rest_is_left() {
+    fn up_to_fifteen_upsizes_go_with_the_init_and_the_rest_is_left() {
         assert_eq!(MAX_PERMITTED_DATA_INCREASE, 10_240);
         let cases = [
             (10_240, 0, 0),
             (10_241, 1, 0),
-            (30 * 10_240 + 10_240, 30, 0),
-            (30 * 10_240 + 10_241, 30, 1),
+            (15 * 10_240 + 10_240, 15, 0),
+            (15 * 10_240 + 10_241, 15, 1),
         ];
         for (size, with_init, left) in cases {
             let nodes = max_merkle_nodes_of_size(size);
@@ -807,6 +814,106 @@ mod tests {
             let needed = upsizes_after_init(nodes);
             let in_init = needed.min(MAX_UPSIZES_WITH_INIT);
             assert_eq!((in_init, needed - in_init), (with_init, left), "{size}");
+        }
+    }
+
+    fn init_group(payer: &Pubkey, upsizes: usize) -> Group {
+        use anchor_client::anchor_lang::{InstructionData, ToAccountMetas};
+        let settlement = Pubkey::new_unique();
+        let settlement_claims = find_settlement_claims_address(&settlement).0;
+        let init = Instruction {
+            program_id: validator_bonds_id,
+            accounts: validator_bonds::accounts::InitSettlement {
+                config: Pubkey::new_from_array([1; 32]),
+                bond: Pubkey::new_unique(),
+                operator_authority: Pubkey::new_from_array([2; 32]),
+                system_program: system_program::ID,
+                rent_payer: *payer,
+                program: validator_bonds_id,
+                settlement,
+                settlement_claims,
+                event_authority: find_event_authority().0,
+            }
+            .to_account_metas(None),
+            data: validator_bonds::instruction::InitSettlement {
+                init_settlement_args: InitSettlementArgs {
+                    merkle_root: [1; 32],
+                    rent_collector: *payer,
+                    max_total_claim: 1,
+                    max_merkle_nodes: 1,
+                    epoch: 1,
+                },
+            }
+            .data(),
+        };
+        let upsize = Instruction {
+            program_id: validator_bonds_id,
+            accounts: validator_bonds::accounts::UpsizeSettlementClaims {
+                settlement_claims,
+                system_program: system_program::ID,
+                rent_payer: *payer,
+            }
+            .to_account_metas(None),
+            data: validator_bonds::instruction::UpsizeSettlementClaims {}.data(),
+        };
+        let mut instructions = vec![init];
+        instructions.extend(std::iter::repeat_n(upsize, upsizes));
+        group(format!("init {settlement}"), instructions).unwrap()
+    }
+
+    fn trace_entries(batch: &Batch) -> usize {
+        use anchor_client::anchor_lang::Discriminator;
+        batch
+            .instructions
+            .iter()
+            .map(|ix| {
+                if ix
+                    .data
+                    .starts_with(validator_bonds::instruction::InitSettlement::DISCRIMINATOR)
+                {
+                    4
+                } else {
+                    2
+                }
+            })
+            .sum()
+    }
+
+    fn pack_inits(payer: &Pubkey, groups: &[Group]) -> Vec<Batch> {
+        let config = with_max_instructions(
+            &RunConfig::new(MessageVersion::V1),
+            MAX_INIT_INSTRUCTIONS_PER_TRANSACTION,
+        );
+        let (batches, errors) = pack(payer, groups, MessageVersion::V1, &config.limits);
+        assert_eq!(errors, vec![]);
+        batches
+    }
+
+    #[test]
+    fn sixteen_inits_share_a_transaction_within_the_instruction_trace() {
+        let payer = Pubkey::new_unique();
+        let groups: Vec<Group> = (0..40).map(|_| init_group(&payer, 0)).collect();
+        let batches = pack_inits(&payer, &groups);
+        assert_eq!(
+            batches
+                .iter()
+                .map(|b| b.group_ids.len())
+                .collect::<Vec<_>>(),
+            vec![16, 16, 8]
+        );
+        assert!(batches.iter().all(|b| trace_entries(b) <= 64));
+    }
+
+    #[test]
+    fn inits_with_upsizes_stay_within_the_instruction_trace() {
+        let payer = Pubkey::new_unique();
+        let groups: Vec<Group> = (0..40)
+            .map(|i| init_group(&payer, [MAX_UPSIZES_WITH_INIT, 0, 1, 7][i % 4]))
+            .collect();
+        let batches = pack_inits(&payer, &groups);
+        assert!(batches.iter().any(|b| b.group_ids.len() > 1));
+        for batch in &batches {
+            assert!(trace_entries(batch) <= 64, "{:?}", batch.group_ids);
         }
     }
 }

@@ -68,6 +68,7 @@ const tenKilobytes = 10 * 1024
 const maxMerkleNodesAccountCount =
   10 * 1024 * 1024 * 8 - 8 * SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE
 const MAX_UPSIZES_AFTER_INIT = 30
+const MAX_UPSIZES_AFTER_TWO_INITS = 28
 const MAX_UPSIZES_ALONE = 32
 const MAX_UPSIZES_BEFORE_CLAIM = 17
 const MAX_CLAIMS_PER_LEGACY_TX = 2
@@ -312,6 +313,56 @@ describe('Validator Bonds instructions batched in one transaction', () => {
     await provider.sendIx([], ...upsizes(MAX_UPSIZES_ALONE))
     expect(await claimsAccountSize(settlementClaimsAccount)).toEqual(
       (MAX_UPSIZES_AFTER_INIT + 1 + MAX_UPSIZES_ALONE) * tenKilobytes,
+    )
+  })
+
+  it('init two settlements and upsize claims in one tx: an init takes four trace entries', async () => {
+    const epoch = await currentEpoch(provider)
+    const inits = []
+    for (const fill of [8, 9]) {
+      inits.push(
+        await initSettlementInstruction({
+          program,
+          configAccount,
+          operatorAuthority,
+          voteAccount,
+          merkleRoot: Buffer.alloc(32, fill),
+          maxMerkleNodes: maxMerkleNodesAccountCount,
+          maxTotalClaim: 42,
+          epoch,
+        }),
+      )
+    }
+    const [first, second] = inits
+    assert(first && second)
+    const { instruction: upsizeIx } = await upsizeSettlementClaims({
+      program,
+      settlementClaimsAccount: first.settlementClaimsAccount,
+    })
+    const ixes = (upsizes: number) => [
+      first.instruction,
+      second.instruction,
+      ...Array.from({ length: upsizes }, () => upsizeIx),
+    ]
+    const signers = [operatorAuthority]
+
+    expect(
+      txSize(
+        [operatorAuthority.publicKey],
+        ...ixes(MAX_UPSIZES_AFTER_TWO_INITS + 1),
+      ),
+    ).toBeLessThanOrEqual(PACKET_DATA_SIZE)
+    await expect(
+      provider.sendIx(signers, ...ixes(MAX_UPSIZES_AFTER_TWO_INITS + 1)),
+    ).rejects.toThrow(
+      `index: ${MAX_UPSIZES_AFTER_TWO_INITS + 2}, error: MaxInstructionTraceLengthExceeded`,
+    )
+    await provider.sendIx(signers, ...ixes(MAX_UPSIZES_AFTER_TWO_INITS))
+    expect(await claimsAccountSize(first.settlementClaimsAccount)).toEqual(
+      (MAX_UPSIZES_AFTER_TWO_INITS + 1) * tenKilobytes,
+    )
+    expect(await claimsAccountSize(second.settlementClaimsAccount)).toEqual(
+      tenKilobytes,
     )
   })
 
