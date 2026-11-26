@@ -1,5 +1,6 @@
 import pino from 'pino'
 
+import { institutionalHandlers } from '../src/commands/institutional'
 import {
   computeFlatDeficit,
   evaluateInstitutionalDeltas,
@@ -333,5 +334,49 @@ describe('institutionalValidatorToState', () => {
     expect(state.deficit_lamports).toBe(5_000_000_000n)
     expect(state.settlement_claims_lamports).toBe(0n)
     expect(state.auction_validator).toBeUndefined()
+  })
+})
+
+describe('institutionalHandlers', () => {
+  it('projects only the VAT charge of the running epoch, never a SAM type or penalty_expected', () => {
+    const { evaluate, toState } = institutionalHandlers(
+      {
+        epoch: 994,
+        inflationPmpe: 0.15,
+        minVoteBalanceSol: 0.82,
+        byVoteAccount: new Map([
+          [TEST_VOTE_ACCOUNT, { eligible: false, reason: 'low_balance' }],
+        ]),
+      },
+      logger,
+    )
+    const previousState = new Map([[TEST_VOTE_ACCOUNT, makePrevState()]])
+    const events = evaluate([makeValidator()], previousState, 993)
+
+    const projected = events.filter(e => e.inner_type === 'penalty_projected')
+    expect(projected).toHaveLength(1)
+    expect(projected[0]).toMatchObject({
+      bond_type: 'institutional',
+      bond_pubkey: TEST_BOND_PUBKEY,
+      data: {
+        details: {
+          penalty_type: 'vat_unadmitted',
+          for_epoch: 995,
+          stake_sol: 30000,
+        },
+      },
+    })
+    // 0.15 per 1000 SOL on 30k SOL of institutional stake
+    expect(
+      (projected[0]!.data.details as { projected_sol: number }).projected_sol,
+    ).toBeCloseTo(4.5, 9)
+    expect(events.map(e => e.inner_type)).not.toContain('penalty_expected')
+
+    const state = toState(makeValidator(), 993, makePrevState())
+    expect(state.projected_penalties).toEqual({
+      for_epoch: 995,
+      types: { vat_unadmitted: { projected_sol: expect.any(Number) } },
+    })
+    expect(state.expected_penalties).toBeNull()
   })
 })

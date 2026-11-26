@@ -127,6 +127,7 @@ export function biddingHandlers(
         vals,
         previousState,
         ep,
+        ep + 1,
         bondType,
         v => v.voteAccount,
         v =>

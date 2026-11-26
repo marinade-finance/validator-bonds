@@ -346,6 +346,16 @@ describe('diffProjectedPenalties', () => {
     })
   })
 
+  it('nothing evaluated keeps the stored state, whatever the for_epoch', () => {
+    const prev = {
+      for_epoch: 1097,
+      types: { vat_unadmitted: { projected_sol: 3 } },
+    }
+    expect(
+      diffProjectedPenalties(prev, { sam: null, vat: null }, 1098, 'vote1'),
+    ).toEqual({ emit: [], next: prev })
+  })
+
   it('two new types in one run emit two projections', () => {
     const { emit } = diffProjectedPenalties(
       null,
@@ -370,6 +380,7 @@ describe('evaluateProjectedDeltas', () => {
       [{ vote: 'vote1' }],
       previousState,
       1097,
+      1098,
       'bidding',
       v => v.vote,
       () => 'bond1',

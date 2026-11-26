@@ -18,7 +18,7 @@ One subcommand per bond product:
   empty list (evaluating against empty data would delist every tracked validator).
 
 Institutional runs emit only `first_seen`, `bond_underfunded_change`, `bond_balance_change`,
-`settlement_applied` and `validator_delisted`; the auction events (`auction_entered`,
+`settlement_applied`, `validator_delisted` and the VAT `penalty_projected`; the auction events (`auction_entered`,
 `auction_exited`, `cap_changed`, `sam_eligible_change`, `penalty_expected`) never fire.
 Coverage epochs (`bond_good_for_n_epochs`) stay null — the flat rule has no per-epoch burn —
 and the underfunded events carry `deficit_sol`/`required_sol` instead. Institutional

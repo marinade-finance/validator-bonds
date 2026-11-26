@@ -257,6 +257,9 @@ export function diffProjectedPenalties(
   forEpoch: number,
   voteAccount: string,
 ): { emit: ProjectedPenalty[]; next: ProjectedPenaltiesState | null } {
+  if (current.sam === null && current.vat === null) {
+    return { emit: [], next: prev ?? null }
+  }
   const previous = prev?.for_epoch === forEpoch ? prev.types : {}
   const types: ProjectedPenaltiesState['types'] = { ...previous }
   const emit: ProjectedPenalty[] = []
@@ -286,6 +289,7 @@ export function evaluateProjectedDeltas<V>(
   validators: V[],
   previousState: Map<string, ValidatorState>,
   epoch: number,
+  forEpoch: number,
   bondType: BondType,
   voteAccountOf: (v: V) => string,
   bondPubkeyOf: (v: V) => string,
@@ -296,7 +300,7 @@ export function evaluateProjectedDeltas<V>(
     return diffProjectedPenalties(
       previousState.get(voteAccount)?.projected_penalties,
       projectionOf(v),
-      epoch + 1,
+      forEpoch,
       voteAccount,
     ).emit.map(p =>
       makeBaseEvent(
