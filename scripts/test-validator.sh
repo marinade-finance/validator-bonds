@@ -18,7 +18,8 @@
 #   FILE=path/to/spec.ts scripts/test-validator.sh
 # The program must be built first (target/deploy/validator_bonds.so), e.g. `pnpm anchor:build`.
 # Env: ANCHOR_WALLET (default ~/.config/solana/id.json), RPC_PORT (default 8899),
-#      VALIDATOR_START_TIMEOUT seconds (default 60), LOG_DIR (default .anchor/test-validator-logs).
+#      VALIDATOR_START_TIMEOUT seconds (default 60), LOG_DIR (default .anchor/test-validator-logs),
+#      where each failed spec file keeps <name>.jest.log and <name>.validator.log.
 
 set -euo pipefail
 
@@ -145,8 +146,9 @@ for spec in "${SPECS[@]}"; do
     stop_validator
     continue
   fi
-  if ANCHOR_PROVIDER_URL="$RPC_URL" ANCHOR_WALLET="$WALLET" FILE="$spec" pnpm _test; then
-    :
+  if ANCHOR_PROVIDER_URL="$RPC_URL" ANCHOR_WALLET="$WALLET" FILE="$spec" pnpm _test 2>&1 |
+    tee "$LOG_DIR/$log_name.jest.log"; then
+    rm -f "$LOG_DIR/$log_name.jest.log"
   else
     FAILED+=("$spec")
     cp "$LEDGER_DIR/validator.log" "$LOG_DIR/$log_name.validator.log" 2> /dev/null || true
@@ -158,6 +160,6 @@ echo
 echo "=== ${#SPECS[@]} spec files in $(($(date +%s) - START_ALL))s, ${#FAILED[@]} failed"
 if [[ ${#FAILED[@]} -gt 0 ]]; then
   printf '  FAILED: %s\n' "${FAILED[@]}"
-  echo "  validator logs of failed files: $LOG_DIR"
+  echo "  jest output and validator logs of failed files: $LOG_DIR"
   exit 1
 fi
