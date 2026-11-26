@@ -1,5 +1,5 @@
-/* eslint-disable jest/no-disabled-tests */
 import assert from 'assert'
+import { spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -55,6 +55,40 @@ function readReport(filePath: string): string {
   return fs.readFileSync(filePath, 'utf-8')
 }
 
+async function cargoRun(
+  args: string[],
+): Promise<{ code: number | null; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('cargo', ['run', '--bin', ...args])
+    let stderr = ''
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString()
+    })
+    child.stdout.resume()
+    child.on('error', reject)
+    child.on('close', code => resolve({ code, stderr }))
+  })
+}
+
+// stake program 0x10 (EpochRewardsActive) rejects stake changes while an epoch pays out rewards
+function onlyEpochRewardsActiveFailures(stderr: string): boolean {
+  const failures = [
+    ...stderr.matchAll(
+      /: failed in \S+: (.*) \(source: transaction_execution\)/g,
+    ),
+  ]
+  return (
+    failures.length > 0 &&
+    failures.every(f => f[1]?.endsWith('custom program error: 0x10'))
+  )
+}
+
+function landedClaimsPerTransaction(stderr: string): number[] {
+  return [...stderr.matchAll(/Batch \[(.*)\] landed as/g)]
+    .map(m => (m[1]?.match(/"claim /g) ?? []).length)
+    .filter(claims => claims > 0)
+}
+
 // 4Kak81y61aAcSYnGyVZAsA1kzypesF4bV5azqEoGZnsX
 const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
   new Uint8Array([
@@ -73,12 +107,12 @@ const VOTE_ACCOUNT_IDENTITY = Keypair.fromSecretKey(
 //   ])
 // )
 
-// NOTE: This test case is skipped by default as it takes a long time to run
-//       The tests uses a real data from epoch 601 and needs to setup all parts and create 10K settlements
-//       Activate and run this manually when needed.
-//       FILE='settlement-pipelines/__tests__/test-validator/pipelineSettlement.spec.ts' pnpm test:validator
+// slow (12397 claims): RUN_PIPELINE_SETTLEMENT=1 FILE=<this spec> pnpm test:validator
+const describeEnabled = process.env.RUN_PIPELINE_SETTLEMENT
+  ? describe
+  : describe.skip
 
-describe.skip('Cargo CLI: Pipeline Settlement', () => {
+describeEnabled('Cargo CLI: Pipeline Settlement', () => {
   let provider: AnchorExtendedProvider
   let program: ValidatorBondsProgram
 
@@ -248,9 +282,10 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // waiting for get data finalized on-chain
     await waitForNextEpoch(provider.connection, 15)
 
+    // all inits but the one created above land in one transaction
     const stdErrExecutionResult = RegExp(
-      settlementAddresses.length -
-        1 +
+      'InitSettlement \\[[^\\]]*\\]: txes 1/ixes ' +
+        (settlementAddresses.length - 1) +
         ' executed successfully(.|\n|\r)*' +
         'Upsize Settlement Claims.*0 executed successfully',
     )
@@ -310,7 +345,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99, // code 99 => Warning, test did not prepare all stake accounts
-      stderr: /no stake account available/,
+      stderr: /available stake 0 SOLs does not exceed the minimum stake size/,
     })
     expect(readReport(fundReportFile1)).toMatch(/funded 0.10 settlements/)
 
@@ -368,7 +403,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stderr: /no stake account available/,
+      stderr: /available stake 0 SOLs does not exceed the minimum stake size/,
     })
     expect(readReport(fundReportFile2)).toMatch(/funded 0.10 settlements/)
 
@@ -399,7 +434,7 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
       ],
     ]).toHaveMatchingSpawnOutput({
       code: 99,
-      stderr: /no stake account available/,
+      stderr: /available stake 0 SOLs does not exceed the minimum stake size/,
     })
     expect(readReport(fundReportFile3)).toMatch(/funded 0.10 settlements/)
 
@@ -454,35 +489,38 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // activating stake accounts
     await waitForNextEpoch(provider.connection, 15)
 
+    const fundArgs = (reportFile: string) => [
+      'fund-settlement',
+      '--',
+      '--operator-authority',
+      operatorAuthorityPath,
+      '--config',
+      configAccount.toBase58(),
+      '--rpc-url',
+      provider.connection.rpcEndpoint,
+      '-f',
+      merkleTreeCollectionPath,
+      '--epoch',
+      currentEpoch.toString(),
+      '--fee-payer',
+      feePayerBase64,
+      '--report-file',
+      reportFile,
+    ]
     const fundReportFile4 = nextReportFile(merkleTreesDir)
-    await expect([
-      'cargo',
-      [
-        'run',
-        '--bin',
-        'fund-settlement',
-        '--',
-        '--operator-authority',
-        operatorAuthorityPath,
-        '--config',
-        configAccount.toBase58(),
-        '--rpc-url',
-        provider.connection.rpcEndpoint,
-        '-f',
-        merkleTreeCollectionPath,
-        '--epoch',
-        currentEpoch.toString(),
-        '--fee-payer',
-        feePayerBase64,
-        '--report-file',
-        fundReportFile4,
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      stderr:
-        // expecting that at least one settlement will be funded with 2 stake accounts
-        /will be funded with 2 stake accounts with 2.4 SOLs/,
-    })
+    let fund = await cargoRun(fundArgs(fundReportFile4))
+    // at least one settlement is funded from 2 stake accounts
+    expect(fund.stderr).toMatch(
+      /Available 2 stake accounts \(\S+\) with 2.4 SOLs/,
+    )
     expect(readReport(fundReportFile4)).toMatch(/funded 9.10 settlements/)
+    // ~12 funds in sequence span an epoch boundary of the 32-slot test epochs
+    for (let retry = 0; fund.code === 100 && retry < 3; retry++) {
+      expect(onlyEpochRewardsActiveFailures(fund.stderr)).toBe(true)
+      fund = await cargoRun(fundArgs(nextReportFile(merkleTreesDir)))
+    }
+    // warnings only: settlements that cannot be fully funded
+    expect(fund.code).toEqual(99)
     // we expected there is 10 settlements (per logs above)
     expect(settlementAddresses.length).toEqual(10)
 
@@ -597,31 +635,31 @@ describe.skip('Cargo CLI: Pipeline Settlement', () => {
     // (single stake accounts have less than amount_to_fund + minimal_stake),
     // so many claims fail with InsufficientFunds after the funded stake runs out
     const claimReportFile1 = nextReportFile(merkleTreesDir)
-    await expect([
-      'cargo',
-      [
-        'run',
-        '--bin',
-        'claim-settlement',
-        '--',
-        '--config',
-        configAccount.toBase58(),
-        '--rpc-url',
-        provider.connection.rpcEndpoint,
-        '-f',
-        merkleTreeCollectionPath,
-        '--epoch',
-        currentEpoch.toString(),
-        '--fee-payer',
-        feePayerBase64,
-        '--report-file',
-        claimReportFile1,
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 100,
-      stderr: /custom program error/,
-    })
+    const claim = await cargoRun([
+      'claim-settlement',
+      '--',
+      '--config',
+      configAccount.toBase58(),
+      '--rpc-url',
+      provider.connection.rpcEndpoint,
+      '-f',
+      merkleTreeCollectionPath,
+      '--epoch',
+      currentEpoch.toString(),
+      '--fee-payer',
+      feePayerBase64,
+      '--report-file',
+      claimReportFile1,
+    ])
+    expect(claim.code).toEqual(100)
+    expect(claim.stderr).toMatch(/custom program error/)
     expect(readReport(claimReportFile1)).toMatch(/claimed \d+.\d+ merkle nodes/)
+    const claimsPerTx = landedClaimsPerTransaction(claim.stderr)
+    const landedClaims = claimsPerTx.reduce((a, b) => a + b, 0)
+    console.log(
+      `Landed ${landedClaims} claims in ${claimsPerTx.length} transactions, at most ${Math.max(...claimsPerTx)} in one`,
+    )
+    expect(landedClaims).toBeGreaterThanOrEqual(4 * claimsPerTx.length)
 
     // fund is now run before claiming normally, simulating this situation here
     console.log('Rerunning when partially funded...')
