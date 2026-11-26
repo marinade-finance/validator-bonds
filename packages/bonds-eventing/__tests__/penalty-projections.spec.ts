@@ -1,9 +1,17 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-import { projectSamPenalties } from '../src/penalty-projections'
+import {
+  diffProjectedPenalties,
+  evaluateProjectedDeltas,
+  projectSamPenalties,
+  projectVatPenalty,
+} from '../src/penalty-projections'
 
 import type { AuctionMeta } from '../src/calc-relay'
+import type { ProjectedPenalty, Projection } from '../src/penalty-projections'
+import type { PenaltyType, ValidatorState } from '../src/types'
+import type { VatForecast } from '../src/vat-forecast'
 import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 
 const fixture = JSON.parse(
@@ -141,5 +149,247 @@ describe('projectSamPenalties', () => {
     const before = structuredClone(v)
     projectSamPenalties(v, EPOCH, meta)
     expect(v).toEqual(before)
+  })
+})
+
+function vatForecast(
+  eligible: boolean | null,
+  reason: string | null,
+  epoch = 1097,
+): VatForecast {
+  return {
+    epoch,
+    inflationPmpe: 0.15,
+    minVoteBalanceSol: 0.8197612,
+    byVoteAccount: new Map([['vote1', { eligible, reason }]]),
+  }
+}
+
+describe('projectVatPenalty', () => {
+  it('projects one epoch of inflation on the stake when VAT fails', () => {
+    const projected = projectVatPenalty(
+      vatForecast(false, 'low_balance'),
+      'vote1',
+      20000,
+      'bidding',
+      1097,
+    )!
+    expect(projected).toHaveLength(1)
+    expect(projected[0]!.projectedSol).toBeCloseTo(3, 9)
+    expect(projected[0]!.details).toMatchObject({
+      penalty_type: 'vat_unadmitted',
+      for_epoch: 1098,
+      vat_rejection_reason: 'low_balance',
+      inflation_pmpe: 0.15,
+      stake_sol: 20000,
+    })
+    expect(projected[0]!.message).toContain('~3 SOL')
+    expect(projected[0]!.message).toContain('at least 0.8198 SOL')
+    expect(projected[0]!.message).toContain('leaves SAM')
+  })
+
+  it('the institutional message names the action without SAM', () => {
+    const projected = projectVatPenalty(
+      vatForecast(false, 'no_bls_key'),
+      'vote1',
+      20000,
+      'institutional',
+      1097,
+    )!
+    expect(projected[0]!.message).toContain('Register a BLS key')
+    expect(projected[0]!.message).not.toContain('SAM')
+  })
+
+  it('an eligible or unknown verdict projects nothing', () => {
+    for (const eligible of [true, null]) {
+      expect(
+        projectVatPenalty(
+          vatForecast(eligible, null),
+          'vote1',
+          20000,
+          'bidding',
+          1097,
+        ),
+      ).toEqual([])
+    }
+  })
+
+  it('is not evaluated for another epoch or a missing vote account', () => {
+    const forecast = vatForecast(false, 'low_balance', 1096)
+    expect(
+      projectVatPenalty(forecast, 'vote1', 20000, 'bidding', 1097),
+    ).toBeNull()
+    expect(
+      projectVatPenalty(
+        vatForecast(false, 'low_balance'),
+        'other',
+        1,
+        'bidding',
+        1097,
+      ),
+    ).toBeNull()
+  })
+})
+
+function penalty(
+  penaltyType: PenaltyType,
+  projectedSol: number,
+): ProjectedPenalty {
+  return {
+    penaltyType,
+    projectedSol,
+    message: `${penaltyType} ${projectedSol}`,
+    details: {
+      penalty_type: penaltyType,
+      for_epoch: 1098,
+      projected_sol: projectedSol,
+    },
+  }
+}
+
+describe('diffProjectedPenalties', () => {
+  const none: Projection = { sam: [], vat: [] }
+
+  it('emits a type that appears', () => {
+    const { emit, next } = diffProjectedPenalties(
+      null,
+      { sam: [penalty('bond_risk_fee', 5)], vat: [] },
+      1098,
+      'vote1',
+    )
+    expect(emit.map(p => p.penaltyType)).toEqual(['bond_risk_fee'])
+    expect(next).toEqual({
+      for_epoch: 1098,
+      types: { bond_risk_fee: { projected_sol: 5 } },
+    })
+  })
+
+  it('a grown amount of a known type emits nothing and refreshes the state', () => {
+    const { emit, next } = diffProjectedPenalties(
+      { for_epoch: 1098, types: { bond_risk_fee: { projected_sol: 5 } } },
+      { sam: [penalty('bond_risk_fee', 50)], vat: [] },
+      1098,
+      'vote1',
+    )
+    expect(emit).toEqual([])
+    expect(next!.types.bond_risk_fee).toEqual({ projected_sol: 50 })
+  })
+
+  it('a type that disappears emits one resolved projection', () => {
+    const { emit, next } = diffProjectedPenalties(
+      { for_epoch: 1098, types: { bid_too_low: { projected_sol: 25 } } },
+      none,
+      1098,
+      'vote1',
+    )
+    expect(emit).toHaveLength(1)
+    expect(emit[0]!.details).toEqual({
+      penalty_type: 'bid_too_low',
+      for_epoch: 1098,
+      projected_sol: 0,
+    })
+    expect(next).toBeNull()
+  })
+
+  it('a type that reappears after it resolved emits again', () => {
+    const { emit } = diffProjectedPenalties(
+      null,
+      { sam: [penalty('bid_too_low', 25)], vat: [] },
+      1098,
+      'vote1',
+    )
+    expect(emit).toHaveLength(1)
+  })
+
+  it('a new for_epoch announces the type again and resolves nothing of the old one', () => {
+    const { emit } = diffProjectedPenalties(
+      { for_epoch: 1097, types: { blacklist: { projected_sol: 8 } } },
+      { sam: [penalty('blacklist', 8)], vat: [] },
+      1098,
+      'vote1',
+    )
+    expect(emit.map(p => p.details.projected_sol)).toEqual([8])
+  })
+
+  it('a group that was not evaluated keeps its entries and emits nothing', () => {
+    const prev = {
+      for_epoch: 1098,
+      types: {
+        bond_risk_fee: { projected_sol: 5 },
+        vat_unadmitted: { projected_sol: 3 },
+      },
+    }
+    expect(
+      diffProjectedPenalties(prev, { sam: null, vat: [] }, 1098, 'vote1'),
+    ).toEqual({
+      emit: [
+        expect.objectContaining({
+          projectedSol: 0,
+          penaltyType: 'vat_unadmitted',
+        }),
+      ],
+      next: { for_epoch: 1098, types: { bond_risk_fee: { projected_sol: 5 } } },
+    })
+    expect(
+      diffProjectedPenalties(prev, { sam: [], vat: null }, 1098, 'vote1'),
+    ).toEqual({
+      emit: [
+        expect.objectContaining({
+          projectedSol: 0,
+          penaltyType: 'bond_risk_fee',
+        }),
+      ],
+      next: {
+        for_epoch: 1098,
+        types: { vat_unadmitted: { projected_sol: 3 } },
+      },
+    })
+  })
+
+  it('two new types in one run emit two projections', () => {
+    const { emit } = diffProjectedPenalties(
+      null,
+      {
+        sam: [penalty('bid_too_low', 25)],
+        vat: [penalty('vat_unadmitted', 3)],
+      },
+      1098,
+      'vote1',
+    )
+    expect(emit.map(p => p.penaltyType)).toEqual([
+      'bid_too_low',
+      'vat_unadmitted',
+    ])
+  })
+})
+
+describe('evaluateProjectedDeltas', () => {
+  it('maps the emitted projections to penalty_projected events', () => {
+    const previousState = new Map<string, ValidatorState>()
+    const events = evaluateProjectedDeltas(
+      [{ vote: 'vote1' }],
+      previousState,
+      1097,
+      'bidding',
+      v => v.vote,
+      () => 'bond1',
+      () => ({ sam: [penalty('bond_risk_fee', 5)], vat: [] }),
+    )
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      inner_type: 'penalty_projected',
+      vote_account: 'vote1',
+      bond_pubkey: 'bond1',
+      bond_type: 'bidding',
+      epoch: 1097,
+      data: {
+        message: 'bond_risk_fee 5',
+        details: {
+          penalty_type: 'bond_risk_fee',
+          for_epoch: 1098,
+          projected_sol: 5,
+        },
+      },
+    })
   })
 })

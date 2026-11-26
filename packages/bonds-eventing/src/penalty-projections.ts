@@ -10,10 +10,19 @@ import {
   finiteOr,
   fmtSol,
   isAuctionPublished,
+  makeBaseEvent,
 } from './evaluate-deltas'
 
 import type { AuctionMeta } from './calc-relay'
-import type { PenaltyProjectedDetails, PenaltyType } from './types'
+import type {
+  BondType,
+  BondsEventV1,
+  PenaltyProjectedDetails,
+  PenaltyType,
+  ProjectedPenaltiesState,
+  ValidatorState,
+} from './types'
+import type { VatForecast } from './vat-forecast'
 
 export interface ProjectedPenalty {
   penaltyType: PenaltyType
@@ -154,4 +163,151 @@ export function projectSamPenalties(
     projectPmpePenalty(v, 'bid_too_low', forEpoch),
     projectPmpePenalty(v, 'blacklist', forEpoch),
   ].filter((p): p is ProjectedPenalty => p !== null)
+}
+
+const VAT_ACTIONS: Record<
+  string,
+  (minVoteBalanceSol: number | null) => string
+> = {
+  low_balance: min =>
+    min === null
+      ? 'Top up the vote account.'
+      : `Top up the vote account to at least ${fmtSol(min)} SOL.`,
+  no_bls_key: () => 'Register a BLS key for the vote account.',
+  no_stake: () => 'The vote account has no stake.',
+  below_cutoff: () => 'The vote account stake is below the VAT cutoff.',
+}
+
+/**
+ * Projects the VAT-refusal charge of the next epoch from the running-epoch verdict.
+ * Returns null when the forecast is for another epoch or misses the vote account.
+ */
+export function projectVatPenalty(
+  vat: VatForecast,
+  voteAccount: string,
+  stakeSol: number,
+  bondType: BondType,
+  epoch: number,
+): ProjectedPenalty[] | null {
+  const verdict = vat.byVoteAccount.get(voteAccount)
+  if (vat.epoch !== epoch || verdict === undefined) return null
+  const projectedSol = pmpeToSol(vat.inflationPmpe, stakeSol).toNumber()
+  if (verdict.eligible !== false || projectedSol <= DUST_SOL_THRESHOLD) {
+    return []
+  }
+  const forEpoch = epoch + 1
+  const action =
+    verdict.reason === null
+      ? ''
+      : ` ${VAT_ACTIONS[verdict.reason]?.(vat.minVoteBalanceSol) ?? `Reason: ${verdict.reason}.`}`
+  const samExit =
+    bondType === 'bidding' ? ' A refused validator also leaves SAM.' : ''
+  return [
+    {
+      penaltyType: 'vat_unadmitted',
+      projectedSol,
+      message:
+        `Validator ${voteAccount} fails the VAT admission check and is projected to owe ` +
+        `~${fmtSol(projectedSol)} SOL of stakers' inflation from the bond if refused at the ` +
+        `epoch ${forEpoch} boundary.${action}${samExit}`,
+      details: {
+        penalty_type: 'vat_unadmitted',
+        for_epoch: forEpoch,
+        projected_sol: projectedSol,
+        stake_sol: stakeSol,
+        vat_rejection_reason: verdict.reason,
+        inflation_pmpe: vat.inflationPmpe,
+      },
+    },
+  ]
+}
+
+export interface Projection {
+  sam: ProjectedPenalty[] | null
+  vat: ProjectedPenalty[] | null
+}
+
+const SAM_TYPES: PenaltyType[] = ['bond_risk_fee', 'bid_too_low', 'blacklist']
+const VAT_TYPES: PenaltyType[] = ['vat_unadmitted']
+
+function resolvedPenalty(
+  penaltyType: PenaltyType,
+  forEpoch: number,
+  voteAccount: string,
+): ProjectedPenalty {
+  return {
+    penaltyType,
+    projectedSol: 0,
+    message: `Validator ${voteAccount} is no longer projected to pay the ${penaltyType.replaceAll('_', ' ')} charge of epoch ${forEpoch}.`,
+    details: {
+      penalty_type: penaltyType,
+      for_epoch: forEpoch,
+      projected_sol: 0,
+    },
+  }
+}
+
+/**
+ * Decides which projections to announce: a type that appears, or one that disappears
+ * within the same for_epoch (resolved). A group that was not evaluated keeps its entries.
+ */
+export function diffProjectedPenalties(
+  prev: ProjectedPenaltiesState | null | undefined,
+  current: Projection,
+  forEpoch: number,
+  voteAccount: string,
+): { emit: ProjectedPenalty[]; next: ProjectedPenaltiesState | null } {
+  const previous = prev?.for_epoch === forEpoch ? prev.types : {}
+  const types: ProjectedPenaltiesState['types'] = { ...previous }
+  const emit: ProjectedPenalty[] = []
+  for (const [group, groupTypes] of [
+    [current.sam, SAM_TYPES],
+    [current.vat, VAT_TYPES],
+  ] as const) {
+    if (group === null) continue
+    for (const type of groupTypes) {
+      const projection = group.find(p => p.penaltyType === type)
+      if (projection) {
+        if (previous[type] === undefined) emit.push(projection)
+        types[type] = { projected_sol: projection.projectedSol }
+      } else if (previous[type] !== undefined) {
+        emit.push(resolvedPenalty(type, forEpoch, voteAccount))
+        delete types[type]
+      }
+    }
+  }
+  return {
+    emit,
+    next: Object.keys(types).length > 0 ? { for_epoch: forEpoch, types } : null,
+  }
+}
+
+export function evaluateProjectedDeltas<V>(
+  validators: V[],
+  previousState: Map<string, ValidatorState>,
+  epoch: number,
+  bondType: BondType,
+  voteAccountOf: (v: V) => string,
+  bondPubkeyOf: (v: V) => string,
+  projectionOf: (v: V) => Projection,
+): BondsEventV1[] {
+  return validators.flatMap(v => {
+    const voteAccount = voteAccountOf(v)
+    return diffProjectedPenalties(
+      previousState.get(voteAccount)?.projected_penalties,
+      projectionOf(v),
+      epoch + 1,
+      voteAccount,
+    ).emit.map(p =>
+      makeBaseEvent(
+        'penalty_projected',
+        voteAccount,
+        bondPubkeyOf(v),
+        epoch,
+        bondType,
+        p.message,
+        p.details,
+      ),
+    )
+  })
 }
