@@ -15,13 +15,7 @@ import type {
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type { CommonQueryMethods, DatabasePool } from 'slonik'
 
-export async function runEventingPipeline<V>(opts: {
-  bondType: BondType
-  config: EventingConfig
-  logger: LoggerWrapper
-  validators: V[]
-  epoch: number
-  voteAccountOf: (v: V) => string
+export interface PipelineHandlers<V> {
   evaluate: (
     validators: V[],
     previousState: Map<string, ValidatorState>,
@@ -32,8 +26,19 @@ export async function runEventingPipeline<V>(opts: {
     epoch: number,
     prev: ValidatorState | undefined,
   ) => ValidatorState
-  saveMeta?: (tx: CommonQueryMethods) => Promise<void>
-}): Promise<void> {
+}
+
+export async function runEventingPipeline<V>(
+  opts: PipelineHandlers<V> & {
+    bondType: BondType
+    config: EventingConfig
+    logger: LoggerWrapper
+    validators: V[]
+    epoch: number
+    voteAccountOf: (v: V) => string
+    saveMeta?: (tx: CommonQueryMethods) => Promise<void>
+  },
+): Promise<void> {
   const { bondType, config, logger, validators, epoch } = opts
 
   let previousState = new Map<string, ValidatorState>()

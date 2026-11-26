@@ -2,6 +2,8 @@ import { calculatePmpe, lamportsToSol } from '@marinade.finance/ts-common'
 
 import { fetchJson } from './fetch-json'
 
+import type { LoggerWrapper } from '@marinade.finance/ts-common'
+
 interface ValidatorsResponse {
   validators: {
     vote_account: string
@@ -81,5 +83,18 @@ export async function fetchVatForecast(
         },
       ]),
     ),
+  }
+}
+
+/** {@link fetchVatForecast} that logs a failure and returns null, keeping stored projections. */
+export async function fetchVatForecastOrNull(
+  validatorsApiUrl: string,
+  logger: LoggerWrapper,
+): Promise<VatForecast | null> {
+  try {
+    return await fetchVatForecast(validatorsApiUrl)
+  } catch (err) {
+    logger.error({ err }, 'VAT forecast unavailable, VAT projections kept')
+    return null
   }
 }

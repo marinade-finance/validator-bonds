@@ -45,7 +45,7 @@ function jnggar(overrides: Record<string, unknown> = {}): AuctionValidator {
 }
 
 function withDrainPmpe(v: AuctionValidator, pmpe: number): AuctionValidator {
-  v.auctions[0]!.effParticipatingBidPmpe = pmpe
+  v.auctions[0]!.auctionEffectiveBidPmpe = pmpe
   return v
 }
 
@@ -109,6 +109,21 @@ describe('projectSamPenalties', () => {
     expect(bondRiskFee(withDrainPmpe(jnggar(), shortPmpe))).toBeUndefined()
     const crossingPmpe = ((drain - topUp + 0.01) * 1000) / stake
     expect(bondRiskFee(withDrainPmpe(jnggar(), crossingPmpe))).toBeDefined()
+  })
+
+  it('a validator that lost the auction drains its own bid, not the participation threshold', () => {
+    const loser = withDrainPmpe(jnggar(), 0.005)
+    expect(loser.auctions[0]!.effParticipatingBidPmpe).toBeGreaterThan(0.02)
+    expect(bondRiskFee(loser)).toBeUndefined()
+  })
+
+  it('a bond the drain empties is still projected, as the auction gates on the prior balance', () => {
+    const projection = bondRiskFee(
+      jnggar({ bondBalanceSol: 6, claimableBondBalanceSol: 6 }),
+    )
+    expect(projection).toBeDefined()
+    expect(projection!.details.pending_drain_sol).toBeGreaterThan(5)
+    expect(projection!.projectedSol).toBeGreaterThan(0)
   })
 
   it('projects bid-too-low and blacklist from the live penalty PMPE', () => {
@@ -200,18 +215,28 @@ describe('projectVatPenalty', () => {
     expect(projected[0]!.message).not.toContain('SAM')
   })
 
-  it('an eligible or unknown verdict projects nothing', () => {
-    for (const eligible of [true, null]) {
-      expect(
-        projectVatPenalty(
-          vatForecast(eligible, null),
-          'vote1',
-          20000,
-          'bidding',
-          1097,
-        ),
-      ).toEqual([])
-    }
+  it('an eligible verdict projects nothing', () => {
+    expect(
+      projectVatPenalty(
+        vatForecast(true, null),
+        'vote1',
+        20000,
+        'bidding',
+        1097,
+      ),
+    ).toEqual([])
+  })
+
+  it('an unknown verdict is not evaluated, so a stored projection is kept', () => {
+    expect(
+      projectVatPenalty(
+        vatForecast(null, null),
+        'vote1',
+        20000,
+        'bidding',
+        1097,
+      ),
+    ).toBeNull()
   })
 
   it('is not evaluated for another epoch or a missing vote account', () => {

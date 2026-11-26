@@ -40,16 +40,17 @@ function projectBondRiskFee(
   const stakeSol = finiteOr(v.marinadeActivatedStakeSol, 0)
   // The epoch-N bid settlement is debited at the start of N+1, before the N+1 auction snapshot.
   const pendingDrainSol = pmpeToSol(
-    finiteOr(v.auctions[0]?.effParticipatingBidPmpe, 0),
+    finiteOr(v.auctions[0]?.auctionEffectiveBidPmpe, 0),
     stakeSol,
   ).toNumber()
+  // The next auction gates on its lastBondBalanceSol, the balance before this drain.
+  if (finiteOr(v.bondBalanceSol, 0) <= meta.noBondBalanceSol) return null
   const claimableSol = Math.max(0, v.claimableBondBalanceSol - pendingDrainSol)
   const bondBalanceSol = Math.max(
     0,
     finiteOr(v.bondBalanceSol, 0) - pendingDrainSol,
   )
-  if (bondBalanceSol <= meta.noBondBalanceSol) return null
-  // The live run already added this auction's own undelegation; the next one starts from the carried part.
+  // The live run added its own undelegation; the next auction starts from the carried part.
   const carriedUndelegationSol = computeBondCoverage(
     v,
     meta,
@@ -180,7 +181,7 @@ const VAT_ACTIONS: Record<
 
 /**
  * Projects the VAT-refusal charge of the next epoch from the running-epoch verdict.
- * Returns null when the forecast is for another epoch or misses the vote account.
+ * Returns null when the forecast is for another epoch, misses the vote account or has no verdict.
  */
 export function projectVatPenalty(
   vat: VatForecast,
@@ -190,9 +191,15 @@ export function projectVatPenalty(
   epoch: number,
 ): ProjectedPenalty[] | null {
   const verdict = vat.byVoteAccount.get(voteAccount)
-  if (vat.epoch !== epoch || verdict === undefined) return null
+  if (
+    vat.epoch !== epoch ||
+    verdict === undefined ||
+    verdict.eligible === null
+  ) {
+    return null
+  }
   const projectedSol = pmpeToSol(vat.inflationPmpe, stakeSol).toNumber()
-  if (verdict.eligible !== false || projectedSol <= DUST_SOL_THRESHOLD) {
+  if (verdict.eligible || projectedSol <= DUST_SOL_THRESHOLD) {
     return []
   }
   const forEpoch = epoch + 1

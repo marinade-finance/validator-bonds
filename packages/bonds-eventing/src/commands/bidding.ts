@@ -17,14 +17,13 @@ import {
   projectSamPenalties,
   projectVatPenalty,
 } from '../penalty-projections'
-import { runEventingPipeline } from '../pipeline'
+import { runEventingPipeline, type PipelineHandlers } from '../pipeline'
 import { runAuction } from '../run-auction'
 import { saveAuctionMeta } from '../state'
-import { fetchVatForecast } from '../vat-forecast'
+import { fetchVatForecastOrNull } from '../vat-forecast'
 
 import type { AuctionMeta } from '../calc-relay'
 import type { Projection } from '../penalty-projections'
-import type { BondsEventV1, ValidatorState } from '../types'
 import type { VatForecast } from '../vat-forecast'
 import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
@@ -63,12 +62,7 @@ async function manageBidding(opts: Record<string, unknown>) {
   logResolvedConfig(logger, config)
 
   const { validators, epoch, meta } = await runAuction(config, logger)
-  const vat = await fetchVatForecast(config.validatorsApiUrl).catch(
-    (err: unknown) => {
-      logger.error({ err }, 'VAT forecast unavailable, VAT projections kept')
-      return null
-    },
-  )
+  const vat = await fetchVatForecastOrNull(config.validatorsApiUrl, logger)
 
   await runEventingPipeline({
     bondType,
@@ -86,18 +80,7 @@ export function biddingHandlers(
   meta: AuctionMeta,
   vat: VatForecast | null,
   logger: LoggerWrapper,
-): {
-  evaluate: (
-    validators: AuctionValidator[],
-    previousState: Map<string, ValidatorState>,
-    epoch: number,
-  ) => BondsEventV1[]
-  toState: (
-    v: AuctionValidator,
-    epoch: number,
-    prev: ValidatorState | undefined,
-  ) => ValidatorState
-} {
+): PipelineHandlers<AuctionValidator> {
   const bondType = 'bidding'
   const configAddress = configAddressForBondType(bondType)
   const projectionOf = (v: AuctionValidator, epoch: number): Projection => ({

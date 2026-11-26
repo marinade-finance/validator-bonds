@@ -12,16 +12,12 @@ import {
   evaluateProjectedDeltas,
   projectVatPenalty,
 } from '../penalty-projections'
-import { runEventingPipeline } from '../pipeline'
+import { runEventingPipeline, type PipelineHandlers } from '../pipeline'
 import { runInstitutional } from '../run-institutional'
-import { fetchVatForecast } from '../vat-forecast'
+import { fetchVatForecastOrNull } from '../vat-forecast'
 
 import type { Projection } from '../penalty-projections'
-import type {
-  BondsEventV1,
-  InstitutionalValidatorData,
-  ValidatorState,
-} from '../types'
+import type { InstitutionalValidatorData } from '../types'
 import type { VatForecast } from '../vat-forecast'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 import type { Command } from 'commander'
@@ -51,12 +47,7 @@ async function manageInstitutional(opts: Record<string, unknown>) {
   logResolvedConfig(logger, config)
 
   const { validators, epoch } = await runInstitutional(config, logger)
-  const vat = await fetchVatForecast(config.validatorsApiUrl).catch(
-    (err: unknown) => {
-      logger.error({ err }, 'VAT forecast unavailable, VAT projections kept')
-      return null
-    },
-  )
+  const vat = await fetchVatForecastOrNull(config.validatorsApiUrl, logger)
 
   await runEventingPipeline({
     bondType,
@@ -72,18 +63,7 @@ async function manageInstitutional(opts: Record<string, unknown>) {
 export function institutionalHandlers(
   vat: VatForecast | null,
   logger: LoggerWrapper,
-): {
-  evaluate: (
-    validators: InstitutionalValidatorData[],
-    previousState: Map<string, ValidatorState>,
-    epoch: number,
-  ) => BondsEventV1[]
-  toState: (
-    v: InstitutionalValidatorData,
-    epoch: number,
-    prev: ValidatorState | undefined,
-  ) => ValidatorState
-} {
+): PipelineHandlers<InstitutionalValidatorData> {
   // The institutional API reports the last closed epoch; the VAT verdict is of the running one.
   const projectionOf = (v: InstitutionalValidatorData): Projection => ({
     sam: null,
