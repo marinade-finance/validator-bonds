@@ -176,6 +176,42 @@ describeDb('outbox DB', () => {
       ])
     })
 
+    it('scopes supersession of penalty_projected by penalty_type', async () => {
+      async function projected(penaltyType: string) {
+        await insertPendingEvents(
+          pool,
+          [
+            makeEvent({
+              vote_account: 'voteA',
+              inner_type: 'penalty_projected',
+              data: {
+                message: 'projected',
+                details: {
+                  penalty_type: penaltyType as 'bond_risk_fee',
+                  for_epoch: 931,
+                  projected_sol: 1,
+                },
+              },
+            }),
+          ],
+          logger,
+        )
+        const rows = await eventRows()
+        return rows[rows.length - 1]!.id
+      }
+      const riskFee = await projected('bond_risk_fee')
+      const vat = await projected('vat_unadmitted')
+      const newerRiskFee = await projected('bond_risk_fee')
+
+      const pending = await loadPendingEvents(pool, BOND_TYPE)
+
+      expect(pending.map(p => [p.id, p.supersededByNewer])).toEqual([
+        [riskFee, true],
+        [vat, false],
+        [newerRiskFee, false],
+      ])
+    })
+
     it('writes the columns of each result kind', async () => {
       const sent = await insert('voteA')
       const rejected = await insert('voteB')

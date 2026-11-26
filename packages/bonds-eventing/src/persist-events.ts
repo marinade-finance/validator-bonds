@@ -68,6 +68,8 @@ export async function loadPendingEvents(
         WHERE n.bond_type = e.bond_type
           AND n.vote_account = e.vote_account
           AND n.inner_type = e.inner_type
+          AND n.payload #>> '{data,details,penalty_type}'
+            IS NOT DISTINCT FROM e.payload #>> '{data,details,penalty_type}'
           AND n.status = 'pending'
           AND n.id > e.id
       ) superseded
