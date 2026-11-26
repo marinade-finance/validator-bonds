@@ -170,9 +170,9 @@ pub fn to_tip_policy(opts: &TipPolicyOpts) -> TipPolicy {
     }
 }
 
-pub fn to_fee_policy(opts: &ExecutionOpts) -> FeePolicy {
+pub fn to_fee_policy(opts: &ExecutionOpts) -> anyhow::Result<FeePolicy> {
     let default = FeePolicy::default();
-    FeePolicy {
+    let policy = FeePolicy {
         start_micro_lamports_per_cu: opts
             .micro_lamports_per_cu_min
             .unwrap_or(default.start_micro_lamports_per_cu),
@@ -181,7 +181,15 @@ pub fn to_fee_policy(opts: &ExecutionOpts) -> FeePolicy {
             .unwrap_or(default.max_micro_lamports_per_cu),
         multiplier: opts.micro_lamport_multiplier.unwrap_or(default.multiplier),
         ..default
-    }
+    };
+    // FeePolicy keeps the start rate as a floor: a start above the max is paid on every attempt
+    anyhow::ensure!(
+        policy.start_micro_lamports_per_cu <= policy.max_micro_lamports_per_cu,
+        "--micro-lamports-per-cu-min {} is above --micro-lamports-per-cu-max {}",
+        policy.start_micro_lamports_per_cu,
+        policy.max_micro_lamports_per_cu
+    );
+    Ok(policy)
 }
 
 pub struct InitializedGlobalOpts {
@@ -232,7 +240,7 @@ pub fn init_from_opts(
         };
 
     let run_config = RunConfig {
-        fee: to_fee_policy(execution_opts),
+        fee: to_fee_policy(execution_opts)?,
         max_in_flight: execution_opts.max_in_flight,
         ..RunConfig::new(MessageVersion::V1)
     };
@@ -268,32 +276,47 @@ mod tests {
 
     #[test]
     fn unset_fee_flags_keep_the_default_policy() {
-        assert_eq!(to_fee_policy(&opts(None, None, None)), FeePolicy::default());
+        assert_eq!(
+            to_fee_policy(&opts(None, None, None)).unwrap(),
+            FeePolicy::default()
+        );
     }
 
     #[test]
     fn each_fee_flag_sets_its_field() {
         let default = FeePolicy::default();
         assert_eq!(
-            to_fee_policy(&opts(Some(7), None, None)),
+            to_fee_policy(&opts(Some(7), None, None)).unwrap(),
             FeePolicy {
                 start_micro_lamports_per_cu: 7,
                 ..default.clone()
             }
         );
         assert_eq!(
-            to_fee_policy(&opts(None, Some(9_000), None)),
+            to_fee_policy(&opts(None, Some(9_000), None)).unwrap(),
             FeePolicy {
                 max_micro_lamports_per_cu: 9_000,
                 ..default.clone()
             }
         );
         assert_eq!(
-            to_fee_policy(&opts(None, None, Some(3))),
+            to_fee_policy(&opts(None, None, Some(3))).unwrap(),
             FeePolicy {
                 multiplier: 3,
                 ..default
             }
         );
+    }
+
+    #[test]
+    fn a_start_rate_above_the_max_is_rejected() {
+        assert_eq!(
+            to_fee_policy(&opts(Some(200_000), Some(10_000), None))
+                .unwrap_err()
+                .to_string(),
+            "--micro-lamports-per-cu-min 200000 is above --micro-lamports-per-cu-max 10000"
+        );
+        let equal = to_fee_policy(&opts(Some(10_000), Some(10_000), None)).unwrap();
+        assert_eq!(equal.start_micro_lamports_per_cu, 10_000);
     }
 }
