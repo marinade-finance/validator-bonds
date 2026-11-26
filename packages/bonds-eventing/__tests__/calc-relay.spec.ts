@@ -94,11 +94,16 @@ describe('toCalcValidator', () => {
     expect(blob.auctions).toEqual([{ bidPmpe: 1, effParticipatingBidPmpe: 1 }])
   })
 
-  it('relays vatEligible: false for the vatIneligible tip gate', () => {
+  it('relays vatEligible: false and the reason for the vatIneligible tip gate', () => {
     const blob = toCalcValidator(
-      calcValidator({ samEligible: false, vatEligible: false }),
+      calcValidator({
+        samEligible: false,
+        vatEligible: false,
+        vatRejectionReason: 'no_bls_key',
+      }),
     )
     expect(blob.vatEligible).toBe(false)
+    expect(blob.vatRejectionReason).toBe('no_bls_key')
   })
 
   it('relays samIneligibilityGate so the tip engine reads the SDK gate', () => {

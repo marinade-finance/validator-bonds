@@ -43,6 +43,7 @@ gcloud storage cp "$gs_bucket_etl/$epoch/rewards_inflation.json" "$rewards_dir"/
 gcloud storage cp "$gs_bucket_etl/$epoch/rewards_validators_inflation.json" "$rewards_dir"/validators_inflation.json
 gcloud storage cp "$gs_bucket_etl/$epoch/rewards_validators_blocks.json" "$rewards_dir"/validators_blocks.json
 gcloud storage cp "$gs_bucket_etl/$epoch/rewards_priority_fee.json" "$rewards_dir"/jito_priority_fee.json
+gcloud storage cp "$gs_bucket_etl/$epoch/rewards_validators_inflation_vat.json" "$rewards_dir"/validators_inflation_vat.json
 ```
 
 The actual inflation commission in `evaluation.json` starts from `validators.json`'s
@@ -61,6 +62,7 @@ cargo run --release --bin bid-distribution-cli -- \
     --stake-meta-collection "${pipeline_dir}/stakes.json" \
     --sam-results-collection "${pipeline_dir}/results.json" \
     --rewards-dir "$rewards_dir" \
+    --vat-debits "$rewards_dir/validators_inflation_vat.json" \
     --validator-meta-collection "${pipeline_dir}/validators.json" \
     --revenue-expectation-collection "${pipeline_dir}/evaluation.json" \
     --output-settlement-collection "${pipeline_dir}/bid-distribution-settlements.json" \

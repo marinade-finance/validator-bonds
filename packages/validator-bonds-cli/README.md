@@ -55,7 +55,7 @@ This guide shows the essential steps for a validator to participate in Marinade'
 To be eligible for stake distribution, you need to:
 
 1. **Create a bond** - Link your vote account to the Validator Bonds program
-2. **Fund the bond** - Add SOL as collateral (approximately 1 SOL per 10,000 SOL staked)
+2. **Fund the bond** - Add SOL as collateral sized in epochs of your bid: below 5 epochs of coverage the [bond risk fee](https://docs.marinade.finance/marinade-protocol/protocol-overview/stake-auction-market/bond-risk-reduction-mechanism/) applies, and new stake needs 13 epochs
 3. **Configure your bid** - Set how much rewards you'll share with stakers
 4. **Verify** - Confirm your bond is properly funded and configured
 
@@ -80,7 +80,7 @@ validator-bonds fund-bond-sol <vote-account-address> --from <wallet-keypair> --a
 # The Validator Bonds program does not preserve stake account public keys as it merges and splits them
 solana-keygen new -o /tmp/stake-account-keypair.json
 # Creating a stake account. The SOLs will be funded to the Bond
-solana create-stake-account <stake-account-keypair> <Amount of SOL 1 for every 10,000 staked>
+solana create-stake-account <stake-account-keypair> <Amount of SOL>
 # To couple the created stake account with the vote account, plus activates it
 solana delegate-stake <stake-account-pubkey> <vote-account-address>
 # Funding Bond by assigning the stake account with the SOL amount in it
@@ -148,7 +148,7 @@ A **settlement** is created after each epoch based on auction results. It repres
 - Rewards to be distributed to stakers
 - Protected staking events (if your validator underperformed)
 
-Settlements are funded from your bond and can be claimed by stakers for approximately 4 epochs. Unclaimed funds return to your bond.
+The settlement for epoch X is funded from your bond at the start of epoch X+1, and the auction counts only the bond not yet funded into settlements. Stakers can claim it for approximately 4 epochs. Unclaimed funds return to your bond.
 
 ---
 

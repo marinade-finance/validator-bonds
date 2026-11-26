@@ -11,7 +11,7 @@ use bid_distribution::generators::sam_penalties::{
 };
 use bid_distribution::rewards::{
     check_rewards_dir, has_sam_configs, has_vat_unadmitted_config, load_rewards_from_directory,
-    unpaid_vote_accounts,
+    load_vat_debits, marinade_staked_vote_accounts, unpaid_vote_accounts,
 };
 use bid_distribution::sam_meta::{SamAuctionResult, ValidatorSamMeta};
 use bid_distribution::settlement_config::BidDistributionConfig;
@@ -76,6 +76,10 @@ struct Args {
     #[arg(long, env)]
     validator_meta_collection: Option<String>,
 
+    /// Validator meta collection JSON of the previous epoch (for PSR in Alpenglow epochs)
+    #[arg(long, env)]
+    past_validator_meta_collection: Option<String>,
+
     /// Revenue expectation collection JSON file (for PSR)
     #[arg(long, env)]
     revenue_expectation_collection: Option<String>,
@@ -83,6 +87,10 @@ struct Args {
     /// Leader schedule JSON file of the snapshot parser (for PSR in Alpenglow epochs)
     #[arg(long, env)]
     leader_schedule: Option<PathBuf>,
+
+    /// VAT debits JSON of stakes-etl, rewards_validators_inflation_vat.json (for the VatUnadmitted PSR)
+    #[arg(long, env)]
+    vat_debits: Option<PathBuf>,
 
     /// Max stake share (bps) of VAT-unadmitted validators; raise it for a real refusal wave
     #[arg(long, env, default_value_t = DEFAULT_MAX_VAT_UNADMITTED_STAKE_BPS)]
@@ -230,13 +238,41 @@ fn main() -> anyhow::Result<()> {
         } else {
             None
         };
+        let vat_debited = args
+            .vat_debits
+            .as_deref()
+            .map(|path| load_vat_debits(path, validator_meta_collection.epoch))
+            .transpose()?;
+        let previously_staked = match &args.past_validator_meta_collection {
+            Some(path) => {
+                let past: ValidatorMetaCollection = read_from_json_file(path)
+                    .map_err(file_error("past-validator-meta-collection", path))?;
+                anyhow::ensure!(
+                    past.epoch + 1 == validator_meta_collection.epoch,
+                    "--past-validator-meta-collection is of epoch {}, expected {}",
+                    past.epoch,
+                    validator_meta_collection.epoch - 1
+                );
+                Some(
+                    past.validator_metas
+                        .iter()
+                        .filter(|meta| meta.stake > 0)
+                        .map(|meta| meta.vote_account)
+                        .collect::<HashSet<_>>(),
+                )
+            }
+            None => None,
+        };
 
         info!("Generating protected event collection...");
         let protected_event_collection = generate_protected_event_collection(
             validator_meta_collection,
             revenue_expectation_meta_collection,
             leader_slots.as_ref(),
+            previously_staked.as_ref(),
             unpaid.as_ref(),
+            vat_debited.as_ref(),
+            &marinade_staked_vote_accounts(&stake_meta_collection, &*stake_authority_filter),
             args.max_vat_unadmitted_stake_bps,
         )?;
 
@@ -261,8 +297,10 @@ fn main() -> anyhow::Result<()> {
         // No PSR configs — fail if PSR inputs were partially provided (likely a mistake)
         anyhow::ensure!(
             args.validator_meta_collection.is_none()
-                && args.revenue_expectation_collection.is_none(),
-            "PSR inputs (--validator-meta-collection, --revenue-expectation-collection) provided but no PSR settlement configs found in config file"
+                && args.past_validator_meta_collection.is_none()
+                && args.revenue_expectation_collection.is_none()
+                && args.vat_debits.is_none(),
+            "PSR inputs (--validator-meta-collection, --past-validator-meta-collection, --revenue-expectation-collection, --vat-debits) provided but no PSR settlement configs found in config file"
         );
     }
 
