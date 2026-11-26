@@ -111,7 +111,7 @@ if [[ "$SEED" == 1 ]]; then
 fi
 BASE="http://127.0.0.1:$API_PORT"
 # Something already answering on the port would be fuzzed instead of the API started here.
-if curl -s -o /dev/null "$BASE/"; then
+if curl -s --max-time 5 -o /dev/null "$BASE/"; then
   echo "port $API_PORT is already in use; set FUZZ_API_PORT" >&2
   exit 1
 fi
@@ -121,7 +121,7 @@ API_PID=$!
 READY=0
 for _ in $(seq 1 100); do
   kill -0 "$API_PID" 2>/dev/null || { cat "$WORK/api.log" >&2; echo "API exited" >&2; exit 1; }
-  curl -fs "$BASE/docs.json" >/dev/null 2>&1 && { READY=1; break; }
+  curl -fs --max-time 5 "$BASE/docs.json" >/dev/null 2>&1 && { READY=1; break; }
   sleep 0.2
 done
 [[ "$READY" == 1 ]] || { cat "$WORK/api.log" >&2; echo "API did not become ready" >&2; exit 1; }
@@ -143,7 +143,7 @@ if [[ "$SEED" == 0 ]]; then
   EXTRA=(--exclude-checks not_a_server_error)
   expect_status() {
     local got
-    got="$(curl -s -o /dev/null -w '%{http_code}' "$BASE$2")"
+    got="$(curl -s --max-time 10 -o /dev/null -w '%{http_code}' "$BASE$2")"
     [[ "$got" == "$1" ]] || { echo "empty tables: $2 answered $got, expected $1" >&2; exit 1; }
   }
   for path in /bonds /bonds/bidding /bonds/institutional /bonds/bidding/auction /v1/validators/verified; do
