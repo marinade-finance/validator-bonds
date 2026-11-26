@@ -23,10 +23,12 @@ impl RunSummary {
                     GroupStatus::Landed { .. } | GroupStatus::Planned => return None,
                     GroupStatus::Failed {
                         error,
+                        logs,
                         signature: Some(signature),
-                        ..
-                    } => format!("failed in {signature}: {error}"),
-                    GroupStatus::Failed { error, .. } => format!("failed: {error}"),
+                    } => format!("failed in {signature}: {error}{}", with_logs(logs)),
+                    GroupStatus::Failed { error, logs, .. } => {
+                        format!("failed: {error}{}", with_logs(logs))
+                    }
                     GroupStatus::NotSent { reason } => format!("not sent: {reason}"),
                     GroupStatus::NotLanded { attempts } => {
                         format!("not landed after {attempts} attempts")
@@ -38,6 +40,14 @@ impl RunSummary {
                 Some(format!("{}: {status}", outcome.id))
             })
             .collect()
+    }
+}
+
+fn with_logs(logs: &[String]) -> String {
+    if logs.is_empty() {
+        String::new()
+    } else {
+        format!(", logs: {logs:?}")
     }
 }
 
@@ -131,6 +141,14 @@ mod tests {
                     },
                 ),
                 outcome("e", GroupStatus::Planned),
+                outcome(
+                    "f",
+                    GroupStatus::Failed {
+                        error: "custom program error: 0x10".to_string(),
+                        logs: vec!["Program log: stake".to_string()],
+                        signature: Some(signature),
+                    },
+                ),
             ],
             transactions: vec![],
         };
@@ -140,6 +158,7 @@ mod tests {
             ("c".to_string(), 4),
             ("d".to_string(), 5),
             ("e".to_string(), 6),
+            ("f".to_string(), 7),
         ]);
 
         let summary = summarize(report, &instructions);
@@ -151,6 +170,9 @@ mod tests {
             vec![
                 "c: failed: custom program error: 0x1".to_string(),
                 "d: unknown: watcher stopped, signatures []".to_string(),
+                format!(
+                    "f: failed in {signature}: custom program error: 0x10, logs: [\"Program log: stake\"]"
+                ),
             ]
         );
     }
