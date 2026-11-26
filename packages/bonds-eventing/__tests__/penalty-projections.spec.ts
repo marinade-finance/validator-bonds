@@ -1,8 +1,24 @@
-import fixture from './fixtures/penalty-projection-jnggar-1081.json'
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
 import { projectSamPenalties } from '../src/penalty-projections'
 
 import type { AuctionMeta } from '../src/calc-relay'
 import type { AuctionValidator } from '@marinade.finance/ds-sam-sdk'
+
+const fixture = JSON.parse(
+  readFileSync(
+    join(__dirname, 'fixtures', 'penalty-projection-jnggar-1081.json'),
+    'utf8',
+  ),
+) as {
+  preDrainBondSol: number
+  actualDrainSol: number
+  actualFeeSol: number
+  winningTotalPmpe: number
+  config: Record<string, number>
+  validator: AuctionValidator
+}
 
 const EPOCH = 1081
 
@@ -17,7 +33,7 @@ function jnggar(overrides: Record<string, unknown> = {}): AuctionValidator {
     bondBalanceSol: fixture.preDrainBondSol,
     claimableBondBalanceSol: fixture.preDrainBondSol,
     ...overrides,
-  }) as unknown as AuctionValidator
+  })
 }
 
 function withDrainPmpe(v: AuctionValidator, pmpe: number): AuctionValidator {
