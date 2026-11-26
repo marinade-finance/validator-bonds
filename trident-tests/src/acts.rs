@@ -1401,8 +1401,14 @@ impl World {
         if e.ok {
             // Update the model first: an oracle that fires in a mutated run is swallowed, and the
             // model must still follow the chain for the claims after it.
+            let st_pre = st.as_ref().unwrap();
+            let st_post: Settlement = decode(&e.post.get(&addr)).unwrap();
             let already_claimed = !self.settlements[si].claimed.insert(a.index);
-            self.settlements[si].claimed_lamports += a.claim;
+            // The amount the program recorded, not `a.claim`: a mutated `hash_stale` claim can have its
+            // claim bytes flipped back to the leaf value. `claim_counters` below checks it equals `a.claim`.
+            self.settlements[si].claimed_lamports += st_post
+                .lamports_claimed
+                .saturating_sub(st_pre.lamports_claimed);
             let model_leaf = self.settlements[si].leaves.get(a.index as usize);
             let is_real_leaf = model_leaf
                 .map(|l| {
@@ -1482,8 +1488,6 @@ impl World {
             if stake_from == stake_to {
                 self.flag("claim_same_account", "source == destination");
             }
-            let st_post: Settlement = decode(&e.post.get(&addr)).unwrap();
-            let st_pre = st.as_ref().unwrap();
             if st_post.lamports_claimed != st_pre.lamports_claimed + a.claim
                 || st_post.merkle_nodes_claimed != st_pre.merkle_nodes_claimed + 1
             {
