@@ -17,11 +17,6 @@ export function installBidding(program: Command) {
       .description('Run eventing for bidding bond type'),
   )
     .addOption(
-      new Option('--validators-api-url <url>', 'Validators API base URL')
-        .env('VALIDATORS_API_URL')
-        .default('https://validators-api.marinade.finance'),
-    )
-    .addOption(
       new Option('--scoring-api-url <url>', 'Scoring API base URL')
         .env('SCORING_API_URL')
         .default('https://scoring.marinade.finance'),

@@ -1,3 +1,5 @@
+import { fetchJson } from './fetch-json'
+
 import type { EventingConfig, InstitutionalValidatorData } from './types'
 import type { LoggerWrapper } from '@marinade.finance/ts-common'
 
@@ -22,14 +24,6 @@ interface InstitutionalValidatorRow {
 // bonds API serializes lamport amounts as f64 (api/src/dto.rs), not as integers
 function toLamports(value: number): bigint {
   return BigInt(Math.trunc(value))
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
-  if (!response.ok) {
-    throw new Error(`GET ${url} failed: HTTP ${response.status}`)
-  }
-  return (await response.json()) as T
 }
 
 export async function runInstitutional(

@@ -21,14 +21,17 @@ function addPostgresOptions(command: Command, dryRunHelp: string): Command {
 }
 
 export function addStoreOptions(command: Command): Command {
-  return addPostgresOptions(
-    command,
-    'Evaluate and log events, no DB write',
-  ).addOption(
-    new Option('--bonds-api-url <url>', 'Validator bonds API base URL')
-      .env('BONDS_API_URL')
-      .default('https://validator-bonds-api.marinade.finance'),
-  )
+  return addPostgresOptions(command, 'Evaluate and log events, no DB write')
+    .addOption(
+      new Option('--bonds-api-url <url>', 'Validator bonds API base URL')
+        .env('BONDS_API_URL')
+        .default('https://validator-bonds-api.marinade.finance'),
+    )
+    .addOption(
+      new Option('--validators-api-url <url>', 'Validators API base URL')
+        .env('VALIDATORS_API_URL')
+        .default('https://validators-api.marinade.finance'),
+    )
 }
 
 export function addSendOptions(command: Command): Command {

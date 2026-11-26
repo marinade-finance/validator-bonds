@@ -1,3 +1,7 @@
+import { Command } from 'commander'
+
+import { installBidding } from '../src/commands/bidding'
+import { installInstitutional } from '../src/commands/institutional'
 import { parseSendConfig } from '../src/config'
 
 const BASE_CONFIG = {
@@ -109,4 +113,24 @@ describe('parseSendConfig required options', () => {
     expect(config.dryRun).toBe(true)
     expect(config.notificationsApiUrl).toBeUndefined()
   })
+})
+
+describe('store commands', () => {
+  it.each([
+    ['bidding', installBidding],
+    ['institutional', installInstitutional],
+  ])(
+    '%s takes --validators-api-url with the production default',
+    (name, install) => {
+      const program = new Command()
+      install(program)
+      const option = program.commands
+        .find(c => c.name() === name)!
+        .options.find(o => o.long === '--validators-api-url')
+      expect(option?.defaultValue).toBe(
+        'https://validators-api.marinade.finance',
+      )
+      expect(option?.envVar).toBe('VALIDATORS_API_URL')
+    },
+  )
 })
