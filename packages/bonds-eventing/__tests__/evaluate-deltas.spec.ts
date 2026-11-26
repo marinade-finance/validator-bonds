@@ -3,6 +3,7 @@ import { PublicKey } from '@solana/web3.js'
 import pino from 'pino'
 
 import {
+  diffExpectedPenalties,
   evaluateDeltas,
   validatorToState,
   configAddressForBondType,
@@ -674,9 +675,9 @@ describe('evaluateDeltas', () => {
     expect(details.marinade_activated_stake_sol).toBe(50000)
   })
 
-  it('suppresses penalty_expected on same epoch', () => {
-    const validators = [
-      makeValidator({
+  describe('penalty_expected gate', () => {
+    function penalized(overrides: Record<string, unknown> = {}) {
+      return makeValidator({
         revShare: {
           expectedMaxEffBidPmpe: 3.2,
           onchainDistributedPmpe: 0.5,
@@ -684,22 +685,162 @@ describe('evaluateDeltas', () => {
           blacklistPenaltyPmpe: 0,
         },
         values: { bondRiskFeeSol: 0 },
-      }),
-    ]
-    const previousState = new Map<string, ValidatorState>()
-    // prev.epoch=930 === current epoch=930 => no epoch change
-    previousState.set(TEST_VOTE_ACCOUNT, makePrevState({ epoch: 930 }))
+        auctions: [{ epoch: 929, bidPmpe: 1, effParticipatingBidPmpe: 1 }],
+        ...overrides,
+      })
+    }
 
-    const events = evaluateDeltas(
-      validators,
-      previousState,
-      930,
-      'bidding',
-      logger,
-    )
+    function expectedEvents(
+      v: AuctionValidator,
+      prev: Partial<ValidatorState>,
+    ) {
+      const previousState = new Map<string, ValidatorState>()
+      previousState.set(TEST_VOTE_ACCOUNT, makePrevState(prev))
+      return evaluateDeltas([v], previousState, 930, 'bidding', logger).filter(
+        e => e.inner_type === 'penalty_expected',
+      )
+    }
 
-    const penalty = events.find(e => e.inner_type === 'penalty_expected')
-    expect(penalty).toBeUndefined()
+    it('emits on a later run of the same epoch while the auction is unpublished', () => {
+      expect(expectedEvents(penalized(), { epoch: 930 })).toHaveLength(1)
+    })
+
+    it('does not repeat a kind already reported this epoch', () => {
+      const events = expectedEvents(penalized(), {
+        epoch: 930,
+        expected_penalties: { epoch: 930, kinds: ['bid_too_low'] },
+      })
+      expect(events).toHaveLength(0)
+    })
+
+    it('stays silent once the auction of the epoch is published', () => {
+      const v = penalized({
+        auctions: [{ epoch: 930, bidPmpe: 1, effParticipatingBidPmpe: 1 }],
+      })
+      expect(expectedEvents(v, { epoch: 930 })).toHaveLength(0)
+    })
+
+    it('a new kind in the same epoch emits one event with every amount', () => {
+      const v = penalized({ values: { bondRiskFeeSol: 2 } })
+      const events = expectedEvents(v, {
+        epoch: 930,
+        expected_penalties: { epoch: 930, kinds: ['bid_too_low'] },
+      })
+      expect(events).toHaveLength(1)
+      const details = events[0]!.data.details as PenaltyExpectedDetails
+      expect(details.bid_too_low_penalty_sol).toBe(25)
+      expect(details.bond_risk_fee_sol).toBe(2)
+    })
+
+    it('a kind that disappears emits nothing', () => {
+      const v = penalized({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0,
+          blacklistPenaltyPmpe: 0,
+        },
+        values: { bondRiskFeeSol: 2 },
+      })
+      const events = expectedEvents(v, {
+        epoch: 930,
+        expected_penalties: {
+          epoch: 930,
+          kinds: ['bid_too_low', 'bond_risk_fee'],
+        },
+      })
+      expect(events).toHaveLength(0)
+    })
+
+    it('kinds reported in the previous epoch do not block a new epoch', () => {
+      const events = expectedEvents(penalized(), {
+        epoch: 929,
+        expected_penalties: { epoch: 929, kinds: ['bid_too_low'] },
+      })
+      expect(events).toHaveLength(1)
+    })
+
+    it('no auction history counts as unpublished', () => {
+      expect(
+        expectedEvents(penalized({ auctions: [] }), { epoch: 930 }),
+      ).toHaveLength(1)
+    })
+
+    it('an activating-stake fee alone emits once', () => {
+      const v = penalized({
+        revShare: {
+          expectedMaxEffBidPmpe: 3.2,
+          onchainDistributedPmpe: 0.5,
+          bidTooLowPenaltyPmpe: 0,
+          blacklistPenaltyPmpe: 0,
+          activatingStakePmpe: 1,
+        },
+        auctionStake: { marinadeSamTargetSol: 60000, externalActivatedSol: 0 },
+      })
+      expect(expectedEvents(v, { epoch: 930 })).toHaveLength(1)
+      expect(
+        expectedEvents(v, {
+          epoch: 930,
+          expected_penalties: { epoch: 930, kinds: ['activating_stake_fee'] },
+        }),
+      ).toHaveLength(0)
+    })
+  })
+
+  describe('diffExpectedPenalties', () => {
+    it('unpublished, new kind -> emit and union', () => {
+      expect(
+        diffExpectedPenalties(
+          { epoch: 930, kinds: ['bond_risk_fee'] },
+          ['bid_too_low'],
+          930,
+          false,
+        ),
+      ).toEqual({
+        emit: true,
+        next: { epoch: 930, kinds: ['bid_too_low', 'bond_risk_fee'] },
+      })
+    })
+
+    it('unpublished, known kind -> no emit, set kept', () => {
+      expect(
+        diffExpectedPenalties(
+          { epoch: 930, kinds: ['bid_too_low'] },
+          ['bid_too_low'],
+          930,
+          false,
+        ),
+      ).toEqual({ emit: false, next: { epoch: 930, kinds: ['bid_too_low'] } })
+    })
+
+    it('published -> no emit, same-epoch set carried', () => {
+      expect(
+        diffExpectedPenalties(
+          { epoch: 930, kinds: ['blacklist'] },
+          ['bid_too_low'],
+          930,
+          true,
+        ),
+      ).toEqual({ emit: false, next: { epoch: 930, kinds: ['blacklist'] } })
+    })
+
+    it('older epoch set is dropped', () => {
+      expect(
+        diffExpectedPenalties(
+          { epoch: 929, kinds: ['blacklist'] },
+          [],
+          930,
+          false,
+        ),
+      ).toEqual({ emit: false, next: null })
+    })
+
+    it('null previous and no kinds -> null', () => {
+      expect(diffExpectedPenalties(null, [], 930, false)).toEqual({
+        emit: false,
+        next: null,
+      })
+    })
   })
 
   it('suppresses penalty_expected below threshold', () => {
@@ -1101,6 +1242,33 @@ describe('validatorToState', () => {
     expect(
       (state.auction_validator as Record<string, unknown>).voteAccount,
     ).toBe(TEST_VOTE_ACCOUNT)
+    expect(state.expected_penalties).toBeNull()
+  })
+
+  it('records the kinds reported this epoch, carried once the auction is published', () => {
+    const penalized = (auctionEpoch: number) =>
+      makeValidator({
+        revShare: { bidTooLowPenaltyPmpe: 0.5, blacklistPenaltyPmpe: 0 },
+        values: { bondRiskFeeSol: 0 },
+        auctions: [{ epoch: auctionEpoch }],
+      })
+    expect(
+      validatorToState(penalized(929), 930, 'bidding').expected_penalties,
+    ).toBeNull()
+    expect(
+      validatorToState(penalized(929), 930, 'bidding', makePrevState())
+        .expected_penalties,
+    ).toEqual({ epoch: 930, kinds: ['bid_too_low'] })
+    expect(
+      validatorToState(
+        penalized(930),
+        930,
+        'bidding',
+        makePrevState({
+          expected_penalties: { epoch: 930, kinds: ['blacklist'] },
+        }),
+      ).expected_penalties,
+    ).toEqual({ epoch: 930, kinds: ['blacklist'] })
   })
 })
 

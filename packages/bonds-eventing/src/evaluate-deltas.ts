@@ -28,6 +28,8 @@ import type {
   SamEligibleChangeDetails,
   SettlementAppliedDetails,
   PenaltyExpectedDetails,
+  ExpectedPenaltiesState,
+  ExpectedPenaltyKind,
 } from './types'
 
 export function solToLamports(sol: number | null | undefined): bigint {
@@ -243,6 +245,61 @@ function computePenalties(v: AuctionValidator): {
     bidTooLow,
     blacklist,
     bondRiskFee,
+  }
+}
+
+// Shared dust threshold: a sub-dust amount never surfaces as "0.0000 SOL".
+export const DUST_SOL_THRESHOLD = 0.001
+
+// Charged separately from total_penalty_sol on max(0, SAM target - already activated).
+function computeActivatingStakeFee(v: AuctionValidator): {
+  stakeSol: number
+  pmpe: number
+  feeSol: number
+} {
+  const stakeSol = Math.max(
+    0,
+    finiteOr(v.auctionStake.marinadeSamTargetSol, 0) -
+      finiteOr(v.marinadeActivatedStakeSol, 0),
+  )
+  const pmpe = finiteOr(v.revShare.activatingStakePmpe, 0)
+  return { stakeSol, pmpe, feeSol: pmpeToSol(pmpe, stakeSol).toNumber() }
+}
+
+/** True once the scoring API holds the auction of `epoch`; the live run then previews the next one. */
+export function isAuctionPublished(
+  v: AuctionValidator,
+  epoch: number,
+): boolean {
+  return v.auctions[0]?.epoch === epoch
+}
+
+export function expectedPenaltyKinds(
+  v: AuctionValidator,
+): ExpectedPenaltyKind[] {
+  const penalties = computePenalties(v)
+  const amounts: [ExpectedPenaltyKind, number][] = [
+    ['bid_too_low', penalties.bidTooLow],
+    ['blacklist', penalties.blacklist],
+    ['bond_risk_fee', penalties.bondRiskFee],
+    ['activating_stake_fee', computeActivatingStakeFee(v).feeSol],
+  ]
+  return amounts
+    .filter(([, sol]) => sol > DUST_SOL_THRESHOLD)
+    .map(([kind]) => kind)
+}
+
+export function diffExpectedPenalties(
+  prev: ExpectedPenaltiesState | null | undefined,
+  kinds: ExpectedPenaltyKind[],
+  epoch: number,
+  published: boolean,
+): { emit: boolean; next: ExpectedPenaltiesState | null } {
+  const base = prev?.epoch === epoch ? prev.kinds : []
+  const union = published ? base : [...new Set([...base, ...kinds])].sort()
+  return {
+    emit: !published && kinds.some(kind => !base.includes(kind)),
+    next: union.length > 0 ? { epoch, kinds: union } : null,
   }
 }
 
@@ -643,34 +700,18 @@ export function evaluateDeltas(
     )
     if (settlementEvent) events.push(settlementEvent)
 
-    // Penalty prediction from auction simulation
-    // Only emit on epoch change to avoid flooding the queue every run.
-    // Brain dedup (per vote_account + epoch + renotify window) is the safety net.
+    // Any run while this epoch's auction is unpublished, once per penalty kind per epoch.
     const penalties = computePenalties(v)
-    // Fee on newly activating stake: charged separately from total_penalty_sol.
-    // activating_stake_sol = max(0, SAM target - already activated); pairs with revShare.activatingStakePmpe.
-    const activatingStakeSol = Math.max(
-      0,
-      finiteOr(v.auctionStake.marinadeSamTargetSol, 0) -
-        finiteOr(v.marinadeActivatedStakeSol, 0),
-    )
-    const activatingStakePmpe = finiteOr(v.revShare.activatingStakePmpe, 0)
-    const activatingStakeFee = pmpeToSol(
-      activatingStakePmpe,
-      activatingStakeSol,
-    ).toNumber()
-    // Shared dust threshold: aligns the emit gate with displayed/emitted
-    // values so a sub-dust fee never surfaces as "0.0000 SOL".
-    const DUST_SOL_THRESHOLD = 0.001
+    const activating = computeActivatingStakeFee(v)
     const activatingStakeFeeDisplay =
-      activatingStakeFee > DUST_SOL_THRESHOLD ? activatingStakeFee : 0
-    // Emit when EITHER a bond-side penalty/fee OR an activating-stake fee is
-    // predicted. Activating-stake fee is charged separately from the bond-side
-    // total but still represents a real cost the validator should see.
+      activating.feeSol > DUST_SOL_THRESHOLD ? activating.feeSol : 0
     if (
-      (penalties.total > DUST_SOL_THRESHOLD ||
-        activatingStakeFee > DUST_SOL_THRESHOLD) &&
-      prev.epoch !== epoch
+      diffExpectedPenalties(
+        prev.expected_penalties,
+        expectedPenaltyKinds(v),
+        epoch,
+        isAuctionPublished(v, epoch),
+      ).emit
     ) {
       events.push(
         makeEvent(
@@ -694,8 +735,8 @@ export function evaluateDeltas(
             marinade_activated_stake_sol: v.marinadeActivatedStakeSol,
             bond_balance_sol: v.bondBalanceSol,
             bond_good_for_n_epochs: roundEpochs(v.bondGoodForNEpochs),
-            activating_stake_sol: activatingStakeSol,
-            activating_stake_pmpe: activatingStakePmpe,
+            activating_stake_sol: activating.stakeSol,
+            activating_stake_pmpe: activating.pmpe,
             activating_stake_fee_sol: activatingStakeFeeDisplay,
           } satisfies PenaltyExpectedDetails,
         ),
@@ -758,6 +799,7 @@ export function validatorToState(
   v: AuctionValidator,
   epoch: number,
   bondType: BondType,
+  prev?: ValidatorState,
 ): ValidatorState {
   const configAddress = configAddressForBondType(bondType)
   return {
@@ -782,7 +824,15 @@ export function validatorToState(
     sam_eligible: v.samEligible,
     updated_at: new Date().toISOString(),
     projected_penalties: null,
-    expected_penalties: null,
+    // A first-seen validator gets no penalty_expected yet, so nothing is recorded as reported.
+    expected_penalties: prev
+      ? diffExpectedPenalties(
+          prev.expected_penalties,
+          expectedPenaltyKinds(v),
+          epoch,
+          isAuctionPublished(v, epoch),
+        ).next
+      : null,
     auction_validator: toCalcValidator(v),
   }
 }

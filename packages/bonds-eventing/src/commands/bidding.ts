@@ -66,7 +66,7 @@ async function manageBidding(opts: Record<string, unknown>) {
         // Mirrors the offset ds-sam-sdk subtracts when it computes bondGoodForNEpochs.
         1 + meta.minBondEpochs,
       ),
-    toState: (v, ep) => validatorToState(v, ep, bondType),
+    toState: (v, ep, prev) => validatorToState(v, ep, bondType, prev),
     saveMeta: tx => saveAuctionMeta(tx, bondType, meta, logger),
   })
 }

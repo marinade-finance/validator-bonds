@@ -124,10 +124,10 @@ DB table and only emits events when something changes between runs.
 
 10. penalty_expected — Predicted penalty from auction simulation
 
-- When: Total computed penalty > 0.001 SOL AND epoch changed from previous state
-- Penalty types covered: BidTooLowPenalty, BlacklistPenalty, BondRiskFee
+- When: on any run while the auction of the epoch is not yet published (`auctions[0].epoch` is older), the live run then being that auction itself; once per penalty kind (above 0.001 SOL) per epoch, tracked in `bond_event_state.expected_penalties`
+- Penalty types covered: BidTooLowPenalty, BlacklistPenalty, BondRiskFee, activating-stake fee
 - Formula: `pmpe / 1000 * marinadeActivatedStakeSol` — matches the settlement pipeline (sam_penalties.rs)
-- Not emitted: If all penalty fields are zero, or if epoch is unchanged (avoids flooding on every run)
+- Not emitted: after the auction of the epoch is published, for a kind already reported this epoch, or for a first-seen validator's first run
 - Note: PSR penalties (DowntimeRevenueImpact, CommissionSamIncrease) are computed by a separate pipeline and are NOT included.
 
 ### Events NOT auto-emitted
