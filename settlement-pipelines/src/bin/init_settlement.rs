@@ -473,10 +473,9 @@ async fn upsize_settlements(
             reporting
                 .retryable()
                 .with_msg(format!(
-                    "Settlement {settlement_address} (settlement claims {settlement_claims_address}) needs {} more upsize calls in a next run",
+                    "Settlement {settlement_address} (settlement claims {settlement_claims_address}, vote account {vote_account}) needs {} more upsize calls in a next run",
                     number_of_upsize_calls - upsizes
                 ))
-                .with_vote(vote_account)
                 .add();
         }
         groups.push(group(
