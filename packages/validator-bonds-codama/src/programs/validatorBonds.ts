@@ -78,6 +78,7 @@ import {
   getInitWithdrawRequestInstructionAsync,
   getMergeStakeInstructionAsync,
   getMintBondInstructionAsync,
+  getRefundBondBalanceInstructionAsync,
   getResetStakeInstructionAsync,
   getUpsizeSettlementClaimsInstruction,
   getWithdrawStakeInstructionAsync,
@@ -102,6 +103,7 @@ import {
   parseInitWithdrawRequestInstruction,
   parseMergeStakeInstruction,
   parseMintBondInstruction,
+  parseRefundBondBalanceInstruction,
   parseResetStakeInstruction,
   parseUpsizeSettlementClaimsInstruction,
   parseWithdrawStakeInstruction,
@@ -147,9 +149,11 @@ import {
   type ParsedInitWithdrawRequestInstruction,
   type ParsedMergeStakeInstruction,
   type ParsedMintBondInstruction,
+  type ParsedRefundBondBalanceInstruction,
   type ParsedResetStakeInstruction,
   type ParsedUpsizeSettlementClaimsInstruction,
   type ParsedWithdrawStakeInstruction,
+  type RefundBondBalanceAsyncInput,
   type ResetStakeAsyncInput,
   type UpsizeSettlementClaimsInput,
   type WithdrawStakeAsyncInput,
@@ -286,6 +290,7 @@ export enum ValidatorBondsEvent {
   InitWithdrawRequestEvent,
   MergeStakeEvent,
   MintBondEvent,
+  RefundBondBalanceEvent,
   ResetStakeEvent,
   WithdrawStakeEvent,
 }
@@ -529,6 +534,17 @@ export function identifyValidatorBondsEvent(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([172, 251, 101, 63, 250, 136, 195, 226]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsEvent.RefundBondBalanceEvent
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([255, 49, 219, 199, 119, 10, 195, 177]),
       ),
       0,
@@ -574,6 +590,7 @@ export enum ValidatorBondsInstruction {
   InitWithdrawRequest,
   MergeStake,
   MintBond,
+  RefundBondBalance,
   ResetStake,
   UpsizeSettlementClaims,
   WithdrawStake,
@@ -818,6 +835,17 @@ export function identifyValidatorBondsInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([172, 14, 125, 200, 69, 164, 179, 66]),
+      ),
+      0,
+    )
+  ) {
+    return ValidatorBondsInstruction.RefundBondBalance
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([183, 37, 69, 159, 163, 139, 212, 235]),
       ),
       0,
@@ -919,6 +947,9 @@ export type ParsedValidatorBondsInstruction<
   | ({
       instructionType: ValidatorBondsInstruction.MintBond
     } & ParsedMintBondInstruction<TProgram>)
+  | ({
+      instructionType: ValidatorBondsInstruction.RefundBondBalance
+    } & ParsedRefundBondBalanceInstruction<TProgram>)
   | ({
       instructionType: ValidatorBondsInstruction.ResetStake
     } & ParsedResetStakeInstruction<TProgram>)
@@ -1081,6 +1112,13 @@ export function parseValidatorBondsInstruction<TProgram extends string>(
         ...parseMintBondInstruction(instruction),
       }
     }
+    case ValidatorBondsInstruction.RefundBondBalance: {
+      assertIsInstructionWithAccounts(instruction)
+      return {
+        instructionType: ValidatorBondsInstruction.RefundBondBalance,
+        ...parseRefundBondBalanceInstruction(instruction),
+      }
+    }
     case ValidatorBondsInstruction.ResetStake: {
       assertIsInstructionWithAccounts(instruction)
       return {
@@ -1220,6 +1258,10 @@ export type ValidatorBondsPluginInstructions = {
   mintBond: (
     input: MintBondAsyncInput,
   ) => ReturnType<typeof getMintBondInstructionAsync> & SelfPlanAndSendFunctions
+  refundBondBalance: (
+    input: RefundBondBalanceAsyncInput,
+  ) => ReturnType<typeof getRefundBondBalanceInstructionAsync> &
+    SelfPlanAndSendFunctions
   resetStake: (
     input: ResetStakeAsyncInput,
   ) => ReturnType<typeof getResetStakeInstructionAsync> &
@@ -1379,6 +1421,11 @@ export function validatorBondsProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getMintBondInstructionAsync(input),
+            ),
+          refundBondBalance: input =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRefundBondBalanceInstructionAsync(input),
             ),
           resetStake: input =>
             addSelfPlanAndSendFunctions(

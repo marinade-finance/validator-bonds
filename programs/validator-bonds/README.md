@@ -24,21 +24,27 @@
        amount for the `Bond`. The funded amount will likely increase over time
        (when no protected events occur) as the `StakeAccount` is delegated
        and earns Solana inflation rewards.
+   - Lamports mistakenly transferred directly to the `Bond` account address can be swept
+     onto an existing bond-funded `StakeAccount` with the permission-less
+     [`refund bond balance`](./src/instructions/bond/refund_bond_balance.rs) operation.
+     The swept lamports count into the funded amount but are not delegated stake —
+     a partial `Bond` withdrawal may fail when splitting such a `StakeAccount`;
+     a withdraw request of at least the `StakeAccount` lamports takes it whole and always works.
 
 3. The `ProductBond` accounts are PDAs linked to the Bond account. They define configuration options that
    can be flexibly added, removed, or modified by adjusting separate PDA accounts.
 
 4. Withdrawing funded `Bond` is permitted to the validator,
    the owner of the `bond authority`.
-   The withdrawal is delayed by a factor configured in `Config` as [`withdraw_lockup_epochs`](./programs/validator-bonds/src/state/config.rs#L17). The withdrawal process comes as a two-step process.
-   1. Validator [initiates](./programs/validator-bonds/src/instructions/withdraw/init_withdraw_request.rs) a [`WithdrawRequest`](./programs/validator-bonds/src/state/withdraw_request.rs).
+   The withdrawal is delayed by a factor configured in `Config` as [`withdraw_lockup_epochs`](./src/state/config.rs#L17). The withdrawal process comes as a two-step process.
+   1. Validator [initiates](./src/instructions/withdraw/init_withdraw_request.rs) a [`WithdrawRequest`](./src/state/withdraw_request.rs).
       - The withdraw request is created with the number of lamports that the validator plans to withdraw from the `Bond`.
-      - ([The requested amount](./programs/validator-bonds/src/state/withdraw_request.rs#L17)) is no longer considered as funded.
+      - ([The requested amount](./src/state/withdraw_request.rs#L17)) is no longer considered as funded.
    2. When the timeout of withdraw lockup epochs elapses, the validator may execute
-      [`claim withdraw request operation`](./programs/validator-bonds/src/instructions/withdraw/claim_withdraw_request.rs)
+      [`claim withdraw request operation`](./src/instructions/withdraw/claim_withdraw_request.rs)
       that sets the stake account's withdrawer and staker authorities to the withdrawer account
       provided in the instruction (typically a validator-controlled address).
-   - The `WithdrawRequest` can be [cancelled](./programs/validator-bonds/src/instructions/withdraw/cancel_withdraw_request.rs) (account deleted) at any time.
+   - The `WithdrawRequest` can be [cancelled](./src/instructions/withdraw/cancel_withdraw_request.rs) (account deleted) at any time.
 
 5. Operator authority creates a `Settlement` (represented by an on-chain account) when a protected event happens.
    The protected event is established for under-performing validators, usually once per epoch when network inflation rewards are distributed.

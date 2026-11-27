@@ -495,6 +495,22 @@ and merging during settlements. The main reason for this design &mdash; and its 
 
 During settlement events, stake accounts may be split: one part covers the settlement, while the remaining portion stays in the bond. After a settlement expires, any unclaimed funds return to your bond. The program handles these account operations automatically, ensuring that your total funded amount is preserved even as individual stake accounts change.
 
+#### Recovering SOL Sent Directly to the Bond Address
+
+If SOL was mistakenly sent to the bond account address (instead of using `fund-bond-sol`),
+`refund-bond-balance` moves it onto a bond-funded stake account. The SOL does not go back to the sender:
+it becomes undelegated bond funding (no rewards, chargeable by settlements), withdrawable only via a withdraw request.
+A partial withdrawal from that stake account fails unless it exceeds the refunded amount plus 1 SOL and the stake
+account rent; then cancel the withdraw request and create a bigger one.
+
+```sh
+validator-bonds refund-bond-balance <bond-or-vote-account-address>
+```
+
+The command picks the smallest bond-funded stake account as the target by default;
+use `--stake-account <pubkey>` to choose a specific one. The operation is permission-less.
+When the bond has no funded stake account yet, fund the bond first with `fund-bond-sol` and re-run.
+
 ---
 
 ### Withdrawing from a Bond
@@ -1045,6 +1061,8 @@ Commands:
   fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
   fund-bond-sol [options] <bond-or-vote>                       Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and
                                                                delegates it to bond.
+  refund-bond-balance [options] <bond-or-vote>                 Move SOL mistakenly sent to the bond account address onto a bond-funded stake account. The SOL becomes
+                                                               undelegated bond funding, withdrawable only via a withdraw request.
   init-withdraw-request [options] [bond-or-vote]               Create a withdraw request ticket (first step of bond withdrawal; use claim-withdraw-request after lockup
                                                                expires). The ticket reserves a specified amount of lamports to be claimed after the lockup period.
   cancel-withdraw-request [options] [request-or-bond-or-vote]  Cancelling the withdraw request account, which is the withdrawal request ticket, by removing the account from

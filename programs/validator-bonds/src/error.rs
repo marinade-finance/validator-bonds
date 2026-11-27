@@ -254,4 +254,7 @@ pub enum ErrorCode {
 
     #[msg("Marinade liquid State or stake list account is invalid")]
     InvalidMarinadeLiquidAccount, // 6082 0x17c2
+
+    #[msg("Bond account has no lamports above the rent-exempt minimum")]
+    RefundBondBalanceNoExcessLamports, // 6083 0x17c3
 }
