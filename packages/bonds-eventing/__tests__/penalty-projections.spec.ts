@@ -211,7 +211,9 @@ describe('projectVatPenalty', () => {
       'bidding',
       1097,
     )!
-    expect(projected[0]!.message).toContain('at least 0.8198 SOL')
+    expect(projected[0]!.message).toContain(
+      'at least 0.8198 SOL, not counting pending delegator rewards.',
+    )
   })
 
   it('the institutional message names the action without SAM', () => {
