@@ -1,0 +1,302 @@
+[
+  {
+    "epoch": 1048,
+    "amount": 1000000000,
+    "vote_account": "6anbDQNCcVh2f6okexjaX1VGj6tEnizJ1kV5UTBS8Zhi",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 2000000000,
+    "vote_account": "Borqy3dEjw9az7Uj9nW69A9ZDansFGHWEggUx7tkv44f",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "PriorityFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 3000000000,
+    "vote_account": "AUH6c4QLMr2qQr9N5Kkpz5astDM9gBNroXCSxQiFTGQv",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BidTooLowPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 4000000000,
+    "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": {
+      "ProtectedEvent": {
+        "DowntimeRevenueImpact": {
+          "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+          "actual_credits": 380000,
+          "expected_credits": 410000,
+          "expected_epr": 6.12e-5,
+          "actual_epr": 5.66e-5,
+          "epr_loss_bps": 751,
+          "stake": 120000000000000
+        }
+      }
+    },
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 5000000000,
+    "vote_account": "B1rADWGjAKbZYVHMYhS5ZKyMbqFB65vmNNxUXdgFBoh3",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BondRiskFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 6000000000,
+    "vote_account": "3wEbogFD59ihp6BMG3fSWN3pmJZz7aHZWo1TQrbsLuMD",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "BlacklistPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1048,
+    "amount": 5000000000,
+    "vote_account": "7Atmc8eC2CovjDTvsNYoAinXNfSHQjzVp3bJs9PksFtN",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "InstitutionalPayout",
+    "bond_type": "institutional",
+    "product": "select"
+  },
+  {
+    "epoch": 1048,
+    "amount": 2000000000,
+    "vote_account": "9t5sHQQLuvLEzYsEeuWNi4DyXkFnsgTerRpy3Db94CwV",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "single-validator"
+  },
+  {
+    "epoch": 1049,
+    "amount": 1000000000,
+    "vote_account": "6anbDQNCcVh2f6okexjaX1VGj6tEnizJ1kV5UTBS8Zhi",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 2000000000,
+    "vote_account": "Borqy3dEjw9az7Uj9nW69A9ZDansFGHWEggUx7tkv44f",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "PriorityFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 3000000000,
+    "vote_account": "AUH6c4QLMr2qQr9N5Kkpz5astDM9gBNroXCSxQiFTGQv",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BidTooLowPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 4000000000,
+    "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": {
+      "ProtectedEvent": {
+        "DowntimeRevenueImpact": {
+          "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+          "actual_credits": 380000,
+          "expected_credits": 410000,
+          "expected_epr": 6.12e-5,
+          "actual_epr": 5.66e-5,
+          "epr_loss_bps": 751,
+          "stake": 120000000000000
+        }
+      }
+    },
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 5000000000,
+    "vote_account": "B1rADWGjAKbZYVHMYhS5ZKyMbqFB65vmNNxUXdgFBoh3",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BondRiskFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 6000000000,
+    "vote_account": "3wEbogFD59ihp6BMG3fSWN3pmJZz7aHZWo1TQrbsLuMD",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "BlacklistPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1049,
+    "amount": 5000000000,
+    "vote_account": "7Atmc8eC2CovjDTvsNYoAinXNfSHQjzVp3bJs9PksFtN",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "InstitutionalPayout",
+    "bond_type": "institutional",
+    "product": "select"
+  },
+  {
+    "epoch": 1049,
+    "amount": 2000000000,
+    "vote_account": "9t5sHQQLuvLEzYsEeuWNi4DyXkFnsgTerRpy3Db94CwV",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "single-validator"
+  },
+  {
+    "epoch": 1050,
+    "amount": 1000000000,
+    "vote_account": "6anbDQNCcVh2f6okexjaX1VGj6tEnizJ1kV5UTBS8Zhi",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 2000000000,
+    "vote_account": "Borqy3dEjw9az7Uj9nW69A9ZDansFGHWEggUx7tkv44f",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "PriorityFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 3000000000,
+    "vote_account": "AUH6c4QLMr2qQr9N5Kkpz5astDM9gBNroXCSxQiFTGQv",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BidTooLowPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 4000000000,
+    "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": {
+      "ProtectedEvent": {
+        "DowntimeRevenueImpact": {
+          "vote_account": "DYougPS3ao5Ticdy5bFcKKcXgSjHVJ2yuwaMgxHpPoQr",
+          "actual_credits": 380000,
+          "expected_credits": 410000,
+          "expected_epr": 6.12e-5,
+          "actual_epr": 5.66e-5,
+          "epr_loss_bps": 751,
+          "stake": 120000000000000
+        }
+      }
+    },
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 5000000000,
+    "vote_account": "B1rADWGjAKbZYVHMYhS5ZKyMbqFB65vmNNxUXdgFBoh3",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "BondRiskFee",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 6000000000,
+    "vote_account": "3wEbogFD59ihp6BMG3fSWN3pmJZz7aHZWo1TQrbsLuMD",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "BlacklistPenalty",
+    "bond_type": "bidding",
+    "product": "sam"
+  },
+  {
+    "epoch": 1050,
+    "amount": 5000000000,
+    "vote_account": "7Atmc8eC2CovjDTvsNYoAinXNfSHQjzVp3bJs9PksFtN",
+    "meta": {
+      "funder": "ValidatorBond"
+    },
+    "reason": "InstitutionalPayout",
+    "bond_type": "institutional",
+    "product": "select"
+  },
+  {
+    "epoch": 1050,
+    "amount": 2000000000,
+    "vote_account": "9t5sHQQLuvLEzYsEeuWNi4DyXkFnsgTerRpy3Db94CwV",
+    "meta": {
+      "funder": "Marinade"
+    },
+    "reason": "Bidding",
+    "bond_type": "bidding",
+    "product": "single-validator"
+  }
+]

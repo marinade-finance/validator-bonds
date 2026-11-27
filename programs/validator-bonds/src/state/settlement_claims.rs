@@ -134,3 +134,84 @@ impl Debug for SettlementClaimsWrapped<'_, '_> {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::ID;
+    use proptest::prelude::*;
+
+    const MAX_LEN: usize = MAX_PERMITTED_DATA_LENGTH as usize;
+    const INCREASE: usize = MAX_PERMITTED_DATA_INCREASE;
+
+    fn max_records_strategy() -> impl Strategy<Value = u64> {
+        let max_fit = (MAX_LEN - SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as usize) as u64 * 8;
+        prop_oneof![
+            0u64..200_000,
+            (max_fit - 20)..(max_fit + 20),
+            0u64..(max_fit * 2),
+            any::<u64>(),
+        ]
+    }
+
+    proptest! {
+        #[test]
+        fn account_size_is_header_plus_bitmap(n in any::<u64>()) {
+            let size = account_size(n) as u128;
+            prop_assert_eq!(size, SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as u128 + (n as u128).div_ceil(8));
+        }
+
+        #[test]
+        fn initialization_size_is_bounded_and_covers_header(n in max_records_strategy()) {
+            let full = account_size(n);
+            match account_initialization_size(n) {
+                Ok(size) => {
+                    prop_assert!(full <= MAX_LEN);
+                    prop_assert_eq!(size, full.min(INCREASE));
+                    prop_assert!(size >= SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as usize);
+                }
+                Err(_) => prop_assert!(full > MAX_LEN),
+            }
+        }
+
+    }
+
+    proptest! {
+        // each case walks several reallocation steps
+        #![proptest_config(ProptestConfig::with_cases(32))]
+
+        #[test]
+        fn upsizing_converges_to_full_bitmap_size(n in 0u64..(INCREASE as u64 * 8 * 12)) {
+            let full = account_size(n);
+            let mut current = account_initialization_size(n).unwrap();
+            let mut steps = 0usize;
+            loop {
+                let mut data = vec![0u8; current];
+                let claims = SettlementClaims { settlement: Pubkey::new_unique(), version: 0, max_records: n };
+                let mut head = Vec::new();
+                claims.try_serialize(&mut head).unwrap();
+                prop_assert!(head.len() <= SETTLEMENT_CLAIMS_ANCHOR_HEADER_SIZE as usize);
+                data[..head.len()].copy_from_slice(&head);
+                let key = Pubkey::new_unique();
+                let mut lamports = 1u64;
+                let info = AccountInfo::new(&key, false, true, &mut lamports, &mut data, &ID, false);
+                let account: Account<SettlementClaims> = Account::try_from(&info).unwrap();
+                match account_increase_size(&account) {
+                    Err(_) => {
+                        // nothing left to grow
+                        prop_assert_eq!(current, full);
+                        break;
+                    }
+                    Ok(next) => {
+                        prop_assert!(next > current);
+                        prop_assert!(next - current <= INCREASE);
+                        prop_assert!(next <= full);
+                        current = next;
+                    }
+                }
+                steps += 1;
+                prop_assert!(steps <= MAX_LEN / INCREASE + 2);
+            }
+        }
+    }
+}

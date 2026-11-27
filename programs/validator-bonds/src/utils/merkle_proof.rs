@@ -75,3 +75,149 @@ mod tests {
         ));
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::verify;
+    use merkle_tree::psr_claim::TreeNode;
+    use merkle_tree::{hash_intermediate, hash_leaf, MerkleTree, INTERMEDIATE_PREFIX, LEAF_PREFIX};
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use solana_program::hash::hashv;
+    use solana_program::pubkey::Pubkey;
+
+    #[derive(Debug, Clone)]
+    struct Tree {
+        nodes: Vec<TreeNode>,
+        root: [u8; 32],
+        proofs: Vec<Vec<[u8; 32]>>,
+    }
+
+    // same construction as the off-chain merkle generator: node hash -> leaf hash -> sorted tree
+    fn build(nodes: Vec<TreeNode>) -> Tree {
+        let hashed: Vec<[u8; 32]> = nodes.iter().map(|n| n.hash().to_bytes()).collect();
+        let tree = MerkleTree::new(&hashed[..], true);
+        let proofs = (0..nodes.len())
+            .map(|i| {
+                tree.find_path(i)
+                    .unwrap()
+                    .get_proof_entries()
+                    .iter()
+                    .map(|e| {
+                        e.get_left_sibling()
+                            .or(e.get_right_sibling())
+                            .unwrap()
+                            .to_bytes()
+                    })
+                    .collect()
+            })
+            .collect();
+        Tree {
+            nodes,
+            root: tree.get_root().unwrap().to_bytes(),
+            proofs,
+        }
+    }
+
+    fn leaf_of(node: &TreeNode) -> [u8; 32] {
+        let h = node.hash().to_bytes();
+        hash_leaf!(h).to_bytes()
+    }
+
+    fn trees() -> impl Strategy<Value = Tree> {
+        vec((any::<[u8; 32]>(), any::<[u8; 32]>(), any::<u64>()), 1..40).prop_map(|v| {
+            build(
+                v.into_iter()
+                    .enumerate()
+                    .map(|(i, (s, w, claim))| TreeNode {
+                        stake_authority: Pubkey::new_from_array(s),
+                        withdraw_authority: Pubkey::new_from_array(w),
+                        claim,
+                        index: i as u64,
+                        proof: None,
+                    })
+                    .collect(),
+            )
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn every_leaf_verifies(t in trees()) {
+            for (node, proof) in t.nodes.iter().zip(&t.proofs) {
+                prop_assert!(verify(proof.clone(), t.root, leaf_of(node)));
+            }
+        }
+
+        #[test]
+        fn tampered_leaf_fields_do_not_verify(t in trees(), which in 0usize..4, pick in any::<prop::sample::Index>()) {
+            let i = pick.index(t.nodes.len());
+            let mut node = t.nodes[i].clone();
+            match which {
+                0 => node.claim = node.claim.wrapping_add(1),
+                1 => node.index = node.index.wrapping_add(1),
+                2 => node.stake_authority = Pubkey::new_unique(),
+                _ => node.withdraw_authority = Pubkey::new_unique(),
+            }
+            prop_assert!(!verify(t.proofs[i].clone(), t.root, leaf_of(&node)));
+        }
+
+        #[test]
+        fn tampered_proof_or_root_does_not_verify(
+            t in trees(),
+            pick in any::<prop::sample::Index>(),
+            elem in any::<prop::sample::Index>(),
+            bit in 0usize..256,
+        ) {
+            let i = pick.index(t.nodes.len());
+            let leaf = leaf_of(&t.nodes[i]);
+            let flip = |mut h: [u8; 32]| { h[bit / 8] ^= 1 << (bit % 8); h };
+            let bad_root = flip(t.root);
+            prop_assert!(!verify(t.proofs[i].clone(), bad_root, leaf));
+            if !t.proofs[i].is_empty() {
+                let mut p = t.proofs[i].clone();
+                let k = elem.index(p.len());
+                p[k] = flip(p[k]);
+                prop_assert!(!verify(p, t.root, leaf));
+                // dropping a level, or appending one, changes the result
+                let mut shorter = t.proofs[i].clone();
+                shorter.pop();
+                prop_assert!(!verify(shorter, t.root, leaf));
+            }
+            let mut longer = t.proofs[i].clone();
+            longer.push([0u8; 32]);
+            prop_assert!(!verify(longer, t.root, leaf));
+        }
+
+        #[test]
+        fn proof_of_one_leaf_does_not_fit_another(t in trees(), a in any::<prop::sample::Index>(), b in any::<prop::sample::Index>()) {
+            let (i, j) = (a.index(t.nodes.len()), b.index(t.nodes.len()));
+            if i == j {
+                return Ok(());
+            }
+            // a different leaf may share a proof only if the path happens to be identical
+            // for both, in which case the leaves hash to the same value
+            if !verify(t.proofs[i].clone(), t.root, leaf_of(&t.nodes[j])) {
+                return Ok(());
+            }
+            prop_assert_eq!(leaf_of(&t.nodes[i]), leaf_of(&t.nodes[j]));
+        }
+
+        #[test]
+        fn intermediate_node_is_not_a_leaf_hash(l in any::<[u8; 32]>(), r in any::<[u8; 32]>()) {
+            // a node hash is never the leaf hash of the concatenated children
+            let mut concat = l.to_vec();
+            concat.extend_from_slice(&r);
+            let leaf = hash_leaf!(concat).to_bytes();
+            let inner = hash_intermediate!(l, r).to_bytes();
+            prop_assert_ne!(leaf, inner);
+            // and the verifier does not accept a bare leaf hash as a one-level tree
+            prop_assert!(!verify(vec![], inner, leaf));
+        }
+
+        #[test]
+        fn empty_proof_means_leaf_is_root(leaf in any::<[u8; 32]>(), root in any::<[u8; 32]>()) {
+            prop_assert_eq!(verify(vec![], root, leaf), leaf == root);
+        }
+    }
+}

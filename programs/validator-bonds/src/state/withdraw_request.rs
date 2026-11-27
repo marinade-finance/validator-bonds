@@ -40,3 +40,29 @@ impl WithdrawRequest {
 pub fn find_withdraw_request_address(bond: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[WITHDRAW_REQUEST_SEED, bond.as_ref()], &ID)
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn stored_bump_reproduces_found_address(bond in any::<[u8; 32]>()) {
+            let bond = Pubkey::new_from_array(bond);
+            let (address, bump) = find_withdraw_request_address(&bond);
+            let request = WithdrawRequest {
+                vote_account: Pubkey::default(),
+                bond,
+                epoch: 0,
+                requested_amount: 0,
+                withdrawn_amount: 0,
+                bump,
+                reserved: [0; 93],
+            };
+            prop_assert_eq!(request.address().unwrap(), address);
+        }
+    }
+}

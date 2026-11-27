@@ -1,0 +1,20 @@
+# Schemathesis settings for api/fuzz/run.sh (all checks, positive and negative data).
+# Public routes are limited to 30 requests/s per client, so stay below it.
+rate-limit = "20/s"
+workers = 1
+
+[generation]
+mode = "all"
+max-examples = 200
+database = "none"
+
+[checks]
+enabled = true
+# Seconds; catches queries that become expensive for some parameter value.
+max_response_time = 2.0
+
+# The window and filter rules depend on the stored data (latest epoch, configured labels), so a
+# schema-valid request can legitimately be answered with a documented 400.
+[[operations]]
+include-path = "/v1/validators/stake"
+checks.positive_data_acceptance.expected-statuses = [200, 400, 500]

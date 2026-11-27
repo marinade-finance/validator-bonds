@@ -206,3 +206,87 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use std::collections::BTreeSet;
+
+    proptest! {
+        #[test]
+        fn size_is_ceil_div_by_eight(n in any::<u64>()) {
+            let expected = (n as u128).div_ceil(8);
+            prop_assert_eq!(BitmapProjection::bitmap_size_in_bytes(n) as u128, expected);
+        }
+
+        #[test]
+        fn index_split_roundtrips(i in any::<u64>()) {
+            let (byte, bit) = BitmapProjection::bitmap_byte_index_and_bit_index(i);
+            prop_assert!(bit < 8);
+            prop_assert_eq!(byte as u64 * 8 + bit as u64, i);
+        }
+
+        #[test]
+        fn check_size_matches_required_length(n in 0u64..100_000, len in 0usize..13_000) {
+            let data = vec![0u8; len];
+            let required = BitmapProjection::bitmap_size_in_bytes(n);
+            prop_assert_eq!(BitmapProjection::check_size(n, &data).is_ok(), len >= required);
+        }
+
+        #[test]
+        fn behaves_like_a_set(
+            max_records in 1u64..2_000,
+            extra_bytes in 0usize..4,
+            ops in vec(any::<u64>(), 0..200),
+        ) {
+            let size = BitmapProjection::bitmap_size_in_bytes(max_records) + extra_bytes;
+            let mut data = vec![0u8; size];
+            let mut bitmap = BitmapProjection(max_records);
+            let mut model = BTreeSet::new();
+            for raw in ops {
+                // bias towards in-range indices and include the boundaries
+                let index = match raw % 8 {
+                    0 => max_records - 1,
+                    1 => max_records,
+                    2 => max_records.saturating_add(raw % 64),
+                    _ => raw % max_records,
+                };
+                let before = data.clone();
+                if index >= max_records {
+                    prop_assert!(bitmap.is_set(index, &data).is_err());
+                    prop_assert!(bitmap.set(index, &mut data).is_err());
+                    prop_assert!(bitmap.try_to_set(index, &mut data).is_err());
+                    prop_assert_eq!(&before, &data);
+                } else {
+                    prop_assert_eq!(bitmap.is_set(index, &data).unwrap(), model.contains(&index));
+                    let newly = bitmap.try_to_set(index, &mut data).unwrap();
+                    prop_assert_eq!(newly, model.insert(index));
+                    prop_assert!(bitmap.is_set(index, &data).unwrap());
+                    // setting again is idempotent
+                    bitmap.set(index, &mut data).unwrap();
+                    prop_assert!(!bitmap.try_to_set(index, &mut data).unwrap());
+                }
+                prop_assert_eq!(bitmap.number_of_bits(&data).unwrap(), model.len() as u64);
+            }
+            // bits at or past max_records and spare bytes stay clear
+            for i in max_records..(size as u64 * 8) {
+                let (byte, bit) = BitmapProjection::bitmap_byte_index_and_bit_index(i);
+                prop_assert_eq!(data[byte] & (1 << (7 - bit)), 0);
+            }
+        }
+
+        #[test]
+        fn debug_string_does_not_panic(max_records in 0u64..500, sets in vec(any::<u64>(), 0..50)) {
+            let mut data = vec![0u8; BitmapProjection::bitmap_size_in_bytes(max_records)];
+            let mut bitmap = BitmapProjection(max_records);
+            for s in sets {
+                if max_records > 0 {
+                    bitmap.set(s % max_records, &mut data).unwrap();
+                }
+            }
+            let _ = bitmap.debug_string(&data);
+        }
+    }
+}
