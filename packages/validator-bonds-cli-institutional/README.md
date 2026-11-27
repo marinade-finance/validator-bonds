@@ -184,9 +184,11 @@ validator-bonds-institutional fund-bond <bond-or-vote-account-address> \
 
 #### Recovering SOL sent directly to the bond address
 
-If SOL was mistakenly transferred directly to the bond account address (instead of using `fund-bond-sol`),
-it can be recovered with the `refund-bond-balance` command. The lamports above the bond account's rent-exempt
-minimum are moved onto an existing bond-funded stake account, becoming part of the bond funding.
+If SOL was mistakenly sent to the bond account address (instead of using `fund-bond-sol`),
+`refund-bond-balance` moves it onto a bond-funded stake account. The SOL does not go back to the sender:
+it becomes undelegated bond funding (no rewards, chargeable by settlements), withdrawable only via a withdraw request.
+A partial withdrawal from that stake account fails unless it exceeds the refunded amount plus 1 SOL and the stake
+account rent; then cancel the withdraw request and create a bigger one.
 
 ```sh
 validator-bonds-institutional refund-bond-balance <bond-or-vote-account-address>
@@ -436,8 +438,8 @@ Commands:
   fund-bond [options] <bond-or-vote>                           Funding a bond account with amount of SOL within a stake account.
   fund-bond-sol [options] <bond-or-vote>                       Funding a bond account with amount of SOL. The command creates a stake account, transfers SOLs to it and
                                                                delegates it to bond.
-  refund-bond-balance [options] <bond-or-vote>                 Refund SOL mistakenly transferred to the bond account address. Lamports above the rent-exempt minimum are moved
-                                                               onto an existing bond-funded stake account, becoming part of the bond funding.
+  refund-bond-balance [options] <bond-or-vote>                 Move SOL mistakenly sent to the bond account address onto a bond-funded stake account. The SOL becomes
+                                                               undelegated bond funding, withdrawable only via a withdraw request.
   mint-bond [options] <bond-or-vote>                           Mint a Validator Bond token, providing a means to configure the bond account without requiring a direct
                                                                signature for the on-chain transaction. The workflow is as follows: first, use this "mint-bond" to mint a bond
                                                                token to the validator identity public key. Next, transfer the token to any account desired. Finally, utilize

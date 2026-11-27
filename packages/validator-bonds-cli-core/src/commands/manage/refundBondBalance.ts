@@ -30,9 +30,8 @@ export function configureRefundBondBalance(program: Command): Command {
     accountField: 'account',
   })
     .description(
-      'Refund SOL mistakenly transferred to the bond account address. ' +
-        'Lamports above the rent-exempt minimum are moved onto an existing ' +
-        'bond-funded stake account, becoming part of the bond funding.',
+      'Move SOL mistakenly sent to the bond account address onto a bond-funded stake account. ' +
+        'The SOL becomes undelegated bond funding, withdrawable only via a withdraw request.',
     )
     .argument(
       '<bond-or-vote>',
