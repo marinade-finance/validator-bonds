@@ -97,7 +97,7 @@ Scripts in `scripts/` use `#!/usr/bin/env bun` (not `pnpm ts-node`). Exception: 
 
 ### On-chain program (`programs/validator-bonds/`)
 
-Anchor program: 6 state accounts, 24 active instructions (v1 handlers in `instructions/v1/` are commented out at `lib.rs:199-204`, kept for type exports only).
+Anchor program: 6 state accounts, 24 active instructions (`claim_settlement_v1` in `lib.rs` compiles only under `idl-build`, so the IDL keeps the `SettlementClaim` type).
 
 - **States:** Config, Bond (PDA: config+vote_account), BondProduct (PDA: bond+product_type), Settlement (PDA: bond+merkle_root+epoch), SettlementClaims (bitmap dedup), WithdrawRequest (PDA: bond, one per bond).
 - **Instructions:** config/ (init, configure, emergency pause/resume), bond/ (init, configure, configure_with_mint, mint, fund, refund_bond_balance), bond_product/ (init, configure), settlement/ (init, fund, close_v2, cancel, claim_v2, upsize_claims), withdraw/ (init, cancel, claim), stake/ (merge, reset, withdraw).

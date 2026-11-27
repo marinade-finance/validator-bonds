@@ -499,8 +499,10 @@ During settlement events, stake accounts may be split: one part covers the settl
 
 If SOL was mistakenly transferred directly to the bond account address (instead of using `fund-bond-sol`),
 it can be recovered with the `refund-bond-balance` command. The lamports above the bond account's rent-exempt
-minimum are moved onto an existing bond-funded stake account, becoming part of the bond funding
-(withdrawable later via the standard withdraw request process).
+minimum are moved onto an existing bond-funded stake account, becoming part of the bond funding.
+They are withdrawable via the standard withdraw request process, but they are not delegated stake:
+a partial withdrawal from that stake account fails unless it exceeds the refunded amount
+plus 1 SOL and the stake account rent. If it fails, cancel the withdraw request and create one for a bigger amount.
 
 ```sh
 validator-bonds refund-bond-balance <bond-or-vote-account-address>
