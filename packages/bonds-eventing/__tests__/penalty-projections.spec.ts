@@ -203,6 +203,17 @@ describe('projectVatPenalty', () => {
     expect(projected[0]!.message).toContain('leaves SAM')
   })
 
+  it('rounds the minimum vote balance up, as the VAT check is strict', () => {
+    const projected = projectVatPenalty(
+      { ...vatForecast(false, 'low_balance'), minVoteBalanceSol: 0.81972 },
+      'vote1',
+      20000,
+      'bidding',
+      1097,
+    )!
+    expect(projected[0]!.message).toContain('at least 0.8198 SOL')
+  })
+
   it('the institutional message names the action without SAM', () => {
     const projected = projectVatPenalty(
       vatForecast(false, 'no_bls_key'),

@@ -173,7 +173,7 @@ const VAT_ACTIONS: Record<
   low_balance: min =>
     min === null
       ? 'Top up the vote account.'
-      : `Top up the vote account to at least ${fmtSol(min)} SOL.`,
+      : `Top up the vote account to at least ${Math.ceil(min * 1e4) / 1e4} SOL.`,
   no_bls_key: () => 'Register a BLS key for the vote account.',
   no_stake: () => 'The vote account has no stake.',
   below_cutoff: () => 'The vote account stake is below the VAT cutoff.',
