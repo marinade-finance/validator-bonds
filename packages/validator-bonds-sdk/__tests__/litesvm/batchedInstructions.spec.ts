@@ -427,8 +427,7 @@ describe('Validator Bonds instructions batched in one transaction', () => {
       await mergeIx(source, destination1),
       await mergeIx(source, destination2),
     ]
-    // the mainnet core-BPF stake program leaves the merged source undecodable as a stake
-    // account, so the second merge fails on loading it (bankrun's native one reached 6024)
+    // core-BPF stake program leaves the merged source undecodable, so the 2nd merge can't load it
     const error: unknown = await provider.sendIx([], ...ixes).then(
       () => undefined,
       (e: unknown) => e,

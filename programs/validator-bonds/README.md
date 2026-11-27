@@ -109,9 +109,7 @@ In the event that the operator authority's hot wallet key is compromised, the ad
 ```sh
 VERSION='v'`grep version programs/validator-bonds/Cargo.toml | sed 's/.*"\([^"]\+\)".*/\1/'`
 echo "Building version $VERSION"
-# TODO: v0 was needed by bankrun; the LiteSVM and solana-test-validator suites pass on an SBPF v2
-#       build and mainnet enables v1-v3, so moving off v0 is a deployment decision
-#       (changes the verifiable-build hash)
+# SBPF v0 matches the deployed program; a newer arch changes the verifiable-build hash
 anchor build --verifiable --arch v0 --tools-version v1.54 --ignore-keys \
   --env "GIT_REV=`git rev-parse --short HEAD`" --env "GIT_REV_NAME=${VERSION}"
 
