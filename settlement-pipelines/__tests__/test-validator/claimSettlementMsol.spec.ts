@@ -4,7 +4,6 @@ import os from 'os'
 import path from 'path'
 
 import { getAnchorValidatorInfo } from '@marinade.finance/anchor-common'
-import { extendJestWithShellMatchers } from '@marinade.finance/jest-shell-matcher'
 import {
   fundSettlementInstruction,
   isClaimed,
@@ -37,6 +36,8 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 
+import { cargoRun, onlyEpochRewardsActiveFailures } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { Keypair } from '@solana/web3.js'
@@ -58,7 +59,6 @@ describe('Cargo CLI: claim settlement of Marinade liquid leaves', () => {
   let merkleTreesDir: string
 
   beforeAll(async () => {
-    extendJestWithShellMatchers()
     ;({ provider, program } = initTest('processed'))
     const { validatorIdentity } = await getAnchorValidatorInfo(
       provider.connection,
@@ -205,33 +205,33 @@ describe('Cargo CLI: claim settlement of Marinade liquid leaves', () => {
       lamports: LAMPORTS_PER_SOL * 10,
     })
     const reportFile = path.join(merkleTreesDir, 'claim-report.txt')
-    await expect([
-      'cargo',
-      [
-        'run',
-        '--bin',
-        'claim-settlement',
-        '--',
-        '--config',
-        configAccount.toBase58(),
-        '--rpc-url',
-        provider.connection.rpcEndpoint,
-        '-f',
-        merkleTreeCollectionPath,
-        '--epoch',
-        settlementEpoch.toString(),
-        '--fee-payer',
-        '[' + (feePayer as Keypair).secretKey.toString() + ']',
-        // init_from_opts needs an operator key even for the permissionless claim;
-        // without it the binary falls back to ~/.config/solana/id.json
-        '--keypair',
-        '[' + (feePayer as Keypair).secretKey.toString() + ']',
-        '--report-file',
-        reportFile,
-      ],
-    ]).toHaveMatchingSpawnOutput({
-      code: 0,
-    })
+    const claimArgs = [
+      'claim-settlement',
+      '--',
+      '--config',
+      configAccount.toBase58(),
+      '--rpc-url',
+      provider.connection.rpcEndpoint,
+      '-f',
+      merkleTreeCollectionPath,
+      '--epoch',
+      settlementEpoch.toString(),
+      '--fee-payer',
+      '[' + (feePayer as Keypair).secretKey.toString() + ']',
+      // init_from_opts needs an operator key even for the permissionless claim;
+      // without it the binary falls back to ~/.config/solana/id.json
+      '--keypair',
+      '[' + (feePayer as Keypair).secretKey.toString() + ']',
+      '--report-file',
+      reportFile,
+    ]
+    let claim = await cargoRun(claimArgs)
+    // the claim runs right after the epoch boundary the setup waits for, inside the rewards payout
+    for (let retry = 0; claim.code === 100 && retry < 3; retry++) {
+      expect(onlyEpochRewardsActiveFailures(claim.stderr)).toBe(true)
+      claim = await cargoRun(claimArgs)
+    }
+    expect(claim.code).toEqual(0)
     expect(fs.readFileSync(reportFile, 'utf-8')).toMatch(
       new RegExp(
         `claimed ${ITEMS_MSOL.length}/${ITEMS_MSOL.length} merkle nodes`,

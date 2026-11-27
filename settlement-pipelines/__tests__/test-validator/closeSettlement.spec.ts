@@ -1,4 +1,3 @@
-import { spawn } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
@@ -26,37 +25,13 @@ import {
 } from '@marinade.finance/web3js-1x'
 import { Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js'
 
+import { cargoRun, onlyEpochRewardsActiveFailures } from './utils'
+
 import type { AnchorExtendedProvider } from '@marinade.finance/anchor-common'
 import type { ValidatorBondsProgram } from '@marinade.finance/validator-bonds-sdk'
 import type { PublicKey } from '@solana/web3.js'
 
 jest.setTimeout(600_000)
-
-async function cargoRun(
-  args: string[],
-): Promise<{ code: number | null; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn('cargo', ['run', '--bin', ...args])
-    let stderr = ''
-    child.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString()
-    })
-    child.stdout.resume()
-    child.on('error', reject)
-    child.on('close', code => resolve({ code, stderr }))
-  })
-}
-
-// stake program 0x10 (EpochRewardsActive) rejects stake changes while an epoch pays out rewards
-function onlyEpochRewardsActiveFailures(stderr: string): boolean {
-  const failures = stderr.match(/^.*\(source: transaction_execution\)/gm) ?? []
-  return (
-    failures.length > 0 &&
-    failures.every(f =>
-      /: failed(?: in \S+)?: .*custom program error: 0x10\b/.test(f),
-    )
-  )
-}
 
 describe('Cargo CLI: close-settlement', () => {
   let provider: AnchorExtendedProvider
@@ -192,19 +167,18 @@ describe('Cargo CLI: close-settlement', () => {
       listedSettlementsPath,
     ]
     let result = await cargoRun(args)
-    for (
-      let attempt = 0;
-      attempt < 3 && onlyEpochRewardsActiveFailures(result.stderr);
-      attempt++
-    ) {
+    expect(result.stderr).toMatch(
+      /CloseSettlements: txes 1\/ixes 2 executed successfully/,
+    )
+    // the run starts right after the epoch boundary, inside the rewards payout that blocks stake changes
+    for (let retry = 0; result.code === 100 && retry < 3; retry++) {
+      expect(onlyEpochRewardsActiveFailures(result.stderr)).toBe(true)
       result = await cargoRun(args)
     }
-    expect({ code: result.code, stderr: result.stderr }).toEqual({
-      code: 0,
-      stderr: expect.stringMatching(
-        /CloseSettlements: txes 1\/ixes 2 executed successfully(.|\n|\r)*Reset\/WithdrawStakeAccounts: txes 1\/ixes 2 executed successfully/,
-      ) as string,
-    })
+    expect(result.code).toEqual(0)
+    expect(result.stderr).toMatch(
+      /Reset\/WithdrawStakeAccounts: txes 1\/ixes 2 executed successfully/,
+    )
 
     for (const s of settlements) {
       expect(
