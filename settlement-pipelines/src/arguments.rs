@@ -7,7 +7,7 @@ use serde::Serialize;
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::signature::{read_keypair_file, Keypair, Signer};
-use solana_transaction_builder::MessageVersion;
+use solana_transaction_builder::{Limits, MessageVersion};
 use solana_transaction_builder_executor::RunConfig;
 use solana_transaction_executor::{FeePolicy, TipPolicy};
 use std::path::{Path, PathBuf};
@@ -16,6 +16,8 @@ use std::sync::Arc;
 use validator_bonds_common::get_validator_bonds_program;
 
 pub const DEFAULT_KEYPAIR_PATH: &str = "~/.config/solana/id.json";
+// the 64-entry instruction trace takes up to 4 per instruction: itself, two stake CPIs, its event
+const MAX_INSTRUCTIONS_PER_TRANSACTION: usize = 16;
 
 #[derive(Debug, Args)]
 pub struct GlobalOpts {
@@ -57,7 +59,7 @@ pub struct GlobalOpts {
 
 #[derive(Debug, Args)]
 pub struct ExecutionOpts {
-    #[arg(long)]
+    #[arg(long, env)]
     micro_lamports_per_cu_min: Option<u64>,
     #[arg(long)]
     micro_lamports_per_cu_max: Option<u64>,
@@ -239,10 +241,15 @@ pub fn init_from_opts(
             ))?
         };
 
+    let default_run_config = RunConfig::new(MessageVersion::V1);
     let run_config = RunConfig {
         fee: to_fee_policy(execution_opts)?,
         max_in_flight: execution_opts.max_in_flight,
-        ..RunConfig::new(MessageVersion::V1)
+        limits: Limits {
+            max_instructions: MAX_INSTRUCTIONS_PER_TRANSACTION,
+            ..default_run_config.limits
+        },
+        ..default_run_config
     };
     let tip_policy = to_tip_policy(tip_policy_opts);
 

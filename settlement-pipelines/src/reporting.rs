@@ -405,7 +405,8 @@ impl ErrorHandler {
 
     pub fn add_tx_execution_result<D: Display>(&mut self, summary: &RunSummary, message: D) {
         let errors = summary.errors();
-        if errors.is_empty() {
+        let unknown = summary.unknown();
+        if errors.is_empty() && unknown.is_empty() {
             info!(
                 "{message}: txes {}/ixes {} executed successfully",
                 summary.tx_count, summary.ix_count
@@ -413,6 +414,13 @@ impl ErrorHandler {
         }
         for error in errors {
             self.retryable()
+                .with_msg(error)
+                .with_source("transaction_execution")
+                .add();
+        }
+        // a retry re-plans from chain state that may not show the pending transaction yet
+        for error in unknown {
+            self.error()
                 .with_msg(error)
                 .with_source("transaction_execution")
                 .add();
@@ -696,5 +704,51 @@ pub async fn with_reporting_ext<T: ReportSerializable>(
         .into()))
     } else {
         CliResult(Ok(()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_transaction_builder_executor::{GroupOutcome, GroupStatus, RunReport};
+
+    fn summary(status: GroupStatus) -> RunSummary {
+        RunSummary {
+            report: RunReport {
+                groups: vec![GroupOutcome {
+                    id: "a".to_string(),
+                    status,
+                }],
+                transactions: vec![],
+            },
+            tx_count: 0,
+            ix_count: 0,
+        }
+    }
+
+    #[test]
+    fn an_unknown_group_is_a_critical_error_and_a_failed_one_is_retryable() {
+        let mut handler = ErrorHandler::default();
+        handler.add_tx_execution_result(
+            &summary(GroupStatus::Unknown {
+                reason: "watcher stopped".to_string(),
+                signatures: vec![],
+            }),
+            "unknown",
+        );
+        handler.add_tx_execution_result(
+            &summary(GroupStatus::NotLanded { attempts: 3 }),
+            "not landed",
+        );
+        let status = handler.get_status();
+        assert_eq!((status.error_count, status.retryable_error_count), (1, 1));
+        assert!(matches!(
+            handler
+                .finalize()
+                .unwrap_err()
+                .downcast::<CliError>()
+                .unwrap(),
+            CliError::Critical(_)
+        ));
     }
 }

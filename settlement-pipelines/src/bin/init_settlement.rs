@@ -261,6 +261,7 @@ async fn init_settlements(
     reporting: &mut ReportHandler<InitSettlementReport>,
 ) -> anyhow::Result<()> {
     let mut groups: Vec<Group> = vec![];
+    let mut to_create: HashMap<String, (SettlementRecord, usize)> = HashMap::new();
 
     for record in settlement_records {
         if record.bond_account.is_none() {
@@ -327,16 +328,9 @@ async fn init_settlements(
                 rent_payer.pubkey(),
                 upsizes,
             ));
-            groups.push(group(
-                format!("init {}", record.settlement_address),
-                instructions,
-            )?);
-            reporting.reportable.add_created_settlement(record);
-            for _ in 0..upsizes {
-                reporting
-                    .reportable
-                    .add_upsized_settlement(record.settlement_address);
-            }
+            let id = format!("init {}", record.settlement_address);
+            groups.push(group(id.clone(), instructions)?);
+            to_create.insert(id, (record.clone(), upsizes));
         }
     }
 
@@ -352,6 +346,16 @@ async fn init_settlements(
         run_config,
     )
     .await;
+    for id in summary.landed() {
+        if let Some((record, upsizes)) = to_create.get(id) {
+            reporting.reportable.add_created_settlement(record);
+            for _ in 0..*upsizes {
+                reporting
+                    .reportable
+                    .add_upsized_settlement(record.settlement_address);
+            }
+        }
+    }
     succeeded(
         &summary,
         "InitSettlement",
@@ -371,6 +375,7 @@ async fn upsize_settlements(
     reporting: &mut ReportHandler<InitSettlementReport>,
 ) -> anyhow::Result<()> {
     let mut groups: Vec<Group> = vec![];
+    let mut to_upsize: HashMap<String, (Pubkey, usize)> = HashMap::new();
 
     // re-loading settlements data from the chain on provided settlement addresses
     let reloaded_settlements_data = retry_get_pubkeys_operation(
@@ -478,8 +483,9 @@ async fn upsize_settlements(
                 ))
                 .add();
         }
+        let id = format!("upsize {settlement_address}");
         groups.push(group(
-            format!("upsize {settlement_address}"),
+            id.clone(),
             upsize_instructions(
                 program,
                 settlement_claims_address,
@@ -487,11 +493,7 @@ async fn upsize_settlements(
                 upsizes,
             ),
         )?);
-        for _ in 0..upsizes {
-            reporting
-                .reportable
-                .add_upsized_settlement(*settlement_address);
-        }
+        to_upsize.insert(id, (*settlement_address, upsizes));
     }
 
     let summary = execute(
@@ -505,6 +507,15 @@ async fn upsize_settlements(
         run_config,
     )
     .await;
+    for id in summary.landed() {
+        if let Some((settlement_address, upsizes)) = to_upsize.get(id) {
+            for _ in 0..*upsizes {
+                reporting
+                    .reportable
+                    .add_upsized_settlement(*settlement_address);
+            }
+        }
+    }
     succeeded(
         &summary,
         "Upsize Settlement Claims",
@@ -514,6 +525,11 @@ async fn upsize_settlements(
 
 fn succeeded(summary: &RunSummary, name: &str, settlements: String) -> anyhow::Result<()> {
     let errors = summary.errors();
+    let unknown = summary.unknown();
+    if !unknown.is_empty() {
+        let all: Vec<String> = errors.into_iter().chain(unknown).collect();
+        return Err(CliError::critical(anyhow!(all.join("; "))).into());
+    }
     if !errors.is_empty() {
         return Err(CliError::retry_able(anyhow!(errors.join("; "))).into());
     }

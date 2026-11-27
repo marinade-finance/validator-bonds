@@ -13,11 +13,31 @@ pub struct RunSummary {
 }
 
 impl RunSummary {
-    /// One line per group that did not land: id, status and error text.
+    /// One line per group that failed or was not sent: id, status and error text.
     pub fn errors(&self) -> Vec<String> {
+        self.lines(false)
+    }
+
+    /// One line per group of an unknown outcome; its transaction may still land.
+    pub fn unknown(&self) -> Vec<String> {
+        self.lines(true)
+    }
+
+    /// Ids of the groups that landed.
+    pub fn landed(&self) -> HashSet<&str> {
         self.report
             .groups
             .iter()
+            .filter(|outcome| matches!(outcome.status, GroupStatus::Landed { .. }))
+            .map(|outcome| outcome.id.as_str())
+            .collect()
+    }
+
+    fn lines(&self, unknown: bool) -> Vec<String> {
+        self.report
+            .groups
+            .iter()
+            .filter(|outcome| matches!(outcome.status, GroupStatus::Unknown { .. }) == unknown)
             .filter_map(|outcome| {
                 let status = match &outcome.status {
                     GroupStatus::Landed { .. } | GroupStatus::Planned => return None,
@@ -118,7 +138,7 @@ mod tests {
     }
 
     #[test]
-    fn landed_groups_of_one_transaction_count_once_and_the_rest_are_errors() {
+    fn landed_groups_of_one_transaction_count_once_and_unknown_is_apart_from_errors() {
         let signature = Signature::from([1; 64]);
         let landed = GroupStatus::Landed { signature, slot: 5 };
         let report = RunReport {
@@ -165,11 +185,15 @@ mod tests {
 
         assert_eq!(summary.tx_count, 1);
         assert_eq!(summary.ix_count, 5);
+        assert_eq!(summary.landed(), HashSet::from(["a", "b"]));
+        assert_eq!(
+            summary.unknown(),
+            vec!["d: unknown: watcher stopped, signatures []".to_string()]
+        );
         assert_eq!(
             summary.errors(),
             vec![
                 "c: failed: custom program error: 0x1".to_string(),
-                "d: unknown: watcher stopped, signatures []".to_string(),
                 format!(
                     "f: failed in {signature}: custom program error: 0x10, logs: [\"Program log: stake\"]"
                 ),
